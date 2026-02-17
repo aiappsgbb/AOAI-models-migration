@@ -39,8 +39,8 @@ Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI model
 ├── azure_openai_evaluation_guide.ipynb      # Evaluation demo notebook
 ├── src/                                      # Reusable Python modules
 │   ├── __init__.py
-│   ├── config.py                            # Model registry, migration paths, config
-│   ├── clients.py                           # Client factory, unified call_model()
+│   ├── config.py                            # Model helpers (is_v1, is_reasoning), env loading
+│   ├── clients.py                           # Client factory (AzureOpenAI vs OpenAI), call_model()
 │   └── evaluate/                            # Evaluation framework
 │       ├── __init__.py
 │       ├── core.py                          # MigrationEvaluator, LLM-as-Judge, reports

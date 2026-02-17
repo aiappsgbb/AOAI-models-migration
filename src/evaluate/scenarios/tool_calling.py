@@ -21,8 +21,7 @@ from src.evaluate.core import (
     EvalResult,
     _judge_response,
 )
-from src.clients import create_client, call_model
-from src.config import MODEL_REGISTRY
+from src.config import is_v1, is_reasoning
 from src.evaluate.core import _out
 from src.evaluate.prompts import load_prompty
 
@@ -357,14 +356,13 @@ class ToolCallingEvaluator(MigrationEvaluator):
             {"role": "user", "content": tc.prompt},
         ]
 
-        model_config = MODEL_REGISTRY.get(model_name)
         params: dict[str, Any] = {}
-        if model_config and model_config.max_tokens_param == "max_completion_tokens":
+        if is_v1(model_name):
             params["max_completion_tokens"] = 1024
         else:
             params["max_tokens"] = 1024
 
-        if model_config and model_config.supports_temperature:
+        if not is_reasoning(model_name):
             params["temperature"] = 0.0
 
         response = client.chat.completions.create(

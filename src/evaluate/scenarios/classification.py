@@ -20,8 +20,7 @@ from src.evaluate.core import (
     EvalResult,
     _judge_response,
 )
-from src.clients import create_client, call_model
-from src.config import MODEL_REGISTRY
+from src.clients import call_model
 from src.evaluate.core import _out
 from src.evaluate.prompts import load_prompty
 

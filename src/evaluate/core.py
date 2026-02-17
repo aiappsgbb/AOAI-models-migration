@@ -13,7 +13,6 @@ from typing import Any, Optional
 
 from openai import AzureOpenAI, OpenAI
 
-from src.config import MODEL_REGISTRY, load_config
 from src.clients import create_client, call_model
 
 
