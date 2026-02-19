@@ -2,6 +2,18 @@
 
 Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI models, with **evaluation tools** to validate quality before deploying.
 
+## GitHub Copilot Skills
+
+This repo includes three **GitHub Copilot Skills** (`.github/skills/`) that provide contextual guidance when working in VS Code, GitHub.com, or the Copilot Coding Agent. Skills are automatically picked up by Copilot when they match your task.
+
+| Skill | File | What It Does |
+|-------|------|-------------|
+| **aoai-model-migration** | [`.github/skills/aoai-model-migration/SKILL.md`](.github/skills/aoai-model-migration/SKILL.md) | Guides API changes, client configuration, parameter adaptation, and code patterns when migrating between Azure OpenAI model families. |
+| **aoai-migration-evaluation** | [`.github/skills/aoai-migration-evaluation/SKILL.md`](.github/skills/aoai-migration-evaluation/SKILL.md) | Runs A/B model comparisons using built-in LLM-as-Judge, local SDK evaluation (`azure-ai-evaluation`), or Azure AI Foundry cloud evaluation. Covers RAG, tool calling, translation, and classification scenarios. |
+| **aoai-model-lifecycle** | [`.github/skills/aoai-model-lifecycle/SKILL.md`](.github/skills/aoai-model-lifecycle/SKILL.md) | Plans and tracks model retirement timelines, deployment inventories, update policies, and the operational checklist for production migrations. |
+
+**How to use:** Simply ask Copilot a relevant question (e.g., *"Migrate my GPT-4o code to GPT-4.1"* or *"Evaluate my model migration"*) and the matching skill will be used automatically. You can also reference a skill explicitly in Copilot Chat with `@workspace`.
+
 ## Migration Paths
 
 | Source Model | Target Model | Type | Use Case |
@@ -34,9 +46,16 @@ Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI model
 
 ```
 .
+├── .github/
+│   └── skills/                              # GitHub Copilot Skills
+│       ├── aoai-model-migration/SKILL.md    # API changes, client config, parameter adaptation
+│       ├── aoai-migration-evaluation/SKILL.md # A/B testing, LLM-as-Judge, SDK & Foundry eval
+│       └── aoai-model-lifecycle/SKILL.md    # Retirement timelines, governance, checklists
 ├── azure_openai_migration_technical.ipynb   # Technical migration guide (API changes, code)
 ├── azure_openai_pricing_analysis.ipynb      # Cost calculators and pricing comparison
 ├── azure_openai_evaluation_guide.ipynb      # Evaluation demo notebook
+├── docs/
+│   └── llm-upgrade-lifecycle-best-practices.md  # Full lifecycle best practices guide
 ├── src/                                      # Reusable Python modules
 │   ├── __init__.py
 │   ├── config.py                            # Model helpers (is_v1, is_reasoning), env loading
