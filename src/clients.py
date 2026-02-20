@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 from openai import AzureOpenAI, OpenAI
 
-from src.config import is_v1, is_reasoning
+from src.config import is_v1, is_reasoning, uses_developer_role
 
 
 def _get_token_provider():
@@ -21,6 +21,24 @@ def _get_token_provider():
         DefaultAzureCredential(),
         "https://cognitiveservices.azure.com/.default",
     )
+
+
+class _TokenRefreshingOpenAI(OpenAI):
+    """OpenAI client wrapper that refreshes Entra ID tokens automatically.
+
+    The base OpenAI client accepts a static api_key string. For Entra ID auth
+    with the v1 API, we need to refresh the token on each request since tokens
+    expire (typically after 1 hour).
+    """
+
+    def __init__(self, *, base_url: str, token_provider):
+        self._token_provider = token_provider
+        super().__init__(base_url=base_url, api_key=token_provider())
+
+    def _prepare_options(self, options):
+        # Refresh the token before each request
+        self.api_key = self._token_provider()
+        return super()._prepare_options(options)
 
 
 def create_client(
@@ -45,7 +63,9 @@ def create_client(
     if is_v1(model_name):
         base_url = endpoint.rstrip("/") + "/openai/v1"
         if use_entra:
-            return OpenAI(base_url=base_url, api_key=_get_token_provider()())
+            # Return a wrapper that refreshes the token on each request
+            token_provider = _get_token_provider()
+            return _TokenRefreshingOpenAI(base_url=base_url, token_provider=token_provider)
         return OpenAI(base_url=base_url, api_key=api_key)
     else:
         if use_entra:
@@ -69,11 +89,12 @@ def call_model(
     **params: Any,
 ) -> Any:
     """
-    Call a model with minimal parameter adaptation.
+    Call a model with automatic parameter and message adaptation.
 
-    Handles two differences:
+    Handles:
     - max_tokens → max_completion_tokens for v1 models
     - Drops temperature/top_p for reasoning models
+    - system → developer role for reasoning models (GPT-5+, o-series)
     """
     # max_tokens → max_completion_tokens for v1 models
     if "max_tokens" in params and is_v1(model_name):
@@ -83,6 +104,13 @@ def call_model(
     if is_reasoning(model_name):
         params.pop("temperature", None)
         params.pop("top_p", None)
+
+    # Reasoning models use "developer" role instead of "system"
+    if uses_developer_role(model_name):
+        messages = [
+            {**m, "role": "developer"} if m.get("role") == "system" else m
+            for m in messages
+        ]
 
     return client.chat.completions.create(
         model=deployment or model_name,

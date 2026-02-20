@@ -1,30 +1,44 @@
 ---
 name: aoai-model-migration
-description: "Migrate Azure OpenAI applications from GPT-4o/GPT-4o-mini to newer models (GPT-4.1, GPT-5, GPT-5.1). Covers API changes, client configuration, parameter adaptation, prompt adjustments, and authentication."
+description: "Migrate Azure OpenAI applications from GPT-4o/GPT-4o-mini to newer models (GPT-4.1, GPT-5, GPT-5.1, GPT-5.2, o-series). Covers API changes, client configuration, parameter adaptation, prompt adjustments, and authentication."
 ---
 
 # Azure OpenAI Model Migration Skill
 
+> **⚠️ Retirement dates and model availability change frequently.** Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements)**.
+
 ## Purpose
 
-Guide developers through migrating Azure OpenAI applications from GPT-4o / GPT-4o-mini to newer model families (GPT-4.1, GPT-5, GPT-5.1). This skill covers API surface changes, client configuration, parameter adaptation, and prompt adjustments.
+Guide developers through migrating Azure OpenAI applications from GPT-4o / GPT-4o-mini to newer model families (GPT-4.1, GPT-5, GPT-5.1, GPT-5.2) and o-series reasoning models (o1 → o3, o3-mini → o4-mini). This skill covers API surface changes, client configuration, parameter adaptation, and prompt adjustments.
 
 ## When to Use
 
 - Migrating from GPT-4o or GPT-4o-mini to any newer Azure OpenAI model
+- Migrating o-series models (o1 → o3, o3-mini → o4-mini)
 - Adapting code to the new v1 API (`/openai/v1/`) used by GPT-4.1+ and GPT-5+
-- Adapting parameters and system prompts for reasoning models (GPT-5, GPT-5.1)
+- Adapting parameters and system prompts for reasoning models (GPT-5, GPT-5.1, GPT-5.2, o-series)
 - Choosing the right replacement model for a given workload
 
 ## Migration Paths
+
+### GPT Series
 
 | Source Model | Target Model | Type | Best For |
 |---|---|---|---|
 | GPT-4o | **GPT-4.1** | Standard | Low-latency, high-throughput, drop-in replacement, lowest cost |
 | GPT-4o | **GPT-5.1** | Reasoning | Official auto-migration target, built-in reasoning, `reasoning_effort=none` supported |
+| GPT-4o | **GPT-5.2** | Reasoning | Latest GA model (Dec 2025), best overall quality |
 | GPT-4o | **GPT-5** | Reasoning | Best reasoning and agentic capability |
 | GPT-4o-mini | **GPT-4.1-mini** | Standard | Official auto-migration target, lowest cost |
 | GPT-4o-mini | **GPT-5-mini** | Reasoning | Alternative with reasoning (higher cost) |
+
+### o-Series (Reasoning Models)
+
+| Source Model | Target Model | Type | Best For |
+|---|---|---|---|
+| o1 | **o3** | Reasoning | Successor reasoning model |
+| o3-mini | **o4-mini** | Reasoning | Faster, cheaper reasoning |
+| o1-pro | **o3-pro** | Reasoning | Pro-tier reasoning |
 
 ### How to Choose
 
@@ -32,6 +46,7 @@ Guide developers through migrating Azure OpenAI applications from GPT-4o / GPT-4
 |---|---|---|
 | **Low latency / high throughput** | GPT-4.1 | GPT-4.1-mini |
 | **Balanced (cost + quality)** | GPT-5.1 | GPT-4.1-mini |
+| **Best overall quality** | GPT-5.2 | GPT-5-mini |
 | **Best reasoning / agentic** | GPT-5 | GPT-5-mini |
 | **Lowest cost** | GPT-4.1 | GPT-4.1-mini |
 
@@ -81,27 +96,36 @@ client = OpenAI(
 Use these sets to determine which API and parameters a model requires:
 
 ```python
-# Models using the v1 API (OpenAI client with /openai/v1/ endpoint)
+# Models using the new v1 API (OpenAI client with /openai/v1/ endpoint)
 V1_MODELS = {
     "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
-    "gpt-5", "gpt-5.1", "gpt-5-mini", "gpt-5-nano",
+    "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5-mini", "gpt-5-nano",
+    "gpt-5-pro", "gpt-5-codex", "gpt-5.1-codex", "gpt-5.1-codex-mini",
+    "codex-mini",
 }
 
-# Reasoning models (no temperature/top_p, use max_completion_tokens)
+# Reasoning models (no temperature/top_p, use max_completion_tokens, developer role)
 REASONING_MODELS = {
-    "gpt-5", "gpt-5.1", "gpt-5-mini", "gpt-5-nano",
+    "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5-mini", "gpt-5-nano",
+    "gpt-5-pro",
+}
+
+# o-series reasoning models (also no temperature/top_p, use max_completion_tokens)
+# Note: o-series use the classic AzureOpenAI client, NOT the v1 API
+O_SERIES_MODELS = {
+    "o1", "o1-pro", "o3-mini", "o3", "o3-pro", "o3-deep-research", "o4-mini",
 }
 ```
 
 ### 3. Parameter Adaptation
 
-| Parameter | GPT-4o | GPT-4.1 | GPT-5 / GPT-5.1 |
-|---|---|---|---|
-| `max_tokens` | Supported | Use `max_completion_tokens` | Use `max_completion_tokens` |
-| `temperature` | Supported | Supported | **Not supported** (remove it) |
-| `top_p` | Supported | Supported | **Not supported** (remove it) |
-| `reasoning_effort` | N/A | N/A | See below |
-| System role | `"system"` | `"system"` | `"developer"` |
+| Parameter | GPT-4o | GPT-4.1 | GPT-5 / GPT-5.1 / GPT-5.2 | o-series (o1, o3, o4-mini) |
+|---|---|---|---|---|
+| `max_tokens` | Supported | Use `max_completion_tokens` | Use `max_completion_tokens` | Use `max_completion_tokens` |
+| `temperature` | Supported | Supported | **Not supported** (remove it) | **Not supported** (remove it) |
+| `top_p` | Supported | Supported | **Not supported** (remove it) | **Not supported** (remove it) |
+| `reasoning_effort` | N/A | N/A | See below | Supported |
+| System role | `"system"` | `"system"` | `"developer"` | `"developer"` |
 
 **Parameter adaptation pattern:**
 
@@ -115,7 +139,7 @@ def adapt_params(model_name: str, params: dict) -> dict:
         adapted["max_completion_tokens"] = adapted.pop("max_tokens")
 
     # Reasoning models don't support temperature/top_p
-    if model_name in REASONING_MODELS:
+    if model_name in REASONING_MODELS or model_name in O_SERIES_MODELS:
         adapted.pop("temperature", None)
         adapted.pop("top_p", None)
 
@@ -129,12 +153,14 @@ def adapt_params(model_name: str, params: dict) -> dict:
 | GPT-4.1 / 4.1-mini / 4.1-nano | Standard | N/A (no reasoning) | — |
 | GPT-5 / 5-mini / 5-nano | Reasoning | `minimal`, `low`, `medium`, `high` | `medium` |
 | GPT-5.1 | Reasoning | `none`, `low`, `medium`, `high` | `none` |
+| GPT-5.2 | Reasoning | `none`, `low`, `medium`, `high` | `none` |
+| o-series (o1, o3, o4-mini) | Reasoning | `low`, `medium`, `high` | `medium` |
 
 > **Important:** `reasoning_effort="none"` is only supported on GPT-5.1. GPT-5, GPT-5-mini, and GPT-5-nano minimum is `"minimal"`, which still incurs reasoning tokens and added latency.
 
 ### 5. System Role for Reasoning Models
 
-GPT-5/GPT-5.1 use `"developer"` instead of `"system"` for the system message role:
+GPT-5/GPT-5.1/GPT-5.2 and o-series models use `"developer"` instead of `"system"` for the system message role:
 
 ```python
 # GPT-4o / GPT-4.1
@@ -143,11 +169,25 @@ messages = [
     {"role": "user", "content": query},
 ]
 
-# GPT-5 / GPT-5.1
+# GPT-5 / GPT-5.1 / GPT-5.2 / o-series
 messages = [
     {"role": "developer", "content": "You are a helpful assistant."},
     {"role": "user", "content": query},
 ]
+```
+
+**Automatic role adaptation pattern:**
+
+```python
+def uses_developer_role(model_name: str) -> bool:
+    return model_name in REASONING_MODELS or model_name in O_SERIES_MODELS
+
+# In your calling code:
+if uses_developer_role(model_name):
+    messages = [
+        {**m, "role": "developer"} if m.get("role") == "system" else m
+        for m in messages
+    ]
 ```
 
 ### 6. Client Factory Pattern
@@ -174,8 +214,8 @@ def create_client(model_name: str, endpoint: str, api_key: str = None) -> AzureO
 
 This repo provides reusable modules under `src/`:
 
-- `src/config.py` — Model family helpers (`is_v1()`, `is_reasoning()`), environment config
-- `src/clients.py` — Client factory (`create_client()`), parameter-adapting `call_model()`
+- `src/config.py` — Model family helpers (`is_v1()`, `is_reasoning()`, `is_o_series()`, `uses_developer_role()`), environment config
+- `src/clients.py` — Client factory (`create_client()`), parameter-adapting `call_model()` with automatic role adaptation
 - `src/evaluate/` — Full evaluation framework for comparing models (see `aoai-migration-evaluation` skill)
 
 ## Steps for a Migration
@@ -183,7 +223,7 @@ This repo provides reusable modules under `src/`:
 1. **Identify your target model** using the migration paths table above.
 2. **Update client initialization** — switch from `AzureOpenAI` to `OpenAI` for v1 models.
 3. **Adapt parameters** — replace `max_tokens` with `max_completion_tokens`, remove `temperature`/`top_p` for reasoning models.
-4. **Update system message role** — use `"developer"` for GPT-5/GPT-5.1.
+4. **Update system message role** — use `"developer"` for GPT-5/GPT-5.1/GPT-5.2 and o-series models.
 5. **Set `reasoning_effort`** if using a reasoning model (start with `"low"` for cost-sensitive workloads).
 6. **Run evaluations** to validate the new model matches or exceeds the old model's quality (see `aoai-migration-evaluation` skill).
 7. **Deploy progressively** — canary rollout for high-traffic workloads.
@@ -191,14 +231,36 @@ This repo provides reusable modules under `src/`:
 ## Must Not
 
 - Hard-code model names deep in application code. Use config/environment variables.
-- Use `temperature` or `top_p` with reasoning models (GPT-5, GPT-5.1) — they are not supported.
+- Use `temperature` or `top_p` with reasoning models (GPT-5, GPT-5.1, GPT-5.2, o-series) — they are not supported.
 - Use `max_tokens` with v1 API models — use `max_completion_tokens` instead.
 - Skip evaluation before deploying a new model in production.
-- Assume `reasoning_effort="none"` works on GPT-5/GPT-5-mini — only GPT-5.1 supports it.
+- Assume `reasoning_effort="none"` works on GPT-5/GPT-5-mini — only GPT-5.1+ supports it.
 - Use `AzureOpenAI` client with v1 models — use `OpenAI` client with `base_url` pointing to `/openai/v1/`.
+- Use `"system"` role with reasoning models — use `"developer"` role instead.
+
+## Structured Outputs & Responses API
+
+### Structured Outputs
+
+If your application uses `response_format` for JSON output, it works across model generations:
+
+| Feature | GPT-4o | GPT-4.1 | GPT-5+ |
+|---------|--------|---------|--------|
+| `{ "type": "json_object" }` | Supported | Supported | Supported |
+| `{ "type": "json_schema", ... }` | Supported (2024-08-06+) | Supported | Supported |
+| Strict mode | Supported | Supported | Supported |
+
+Test your JSON schemas against the new model — different models may interpret schema constraints differently.
+
+### Responses API
+
+Azure OpenAI now supports the **Responses API** alongside Chat Completions. It offers built-in tool use, file search, and web search. Existing Chat Completions code continues to work. See the [Responses API docs](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/responses).
 
 ## References
 
-- [Azure OpenAI Model Retirements](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements)
-- [Azure OpenAI Models Overview](https://learn.microsoft.com/azure/ai-services/openai/concepts/models)
+- [Azure OpenAI Model Retirements](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements) — authoritative retirement dates
+- [Azure OpenAI Models Overview](https://learn.microsoft.com/azure/ai-services/openai/concepts/models) — model capabilities & availability
 - [GPT-5 vs GPT-4.1: Choosing the Right Model](https://learn.microsoft.com/azure/ai-services/openai/concepts/gpt-5-vs-gpt-41)
+- [Responses API](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/responses) — new API surface
+- [Azure OpenAI SDKs](https://learn.microsoft.com/azure/ai-foundry/openai/supported-languages) — all supported languages
+- [What's New in Azure OpenAI](https://learn.microsoft.com/azure/ai-foundry/openai/whats-new) — latest changes

@@ -17,12 +17,20 @@ from dotenv import load_dotenv
 # Models using the new v1 API (OpenAI client with /openai/v1/ endpoint)
 V1_MODELS = {
     "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
-    "gpt-5", "gpt-5.1", "gpt-5-mini", "gpt-5-nano",
+    "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5-mini", "gpt-5-nano",
+    "gpt-5-pro", "gpt-5-codex", "gpt-5.1-codex", "gpt-5.1-codex-mini",
+    "codex-mini",
 }
 
-# Reasoning models (no temperature/top_p, use max_completion_tokens)
+# Reasoning models (no temperature/top_p, use max_completion_tokens, developer role)
 REASONING_MODELS = {
-    "gpt-5", "gpt-5.1", "gpt-5-mini", "gpt-5-nano",
+    "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5-mini", "gpt-5-nano",
+    "gpt-5-pro",
+}
+
+# o-series reasoning models (also no temperature/top_p, use max_completion_tokens)
+O_SERIES_MODELS = {
+    "o1", "o1-pro", "o3-mini", "o3", "o3-pro", "o3-deep-research", "o4-mini",
 }
 
 
@@ -33,7 +41,17 @@ def is_v1(model: str) -> bool:
 
 def is_reasoning(model: str) -> bool:
     """True if the model is a reasoning model (no temperature/top_p)."""
-    return model in REASONING_MODELS
+    return model in REASONING_MODELS or model in O_SERIES_MODELS
+
+
+def is_o_series(model: str) -> bool:
+    """True if the model is an o-series reasoning model (o1, o3, o4-mini, etc.)."""
+    return model in O_SERIES_MODELS
+
+
+def uses_developer_role(model: str) -> bool:
+    """True if the model uses 'developer' instead of 'system' for the system message role."""
+    return model in REASONING_MODELS or model in O_SERIES_MODELS
 
 
 # ---------------------------------------------------------------------------
@@ -55,9 +73,12 @@ def load_config(env_path: Optional[str] = None) -> dict:
         "gpt-4o-mini": "GPT4O_MINI_DEPLOYMENT",
         "gpt-4.1": "GPT41_DEPLOYMENT",
         "gpt-4.1-mini": "GPT41_MINI_DEPLOYMENT",
-        "gpt-5.1": "GPT51_DEPLOYMENT",
         "gpt-5": "GPT5_DEPLOYMENT",
+        "gpt-5.1": "GPT51_DEPLOYMENT",
+        "gpt-5.2": "GPT52_DEPLOYMENT",
         "gpt-5-mini": "GPT5_MINI_DEPLOYMENT",
+        "o3": "O3_DEPLOYMENT",
+        "o4-mini": "O4_MINI_DEPLOYMENT",
     }
 
     for model_name, env_var in deployment_vars.items():

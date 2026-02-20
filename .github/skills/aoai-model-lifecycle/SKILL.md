@@ -5,6 +5,9 @@ description: "Plan and manage the Azure OpenAI model upgrade lifecycle. Covers r
 
 # Azure OpenAI Model Lifecycle Management Skill
 
+> **⚠️ Retirement dates and model availability change frequently.** Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements)**.
+> See also: **[What's New in Azure OpenAI](https://learn.microsoft.com/azure/ai-foundry/openai/whats-new)**.
+
 ## Purpose
 
 Help teams plan, track, and execute Azure OpenAI model upgrades proactively. Covers retirement timelines, deployment governance, update policies, and the operational checklist to follow when a model retirement is announced.
@@ -37,15 +40,39 @@ Model Launch (GA)
 
 ## Current Retirement Dates (as of February 2026)
 
-| Model | GA Version | Deprecation | Retirement (Standard) | Replacement |
-|---|---|---|---|---|
-| `gpt-4o` | 2024-08-06 | 2025-08-06 | 2026-03-31 (auto-upgrade from 2026-03-09) | `gpt-5.1` |
-| `gpt-4o-mini` | 2024-07-18 | 2025-07-18 | 2026-03-31 (Standard) / 2026-10-01 (Provisioned) | `gpt-4.1-mini` |
-| `gpt-4.1` | 2025-04-14 | 2026-04-14 | 2026-10-14 | `gpt-5` |
-| `o1` | 2024-12-17 | 2025-12-17 | 2026-07-15 | `o3` |
-| `o3-mini` | 2025-01-31 | 2026-01-31 | 2026-08-02 | `o4-mini` |
+> These are "not sooner than" dates — they can be extended but not shortened.
+> 📌 **Note:** ChatGPT (consumer) and Azure Foundry (enterprise) have **independent** retirement schedules.
 
-> These dates shift. Always verify against the [official retirements page](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements).
+### GPT Series
+
+| Model | GA Version | Retirement (not before) | Replacement |
+|---|---|---|---|
+| `gpt-4o` | 2024-08-06 | 2026-03-31 (Standard) / 2026-10-01 (Provisioned) | `gpt-5.1` |
+| `gpt-4o-mini` | 2024-07-18 | 2026-03-31 (Standard) / 2026-10-01 (Provisioned) | `gpt-4.1-mini` |
+| `gpt-4.1` | 2025-04-14 | 2026-10-14 | `gpt-5` |
+| `gpt-4.1-mini` | 2025-04-14 | 2026-10-14 | `gpt-5-mini` |
+| `gpt-4.1-nano` | 2025-04-14 | 2026-10-14 | `gpt-5-nano` |
+| `gpt-5` | 2025-08-07 | 2027-02-05 | — |
+| `gpt-5-mini` | 2025-08-07 | 2027-02-06 | — |
+| `gpt-5.1` | 2025-11-13 | 2027-05-15 | — |
+| `gpt-5.2` | 2025-12-11 | ~2027-05-12 | — |
+
+### o-Series (Reasoning)
+
+| Model | GA Version | Retirement (not before) | Replacement |
+|---|---|---|---|
+| `o1` | 2024-12-17 | 2026-07-15 | `o3` |
+| `o3-mini` | 2025-01-31 | 2026-08-02 | `o4-mini` |
+| `o3` | 2025-04-16 | 2026-10-16 | — |
+| `o4-mini` | 2025-04-16 | 2026-10-16 | — |
+
+### Other
+
+| Model | GA Version | Retirement (not before) | Notes |
+|---|---|---|---|
+| `model-router` | 2025-11-18 | 2027-05-20 | Auto-routes requests to optimal model |
+
+> Always verify against the [official retirements page](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements).
 
 ### Deployment Type Timelines
 
@@ -108,6 +135,19 @@ Maintain a live inventory of all deployments:
 | Prod-Sub-01 | rg-ai-prod | aoai-eastus | chat-prod | gpt-4o | 2024-08-06 | Upgrade when expired | East US |
 
 Automate via the **Control Plane API** or **Azure Resource Graph** queries. Review quarterly.
+
+**Azure Resource Graph query** (run in Azure Portal → Resource Graph Explorer or `az graph query`):
+
+```kusto
+resources
+| where type == "microsoft.cognitiveservices/accounts/deployments"
+| extend deployment = properties.name,
+         model = properties.model.name,
+         version = properties.model.version,
+         updatePolicy = properties.versionUpgradeOption
+| project subscriptionId, resourceGroup, name, deployment, model, version, updatePolicy, location
+| order by model asc, version asc
+```
 
 ## Production Migration Strategies
 
@@ -191,7 +231,13 @@ Model N in Production
 - GA API versions get 12 months of support minimum
 - Preview API versions can retire on shorter notice
 - The v1 API (`/openai/v1/...`) eliminates monthly `api-version` strings — use `api-version=latest`
+- The **Responses API** is now available alongside Chat Completions and is the recommended path for new development. See [Responses API](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/responses).
 - Don't conflate model upgrades with API upgrades — test independently
+
+### Consider `model-router`
+- **`model-router`** (GA Nov 2025) automatically routes requests to the best-suited model, reducing migration frequency.
+- Has its own retirement timeline (2027-05-20 not before).
+- See [Azure OpenAI Models Overview](https://learn.microsoft.com/azure/ai-services/openai/concepts/models) for details.
 
 ## Must Not
 
@@ -203,9 +249,12 @@ Model N in Production
 
 ## References
 
-- [Azure OpenAI Model Retirements](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements)
+- [Azure OpenAI Model Retirements](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements) — authoritative retirement dates
 - [Model Version Upgrade Guide](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-versions)
+- [Azure OpenAI Models Overview](https://learn.microsoft.com/azure/ai-services/openai/concepts/models) — model capabilities & availability
 - [API Version Lifecycle](https://learn.microsoft.com/azure/ai-foundry/openai/api-version-lifecycle)
 - [Managing Provisioned Deployments](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/working-with-models)
+- [Responses API](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/responses) — new API surface
 - [Azure Service Health Alerts](https://learn.microsoft.com/azure/service-health/alerts-activity-log-service-notifications-portal)
-- [What's New in Azure OpenAI](https://learn.microsoft.com/azure/ai-foundry/openai/whats-new)
+- [What's New in Azure OpenAI](https://learn.microsoft.com/azure/ai-foundry/openai/whats-new) — latest changes
+- [Azure OpenAI SDKs](https://learn.microsoft.com/azure/ai-foundry/openai/supported-languages) — all supported languages
