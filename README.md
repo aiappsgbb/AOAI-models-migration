@@ -8,17 +8,17 @@ Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI model
 
 > **Scope:** This guide focuses on **text generation models** (GPT series and o-series). For audio models (gpt-audio, gpt-realtime, Whisper), image models (gpt-image, DALL-E, Sora), and embedding models (text-embedding-3-*), see the [official retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements).
 
-## GitHub Copilot Skills
+## Migration at a Glance
 
-This repo includes three **GitHub Copilot Skills** (`.github/skills/`) that provide contextual guidance when working in VS Code, GitHub.com, or the Copilot Coding Agent. Skills are automatically picked up by Copilot when they match your task.
+Migrating an Azure OpenAI model involves five key steps:
 
-| Skill | File | What It Does |
-|-------|------|-------------|
-| **aoai-model-migration** | [`.github/skills/aoai-model-migration/SKILL.md`](.github/skills/aoai-model-migration/SKILL.md) | Guides API changes, client configuration, parameter adaptation, and code patterns when migrating between Azure OpenAI model families. |
-| **aoai-migration-evaluation** | [`.github/skills/aoai-migration-evaluation/SKILL.md`](.github/skills/aoai-migration-evaluation/SKILL.md) | Runs A/B model comparisons using built-in LLM-as-Judge, local SDK evaluation (`azure-ai-evaluation`), or Azure AI Foundry cloud evaluation. Covers RAG, tool calling, translation, and classification scenarios. |
-| **aoai-model-lifecycle** | [`.github/skills/aoai-model-lifecycle/SKILL.md`](.github/skills/aoai-model-lifecycle/SKILL.md) | Plans and tracks model retirement timelines, deployment inventories, update policies, and the operational checklist for production migrations. |
+1. **Pick your target model** — choose from the migration paths below based on your priorities (cost, quality, reasoning).
+2. **Check the timeline** — know when your current model retires and plan accordingly.
+3. **Update your code** — switch client configuration, adapt parameters, and adjust system prompts (see [Key API Changes](#key-api-changes)).
+4. **Evaluate before deploying** — run the same prompts through both models, compare quality, and gate on metrics (see [Evaluation](#evaluation)).
+5. **Roll out progressively** — canary first, then full traffic. Clean up old deployments.
 
-**How to use:** Simply ask Copilot a relevant question (e.g., *"Migrate my GPT-4o code to GPT-4.1"* or *"Evaluate my model migration"*) and the matching skill will be used automatically. You can also reference a skill explicitly in Copilot Chat with `@workspace`.
+For a comprehensive walkthrough of the full lifecycle — including deployment inventory, notification setup, continuous evaluation, fine-tuned model handling, and multi-region strategies — see the **[Lifecycle Best Practices deep dive](docs/llm-upgrade-lifecycle-best-practices.md)**.
 
 ## Migration Paths
 
@@ -83,55 +83,6 @@ This repo includes three **GitHub Copilot Skills** (`.github/skills/`) that prov
 | `model-router` | 2025-11-18 | 2027-05-20 | — |
 
 > Source: [Azure OpenAI Model Retirements](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements)
-
-## Deep Dive: Lifecycle Best Practices
-
-For a comprehensive guide on managing the full model upgrade lifecycle, see **[docs/llm-upgrade-lifecycle-best-practices.md](docs/llm-upgrade-lifecycle-best-practices.md)**. It covers:
-
-- **Tactical migration playbook** — notifications, deployment inventory, side-by-side testing, canary rollouts, and cleanup
-- **Evaluation deep dive** — choosing evaluators, dataset preparation, local SDK evaluation, cloud evaluation (v1 and v2 APIs), A/B comparison workflows, and acceptance thresholds
-- **Continuous evaluation** — post-deployment monitoring with automatic quality alerts
-- **Mid-to-long term planning** — architecting for model portability, update policies, 12-month cadence planning, fine-tuned model handling, embedding model re-indexing, and multi-region considerations
-- **GitHub Copilot integration** — using Agent Mode, custom agents, skills, and the Coding Agent to automate evaluation workflows and CI/CD gates
-
-## Repository Structure
-
-```
-.
-├── .github/
-│   └── skills/                              # GitHub Copilot Skills
-│       ├── aoai-model-migration/SKILL.md    # API changes, client config, parameter adaptation
-│       ├── aoai-migration-evaluation/SKILL.md # A/B testing, LLM-as-Judge, SDK & Foundry eval
-│       └── aoai-model-lifecycle/SKILL.md    # Retirement timelines, governance, checklists
-├── azure_openai_migration_technical.ipynb   # Technical migration guide (API changes, code)
-├── azure_openai_evaluation_guide.ipynb      # Evaluation demo notebook
-├── docs/
-│   └── llm-upgrade-lifecycle-best-practices.md  # Full lifecycle best practices guide
-├── src/                                      # Reusable Python modules
-│   ├── __init__.py
-│   ├── config.py                            # Model helpers (is_v1, is_reasoning, is_o_series), env loading
-│   ├── clients.py                           # Client factory (AzureOpenAI vs OpenAI), call_model()
-│   └── evaluate/                            # Evaluation framework
-│       ├── __init__.py
-│       ├── core.py                          # MigrationEvaluator, LLM-as-Judge, reports
-│       ├── local_eval.py                    # Local SDK evaluation (azure-ai-evaluation)
-│       ├── foundry.py                       # Azure AI Foundry cloud evaluation
-│       ├── prompts/                         # System prompts in Prompty format (.prompty)
-│       │   ├── __init__.py                  # load_prompty() / list_prompty() loader
-│       │   ├── rag.prompty                  # RAG system prompt
-│       │   ├── tool_calling.prompty         # Tool calling system prompt
-│       │   ├── translate_*.prompty          # Translation prompts (fr_en, en_fr, en_de, technical)
-│       │   └── classify_*.prompty           # Classification prompts (sentiment, category, intent, priority)
-│       └── scenarios/                       # Pre-built evaluation scenarios
-│           ├── __init__.py
-│           ├── rag.py                       # RAG: groundedness, relevance, coherence
-│           ├── tool_calling.py              # Tool calling: accuracy, parameters
-│           ├── translation.py              # Translation: fluency, semantic equivalence
-│           └── classification.py           # Classification: accuracy, consistency
-├── requirements.txt
-├── .env_example
-└── README.md
-```
 
 ## Key API Changes
 
@@ -250,7 +201,9 @@ results = foundry.evaluate_cloud(report, evaluators=["coherence", "fluency", "re
 
 See [azure_openai_evaluation_guide.ipynb](azure_openai_evaluation_guide.ipynb) for the full walkthrough.
 
-## Prerequisites
+## Getting Started
+
+### Prerequisites
 
 1. **Azure OpenAI Resource** with access to target models
 2. **Azure CLI** installed and authenticated:
@@ -262,7 +215,7 @@ See [azure_openai_evaluation_guide.ipynb](azure_openai_evaluation_guide.ipynb) f
    pip install -r requirements.txt
    ```
 
-## Authentication
+### Authentication
 
 This guide uses **Microsoft Entra ID** authentication (recommended):
 
@@ -275,13 +228,64 @@ token_provider = get_bearer_token_provider(
 )
 ```
 
-## Usage
+### Usage
 
 1. Copy `.env_example` to `.env` and fill in your values
 2. Run `az login` to authenticate
 3. Start with the **technical guide** notebook for API migration
 4. Use the **evaluation guide** notebook to validate quality
 5. Check the **pricing notebook** for cost analysis
+
+## Repository Structure
+
+```
+.
+├── .github/
+│   └── skills/                              # GitHub Copilot Skills
+│       ├── aoai-model-migration/SKILL.md    # API changes, client config, parameter adaptation
+│       ├── aoai-migration-evaluation/SKILL.md # A/B testing, LLM-as-Judge, SDK & Foundry eval
+│       └── aoai-model-lifecycle/SKILL.md    # Retirement timelines, governance, checklists
+├── azure_openai_migration_technical.ipynb   # Technical migration guide (API changes, code)
+├── azure_openai_evaluation_guide.ipynb      # Evaluation demo notebook
+├── docs/
+│   └── llm-upgrade-lifecycle-best-practices.md  # Full lifecycle best practices guide
+├── src/                                      # Reusable Python modules
+│   ├── __init__.py
+│   ├── config.py                            # Model helpers (is_v1, is_reasoning, is_o_series), env loading
+│   ├── clients.py                           # Client factory (AzureOpenAI vs OpenAI), call_model()
+│   └── evaluate/                            # Evaluation framework
+│       ├── __init__.py
+│       ├── core.py                          # MigrationEvaluator, LLM-as-Judge, reports
+│       ├── local_eval.py                    # Local SDK evaluation (azure-ai-evaluation)
+│       ├── foundry.py                       # Azure AI Foundry cloud evaluation
+│       ├── prompts/                         # System prompts in Prompty format (.prompty)
+│       │   ├── __init__.py                  # load_prompty() / list_prompty() loader
+│       │   ├── rag.prompty                  # RAG system prompt
+│       │   ├── tool_calling.prompty         # Tool calling system prompt
+│       │   ├── translate_*.prompty          # Translation prompts (fr_en, en_fr, en_de, technical)
+│       │   └── classify_*.prompty           # Classification prompts (sentiment, category, intent, priority)
+│       └── scenarios/                       # Pre-built evaluation scenarios
+│           ├── __init__.py
+│           ├── rag.py                       # RAG: groundedness, relevance, coherence
+│           ├── tool_calling.py              # Tool calling: accuracy, parameters
+│           ├── translation.py              # Translation: fluency, semantic equivalence
+│           └── classification.py           # Classification: accuracy, consistency
+├── requirements.txt
+├── .env_example
+└── README.md
+```
+
+## GitHub Copilot Skills
+
+This repo includes three **GitHub Copilot Skills** (`.github/skills/`) that provide contextual guidance when working in VS Code, GitHub.com, or the Copilot Coding Agent. Skills are automatically picked up by Copilot when they match your task.
+
+| Skill | File | What It Does |
+|-------|------|--------------|
+| **aoai-model-migration** | [`.github/skills/aoai-model-migration/SKILL.md`](.github/skills/aoai-model-migration/SKILL.md) | Guides API changes, client configuration, parameter adaptation, and code patterns when migrating between Azure OpenAI model families. |
+| **aoai-migration-evaluation** | [`.github/skills/aoai-migration-evaluation/SKILL.md`](.github/skills/aoai-migration-evaluation/SKILL.md) | Runs A/B model comparisons using built-in LLM-as-Judge, local SDK evaluation (`azure-ai-evaluation`), or Azure AI Foundry cloud evaluation. Covers RAG, tool calling, translation, and classification scenarios. |
+| **aoai-model-lifecycle** | [`.github/skills/aoai-model-lifecycle/SKILL.md`](.github/skills/aoai-model-lifecycle/SKILL.md) | Plans and tracks model retirement timelines, deployment inventories, update policies, and the operational checklist for production migrations. |
+
+**How to use:** Simply ask Copilot a relevant question (e.g., *"Migrate my GPT-4o code to GPT-4.1"* or *"Evaluate my model migration"*) and the matching skill will be used automatically. You can also reference a skill explicitly in Copilot Chat with `@workspace`.
 
 ## Official Documentation
 
