@@ -84,6 +84,16 @@ This repo includes three **GitHub Copilot Skills** (`.github/skills/`) that prov
 
 > Source: [Azure OpenAI Model Retirements](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements)
 
+## Deep Dive: Lifecycle Best Practices
+
+For a comprehensive guide on managing the full model upgrade lifecycle, see **[docs/llm-upgrade-lifecycle-best-practices.md](docs/llm-upgrade-lifecycle-best-practices.md)**. It covers:
+
+- **Tactical migration playbook** — notifications, deployment inventory, side-by-side testing, canary rollouts, and cleanup
+- **Evaluation deep dive** — choosing evaluators, dataset preparation, local SDK evaluation, cloud evaluation (v1 and v2 APIs), A/B comparison workflows, and acceptance thresholds
+- **Continuous evaluation** — post-deployment monitoring with automatic quality alerts
+- **Mid-to-long term planning** — architecting for model portability, update policies, 12-month cadence planning, fine-tuned model handling, embedding model re-indexing, and multi-region considerations
+- **GitHub Copilot integration** — using Agent Mode, custom agents, skills, and the Coding Agent to automate evaluation workflows and CI/CD gates
+
 ## Repository Structure
 
 ```
