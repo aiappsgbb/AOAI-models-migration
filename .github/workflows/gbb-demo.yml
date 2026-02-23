@@ -28,7 +28,7 @@ jobs:
         id: detect
         run: |
           # Detect target scope from main.bicep
-          $bicepFile = 'infra/main.bicep'
+          $bicepFile = 'model_migration_eval/infra/main.bicep'
           if (Test-Path $bicepFile) {
             $targetScope = Select-String -Path $bicepFile -Pattern 'targetScope\s*=\s*[''"](\w+)[''"]' | ForEach-Object { $_.Matches.Groups[1].Value }
             
@@ -78,12 +78,14 @@ jobs:
       AZURE_RESOURCE_GROUP: ${{ needs.detect-scope.outputs.resource-group-name || format('rg-{0}', vars.AZURE_ENV_NAME) }}
       TARGET_SCOPE: ${{ needs.detect-scope.outputs.target-scope }}
       ## Define the additional variables or secrets that are required globally (provision and deploy)
-      
+    defaults:
+      run:
+        working-directory: model_migration_eval
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # using the install-azd action
+      # using the install-azd action — runs from repo root (not working-directory)
       - name: Install azd
         uses: Azure/setup-azd@v2.1.0
 
