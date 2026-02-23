@@ -1,0 +1,162 @@
+name: GBB Demo
+
+on:
+  workflow_dispatch:
+  # Uncomment the below line to run the workflow on commit
+  # push:
+  #   # Run when commits are pushed to mainline branch
+  #   # Set this to the mainline branch you are using
+  #   branches:
+  #     - main
+
+# Set this permission if you are using a Federated Credential.
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  detect-scope:
+    runs-on: ubuntu-latest
+    outputs:
+      target-scope: ${{ steps.detect.outputs.target-scope }}
+      resource-group-name: ${{ steps.detect.outputs.resource-group-name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect Bicep Target Scope
+        id: detect
+        run: |
+          # Detect target scope from main.bicep
+          $bicepFile = 'infra/main.bicep'
+          if (Test-Path $bicepFile) {
+            $targetScope = Select-String -Path $bicepFile -Pattern 'targetScope\s*=\s*[''"](\w+)[''"]' | ForEach-Object { $_.Matches.Groups[1].Value }
+            
+            if ($targetScope -eq 'resourceGroup') {
+              Write-Output "target-scope=resourceGroup" >> $env:GITHUB_OUTPUT
+              Write-Output "Target scope: resourceGroup"
+            } elseif ($targetScope -eq 'subscription') {
+              Write-Output "target-scope=subscription" >> $env:GITHUB_OUTPUT
+              Write-Output "Target scope: subscription"
+            } else {
+              # Default to subscription if not explicitly set
+              Write-Output "target-scope=subscription" >> $env:GITHUB_OUTPUT
+              Write-Output "Target scope not found or invalid, defaulting to subscription"
+            }
+          } else {
+            Write-Output "target-scope=subscription" >> $env:GITHUB_OUTPUT
+            Write-Output "main.bicep not found, defaulting to subscription"
+          }
+        shell: pwsh
+
+      - name: Detect Resource Group Name
+        id: rg-detect
+        if: steps.detect.outputs.target-scope == 'resourceGroup'
+        run: |
+          # For resourceGroup scope, extract the resource group name from environment or parameters
+          $rgName = "${{ vars.AZURE_RESOURCE_GROUP }}"
+          if ([string]::IsNullOrEmpty($rgName)) {
+            $rgName = "rg-${{ vars.AZURE_ENV_NAME }}"
+          }
+          Write-Output "resource-group-name=$rgName" >> $env:GITHUB_OUTPUT
+          Write-Output "Resource group name: $rgName"
+        shell: pwsh
+
+  build:
+    needs: detect-scope
+    runs-on: ubuntu-latest
+    environment: "GBB demo"
+    # azd built-in variables.
+    # These variables are always set by `azd pipeline config`
+    # You can set them as global env (apply to all steps) or you can add them to individual steps' environment
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}
+      AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+      AZURE_RESOURCE_GROUP: ${{ needs.detect-scope.outputs.resource-group-name || format('rg-{0}', vars.AZURE_ENV_NAME) }}
+      TARGET_SCOPE: ${{ needs.detect-scope.outputs.target-scope }}
+      ## Define the additional variables or secrets that are required globally (provision and deploy)
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # using the install-azd action
+      - name: Install azd
+        uses: Azure/setup-azd@v2.1.0
+
+      # azd sets up Federated Credential by default. You can remove this step if you are using Client Credentials
+      - name: Log in with Azure (Federated Credentials)
+        if: ${{ env.AZURE_CLIENT_ID != '' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in with azd (Federated Credentials)
+        if: ${{ env.AZURE_CLIENT_ID != '' }}
+        run: |
+          azd auth login `
+            --client-id "$Env:AZURE_CLIENT_ID" `
+            --federated-credential-provider "github" `
+            --tenant-id "$Env:AZURE_TENANT_ID"
+        shell: pwsh
+
+      - name: Create Resource Group (if needed)
+        if: ${{ env.TARGET_SCOPE == 'resourceGroup' }}
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            RG_EXISTS=$(az group exists --name "$AZURE_RESOURCE_GROUP" --subscription "$AZURE_SUBSCRIPTION_ID")
+            
+            if [ "$RG_EXISTS" = "true" ]; then
+              echo "Resource group '$AZURE_RESOURCE_GROUP' already exists"
+            else
+              echo "Creating resource group '$AZURE_RESOURCE_GROUP'..."
+              az group create \
+                --name "$AZURE_RESOURCE_GROUP" \
+                --location "$AZURE_LOCATION" \
+                --subscription "$AZURE_SUBSCRIPTION_ID" \
+                --tags "azd-env-name=$AZURE_ENV_NAME"
+              echo "Resource group '$AZURE_RESOURCE_GROUP' created successfully"
+            fi
+        env:
+          AZURE_RESOURCE_GROUP: ${{ env.AZURE_RESOURCE_GROUP }}
+          AZURE_LOCATION: ${{ env.AZURE_LOCATION }}
+          AZURE_SUBSCRIPTION_ID: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          AZURE_ENV_NAME: ${{ env.AZURE_ENV_NAME }}
+
+      - name: Provision Infrastructure (Subscription Scope)
+        if: ${{ env.TARGET_SCOPE == 'subscription' }}
+        run: azd provision --no-prompt
+        env:
+          # uncomment this if you are using infrastructure parameters
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          FOUNDRY_PROJECT_ENDPOINT: ${{ secrets.FOUNDRY_PROJECT_ENDPOINT }}
+          AZURE_OPENAI_ACCOUNT_RESOURCE_ID: ${{ secrets.AZURE_OPENAI_ACCOUNT_RESOURCE_ID }}
+          AI_FOUNDRY_PROJECT_RESOURCE_ID: ${{ secrets.AI_FOUNDRY_PROJECT_RESOURCE_ID }}
+          ## Define the additional variables or secrets that are required only for provision
+
+      - name: Provision Infrastructure (Resource Group Scope)
+        if: ${{ env.TARGET_SCOPE == 'resourceGroup' }}
+        run: |
+          azd provision --no-prompt
+        env:
+          AZURE_RESOURCE_GROUP: ${{ env.AZURE_RESOURCE_GROUP }}
+          # uncomment this if you are using infrastructure parameters
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          FOUNDRY_PROJECT_ENDPOINT: ${{ secrets.FOUNDRY_PROJECT_ENDPOINT }}
+          AZURE_OPENAI_ACCOUNT_RESOURCE_ID: ${{ secrets.AZURE_OPENAI_ACCOUNT_RESOURCE_ID }}
+          AI_FOUNDRY_PROJECT_RESOURCE_ID: ${{ secrets.AI_FOUNDRY_PROJECT_RESOURCE_ID }}
+          ## Define the additional variables or secrets that are required only for provision
+
+      - name: Deploy Application
+        run: azd deploy --no-prompt
+        env:
+          AZURE_RESOURCE_GROUP: ${{ env.AZURE_RESOURCE_GROUP }}
+        # env:
+        ## Define the additional variables or secrets that are required only for deploy
