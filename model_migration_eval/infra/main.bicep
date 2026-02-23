@@ -33,7 +33,7 @@ param foundryProjectEndpoint string = ''
 @description('Resource ID of the Azure OpenAI (Cognitive Services) account for RBAC. Leave empty to assign roles manually.')
 param azureOpenAiAccountResourceId string = ''
 
-@description('Resource ID of the AI Foundry project for RBAC. Leave empty to assign roles manually.')
+@description('Full resource ID of the AI Foundry project (Microsoft.CognitiveServices/accounts/{account}/projects/{project}) for RBAC. Leave empty to assign roles manually.')
 param aiFoundryProjectResourceId string = ''
 
 @description('Container image name for the web service. Set automatically by azd after deploy to prevent image reset on re-provision.')
@@ -115,9 +115,11 @@ module acrAccess './modules/acr-access.bicep' = {
 var _openAiId = !empty(azureOpenAiAccountResourceId)
   ? azureOpenAiAccountResourceId
   : '/subscriptions/x/resourceGroups/x/providers/x/x/x'
+// Foundry project IDs have the form:
+// /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.CognitiveServices/accounts/{account}/projects/{project}
 var _foundryId = !empty(aiFoundryProjectResourceId)
   ? aiFoundryProjectResourceId
-  : '/subscriptions/x/resourceGroups/x/providers/x/x/x'
+  : '/subscriptions/x/resourceGroups/x/providers/Microsoft.CognitiveServices/accounts/x/projects/x'
 
 module openAiAccess './modules/openai-access.bicep' = if (!empty(azureOpenAiAccountResourceId)) {
   name: 'openai-access'
@@ -132,7 +134,8 @@ module foundryAccess './modules/foundry-access.bicep' = if (!empty(aiFoundryProj
   name: 'foundry-access'
   scope: resourceGroup(split(_foundryId, '/')[4])
   params: {
-    workspaceName: last(split(_foundryId, '/'))
+    accountName: split(_foundryId, '/')[8]   // CognitiveServices account name
+    projectName: last(split(_foundryId, '/')) // project name
     principalId: webIdentity.outputs.principalId
   }
 }
