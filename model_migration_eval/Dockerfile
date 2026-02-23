@@ -11,12 +11,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies + Azure CLI (needed for DefaultAzureCredential
-# inside the container — enables 'az login --use-device-code' and
-# EnvironmentCredential via AZURE_TENANT_ID / CLIENT_ID / CLIENT_SECRET).
+# Install minimal system dependencies (curl is needed for HEALTHCHECK)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl gnupg lsb-release && \
-    curl -sL https://aka.ms/InstallAzureCLIDeb | bash && \
+    apt-get install -y --no-install-recommends curl && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ── Dependencies layer (cached unless requirements.txt changes) ──

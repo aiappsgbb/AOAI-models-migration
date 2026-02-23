@@ -28,6 +28,8 @@ from openai import AzureOpenAI, AsyncAzureOpenAI
 from openai.types.chat import ChatCompletion
 import diskcache
 
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+
 logger = logging.getLogger(__name__)
 
 
@@ -125,9 +127,17 @@ class AzureOpenAIClient:
         """
         Initialize the Azure OpenAI client.
         
+        Supports two authentication modes:
+          1. **Entra ID / Managed Identity (recommended)** — used automatically
+             when no API key is provided.  ``DefaultAzureCredential`` picks up
+             the User-Assigned Managed Identity via ``AZURE_CLIENT_ID`` in
+             Azure Container Apps, or ``az login`` for local development.
+          2. **API key** — used when ``api_key`` is explicitly passed, set in
+             ``settings.yaml``, or available via ``AZURE_OPENAI_API_KEY``.
+        
         Args:
             endpoint: Azure OpenAI endpoint URL
-            api_key: API key (or use AZURE_OPENAI_API_KEY env var)
+            api_key: API key (optional — omit to use Entra ID auth)
             api_version: API version string
             config_path: Path to settings.yaml config file
         """
@@ -142,19 +152,37 @@ class AzureOpenAIClient:
         
         # Resolve environment variable references (${VAR_NAME} syntax)
         self.endpoint = self._resolve_env_var(endpoint) or os.getenv('AZURE_OPENAI_ENDPOINT')
-        self.api_key = self._resolve_env_var(api_key) or os.getenv('AZURE_OPENAI_API_KEY')
+        resolved_key = self._resolve_env_var(api_key) or os.getenv('AZURE_OPENAI_API_KEY')
         self.api_version = self._resolve_env_var(api_version) or api_version
         
-        if not self.endpoint or not self.api_key:
+        if not self.endpoint:
             raise ValueError(
-                "Azure OpenAI endpoint and API key are required. "
-                "Set via parameters, config file, or environment variables."
+                "Azure OpenAI endpoint is required. "
+                "Set via parameters, config file, or AZURE_OPENAI_ENDPOINT env var."
             )
+
+        # Determine auth mode: API key vs Entra ID (DefaultAzureCredential)
+        # Treat placeholder / unresolved env vars as empty.
+        self.api_key = resolved_key if (resolved_key and not resolved_key.startswith('${')) else None
+        self._token_provider = None
+
+        if self.api_key:
+            logger.info("Using API key authentication for Azure OpenAI")
+            auth_kwargs = {'api_key': self.api_key}
+        else:
+            logger.info("Using Entra ID (DefaultAzureCredential) for Azure OpenAI")
+            managed_id = os.getenv('AZURE_CLIENT_ID')
+            credential = DefaultAzureCredential(
+                managed_identity_client_id=managed_id
+            ) if managed_id else DefaultAzureCredential()
+            self._token_provider = get_bearer_token_provider(
+                credential, "https://cognitiveservices.azure.com/.default"
+            )
+            auth_kwargs = {'azure_ad_token_provider': self._token_provider}
         
         # Initialize clients
         self.client = AzureOpenAI(
             azure_endpoint=self.endpoint,
-            api_key=self.api_key,
             api_version=self.api_version,
             timeout=300.0,          # 5-minute timeout per request
             max_retries=3,
@@ -164,11 +192,11 @@ class AzureOpenAIClient:
                     max_keepalive_connections=0,   # disable keep-alive
                 ),
             ),
+            **auth_kwargs,
         )
         
         self.async_client = AsyncAzureOpenAI(
             azure_endpoint=self.endpoint,
-            api_key=self.api_key,
             api_version=self.api_version,
             timeout=300.0,
             max_retries=3,
@@ -178,6 +206,7 @@ class AzureOpenAIClient:
                     max_keepalive_connections=10,
                 ),
             ),
+            **auth_kwargs,
         )
         
         # Model configurations

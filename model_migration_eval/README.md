@@ -49,16 +49,22 @@ This framework automates that process end-to-end:
 ```
 model_migration_eval/
 ├── app.py                          # Main entry point (CLI + web server)
-├── start.bat                       # Quick-launch script (Windows)
+├── azure.yaml                      # Azure Developer CLI service manifest
 ├── requirements.txt                # Python dependencies
 ├── .env.example                    # Environment variables template
 ├── .gitignore                      # Git ignore rules
 ├── Dockerfile                      # Container image (Python 3.13-slim + Flask)
 ├── .dockerignore                   # Files excluded from Docker build context
-├── deploy.ps1                      # One-script deployment (Docker Desktop or Azure)
+│
+├── infra/                          # Bicep infrastructure-as-code (azd)
+│   ├── main.bicep                  # Subscription-scoped entry point (AVM modules)
+│   ├── main.parameters.json        # azd parameter mapping
+│   └── modules/
+│       ├── acr-access.bicep        # AcrPull role assignment for MI
+│       └── role-assignments.bicep  # Cognitive Services OpenAI User + AI Developer roles
 │
 ├── config/
-│   ├── settings.yaml               # Azure credentials & model definitions
+│   ├── settings.yaml               # Azure endpoint & model definitions
 │   └── model_params.yaml           # Model parameter reference table
 │
 ├── data/
@@ -148,22 +154,30 @@ copy .env.example .env        # Windows
 # cp .env.example .env        # Linux/macOS
 ```
 
-Edit `.env` and set your Azure OpenAI credentials:
+Edit `.env` and set your Azure OpenAI endpoint:
 
 ```dotenv
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_API_KEY=your-api-key-here
 FOUNDRY_PROJECT_ENDPOINT=https://your-hub.services.ai.azure.com/api/projects/your-project  # Optional
 ```
 
+#### Authentication
+
+The app uses **Entra ID / `DefaultAzureCredential`** by default — no API key needed.
+
+| Environment | How it works |
+|-------------|--------------|
+| **Local dev** | Run `az login` — `AzureCliCredential` is picked up automatically |
+| **Azure Container Apps** | User-Assigned Managed Identity + `AZURE_CLIENT_ID` set by Bicep |
+| **API key fallback** | Set `AZURE_OPENAI_API_KEY` in `.env` if you prefer key-based auth |
+
 ### 2. Configure Models
 
-Edit `config/settings.yaml`.  The `endpoint` and `api_key` fields use `${VAR}` syntax to read from `.env` automatically:
+Edit `config/settings.yaml`.  The `endpoint` field uses `${VAR}` syntax to read from `.env` automatically.  Authentication defaults to Entra ID (`DefaultAzureCredential`):
 
 ```yaml
 azure:
   endpoint: "${AZURE_OPENAI_ENDPOINT}"
-  api_key:  "${AZURE_OPENAI_API_KEY}"
   api_version: "2025-04-01-preview"
 
   models:
@@ -485,7 +499,6 @@ Edit the `models` section in `config/settings.yaml`.  Each key becomes a model n
 ```yaml
 azure:
   endpoint: "${AZURE_OPENAI_ENDPOINT}"
-  api_key:  "${AZURE_OPENAI_API_KEY}"
   api_version: "2025-04-01-preview"
 
   models:
@@ -570,8 +583,8 @@ The framework optionally integrates with [Microsoft Foundry](https://ai.azure.co
 | **Python package** | `pip install 'azure-ai-projects>=2.0.0b2'` (already in `requirements.txt`) |
 | **Foundry Project** | Create a project in [Azure AI Foundry](https://ai.azure.com/) |
 | **Judge model deployment** | Deploy a model (e.g. `gpt-4.1`) in the Foundry project — this model runs the LLM-as-judge evaluations |
-| **Azure credentials** | `DefaultAzureCredential` — works with Azure CLI (`az login`), Managed Identity, or Service Principal (auto-created by `deploy.ps1`) |
-| **RBAC** | Your identity (or the Service Principal) needs **Contributor** role on the Foundry project to upload datasets and create evaluations |
+| **Azure credentials** | `DefaultAzureCredential` — locally via `az login`, in Azure via Managed Identity |
+| **RBAC** | The managed identity (or your `az login` identity) needs **Azure AI Developer** role on the Foundry project |
 
 ### Setup
 
@@ -596,17 +609,13 @@ The framework optionally integrates with [Microsoft Foundry](https://ai.azure.co
    FOUNDRY_PROJECT_ENDPOINT=https://<your-hub>.services.ai.azure.com/api/projects/<your-project>
    ```
 
-   > **Where to find the endpoint:**  
-   > Azure AI Foundry portal → your project → **Overview** → **Project endpoint**
-
 3. **Authenticate with Azure:**
 
    ```bash
    az login
    ```
 
-   Or set `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` / `AZURE_TENANT_ID` for service-principal auth.  
-   > **Tip:** The `deploy.ps1` script **automatically creates** a Service Principal (`sp-model-migration-eval`) and writes these variables to `.env` — no manual setup needed for containerised deployments.
+   In Azure Container Apps the User-Assigned Managed Identity handles authentication automatically — no manual setup needed.
 
 ### Usage from the Web UI
 
@@ -668,79 +677,62 @@ Cost depends on the judge model pricing.  With `gpt-4.1` at $2.50/M input + $10/
 If the Foundry SDK is not installed or the configuration is missing, the feature is **silently disabled** — all local evaluations continue to work normally without any error.  The **Include Foundry LLM-as-judge** toggle simply doesn't appear in the UI.
 
 ---
-## � Deployment
+## 🚀 Deployment
 
-The project includes a single PowerShell script that handles both local Docker and Azure Container Apps deployment.
+The project uses **Azure Developer CLI (`azd`)** for one-command provisioning and deployment to **Azure Container Apps**.
 
 ### Prerequisites
 
-| Tool | Local Docker | Azure |
-|------|:---:|:---:|
-| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | ✅ | ✅ |
-| [Azure CLI](https://aka.ms/installazurecliwindows) | — | ✅ |
-| `.env` file with credentials | ✅ | ✅ |
+| Tool | Required |
+|------|:--------:|
+| [Azure Developer CLI](https://aka.ms/azd-install) | ✅ |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | ✅ |
+| [Azure CLI](https://aka.ms/installazurecliwindows) | Optional (for `az login` during local dev) |
 
-### Run the Deployment Script
+### Deploy to Azure
 
-```powershell
-.\deploy.ps1
+```bash
+# Authenticate
+azd auth login
+
+# Provision infrastructure + build & deploy the container
+azd up
 ```
 
-The script presents an interactive menu:
+`azd up` will:
 
-```
-  1. Local Docker Desktop  (for development / testing)
-  2. Azure Container Apps  (for production / demos)
-```
+| Step | What happens |
+|------|-------------|
+| 1 | Create a Resource Group (`rg-<env>`) |
+| 2 | Deploy **Log Analytics + Application Insights** (AVM monitoring pattern) |
+| 3 | Deploy **ACR + Container Apps Environment** (AVM container-apps-stack pattern) |
+| 4 | Create a **User-Assigned Managed Identity** with AcrPull + Cognitive Services OpenAI User + Azure AI Developer roles |
+| 5 | Build the Docker image and push to ACR |
+| 6 | Deploy the **Container App** with probes, scale rules, and the MI identity |
 
-### Option 1: Local Docker Desktop
+### Infrastructure (Bicep / AVM)
 
-- Builds a **timestamped image** from the `Dockerfile` (Python 3.13-slim + Flask + Azure CLI).
-- Auto-creates a **Service Principal** for Foundry authentication inside the container (if not already configured).
-- Validates `.env` has all required variables (Azure OpenAI + Foundry SP credentials).
-- Injects credentials from `.env` via `--env-file`.
-- Exposes the web UI at **http://localhost:5000**.
-- Runs an automatic health check against `/api/health`.
+All infrastructure is defined in `infra/main.bicep` using [Azure Verified Modules](https://aka.ms/avm):
 
-```powershell
-# After deployment, useful commands:
-docker logs -f model-migration-eval    # Stream logs
-docker stop model-migration-eval       # Stop
-docker rm -f model-migration-eval      # Remove
-```
+| Module | Purpose |
+|--------|---------|
+| `avm/ptn/azd/monitoring:0.1.0` | Log Analytics + App Insights + Dashboard |
+| `avm/ptn/azd/container-apps-stack:0.1.0` | ACR (Basic) + Container Apps Environment |
+| `avm/res/managed-identity/user-assigned-identity:0.4.0` | User-Assigned Managed Identity |
+| `avm/res/app/container-app:0.10.0` | Container App (full resource module) |
+| `modules/acr-access.bicep` | AcrPull role assignment for the MI |
+| `modules/role-assignments.bicep` | Cognitive Services OpenAI User + Azure AI Developer roles |
 
-### Option 2: Azure Container Apps
+### Authentication Model
 
-Before the deployment steps, the script auto-creates a **Service Principal** (`sp-model-migration-eval`) for Foundry authentication inside the container and writes `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET` to `.env`.
+The deployed container uses **Entra ID / Managed Identity** — fully keyless:
 
-Deploys the full stack to Azure in 7 automated steps:
+- No API keys, no Service Principal credentials, no secrets in the container.
+- `AZURE_CLIENT_ID` is set by Bicep to the MI's client ID.
+- `DefaultAzureCredential` in the Python SDK picks up the MI automatically.
+- RBAC roles are assigned via Bicep to the MI on the Azure OpenAI account and AI Foundry project.
 
-| Step | Action |
-|------|--------|
-| 1 | Create / verify Resource Group |
-| 2 | Create Azure Container Registry (ACR) |
-| 3 | Build Docker image & push to ACR |
-| 4 | Create Container Apps Environment |
-| 5 | Prepare secrets & environment variables |
-| 6 | Create / update Container App (with liveness & readiness probes) |
-| 7 | Retrieve the public HTTPS URL |
-
-The script supports **skipping completed steps** — useful when re-deploying after a code change (skip to step 3 to just rebuild & push).
-
-#### Configuration
-
-Edit the variables at the top of `deploy.ps1`:
-
-```powershell
-$RESOURCE_GROUP     = "rg-model-migration"
-$LOCATION           = "swedencentral"
-$ACR_NAME           = "acrmodelmigration"      # globally unique, lowercase
-$CONTAINER_APP_NAME = "model-migration-eval"
-```
-
-Secrets (like `AZURE_OPENAI_API_KEY`) are automatically stored as Container Apps secrets and injected via `secretRef` — they are never exposed in plain text in the YAML configuration.
-
-#### Container Resources
+### Container Resources
 
 | Setting | Value |
 |---------|-------|
@@ -749,21 +741,20 @@ Secrets (like `AZURE_OPENAI_API_KEY`) are automatically stored as Container Apps
 | Min replicas | 0 (scales to zero when idle) |
 | Max replicas | 3 |
 | Scale rule | HTTP concurrent requests > 20 |
+| Liveness probe | `/api/health` (10s initial delay, 30s period) |
+| Readiness probe | `/api/health` (5s initial delay, 10s period) |
 
-#### Post-Deployment Commands
+### Post-Deployment Commands
 
-```powershell
+```bash
 # View live logs
-az containerapp logs show -n model-migration-eval -g rg-model-migration --follow
+az containerapp logs show -n <app-name> -g <rg-name> --follow
 
 # Check status
-az containerapp show -n model-migration-eval -g rg-model-migration --query properties.runningStatus
-
-# List revisions
-az containerapp revision list -n model-migration-eval -g rg-model-migration -o table
+az containerapp show -n <app-name> -g <rg-name> --query properties.runningStatus
 
 # Tear down everything
-az group delete -n rg-model-migration --yes --no-wait
+azd down --purge --force
 ```
 
 ---

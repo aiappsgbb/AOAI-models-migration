@@ -6,7 +6,11 @@
 azure:
   # Azure OpenAI / AI Foundry Configuration
   endpoint: "${AZURE_OPENAI_ENDPOINT}"  # Use environment variable
-  api_key: "${AZURE_OPENAI_API_KEY}"    # Use environment variable
+  # Authentication: Entra ID via DefaultAzureCredential (recommended).
+  # In Azure Container Apps the User-Assigned Managed Identity is used
+  # automatically via the AZURE_CLIENT_ID env var set by Bicep.
+  # For local development, run 'az login' — no API key needed.
+  # To use an API key instead, set AZURE_OPENAI_API_KEY env var.
   api_version: "2025-04-01-preview"
   
   # Model Deployments

@@ -1,0 +1,19 @@
+# ---------------------------------------------------------------------------
+# Azure Developer CLI (azd) configuration
+# ---------------------------------------------------------------------------
+# Run:  azd up          → provision infrastructure + deploy the app
+#       azd deploy      → redeploy code only (after infra already exists)
+#       azd down        → tear down all Azure resources
+# ---------------------------------------------------------------------------
+
+name: model-migration-eval
+metadata:
+  template: model-migration-eval@0.1.0
+
+services:
+  web:
+    project: .
+    language: python
+    host: containerapp
+    docker:
+      path: ./Dockerfile
