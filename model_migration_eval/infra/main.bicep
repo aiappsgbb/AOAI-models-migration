@@ -41,6 +41,7 @@ param webImageName string = ''
 
 // ── Derived names ──────────────────────────────────────────────────────────
 var resourceSuffix = take(uniqueString(subscription().id, environmentName, location), 6)
+var envNameLower = toLower(environmentName)
 var resourceGroupName = 'rg-${environmentName}'
 
 var tags = {
@@ -59,9 +60,9 @@ module monitoring 'br/public:avm/ptn/azd/monitoring:0.1.0' = {
   name: 'monitoring'
   scope: rg
   params: {
-    logAnalyticsName: 'log-${environmentName}-${resourceSuffix}'
-    applicationInsightsName: 'ai-${environmentName}-${resourceSuffix}'
-    applicationInsightsDashboardName: 'aid-${environmentName}-${resourceSuffix}'
+    logAnalyticsName: 'log-${envNameLower}-${resourceSuffix}'
+    applicationInsightsName: 'ai-${envNameLower}-${resourceSuffix}'
+    applicationInsightsDashboardName: 'aid-${envNameLower}-${resourceSuffix}'
     location: location
     tags: tags
   }
@@ -72,8 +73,8 @@ module containerApps 'br/public:avm/ptn/azd/container-apps-stack:0.1.0' = {
   name: 'container-apps-stack'
   scope: rg
   params: {
-    containerAppsEnvironmentName: 'cae-${environmentName}-${resourceSuffix}'
-    containerRegistryName: 'acr${replace(environmentName, '-', '')}${resourceSuffix}'
+    containerAppsEnvironmentName: 'cae-${envNameLower}-${resourceSuffix}'
+    containerRegistryName: 'acr${replace(envNameLower, '-', '')}${resourceSuffix}'
     logAnalyticsWorkspaceResourceId: monitoring.outputs.logAnalyticsWorkspaceResourceId
     location: location
     tags: tags
@@ -88,7 +89,7 @@ module webIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.
   name: 'web-identity'
   scope: rg
   params: {
-    name: 'id-web-${environmentName}-${resourceSuffix}'
+    name: 'id-web-${envNameLower}-${resourceSuffix}'
     location: location
     tags: tags
   }
@@ -107,13 +108,32 @@ module acrAccess './modules/acr-access.bicep' = {
 // ── RBAC: Azure OpenAI + AI Foundry role assignments ───────────────────────
 // Grants the managed identity access to call models and run evaluations,
 // replacing the need for API keys or Service Principal credentials.
-module roleAssignments './modules/role-assignments.bicep' = if (!empty(azureOpenAiAccountResourceId) || !empty(aiFoundryProjectResourceId)) {
-  name: 'role-assignments'
-  scope: rg
+// Each module is deployed to the resource group where the target resource
+// lives (which may differ from the deployment RG).
+
+// Safe placeholders so split() always has enough segments when ID is empty
+var _openAiId = !empty(azureOpenAiAccountResourceId)
+  ? azureOpenAiAccountResourceId
+  : '/subscriptions/x/resourceGroups/x/providers/x/x/x'
+var _foundryId = !empty(aiFoundryProjectResourceId)
+  ? aiFoundryProjectResourceId
+  : '/subscriptions/x/resourceGroups/x/providers/x/x/x'
+
+module openAiAccess './modules/openai-access.bicep' = if (!empty(azureOpenAiAccountResourceId)) {
+  name: 'openai-access'
+  scope: resourceGroup(split(_openAiId, '/')[4])
   params: {
+    accountName: last(split(_openAiId, '/'))
     principalId: webIdentity.outputs.principalId
-    azureOpenAiAccountResourceId: azureOpenAiAccountResourceId
-    aiFoundryProjectResourceId: aiFoundryProjectResourceId
+  }
+}
+
+module foundryAccess './modules/foundry-access.bicep' = if (!empty(aiFoundryProjectResourceId)) {
+  name: 'foundry-access'
+  scope: resourceGroup(split(_foundryId, '/')[4])
+  params: {
+    workspaceName: last(split(_foundryId, '/'))
+    principalId: webIdentity.outputs.principalId
   }
 }
 
@@ -121,7 +141,7 @@ module roleAssignments './modules/role-assignments.bicep' = if (!empty(azureOpen
 // Uses avm/res/app/container-app directly for full control over probes,
 // scale rules, ingress security, and scale-to-zero — features that the
 // azd pattern modules (container-app-upsert / acr-container-app) don't expose.
-var containerAppName = 'ca-${environmentName}-${resourceSuffix}'
+var containerAppName = 'ca-${envNameLower}-${resourceSuffix}'
 var containerImage = !empty(webImageName)
   ? webImageName
   : 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
