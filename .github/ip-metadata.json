@@ -1,0 +1,63 @@
+{
+  "name": "Azure OpenAI Models Migration Guide",
+  "description": "A comprehensive guide and toolkit for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI models. Includes evaluation tools, migration paths, API changes, and best practices for production deployments. Features a web UI for side-by-side model comparison and supports integration with Azure AI Foundry for cloud evaluation.",
+  "maturity": "Silver",
+  "region": "AMER",
+  "industry": "Cross",
+  "owner": "angels",
+  "pattern": [
+    "AI/ML",
+    "Application Innovation",
+    "Cloud Native",
+    "DevOps",
+    "Integration",
+    "Document Intelligence"
+  ],
+  "services": [
+    "Azure OpenAI",
+    "Azure AI Search",
+    "Azure Machine Learning",
+    "Azure Cognitive Services"
+  ],
+  "tags": [
+    "model migration",
+    "GPT-4o",
+    "GPT-5",
+    "Azure OpenAI",
+    "evaluation",
+    "API changes",
+    "LLM",
+    "RAG",
+    "tool calling",
+    "translation",
+    "classification",
+    "production",
+    "Copilot Skills",
+    "cloud evaluation",
+    "model retirement",
+    "SDK"
+  ],
+  "version": "1.0.0",
+  "createdDate": "2026-02-23",
+  "lastUpdated": "2026-02-23",
+  "license": "MIT",
+  "repository": {
+    "url": "https://github.com/aiappsgbb/AOAI-models-migration",
+    "branch": "main"
+  },
+  "documentation": {
+    "readme": "",
+    "architecture": "",
+    "demo": ""
+  },
+  "contacts": {
+    "technical": [
+      "angels",
+      "ricchi",
+      "charendt"
+    ],
+    "business": [
+      "alfernan"
+    ]
+  }
+}
