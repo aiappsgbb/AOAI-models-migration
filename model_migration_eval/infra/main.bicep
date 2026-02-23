@@ -144,7 +144,7 @@ module foundryAccess './modules/foundry-access.bicep' = if (!empty(aiFoundryProj
 // Uses avm/res/app/container-app directly for full control over probes,
 // scale rules, ingress security, and scale-to-zero — features that the
 // azd pattern modules (container-app-upsert / acr-container-app) don't expose.
-var containerAppName = 'ca-${envNameLower}-${resourceSuffix}'
+var containerAppName = take('ca-${envNameLower}-${resourceSuffix}', 32)
 var containerImage = !empty(webImageName)
   ? webImageName
   : 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
