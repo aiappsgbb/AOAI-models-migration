@@ -1,0 +1,139 @@
+# =============================================================================
+# Azure OpenAI Model Migration - Configuration Settings
+# =============================================================================
+# Copy this file to settings.yaml and update with your credentials
+
+azure:
+  # Azure OpenAI / AI Foundry Configuration
+  endpoint: "${AZURE_OPENAI_ENDPOINT}"  # Use environment variable
+  api_key: "${AZURE_OPENAI_API_KEY}"    # Use environment variable
+  api_version: "2025-04-01-preview"
+  
+  # Model Deployments
+  models:
+    gpt4:
+      deployment_name: "gpt-4.1"
+      model_version: "2024-08-06"
+      max_tokens: 4096
+      temperature: 0.1  # Low for reproducibility
+      
+    gpt5:
+      deployment_name: "gpt-5.2"  # Update with actual deployment name
+      model_version: "2025-01-01"
+      max_tokens: 8192
+      temperature: 0.1
+      
+    gpt5_reasoning:
+      deployment_name: "gpt-5" #.1-reasoning"  # o3/o4 series
+      model_version: "2025-01-01"
+      max_tokens: 16384
+      reasoning_effort: "medium"  # low, medium, high
+
+# =============================================================================
+# Microsoft Foundry Control Plane Evaluation (optional)
+# =============================================================================
+foundry:
+  # Project endpoint from Azure AI Foundry portal → Project → Overview
+  project_endpoint: "${FOUNDRY_PROJECT_ENDPOINT}"   # e.g. https://<name>.services.ai.azure.com/api/projects/<project>
+  # Deployment used as LLM judge for quality evaluations
+  judge_deployment: "gpt-5.2"   # e.g. gpt-4.1 (must be deployed in the Foundry project)
+  # Model used inside score_model graders (must be a supported grader model:
+  # gpt-4.1, gpt-4o, gpt-4.1-mini, o3-mini, o4-mini, etc.)
+  grader_model: "gpt-4.1"
+
+# =============================================================================
+# Evaluation Settings
+# =============================================================================
+evaluation:
+  # Number of runs per test case for consistency measurement
+  consistency_runs: 5
+  
+  # Timeout settings (seconds)
+  request_timeout: 60
+  total_timeout: 300
+  
+  # Batch processing
+  batch_size: 10
+  parallel_requests: 5
+  
+  # Performance — parallel execution
+  # max_concurrent_requests: semaphore limit for async API calls within a
+  #   single evaluation.  Tune based on your Azure OpenAI RPM/TPM tier.
+  max_concurrent_requests: 5
+  # parallel_models: when comparing two models, evaluate both simultaneously
+  parallel_models: true
+  
+  # Output settings
+  results_dir: "data/results"
+  save_responses: true
+  
+  # Metrics to compute
+  metrics:
+    - accuracy
+    - consistency
+    - latency
+    - token_usage
+    - cost
+
+# =============================================================================
+# Caching Configuration
+# =============================================================================
+caching:
+  enabled: true
+  cache_dir: ".cache/prompts"
+  ttl_seconds: 86400  # 24 hours
+  
+  # Prompt caching for Azure OpenAI
+  prompt_caching:
+    enabled: true
+    min_prefix_length: 1024  # Minimum tokens for cache benefit
+
+# =============================================================================
+# Security Settings
+# =============================================================================
+security:
+  # Content filtering
+  content_filter:
+    enabled: true
+    categories:
+      - hate
+      - sexual
+      - violence
+      - self_harm
+  
+  # PII handling
+  pii_detection:
+    enabled: true
+    redact_in_logs: true
+    
+  # Sandbox tools
+  code_interpreter:
+    enabled: false  # Enable only when needed
+    timeout: 30
+    
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+logging:
+  level: "INFO"
+  format: "json"
+  file: "logs/migration_eval.log"
+  
+  # Diagnostic logging for SDK
+  sdk_diagnostics:
+    enabled: true
+    log_threshold_ms: 1000  # Log slow requests
+
+# =============================================================================
+# Web Interface Settings
+# =============================================================================
+web:
+  host: "127.0.0.1"
+  port: 5000
+  debug: false
+  
+  # CORS settings
+  cors:
+    origins:
+      - "http://localhost:3000"
+      - "http://127.0.0.1:5000"

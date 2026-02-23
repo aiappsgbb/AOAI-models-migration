@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Migration Evaluator - Azure OpenAI GPT-4 to GPT-5</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% include '_fluent_head.html' %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+.card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .loading {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .info-tooltip { position: relative; display: inline-flex; }
+        .info-tooltip .tooltip-text {
+            visibility: hidden; opacity: 0; position: absolute; z-index: 50;
+            bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+            width: 230px; padding: 8px 10px; border-radius: 8px;
+            background: #1e293b; color: #f1f5f9; font-size: 12px; line-height: 1.4;
+            text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,.25);
+            transition: opacity .15s; pointer-events: none; font-weight: normal;
+        }
+        .info-tooltip .tooltip-text::after {
+            content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+            border: 6px solid transparent; border-top-color: #1e293b;
+        }
+        .info-tooltip:hover .tooltip-text,
+        .info-tooltip:focus-within .tooltip-text { visibility: visible; opacity: 1; }
+    </style>
+</head>
+<body class="bg-[#faf9f8] min-h-screen">
+    {% set active_page = 'dashboard' %}
+    {% include '_sidebar.html' %}
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl mx-auto w-full px-8 py-6">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 id="main-heading" class="fluent-page-title mb-1">Model Migration Evaluation</h1>
+            <p id="active-topic-subtitle" class="text-sm text-brand-600 font-semibold mb-3"></p>
+            <p class="fluent-subtitle text-[15px] max-w-3xl mx-auto">
+                Comprehensive evaluation framework for comparing Azure OpenAI models across 
+                accuracy, consistency, latency, and quality dimensions.
+            </p>
+        </div>
+
+        <!-- Status Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+            <div id="status-client" class="fluent-card p-5">
+                <div class="flex items-center">
+                    <div class="p-2.5 rounded-lg bg-brand-50 text-brand-500">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-[13px] font-medium text-[var(--text-secondary)]">Client Status</p>
+                        <p id="client-status" class="text-lg font-semibold text-gray-700">Checking...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fluent-card p-5">
+                <div class="flex items-center">
+                    <div class="p-2.5 rounded-lg bg-[#DFF6DD] text-[#0E700E]">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-[13px] font-medium text-[var(--text-secondary)]">Models Available</p>
+                        <p id="models-count" class="text-lg font-semibold text-gray-700">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fluent-card p-5">
+                <div class="flex items-center">
+                    <div class="p-2.5 rounded-lg bg-brand-50 text-brand-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-[13px] font-medium text-[var(--text-secondary)]">Test Scenarios</p>
+                        <p id="scenarios-count" class="text-lg font-semibold text-gray-700">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fluent-card p-5">
+                <div class="flex items-center">
+                    <div class="p-2.5 rounded-lg bg-[#FFF1D6] text-[#835B00]">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-[13px] font-medium text-[var(--text-secondary)]">Saved Results</p>
+                        <p id="results-count" class="text-lg font-semibold text-gray-700">-</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Test Section -->
+        <div class="fluent-card p-6 mb-12">
+            <h2 class="fluent-section-title mb-5">Quick Evaluation</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                    <label class="fluent-label">Customer Message</label>
+                    <textarea id="test-input" rows="4" class="fluent-input focus:border-transparent" placeholder="Enter a customer message to test classification...">I just got my bill and there's a $45 charge I don't recognize. I've been a customer for 5 years.</textarea>
+                    
+                    <div class="mt-4 flex space-x-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="test-gpt4" checked class="h-4 w-4 text-blue-600 rounded">
+                            <span class="ml-2 text-sm text-gray-700">GPT-4</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="test-gpt5" checked class="h-4 w-4 text-blue-600 rounded">
+                            <span class="ml-2 text-sm text-gray-700">GPT-5</span>
+                        </label>
+                    </div>
+                    
+                    <div class="mt-4 flex items-center space-x-4">
+                        <button id="run-test" class="fluent-btn-primary">
+                            Run Classification Test
+                        </button>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="verbose-mode" class="h-4 w-4 text-blue-600 rounded border-gray-300">
+                            <span class="ml-1.5 text-sm text-[var(--text-secondary)]">Verbose</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="fluent-label">Results</label>
+                    <div id="test-results" class="bg-[var(--surface-bg)] rounded-lg p-4 border border-[var(--border-subtle)] min-h-[200px] font-mono text-sm overflow-auto">
+                        <p class="text-gray-500">Results will appear here...</p>
+                    </div>
+                    <div id="verbose-log" class="hidden mt-3 bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg p-4 text-sm text-[var(--text-secondary)] max-h-[300px] overflow-auto shadow-inner space-y-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <a href="/evaluate" class="fluent-card p-5 block">
+                <div class="text-brand-500 mb-3">
+                    <svg class="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                    </svg>
+                </div>
+                <h3 class="fluent-section-title text-[16px] mb-2">Run Evaluation</h3>
+                <p class="text-[var(--text-secondary)]">Execute comprehensive evaluations on classification, dialog, and general capability tests.</p>
+            </a>
+
+            <a href="/compare" class="fluent-card p-5 block">
+                <div class="text-[#0E700E] mb-3">
+                    <svg class="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                </div>
+                <h3 class="fluent-section-title text-[16px] mb-2">Compare Models</h3>
+                <p class="text-[var(--text-secondary)]">Side-by-side comparison across all evaluation dimensions.</p>
+            </a>
+
+            <a href="/prompts" class="fluent-card p-5 block">
+                <div class="text-brand-600 mb-3">
+                    <svg class="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                </div>
+                <h3 class="fluent-section-title text-[16px] mb-2">View Prompts</h3>
+                <p class="text-[var(--text-secondary)]">Explore and compare prompt templates optimized for each configured model.</p>
+            </a>
+        </div>
+
+        <!-- Evaluation Dimensions -->
+        <div class="mt-12 fluent-card p-6">
+            <h2 class="fluent-section-title mb-5">Evaluation Dimensions</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                <div class="text-center p-4 bg-brand-50 rounded-lg border border-brand-100">
+                    <div class="text-[20px] font-semibold text-brand-500 mb-1">Accuracy <span class="info-tooltip"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-200 hover:bg-blue-300 text-blue-700 text-xs font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Measures how often the model predicts the correct category, subcategory, priority, and sentiment. Includes weighted F1, precision, recall, and Cohen's Kappa.</span></span></div>
+                    <p class="text-sm text-[var(--text-secondary)]">Classification F1, correctness, precision/recall</p>
+                </div>
+                <div class="text-center p-4 bg-[#DFF6DD] rounded-lg border border-[#C3EABD]">
+                    <div class="text-[20px] font-semibold text-[#0E700E] mb-1">Consistency <span class="info-tooltip"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-200 hover:bg-green-300 text-green-700 text-xs font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Evaluates reproducibility by running the same prompt multiple times and measuring how often the output is identical. Also checks format stability.</span></span></div>
+                    <p class="text-sm text-[var(--text-secondary)]">Reproducibility, response variance, format stability</p>
+                </div>
+                <div class="text-center p-4 bg-[#FFF1D6] rounded-lg border border-[#FDCF89]">
+                    <div class="text-[20px] font-semibold text-[#835B00] mb-1">Latency <span class="info-tooltip"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-yellow-200 hover:bg-yellow-300 text-yellow-700 text-xs font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">End-to-end response time including TTFT (time to first token), mean, median, P95, and P99 percentiles. Also reports tokens per second throughput.</span></span></div>
+                    <p class="text-sm text-[var(--text-secondary)]">TTFT, total response time, P95/P99 metrics</p>
+                </div>
+                <div class="text-center p-4 bg-brand-50 rounded-lg border border-brand-200">
+                    <div class="text-[20px] font-semibold text-brand-600 mb-1">Quality <span class="info-tooltip"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-200 hover:bg-brand-200 text-brand-600 text-xs font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Checks whether responses match the expected JSON schema (format compliance), include all required fields (completeness), and are relevant to the query.</span></span></div>
+                    <p class="text-sm text-[var(--text-secondary)]">Format compliance, completeness, relevance</p>
+                </div>
+                <div class="text-center p-4 bg-[#FDE7E9] rounded-lg border border-[#F4A9B0]">
+                    <div class="text-[20px] font-semibold text-[#B10E1C] mb-1">Cost <span class="info-tooltip"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-200 hover:bg-red-300 text-red-700 text-xs font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Estimates USD cost per request based on prompt/completion token counts and model-specific pricing. Tracks cache hit rate and reasoning token overhead.</span></span></div>
+                    <p class="text-sm text-[var(--text-secondary)]">Token usage, cache efficiency, cost per request</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Microsoft Foundry LLM-as-Judge Dimensions -->
+        <div class="mt-8 fluent-card p-6">
+            <h2 class="fluent-section-title mb-1 text-brand-700">☁️ Microsoft Foundry — LLM-as-Judge Dimensions</h2>
+            <p class="text-sm text-[var(--text-secondary)] mb-5">Optional semantic quality evaluation via <a href="https://ai.azure.com/" target="_blank" class="text-brand-500 hover:underline">Microsoft Foundry Control Plane</a>. A GPT-4.1 grader model rates each response on a 1–5 scale.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                <div class="text-center p-4 bg-brand-50 rounded-lg border border-brand-200">
+                    <div class="text-[20px] font-semibold text-brand-600 mb-1">Coherence <span class="info-tooltip"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-200 hover:bg-brand-300 text-brand-700 text-xs font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Measures logical flow and internal consistency of the response. A Foundry LLM grader scores from 1 (disjointed, contradictory) to 5 (perfectly structured and logically connected).</span></span></div>
+                    <p class="text-sm text-[var(--text-secondary)]">Logical flow, structure, internal consistency</p>
+                </div>
+                <div class="text-center p-4 bg-brand-50 rounded-lg border border-brand-200">
+                    <div class="text-[20px] font-semibold text-brand-600 mb-1">Fluency <span class="info-tooltip"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-200 hover:bg-brand-300 text-brand-700 text-xs font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Evaluates grammar, readability, and natural language quality. Scores from 1 (unreadable or broken grammar) to 5 (fluent, professional-quality prose).</span></span></div>
+                    <p class="text-sm text-[var(--text-secondary)]">Grammar, readability, natural language quality</p>
+                </div>
+                <div class="text-center p-4 bg-brand-50 rounded-lg border border-brand-200">
+                    <div class="text-[20px] font-semibold text-brand-600 mb-1">Relevance <span class="info-tooltip"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-200 hover:bg-brand-300 text-brand-700 text-xs font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Assesses how well the response addresses the original query. Scores from 1 (completely off-topic) to 5 (directly and fully addresses the user's intent).</span></span></div>
+                    <p class="text-sm text-[var(--text-secondary)]">Query alignment, topicality, user intent</p>
+                </div>
+                <div class="text-center p-4 bg-brand-50 rounded-lg border border-brand-200">
+                    <div class="text-[20px] font-semibold text-brand-600 mb-1">Similarity <span class="info-tooltip"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-200 hover:bg-brand-300 text-brand-700 text-xs font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Measures semantic closeness between the model's response and the expected ground-truth answer. Scores from 1 (completely different meaning) to 5 (semantically equivalent).</span></span></div>
+                    <p class="text-sm text-[var(--text-secondary)]">Semantic match with expected answer</p>
+                </div>
+                <div class="text-center p-4 bg-brand-50 rounded-lg border border-brand-200">
+                    <div class="text-[20px] font-semibold text-brand-600 mb-1">Task Adherence <span class="info-tooltip"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-200 hover:bg-brand-300 text-brand-700 text-xs font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Evaluates how well the response follows the task requirements, output format, and system prompt instructions. Scores from 1 (ignores requirements) to 5 (perfectly follows all instructions).</span></span></div>
+                    <p class="text-sm text-[var(--text-secondary)]">Format compliance, instruction following</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-[var(--border-subtle)] bg-[var(--header-bg)] py-4 mt-auto">
+        <div class="max-w-7xl mx-auto px-8 text-center">
+            <p class="text-[var(--text-tertiary)] text-[12px]">Azure OpenAI Model Migration Evaluation Framework</p>
+            <p id="footer-subtitle" class="text-[var(--text-tertiary)] text-[11px] opacity-70 mt-1">Model Migration Best Practices</p>
+        </div>
+    </footer>
+
+    <script>
+        // Model display-name map: { gpt4: "gpt-4.1", gpt5: "gpt-5.1", … }
+        let modelNames = {};
+
+        function displayName(key) {
+            return modelNames[key] || key;
+        }
+
+        // Verbose logging helpers — narrative style
+        function verboseLog(msg, type) {
+            const el = document.getElementById('verbose-log');
+            if (!document.getElementById('verbose-mode').checked) { el.classList.add('hidden'); return; }
+            el.classList.remove('hidden');
+            const ts = new Date().toLocaleTimeString('en-GB', {hour12:false, hour:'2-digit',minute:'2-digit',second:'2-digit'});
+            const colors = { step: 'bg-blue-50 border-blue-200 text-blue-800', ok: 'bg-green-50 border-green-200 text-green-800', warn: 'bg-yellow-50 border-yellow-200 text-yellow-800', err: 'bg-red-50 border-red-200 text-red-800', detail: 'bg-gray-50 border-gray-200 text-gray-700', head: 'bg-brand-50 border-brand-200 text-brand-700' };
+            const cls = colors[type] || colors.step;
+            el.innerHTML += `<div class="rounded-lg border px-3 py-2 ${cls}"><span class="text-[10px] text-gray-400 float-right">${ts}</span>${msg}</div>`;
+            el.scrollTop = el.scrollHeight;
+        }
+        function verboseClear() { document.getElementById('verbose-log').innerHTML = ''; }
+
+        function makeRunId(prefix = 'run') {
+            return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        async function startBackendLogPolling(runId, tag = 'Backend') {
+            if (!document.getElementById('verbose-mode').checked || !runId) {
+                return async () => {};
+            }
+
+            let offset = 0;
+            let active = true;
+
+            const levelToType = (lvl) => {
+                const u = String(lvl || '').toUpperCase();
+                if (u.includes('ERROR') || u.includes('CRITICAL')) return 'err';
+                if (u.includes('WARN')) return 'warn';
+                if (u.includes('INFO')) return 'detail';
+                return 'step';
+            };
+
+            const pollOnce = async () => {
+                if (!active) return;
+                try {
+                    const r = await fetch(`/api/logs/${encodeURIComponent(runId)}?offset=${offset}`);
+                    if (!r.ok) return;
+                    const data = await r.json();
+                    const entries = data.entries || [];
+                    for (const e of entries) {
+                        const loggerName = escapeHtml(e.logger || 'app');
+                        const level = escapeHtml(e.level || 'INFO');
+                        const msg = escapeHtml(e.message || '');
+                        verboseLog(`🖥️ <strong>${tag}</strong> [${loggerName}] <span class="opacity-70">${level}</span> — ${msg}`, levelToType(level));
+                    }
+                    offset = Number(data.next_offset || offset);
+                } catch (_) {
+                    // silent by design
+                }
+            };
+
+            const timer = setInterval(pollOnce, 1200);
+            await pollOnce();
+
+            return async () => {
+                active = false;
+                clearInterval(timer);
+                try {
+                    const r = await fetch(`/api/logs/${encodeURIComponent(runId)}?offset=${offset}`);
+                    if (!r.ok) return;
+                    const data = await r.json();
+                    const entries = data.entries || [];
+                    for (const e of entries) {
+                        const loggerName = escapeHtml(e.logger || 'app');
+                        const level = escapeHtml(e.level || 'INFO');
+                        const msg = escapeHtml(e.message || '');
+                        verboseLog(`🖥️ <strong>${tag}</strong> [${loggerName}] <span class="opacity-70">${level}</span> — ${msg}`, levelToType(level));
+                    }
+                } catch (_) {
+                    // silent by design
+                }
+            };
+        }
+
+        async function loadActiveTopic() {
+            try {
+                const resp = await fetch('/api/topics');
+                const data = await resp.json();
+                const active = (data.topics || []).find(t => t.active);
+                const el = document.getElementById('active-topic-subtitle');
+                if (active && active.topic) {
+                    el.textContent = '📌 Topic: ' + active.topic;
+                } else {
+                    el.textContent = '';
+                }
+            } catch(e) {}
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadModels();
+            await checkHealth();
+            await loadStats();
+            loadActiveTopic();
+        });
+
+        async function loadModels() {
+            try {
+                const resp = await fetch('/api/models');
+                const data = await resp.json();
+                const models = data.models || [];
+                models.forEach(m => { modelNames[m.name] = m.deployment; });
+                // Update checkbox labels
+                document.querySelectorAll('#test-gpt4').forEach(el => {
+                    el.parentElement.querySelector('span').textContent = displayName('gpt4');
+                });
+                document.querySelectorAll('#test-gpt5').forEach(el => {
+                    el.parentElement.querySelector('span').textContent = displayName('gpt5');
+                });
+                // Update heading & footer with actual model names
+                document.getElementById('main-heading').textContent =
+                    `${displayName('gpt4')} to ${displayName('gpt5')} Migration Evaluation`;
+                document.getElementById('footer-subtitle').textContent =
+                    `${displayName('gpt4')} → ${displayName('gpt5')} Migration Best Practices`;
+                document.title = `Model Migration Evaluator - ${displayName('gpt4')} to ${displayName('gpt5')}`;
+            } catch (e) { console.error('Failed to load models', e); }
+        }
+
+        async function checkHealth() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                
+                const statusEl = document.getElementById('client-status');
+                if (data.client_ready) {
+                    statusEl.textContent = 'Connected';
+                    statusEl.classList.add('text-green-600');
+                } else {
+                    statusEl.textContent = 'Not Configured';
+                    statusEl.classList.add('text-red-600');
+                }
+            } catch (error) {
+                document.getElementById('client-status').textContent = 'Error';
+            }
+        }
+
+        async function loadStats() {
+            try {
+                // Load models
+                const modelsResp = await fetch('/api/models');
+                const modelsData = await modelsResp.json();
+                document.getElementById('models-count').textContent = modelsData.models?.length || 0;
+
+                // Load data summary
+                const dataResp = await fetch('/api/data/summary');
+                const dataData = await dataResp.json();
+                document.getElementById('scenarios-count').textContent = dataData.total_scenarios || 0;
+
+                // Load results
+                const resultsResp = await fetch('/api/results');
+                const resultsData = await resultsResp.json();
+                document.getElementById('results-count').textContent = resultsData.results?.length || 0;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Quick test functionality
+        document.getElementById('run-test').addEventListener('click', async function() {
+            const input = document.getElementById('test-input').value;
+            const testGpt4 = document.getElementById('test-gpt4').checked;
+            const testGpt5 = document.getElementById('test-gpt5').checked;
+            const resultsEl = document.getElementById('test-results');
+            
+            if (!input.trim()) {
+                resultsEl.innerHTML = '<p class="text-red-500">Please enter a customer message</p>';
+                return;
+            }
+
+            const models = [];
+            if (testGpt4) models.push('gpt4');
+            if (testGpt5) models.push('gpt5');
+
+            if (models.length === 0) {
+                resultsEl.innerHTML = '<p class="text-red-500">Please select at least one model</p>';
+                return;
+            }
+
+            resultsEl.innerHTML = '<p class="text-blue-500 loading">Running evaluation...</p>';
+            verboseClear();
+            verboseLog('🚀 <strong>Starting quick classification test</strong>', 'head');
+            verboseLog(`Sending the following customer message to <strong>${models.map(m => displayName(m)).join(' and ')}</strong> for classification:<br>💬 <em>"${input.substring(0, 200)}${input.length > 200 ? '…' : ''}"</em><br>The model(s) will analyze this message and predict a category, subcategory, priority, and sentiment.`, 'step');
+            const runId = makeRunId('single');
+            const stopBackendLogs = await startBackendLogPolling(runId, 'Quick Test');
+
+            try {
+                verboseLog('📡 Calling the evaluation API…', 'step');
+                const response = await fetch('/api/evaluate/single', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        customer_input: input,
+                        models: models,
+                        type: 'classification',
+                        run_id: runId,
+                    })
+                });
+                verboseLog(`✅ Server responded (HTTP ${response.status}).`, 'ok');
+
+                const data = await response.json();
+                for (const [m, r] of Object.entries(data)) {
+                    if (r.error) {
+                        verboseLog(`❌ <strong>${displayName(m)}</strong> returned an error: <em>${r.error}</em>`, 'err');
+                    } else {
+                        const p = r.parsed || {};
+                        const t = r.tokens || {};
+                        const c = r.cost || {};
+                        let detail = `<strong>${displayName(m)} — Result</strong><br>`;
+                        detail += `📂 Category: <strong>${p.category || 'N/A'}</strong>`;
+                        if (p.subcategory) detail += ` → ${p.subcategory}`;
+                        detail += `<br>`;
+                        if (p.priority) detail += `🔺 Priority: <strong>${p.priority}</strong> &nbsp;|&nbsp; `;
+                        if (p.sentiment) detail += `😊 Sentiment: <strong>${p.sentiment}</strong> &nbsp;|&nbsp; `;
+                        if (p.confidence > 0) detail += `📈 Confidence: <strong>${(p.confidence * 100).toFixed(0)}%</strong>`;
+                        detail += `<br>⏱ Latency: <strong>${r.latency?.toFixed(3) || '?'}s</strong>`;
+                        detail += ` &nbsp;|&nbsp; Tokens: ${t.total || '?'} (${t.prompt_tokens || '?'} prompt + ${t.completion_tokens || '?'} completion)`;
+                        if (t.cached > 0) detail += ` &nbsp;|&nbsp; ${t.cached} cached`;
+                        if (t.reasoning > 0) detail += ` &nbsp;|&nbsp; ${t.reasoning} reasoning`;
+                        if (c.usd != null) detail += `<br>💰 Estimated cost: <strong>$${c.usd.toFixed(4)}</strong>`;
+                        verboseLog(detail, 'ok');
+                    }
+                }
+                verboseLog('🏁 <strong>Quick test complete.</strong>', 'head');
+                
+                let html = '';
+                for (const [model, result] of Object.entries(data)) {
+                    html += `<div class="mb-4 p-3 bg-white rounded border">`;
+                    html += `<h4 class="font-bold text-${model === 'gpt4' ? 'blue' : 'purple'}-600 mb-2">${displayName(model)}</h4>`;
+                    
+                    if (result.error) {
+                        html += `<p class="text-red-500">${result.error}</p>`;
+                    } else {
+                        const parsed = result.parsed || {};
+                        const tokens = result.tokens || {};
+                        const cost = result.cost || {};
+                        html += `<div class="grid grid-cols-2 gap-2 text-sm">`;
+                        html += `<div><span class="text-gray-500">Category:</span> ${parsed.category || 'N/A'}</div>`;
+                        html += `<div><span class="text-gray-500">Subcategory:</span> ${parsed.subcategory || 'N/A'}</div>`;
+                        html += `<div><span class="text-gray-500">Priority:</span> ${parsed.priority || 'N/A'}</div>`;
+                        html += `<div><span class="text-gray-500">Sentiment:</span> ${parsed.sentiment || 'N/A'}</div>`;
+                        html += `<div><span class="text-gray-500">Confidence:</span> ${parsed.confidence != null && parsed.confidence > 0 ? (parsed.confidence * 100).toFixed(1) + '%' : 'N/A'}</div>`;
+                        html += `<div><span class="text-gray-500">Latency:</span> ${result.latency?.toFixed(3)}s</div>`;
+                        html += `<div><span class="text-gray-500">Tokens:</span> ${tokens.total || 'N/A'}</div>`;
+                        html += `<div><span class="text-gray-500">Cost:</span> ${cost.usd != null ? '$' + cost.usd.toFixed(4) : 'N/A'}</div>`;
+                        if (tokens.cached > 0) html += `<div><span class="text-gray-500">Cached:</span> ${tokens.cached} tok</div>`;
+                        if (tokens.reasoning > 0) html += `<div><span class="text-gray-500">Reasoning:</span> ${tokens.reasoning} tok</div>`;
+                        html += `</div>`;
+                    }
+                    html += `</div>`;
+                }
+                
+                resultsEl.innerHTML = html;
+            } catch (error) {
+                resultsEl.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+            } finally {
+                await stopBackendLogs();
+            }
+        });
+    </script>
+</div><!-- end content area -->
+</body>
+</html>

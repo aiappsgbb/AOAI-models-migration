@@ -1,0 +1,1302 @@
+[
+  {
+    "id": "20260217_174409_843278",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "A warm, AI assistant that responses Movistar customers questions about their invoices and billings",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T17:44:09.846382",
+    "filename": "gpt5__dialog_agent_system__20260217_174409_843278_new.md"
+  },
+  {
+    "id": "20260217_174409_839592",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T17:44:09.842472",
+    "filename": "gpt5__dialog_agent_system__20260217_174409_839592.md"
+  },
+  {
+    "id": "20260217_174338_857452",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "A warm, AI assistant that responses Movistar customers questions about their invoices and billings",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T17:43:38.861727",
+    "filename": "gpt5__classification_agent_system__20260217_174338_857452_new.md"
+  },
+  {
+    "id": "20260217_174338_847024",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T17:43:38.854283",
+    "filename": "gpt5__classification_agent_system__20260217_174338_847024.md"
+  },
+  {
+    "id": "20260217_174311_886656",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "A warm, AI assistant that responses Movistar customers questions about their invoices and billings",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T17:43:11.888338",
+    "filename": "gpt4__dialog_agent_system__20260217_174311_886656_new.md"
+  },
+  {
+    "id": "20260217_174311_879424",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T17:43:11.885074",
+    "filename": "gpt4__dialog_agent_system__20260217_174311_879424.md"
+  },
+  {
+    "id": "20260217_174221_812758",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "A warm, AI assistant that responses Movistar customers questions about their invoices and billings",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T17:42:21.814333",
+    "filename": "gpt4__classification_agent_system__20260217_174221_812758_new.md"
+  },
+  {
+    "id": "20260217_174221_807507",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T17:42:21.811173",
+    "filename": "gpt4__classification_agent_system__20260217_174221_807507.md"
+  },
+  {
+    "id": "20260217_142431_138541",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "An AI assistant that responses Movistar customers questions about their invoices and billings",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T14:24:31.142068",
+    "filename": "gpt5__dialog_agent_system__20260217_142431_138541_new.md"
+  },
+  {
+    "id": "20260217_142431_126244",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T14:24:31.135886",
+    "filename": "gpt5__dialog_agent_system__20260217_142431_126244.md"
+  },
+  {
+    "id": "20260217_142400_526134",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "An AI assistant that responses Movistar customers questions about their invoices and billings",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T14:24:00.529042",
+    "filename": "gpt5__classification_agent_system__20260217_142400_526134_new.md"
+  },
+  {
+    "id": "20260217_142400_517789",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T14:24:00.523529",
+    "filename": "gpt5__classification_agent_system__20260217_142400_517789.md"
+  },
+  {
+    "id": "20260217_142316_613179",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "An AI assistant that responses Movistar customers questions about their invoices and billings",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T14:23:16.616887",
+    "filename": "gpt4__dialog_agent_system__20260217_142316_613179_new.md"
+  },
+  {
+    "id": "20260217_142316_599095",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T14:23:16.609871",
+    "filename": "gpt4__dialog_agent_system__20260217_142316_599095.md"
+  },
+  {
+    "id": "20260217_142226_190894",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "An AI assistant that responses Movistar customers questions about their invoices and billings",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T14:22:26.197016",
+    "filename": "gpt4__classification_agent_system__20260217_142226_190894_new.md"
+  },
+  {
+    "id": "20260217_142226_168667",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T14:22:26.185304",
+    "filename": "gpt4__classification_agent_system__20260217_142226_168667.md"
+  },
+  {
+    "id": "20260217_134033_028880",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "A warm assistant that responses Movistar's customers questions about their invoices and billings",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T13:40:33.036697",
+    "filename": "gpt5__dialog_agent_system__20260217_134033_028880_new.md"
+  },
+  {
+    "id": "20260217_134033_010644",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T13:40:33.024521",
+    "filename": "gpt5__dialog_agent_system__20260217_134033_010644.md"
+  },
+  {
+    "id": "20260217_134006_097949",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "A warm assistant that responses Movistar's customers questions about their invoices and billings",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T13:40:06.104160",
+    "filename": "gpt5__classification_agent_system__20260217_134006_097949_new.md"
+  },
+  {
+    "id": "20260217_134006_075279",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T13:40:06.092697",
+    "filename": "gpt5__classification_agent_system__20260217_134006_075279.md"
+  },
+  {
+    "id": "20260217_133933_827421",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "A warm assistant that responses Movistar's customers questions about their invoices and billings",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T13:39:33.830911",
+    "filename": "gpt4__dialog_agent_system__20260217_133933_827421_new.md"
+  },
+  {
+    "id": "20260217_133933_814750",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T13:39:33.824784",
+    "filename": "gpt4__dialog_agent_system__20260217_133933_814750.md"
+  },
+  {
+    "id": "20260217_133854_942061",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "A warm assistant that responses Movistar's customers questions about their invoices and billings",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T13:38:54.949261",
+    "filename": "gpt4__classification_agent_system__20260217_133854_942061_new.md"
+  },
+  {
+    "id": "20260217_133854_918753",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T13:38:54.937001",
+    "filename": "gpt4__classification_agent_system__20260217_133854_918753.md"
+  },
+  {
+    "id": "20260217_124440_612731",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Movistar billing support assistant",
+    "source": "ai-migrated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T12:44:40.618964",
+    "filename": "gpt5__dialog_agent_system__20260217_124440_612731_new.md"
+  },
+  {
+    "id": "20260217_124440_594086",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T12:44:40.607832",
+    "filename": "gpt5__dialog_agent_system__20260217_124440_594086.md"
+  },
+  {
+    "id": "20260217_124413_535380",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Movistar billing support assistant",
+    "source": "ai-migrated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T12:44:13.545745",
+    "filename": "gpt5__classification_agent_system__20260217_124413_535380_new.md"
+  },
+  {
+    "id": "20260217_124413_505543",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T12:44:13.527920",
+    "filename": "gpt5__classification_agent_system__20260217_124413_505543.md"
+  },
+  {
+    "id": "20260217_124400_808024",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Movistar billing support assistant",
+    "source": "user-provided",
+    "author": "migration:original",
+    "timestamp": "2026-02-17T12:44:00.813908",
+    "filename": "gpt4__dialog_agent_system__20260217_124400_808024_new.md"
+  },
+  {
+    "id": "20260217_124400_791360",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "migration:original",
+    "timestamp": "2026-02-17T12:44:00.803334",
+    "filename": "gpt4__dialog_agent_system__20260217_124400_791360.md"
+  },
+  {
+    "id": "20260217_124400_670317",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Movistar billing support assistant",
+    "source": "user-provided",
+    "author": "migration:original",
+    "timestamp": "2026-02-17T12:44:00.677879",
+    "filename": "gpt4__classification_agent_system__20260217_124400_670317_new.md"
+  },
+  {
+    "id": "20260217_124400_647863",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "migration:original",
+    "timestamp": "2026-02-17T12:44:00.665982",
+    "filename": "gpt4__classification_agent_system__20260217_124400_647863.md"
+  },
+  {
+    "id": "20260217_122605_350219",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Movistar invoice and billing assistant",
+    "source": "ai-migrated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T12:26:05.353992",
+    "filename": "gpt5__dialog_agent_system__20260217_122605_350219_new.md"
+  },
+  {
+    "id": "20260217_122605_335602",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T12:26:05.347080",
+    "filename": "gpt5__dialog_agent_system__20260217_122605_335602.md"
+  },
+  {
+    "id": "20260217_122543_600231",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Movistar invoice and billing assistant",
+    "source": "ai-migrated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T12:25:43.602553",
+    "filename": "gpt5__classification_agent_system__20260217_122543_600231_new.md"
+  },
+  {
+    "id": "20260217_122543_591387",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T12:25:43.597984",
+    "filename": "gpt5__classification_agent_system__20260217_122543_591387.md"
+  },
+  {
+    "id": "20260217_122533_296708",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Movistar invoice and billing assistant",
+    "source": "user-provided",
+    "author": "migration:original",
+    "timestamp": "2026-02-17T12:25:33.298961",
+    "filename": "gpt4__dialog_agent_system__20260217_122533_296708_new.md"
+  },
+  {
+    "id": "20260217_122533_288583",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "migration:original",
+    "timestamp": "2026-02-17T12:25:33.295047",
+    "filename": "gpt4__dialog_agent_system__20260217_122533_288583.md"
+  },
+  {
+    "id": "20260217_122533_236792",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Movistar invoice and billing assistant",
+    "source": "user-provided",
+    "author": "migration:original",
+    "timestamp": "2026-02-17T12:25:33.243589",
+    "filename": "gpt4__classification_agent_system__20260217_122533_236792_new.md"
+  },
+  {
+    "id": "20260217_122533_222296",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "migration:original",
+    "timestamp": "2026-02-17T12:25:33.233697",
+    "filename": "gpt4__classification_agent_system__20260217_122533_222296.md"
+  },
+  {
+    "id": "20260217_115444_873405",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Movistar invoice support assistant",
+    "source": "ai-migrated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T11:54:44.876604",
+    "filename": "gpt5__dialog_agent_system__20260217_115444_873405_new.md"
+  },
+  {
+    "id": "20260217_115444_809194",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T11:54:44.871978",
+    "filename": "gpt5__dialog_agent_system__20260217_115444_809194.md"
+  },
+  {
+    "id": "20260217_115416_661097",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Movistar invoice support assistant",
+    "source": "ai-migrated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T11:54:16.665465",
+    "filename": "gpt5__classification_agent_system__20260217_115416_661097_new.md"
+  },
+  {
+    "id": "20260217_115416_646391",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T11:54:16.657653",
+    "filename": "gpt5__classification_agent_system__20260217_115416_646391.md"
+  },
+  {
+    "id": "20260217_115405_791084",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Movistar invoice support assistant",
+    "source": "ai-migrated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T11:54:05.793515",
+    "filename": "gpt4__dialog_agent_system__20260217_115405_791084_new.md"
+  },
+  {
+    "id": "20260217_115405_784720",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-17T11:54:05.788604",
+    "filename": "gpt4__dialog_agent_system__20260217_115405_784720.md"
+  },
+  {
+    "id": "20260217_115326_127654",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Movistar invoice support assistant",
+    "source": "user-provided",
+    "author": "migration:original",
+    "timestamp": "2026-02-17T11:53:26.130152",
+    "filename": "gpt4__classification_agent_system__20260217_115326_127654_new.md"
+  },
+  {
+    "id": "20260217_115326_118689",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "migration:original",
+    "timestamp": "2026-02-17T11:53:26.125916",
+    "filename": "gpt4__classification_agent_system__20260217_115326_118689.md"
+  },
+  {
+    "id": "20260216_102408_307074",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-16T10:24:08.310692",
+    "filename": "gpt5__dialog_agent_system__20260216_102408_307074_new.md"
+  },
+  {
+    "id": "20260216_102408_299567",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-16T10:24:08.305347",
+    "filename": "gpt5__dialog_agent_system__20260216_102408_299567.md"
+  },
+  {
+    "id": "20260216_102332_995713",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-16T10:23:32.998278",
+    "filename": "gpt5__classification_agent_system__20260216_102332_995713_new.md"
+  },
+  {
+    "id": "20260216_102332_987823",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-16T10:23:32.993481",
+    "filename": "gpt5__classification_agent_system__20260216_102332_987823.md"
+  },
+  {
+    "id": "20260216_102238_131011",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-16T10:22:38.132648",
+    "filename": "gpt4__dialog_agent_system__20260216_102238_131011_new.md"
+  },
+  {
+    "id": "20260216_102238_125979",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-16T10:22:38.129524",
+    "filename": "gpt4__dialog_agent_system__20260216_102238_125979.md"
+  },
+  {
+    "id": "20260216_102147_563808",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-16T10:21:47.567401",
+    "filename": "gpt4__classification_agent_system__20260216_102147_563808_new.md"
+  },
+  {
+    "id": "20260216_102147_551279",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-16T10:21:47.560126",
+    "filename": "gpt4__classification_agent_system__20260216_102147_551279.md"
+  },
+  {
+    "id": "20260216_101053_842560",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:10:53.845273",
+    "filename": "gpt5__dialog_agent_system__20260216_101053_842560_new.md"
+  },
+  {
+    "id": "20260216_101053_836571",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:10:53.840957",
+    "filename": "gpt5__dialog_agent_system__20260216_101053_836571.md"
+  },
+  {
+    "id": "20260216_101046_802635",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:10:46.805476",
+    "filename": "gpt5__classification_agent_system__20260216_101046_802635_new.md"
+  },
+  {
+    "id": "20260216_101046_794174",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:10:46.800303",
+    "filename": "gpt5__classification_agent_system__20260216_101046_794174.md"
+  },
+  {
+    "id": "20260216_101030_845935",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:10:30.848261",
+    "filename": "gpt4__dialog_agent_system__20260216_101030_845935_new.md"
+  },
+  {
+    "id": "20260216_101030_838084",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:10:30.844066",
+    "filename": "gpt4__dialog_agent_system__20260216_101030_838084.md"
+  },
+  {
+    "id": "20260216_101014_000138",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:10:14.001887",
+    "filename": "gpt4__classification_agent_system__20260216_101014_000138_new.md"
+  },
+  {
+    "id": "20260216_101013_992277",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:10:13.997926",
+    "filename": "gpt4__classification_agent_system__20260216_101013_992277.md"
+  },
+  {
+    "id": "20260216_100635_809517",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:06:35.813905",
+    "filename": "gpt5__dialog_agent_system__20260216_100635_809517_new.md"
+  },
+  {
+    "id": "20260216_100635_795565",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:06:35.806084",
+    "filename": "gpt5__dialog_agent_system__20260216_100635_795565.md"
+  },
+  {
+    "id": "20260216_100626_628910",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:06:26.633098",
+    "filename": "gpt5__classification_agent_system__20260216_100626_628910_new.md"
+  },
+  {
+    "id": "20260216_100626_620505",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:06:26.627329",
+    "filename": "gpt5__classification_agent_system__20260216_100626_620505.md"
+  },
+  {
+    "id": "20260216_100611_632678",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:06:11.635233",
+    "filename": "gpt4__dialog_agent_system__20260216_100611_632678_new.md"
+  },
+  {
+    "id": "20260216_100611_625757",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:06:11.631097",
+    "filename": "gpt4__dialog_agent_system__20260216_100611_625757.md"
+  },
+  {
+    "id": "20260216_100555_199537",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:05:55.201983",
+    "filename": "gpt4__classification_agent_system__20260216_100555_199537_new.md"
+  },
+  {
+    "id": "20260216_100555_192636",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T10:05:55.197506",
+    "filename": "gpt4__classification_agent_system__20260216_100555_192636.md"
+  },
+  {
+    "id": "20260216_093822_967281",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T09:38:22.970958",
+    "filename": "gpt5__dialog_agent_system__20260216_093822_967281_new.md"
+  },
+  {
+    "id": "20260216_093822_951881",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T09:38:22.963776",
+    "filename": "gpt5__dialog_agent_system__20260216_093822_951881.md"
+  },
+  {
+    "id": "20260216_093818_872447",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T09:38:18.880408",
+    "filename": "gpt5__classification_agent_system__20260216_093818_872447_new.md"
+  },
+  {
+    "id": "20260216_093818_858609",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T09:38:18.868539",
+    "filename": "gpt5__classification_agent_system__20260216_093818_858609.md"
+  },
+  {
+    "id": "20260216_093804_266755",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T09:38:04.270830",
+    "filename": "gpt4__dialog_agent_system__20260216_093804_266755_new.md"
+  },
+  {
+    "id": "20260216_093804_247083",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T09:38:04.262624",
+    "filename": "gpt4__dialog_agent_system__20260216_093804_247083.md"
+  },
+  {
+    "id": "20260216_093749_317707",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T09:37:49.320552",
+    "filename": "gpt4__classification_agent_system__20260216_093749_317707_new.md"
+  },
+  {
+    "id": "20260216_093749_308408",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-16T09:37:49.315364",
+    "filename": "gpt4__classification_agent_system__20260216_093749_308408.md"
+  },
+  {
+    "id": "20260215_171742_850354",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:17:42.854406",
+    "filename": "gpt5__dialog_agent_system__20260215_171742_850354_new.md"
+  },
+  {
+    "id": "20260215_171742_835127",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:17:42.846875",
+    "filename": "gpt5__dialog_agent_system__20260215_171742_835127.md"
+  },
+  {
+    "id": "20260215_171709_291554",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:17:09.294773",
+    "filename": "gpt5__classification_agent_system__20260215_171709_291554_new.md"
+  },
+  {
+    "id": "20260215_171709_278642",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:17:09.288144",
+    "filename": "gpt5__classification_agent_system__20260215_171709_278642.md"
+  },
+  {
+    "id": "20260215_171639_131153",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:16:39.134199",
+    "filename": "gpt4__dialog_agent_system__20260215_171639_131153_new.md"
+  },
+  {
+    "id": "20260215_171639_122343",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:16:39.129124",
+    "filename": "gpt4__dialog_agent_system__20260215_171639_122343.md"
+  },
+  {
+    "id": "20260215_171555_823544",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:15:55.829197",
+    "filename": "gpt4__classification_agent_system__20260215_171555_823544_new.md"
+  },
+  {
+    "id": "20260215_171555_728221",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:15:55.818551",
+    "filename": "gpt4__classification_agent_system__20260215_171555_728221.md"
+  },
+  {
+    "id": "20260215_171323_590171",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:13:23.593953",
+    "filename": "gpt5__dialog_agent_system__20260215_171323_590171_new.md"
+  },
+  {
+    "id": "20260215_171323_579620",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:13:23.587321",
+    "filename": "gpt5__dialog_agent_system__20260215_171323_579620.md"
+  },
+  {
+    "id": "20260215_171257_533269",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:12:57.535221",
+    "filename": "gpt5__classification_agent_system__20260215_171257_533269_new.md"
+  },
+  {
+    "id": "20260215_171257_502074",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:12:57.531373",
+    "filename": "gpt5__classification_agent_system__20260215_171257_502074.md"
+  },
+  {
+    "id": "20260215_171219_865954",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:12:19.869529",
+    "filename": "gpt4__dialog_agent_system__20260215_171219_865954_new.md"
+  },
+  {
+    "id": "20260215_171219_854797",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:12:19.863541",
+    "filename": "gpt4__dialog_agent_system__20260215_171219_854797.md"
+  },
+  {
+    "id": "20260215_171141_710203",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:11:41.713668",
+    "filename": "gpt4__classification_agent_system__20260215_171141_710203_new.md"
+  },
+  {
+    "id": "20260215_171141_569312",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:11:41.707484",
+    "filename": "gpt4__classification_agent_system__20260215_171141_569312.md"
+  },
+  {
+    "id": "20260215_170843_747105",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:08:43.751245",
+    "filename": "gpt5__dialog_agent_system__20260215_170843_747105_new.md"
+  },
+  {
+    "id": "20260215_170843_736001",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:08:43.745138",
+    "filename": "gpt5__dialog_agent_system__20260215_170843_736001.md"
+  },
+  {
+    "id": "20260215_170803_145200",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:08:03.148477",
+    "filename": "gpt5__classification_agent_system__20260215_170803_145200_new.md"
+  },
+  {
+    "id": "20260215_170803_131348",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:08:03.141865",
+    "filename": "gpt5__classification_agent_system__20260215_170803_131348.md"
+  },
+  {
+    "id": "20260215_170724_080796",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:07:24.084409",
+    "filename": "gpt4__dialog_agent_system__20260215_170724_080796_new.md"
+  },
+  {
+    "id": "20260215_170724_066514",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:07:24.077660",
+    "filename": "gpt4__dialog_agent_system__20260215_170724_066514.md"
+  },
+  {
+    "id": "20260215_170632_327342",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:06:32.331409",
+    "filename": "gpt4__classification_agent_system__20260215_170632_327342_new.md"
+  },
+  {
+    "id": "20260215_170632_233566",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:06:32.324525",
+    "filename": "gpt4__classification_agent_system__20260215_170632_233566.md"
+  },
+  {
+    "id": "20260215_170359_846407",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:03:59.849816",
+    "filename": "gpt4__classification_agent_system__20260215_170359_846407_new.md"
+  },
+  {
+    "id": "20260215_170359_803638",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T17:03:59.843553",
+    "filename": "gpt4__classification_agent_system__20260215_170359_803638.md"
+  },
+  {
+    "id": "20260215_165816_242736",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T16:58:16.247038",
+    "filename": "gpt4__classification_agent_system__20260215_165816_242736_new.md"
+  },
+  {
+    "id": "20260215_165816_197200",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T16:58:16.239161",
+    "filename": "gpt4__classification_agent_system__20260215_165816_197200.md"
+  },
+  {
+    "id": "20260215_165304_460438",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T16:53:04.462373",
+    "filename": "gpt5__classification_agent_system__20260215_165304_460438_new.md"
+  },
+  {
+    "id": "20260215_165304_451104",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T16:53:04.458473",
+    "filename": "gpt5__classification_agent_system__20260215_165304_451104.md"
+  },
+  {
+    "id": "20260215_165229_791965",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T16:52:29.795044",
+    "filename": "gpt4__dialog_agent_system__20260215_165229_791965_new.md"
+  },
+  {
+    "id": "20260215_165229_782260",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T16:52:29.788830",
+    "filename": "gpt4__dialog_agent_system__20260215_165229_782260.md"
+  },
+  {
+    "id": "20260215_165144_168619",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T16:51:44.171429",
+    "filename": "gpt4__classification_agent_system__20260215_165144_168619_new.md"
+  },
+  {
+    "id": "20260215_165144_075956",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-15T16:51:44.166324",
+    "filename": "gpt4__classification_agent_system__20260215_165144_075956.md"
+  },
+  {
+    "id": "20260215_134751_695503",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-15T13:47:51.698172",
+    "filename": "gpt5__dialog_agent_system__20260215_134751_695503_new.md"
+  },
+  {
+    "id": "20260215_134751_687305",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-15T13:47:51.693095",
+    "filename": "gpt5__dialog_agent_system__20260215_134751_687305.md"
+  },
+  {
+    "id": "20260215_134743_402535",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-15T13:47:43.404823",
+    "filename": "gpt5__classification_agent_system__20260215_134743_402535_new.md"
+  },
+  {
+    "id": "20260215_134743_394221",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-15T13:47:43.400139",
+    "filename": "gpt5__classification_agent_system__20260215_134743_394221.md"
+  },
+  {
+    "id": "20260215_134734_892182",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-15T13:47:34.896376",
+    "filename": "gpt4__dialog_agent_system__20260215_134734_892182_new.md"
+  },
+  {
+    "id": "20260215_134734_881267",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-15T13:47:34.889595",
+    "filename": "gpt4__dialog_agent_system__20260215_134734_881267.md"
+  },
+  {
+    "id": "20260215_134722_560597",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-15T13:47:22.565340",
+    "filename": "gpt4__classification_agent_system__20260215_134722_560597_new.md"
+  },
+  {
+    "id": "20260215_134722_508416",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Specialized agent that answers questions about aeronautics and applied aerodynamics",
+    "source": "snapshot",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-15T13:47:22.557934",
+    "filename": "gpt4__classification_agent_system__20260215_134722_508416.md"
+  },
+  {
+    "id": "20260214_182712_869134",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "un agente de viajes de buceo por el Mar Rojo con ofertas de 5, 6, 7 y 8 días con vuelos incluidos desde Madrid",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-14T18:27:12.884433",
+    "filename": "gpt5__dialog_agent_system__20260214_182712_869134_new.md"
+  },
+  {
+    "id": "20260214_182712_869134_telco",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "original",
+    "timestamp": "2026-02-14T18:27:12.869134",
+    "filename": "gpt5__dialog_agent_system__20260214_182712_869134.md"
+  },
+  {
+    "id": "20260214_182708_066799",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "un agente de viajes de buceo por el Mar Rojo con ofertas de 5, 6, 7 y 8 días con vuelos incluidos desde Madrid",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-14T18:27:08.080059",
+    "filename": "gpt5__classification_agent_system__20260214_182708_066799_new.md"
+  },
+  {
+    "id": "20260214_182708_066799_telco",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "original",
+    "timestamp": "2026-02-14T18:27:08.066799",
+    "filename": "gpt5__classification_agent_system__20260214_182708_066799.md"
+  },
+  {
+    "id": "20260214_182701_920119",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "un agente de viajes de buceo por el Mar Rojo con ofertas de 5, 6, 7 y 8 días con vuelos incluidos desde Madrid",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-14T18:27:01.934388",
+    "filename": "gpt4__dialog_agent_system__20260214_182701_920119_new.md"
+  },
+  {
+    "id": "20260214_182701_920119_telco",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "original",
+    "timestamp": "2026-02-14T18:27:01.920119",
+    "filename": "gpt4__dialog_agent_system__20260214_182701_920119.md"
+  },
+  {
+    "id": "20260214_182642_989444",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "un agente de viajes de buceo por el Mar Rojo con ofertas de 5, 6, 7 y 8 días con vuelos incluidos desde Madrid",
+    "source": "ai-generated",
+    "author": "generator:gpt4",
+    "timestamp": "2026-02-14T18:26:43.054645",
+    "filename": "gpt4__classification_agent_system__20260214_182642_989444_new.md"
+  },
+  {
+    "id": "20260214_182642_989444_telco",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "original",
+    "timestamp": "2026-02-14T18:26:42.989444",
+    "filename": "gpt4__classification_agent_system__20260214_182642_989444.md"
+  }
+]

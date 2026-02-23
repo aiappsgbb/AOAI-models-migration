@@ -1,0 +1,56 @@
+<!-- ══ Copilot Studio – Top Header Bar ══ -->
+<header class="fixed top-0 left-0 right-0 h-[48px] bg-[#F0F0F0] border-b border-[#E1DFDD] flex items-center justify-between px-4 z-40">
+    <!-- Left: brand -->
+    <div class="flex items-center gap-3">
+        <div class="flex items-center justify-center w-8 h-8 rounded-md bg-brand-500 flex-shrink-0">
+            <svg class="h-[18px] w-[18px] text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        </div>
+        <span class="text-[14px] font-semibold text-brand-600 select-none">Model Migration Evaluator</span>
+    </div>
+    <!-- Right: environment -->
+    <div class="flex items-center gap-4">
+        <span id="header-topic-badge" class="fluent-badge fluent-badge-primary text-[12px]"></span>
+        <div class="flex items-center gap-1 text-[13px] text-neutral-700">
+            <svg class="h-4 w-4 opacity-60" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6.5 6.5 0 00-6.5 6.5c0 1.846.773 3.513 2.013 4.697l.012.012 3.77 3.77a1 1 0 001.41 0l3.77-3.77.012-.012A6.5 6.5 0 0010 2zm0 9a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg>
+            <span>Azure OpenAI</span>
+        </div>
+    </div>
+</header>
+
+<!-- ══ Copilot Studio – Left Sidebar ══ -->
+<aside id="sidebar" class="fixed top-[48px] left-0 h-[calc(100vh-48px)] w-[48px] hover:w-[220px] bg-white border-r border-[#E1DFDD] flex flex-col transition-[width] duration-200 ease-in-out overflow-hidden flex-shrink-0 z-30">
+    <!-- Navigation -->
+    <nav class="flex-1 py-3 px-1.5 space-y-0.5">
+        <a href="/" class="sidebar-link relative {{ 'active' if active_page=='dashboard' }}">
+            <svg class="h-[20px] w-[20px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            <span class="sidebar-text">Dashboard</span>
+        </a>
+        <a href="/evaluate" class="sidebar-link relative {{ 'active' if active_page=='evaluate' }}">
+            <svg class="h-[20px] w-[20px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            <span class="sidebar-text">Evaluate</span>
+        </a>
+        <a href="/compare" class="sidebar-link relative {{ 'active' if active_page=='compare' }}">
+            <svg class="h-[20px] w-[20px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span class="sidebar-text">Compare</span>
+        </a>
+        <a href="/results" class="sidebar-link relative {{ 'active' if active_page=='results' }}">
+            <svg class="h-[20px] w-[20px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <span class="sidebar-text">Results</span>
+        </a>
+        <a href="/prompts" class="sidebar-link relative {{ 'active' if active_page=='prompts' }}">
+            <svg class="h-[20px] w-[20px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            <span class="sidebar-text">Prompts</span>
+        </a>
+    </nav>
+    <!-- Bottom -->
+    <div class="px-1.5 pb-3">
+        <div class="mx-1 border-t border-[#EDEBE9] mb-2"></div>
+        <a href="#" class="sidebar-link" title="Settings">
+            <svg class="h-[20px] w-[20px] flex-shrink-0 opacity-50" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span class="sidebar-text">Settings</span>
+        </a>
+    </div>
+</aside>
+
+<!-- ══ Content wrapper — accounts for header + sidebar ══ -->
+<div class="mt-[48px] ml-[48px] min-h-[calc(100vh-48px)] flex flex-col">

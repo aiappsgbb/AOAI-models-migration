@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt Manager - Model Migration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% include '_fluent_head.html' %}
+</head>
+<body class="bg-[#faf9f8] min-h-screen">
+    {% set active_page = 'prompts' %}
+    {% include '_sidebar.html' %}
+
+    <main class="flex-1 max-w-7xl mx-auto w-full px-8 py-6">
+        <h1 class="fluent-page-title mb-1">Prompt Templates</h1>
+        <p id="active-topic-subtitle" class="text-sm text-brand-600 font-semibold mb-6"></p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- ============================================================= -->
+            <!-- LEFT SIDEBAR                                                   -->
+            <!-- ============================================================= -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Topic Selector -->
+                <div class="fluent-card p-5">
+                    <h2 class="font-semibold text-[15px] text-[var(--text-primary)] mb-3">
+                        <span class="mr-1">📂</span> Topics
+                    </h2>
+                    <p class="text-xs text-gray-500 mb-3">Switch between saved evaluation topics. Each topic has its own prompts and test data.</p>
+                    <div id="topic-list" class="space-y-2 mb-3">
+                        <p class="text-gray-500 text-sm">Loading…</p>
+                    </div>
+                    <div id="topic-status" class="text-xs mt-2"></div>
+                </div>
+
+                <!-- Prompt List -->
+                <div class="fluent-card p-5">
+                    <h2 class="font-semibold text-[15px] text-[var(--text-primary)] mb-3">Prompts</h2>
+                    <div id="prompt-list" class="space-y-4">
+                        <p class="text-gray-500 text-sm">Loading…</p>
+                    </div>
+                </div>
+
+                <!-- AI Generate Panel -->
+                <div class="fluent-card p-5">
+                    <h2 class="font-semibold text-[15px] text-[var(--text-primary)] mb-3">
+                        <span class="mr-1">✨</span> AI Generate
+                    </h2>
+                    <p class="text-xs text-gray-500 mb-3">Enter a topic and generate optimised prompts <strong>and matching test data</strong> for all models &amp; tasks at once.</p>
+                    <label class="fluent-label mb-1">Topic</label>
+                    <textarea id="gen-topic" rows="3" class="fluent-input text-sm" placeholder="e.g. Soporte técnico de telecomunicaciones"></textarea>
+                    <label class="block text-sm font-medium text-gray-700 mt-3 mb-1">Generator model</label>
+                    <select id="gen-model" class="fluent-input text-sm">
+                        <!-- populated dynamically -->
+                    </select>
+                    <button id="btn-generate" class="mt-4 w-full fluent-btn-primary py-2 px-4 flex items-center justify-center">
+                        <svg class="h-5 w-5 mr-2 hidden animate-spin" id="gen-spinner" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                        </svg>
+                        Generate Prompts + Test Data
+                    </button>
+                    <label class="flex items-center mt-2 cursor-pointer">
+                        <input type="checkbox" id="verbose-mode" class="h-4 w-4 text-green-600 rounded border-gray-300">
+                        <span class="ml-1.5 text-sm text-[var(--text-secondary)]">Verbose</span>
+                    </label>
+                    <div id="gen-status" class="mt-2 text-xs"></div>
+                    <div id="verbose-log" class="hidden mt-2 bg-gray-900 text-green-400 rounded-lg p-3 font-mono text-xs max-h-[200px] overflow-auto"></div>
+                </div>
+
+                <!-- Data Sync Status -->
+                <div id="sync-panel" class="fluent-card p-5 hidden">
+                    <h2 class="font-semibold text-[15px] text-[var(--text-primary)] mb-3">
+                        <span class="mr-1">🔄</span> Data Sync
+                    </h2>
+                    <div id="sync-status" class="text-sm mb-3"></div>
+                    <div id="sync-actions" class="hidden">
+                        <label class="fluent-label mb-1">Generator model</label>
+                        <select id="regen-model" class="fluent-input text-sm mb-3">
+                            <!-- populated dynamically -->
+                        </select>
+                        <button id="btn-regenerate" class="w-full fluent-btn-secondary text-[#B10E1C] border-[#F4A9B0] hover:bg-[#FDE7E9] py-2 px-4 flex items-center justify-center">
+                            <svg class="h-5 w-5 mr-2 hidden animate-spin" id="regen-spinner" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                            </svg>
+                            🔄 Regenerate Test Data
+                        </button>
+                        <label class="flex items-center mt-2 cursor-pointer">
+                            <input type="checkbox" id="regen-verbose-mode" class="h-4 w-4 text-orange-600 rounded border-gray-300">
+                            <span class="ml-1.5 text-sm text-[var(--text-secondary)]">Verbose</span>
+                        </label>
+                        <div id="regen-status" class="mt-2 text-xs"></div>
+                        <div id="regen-verbose-log" class="hidden mt-2 bg-gray-900 text-green-400 rounded-lg p-3 font-mono text-xs max-h-[200px] overflow-auto"></div>
+                    </div>
+                </div>
+
+                <!-- Import External Topic -->
+                <div class="fluent-card p-5">
+                    <h2 class="font-semibold text-[15px] text-[var(--text-primary)] mb-3">
+                        <span class="mr-1">📥</span> Import Topic
+                    </h2>
+                    <p class="text-xs text-gray-500 mb-3">Import an external topic from your own GPT-4 prompt(s) and test data files. A GPT-5 optimised prompt will be generated automatically.</p>
+
+                    <label class="fluent-label mb-1">Topic name <span class="text-red-500">*</span></label>
+                    <input id="import-topic-name" type="text" class="fluent-input text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none mb-3" placeholder="e.g. Insurance Claims Processing">
+
+                    <!-- GPT-4 Prompts -->
+                    <p class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">GPT-4 Prompts <span class="text-red-500">*</span> <span class="font-normal normal-case text-gray-400">(at least one)</span></p>
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Classification prompt (.txt / .md)</label>
+                    <input id="import-class-prompt" type="file" accept=".txt,.md,.text" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Dialog prompt (.txt / .md)</label>
+                    <input id="import-dialog-prompt" type="file" accept=".txt,.md,.text" class="w-full text-xs mb-3 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-brand-50 file:text-brand-600 hover:file:bg-brand-100">
+
+                    <!-- Test Data -->
+                    <p class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Test Data <span class="text-red-500">*</span> <span class="font-normal normal-case text-gray-400">(at least one)</span></p>
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Classification scenarios (.json)</label>
+                    <input id="import-class-data" type="file" accept=".json" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Dialog scenarios (.json)</label>
+                    <input id="import-dialog-data" type="file" accept=".json" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-brand-50 file:text-brand-600 hover:file:bg-brand-100">
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">General capability tests (.json)</label>
+                    <input id="import-general-data" type="file" accept=".json" class="w-full text-xs mb-3 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100">
+
+                    <!-- Options -->
+                    <label class="fluent-label mb-1">Generator model</label>
+                    <select id="import-gen-model" class="fluent-input text-sm mb-2">
+                        <!-- populated dynamically by loadModels() -->
+                    </select>
+                    <label class="flex items-center cursor-pointer mb-3">
+                        <input type="checkbox" id="import-force" class="h-4 w-4 text-indigo-600 rounded border-gray-300">
+                        <span class="ml-1.5 text-sm text-[var(--text-secondary)]">Overwrite if topic exists</span>
+                    </label>
+
+                    <button id="btn-import-topic" class="w-full fluent-btn-primary py-2 px-4 flex items-center justify-center">
+                        <svg class="h-5 w-5 mr-2 hidden animate-spin" id="import-spinner" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                        </svg>
+                        📥 Import Topic
+                    </button>
+                    <div id="import-status" class="mt-2 text-xs"></div>
+                </div>
+
+                <!-- Key Differences -->
+                <div class="fluent-card p-5">
+                    <h2 class="font-semibold text-[15px] text-[var(--text-primary)] mb-3">Key Differences</h2>
+                    <div class="space-y-3 text-sm">
+                        <div>
+                            <h3 class="font-medium text-blue-600 key-diff-gpt4-name">GPT-4 Prompts</h3>
+                            <ul class="text-[var(--text-secondary)] ml-4 list-disc">
+                                <li>Explicit CoT instructions</li>
+                                <li>Detailed formatting rules</li>
+                                <li>More verbose examples</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="font-medium text-brand-500 key-diff-gpt5-name">GPT-5 Prompts</h3>
+                            <ul class="text-[var(--text-secondary)] ml-4 list-disc">
+                                <li>Leverage native reasoning</li>
+                                <li>Streamlined structure</li>
+                                <li>YAML/JSON schemas</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- MAIN CONTENT                                                   -->
+            <!-- ============================================================= -->
+            <div class="lg:col-span-3 space-y-6">
+                <!-- View Toggle + Model Selector -->
+                <div class="bg-white rounded-lg shadow-md p-4">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div class="flex space-x-2">
+                            <button id="view-single"  class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Single View</button>
+                            <button id="view-compare" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">Compare View</button>
+                            <button id="view-history" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">Version History</button>
+                            <button id="view-data"    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">🗂️ Test Data</button>
+                        </div>
+                        <div id="model-selector" class="flex items-center space-x-2">
+                            <label class="text-sm text-[var(--text-secondary)]">Model:</label>
+                            <select id="current-model" class="px-3 py-1 border border-gray-300 rounded-lg text-sm">
+                                <!-- populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ======= SINGLE VIEW (edit mode) ======= -->
+                <div id="single-view" class="fluent-card p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 id="prompt-title" class="fluent-section-title text-[16px]">Select a prompt</h2>
+                        <div class="flex items-center space-x-2">
+                            <span id="prompt-model" class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">GPT-4</span>
+                            <button id="btn-toggle-edit" class="hidden px-3 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium hover:bg-yellow-200 transition">
+                                ✏️ Edit
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Read-only display -->
+                    <div id="prompt-readonly" class="prose max-w-none">
+                        <p class="text-gray-500">Select a prompt from the sidebar to view its contents.</p>
+                    </div>
+                    <!-- Editable area (hidden by default) -->
+                    <div id="prompt-edit-area" class="hidden">
+                        <textarea id="prompt-editor" rows="24" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y" spellcheck="false"></textarea>
+                        <div class="flex items-center justify-between mt-3">
+                            <div class="flex items-center space-x-2">
+                                <label class="text-sm text-[var(--text-secondary)]">Topic (optional):</label>
+                                <input id="save-topic" type="text" class="border border-gray-300 rounded-lg px-3 py-1 text-sm w-64" placeholder="e.g. TELCO customer support">
+                            </div>
+                            <div class="flex space-x-2">
+                                <button id="btn-cancel-edit" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">Cancel</button>
+                                <button id="btn-save" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 font-medium">💾 Save</button>
+                            </div>
+                        </div>
+                        <div id="save-status" class="mt-2 text-sm"></div>
+                    </div>
+                </div>
+
+                <!-- ======= COMPARE VIEW ======= -->
+                <div id="compare-view" class="hidden">
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="fluent-card p-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 id="compare-gpt4-title" class="text-[16px] font-semibold text-[var(--text-primary)]">GPT-4</h2>
+                                <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">Current</span>
+                            </div>
+                            <div id="compare-gpt4" class="prose max-w-none text-sm overflow-auto max-h-[600px]">
+                                <p class="text-gray-500">Select a prompt type to compare</p>
+                            </div>
+                        </div>
+                        <div class="fluent-card p-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 id="compare-gpt5-title" class="text-[16px] font-semibold text-[var(--text-primary)]">GPT-5</h2>
+                                <span class="px-3 py-1 bg-brand-100 text-brand-700 rounded-full text-sm">New</span>
+                            </div>
+                            <div id="compare-gpt5" class="prose max-w-none text-sm overflow-auto max-h-[600px]">
+                                <p class="text-gray-500">Select a prompt type to compare</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ======= VERSION HISTORY VIEW ======= -->
+                <div id="history-view" class="hidden">
+                    <div class="fluent-card p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="fluent-section-title text-[16px]">Version History <span id="history-count" class="text-sm font-normal bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">0</span></h2>
+                            <div class="flex items-center space-x-2">
+                                <input id="history-filter-topic" type="text" placeholder="Filter by topic…" class="border border-gray-300 rounded-lg px-3 py-1 text-sm w-48">
+                                <select id="history-filter-model" class="border border-gray-300 rounded-lg px-3 py-1 text-sm">
+                                    <option value="">All models</option>
+                                    <!-- populated dynamically -->
+                                </select>
+                                <select id="history-filter-type" class="border border-gray-300 rounded-lg px-3 py-1 text-sm">
+                                    <option value="">All types</option>
+                                    <option value="classification_agent_system">Classification</option>
+                                    <option value="dialog_agent_system">Dialog</option>
+                                </select>
+                                <button id="btn-refresh-history" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">🔄</button>
+                            </div>
+                        </div>
+                        <!-- Bulk actions toolbar (hidden until selection) -->
+                        <div id="history-bulk-bar" class="hidden flex items-center justify-between bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-3">
+                            <div class="flex items-center space-x-3">
+                                <label class="flex items-center space-x-1 text-sm text-gray-700 cursor-pointer">
+                                    <input id="history-select-all" type="checkbox" class="rounded border-gray-300">
+                                    <span>Select all</span>
+                                </label>
+                                <span id="history-selected-count" class="text-sm text-gray-500">0 selected</span>
+                            </div>
+                            <button id="btn-delete-selected" class="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 font-medium">🗑️ Delete selected</button>
+                        </div>
+                        <div id="history-list" class="space-y-2 max-h-[600px] overflow-y-auto">
+                            <p class="text-gray-500 text-sm">No version history yet.</p>
+                        </div>
+                    </div>
+                    <!-- Version preview -->
+                    <div id="version-preview" class="fluent-card p-5 mt-6 hidden">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 id="version-preview-title" class="text-[16px] font-semibold text-[var(--text-primary)]">Version Preview</h3>
+                            <div class="flex space-x-2">
+                                <button id="btn-restore" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 font-medium">♻️ Restore as Active</button>
+                                <button id="btn-delete-version" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 font-medium">🗑️ Delete</button>
+                                <button id="btn-close-preview" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">✕</button>
+                            </div>
+                        </div>
+                        <div id="version-preview-meta" class="text-xs text-gray-500 mb-3"></div>
+                        <pre id="version-preview-content" class="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-lg overflow-auto max-h-[500px]"></pre>
+                        <div id="restore-status" class="mt-2 text-sm"></div>
+                    </div>
+                </div>
+
+                <!-- ======= TEST DATA VIEW ======= -->
+                <div id="data-view" class="hidden">
+                    <!-- Topic / Dataset cards -->
+                    <div id="data-overview-panel" class="fluent-card p-5 mb-6">
+                        <h2 class="fluent-section-title text-[16px] mb-1">🗂️ Test Data Explorer</h2>
+                        <p class="text-xs text-gray-500 mb-4">View and edit synthetic test data for all evaluation tasks and topics.</p>
+                        <div id="data-overview-cards" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <p class="text-gray-500 text-sm col-span-2">Loading overview…</p>
+                        </div>
+                    </div>
+
+                    <!-- Data table panel -->
+                    <div id="data-table-panel" class="fluent-card p-5">
+                        <!-- Header: topic label + type tabs -->
+                        <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                            <div>
+                                <h3 id="data-panel-title" class="text-[16px] font-semibold text-[var(--text-primary)]">Select a dataset above</h3>
+                                <p id="data-panel-subtitle" class="text-xs text-gray-500 mt-0.5"></p>
+                            </div>
+                            <div class="flex items-center space-x-1" id="data-type-tabs">
+                                <button data-dtype="classification" class="data-tab px-3 py-1.5 rounded-lg text-sm bg-gray-200 text-gray-700 hover:bg-gray-300">Classification</button>
+                                <button data-dtype="dialog"         class="data-tab px-3 py-1.5 rounded-lg text-sm bg-gray-200 text-gray-700 hover:bg-gray-300">Dialog</button>
+                                <button data-dtype="general"        class="data-tab px-3 py-1.5 rounded-lg text-sm bg-gray-200 text-gray-700 hover:bg-gray-300">General</button>
+                            </div>
+                        </div>
+
+                        <div id="data-info" class="text-sm text-gray-500 mb-3"></div>
+
+                        <!-- Data table -->
+                        <div id="data-table-wrapper" class="overflow-auto max-h-[600px] border border-gray-200 rounded-lg">
+                            <p class="p-4 text-gray-500 text-sm">Select a topic card and data type to browse scenarios.</p>
+                        </div>
+
+                        <!-- Data actions -->
+                        <div id="data-actions" class="hidden mt-4 flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <button id="btn-add-scenario" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">➕ Add Scenario</button>
+                                <span id="data-count" class="text-sm text-gray-500"></span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button id="btn-cancel-data" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">Cancel</button>
+                                <button id="btn-save-data" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 font-medium">💾 Save Changes</button>
+                            </div>
+                        </div>
+                        <div id="data-save-status" class="mt-2 text-sm"></div>
+                    </div>
+
+                    <!-- Scenario detail editor (modal-like) -->
+                    <div id="scenario-editor" class="hidden fluent-card p-5 mt-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 id="scenario-editor-title" class="text-[16px] font-semibold text-[var(--text-primary)]">Edit Scenario</h3>
+                            <button id="btn-close-scenario" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">✕ Close</button>
+                        </div>
+                        <textarea id="scenario-json-editor" rows="20" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y" spellcheck="false"></textarea>
+                        <div class="flex items-center justify-between mt-3">
+                            <div id="scenario-edit-status" class="text-sm"></div>
+                            <button id="btn-apply-scenario" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 font-medium">✅ Apply</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ================================================================== -->
+    <!-- JAVASCRIPT                                                         -->
+    <!-- ================================================================== -->
+    <script>
+        // ── State ─────────────────────────────────────────────────────
+        let currentView = 'single';
+        let currentModel = 'gpt4';
+        let currentPromptType = null;
+        let isEditing = false;
+        let selectedVersionId = null;
+        let availableModels = [];
+        // Track which views have been loaded so we don't clear them on tab switch
+        let viewLoaded = { single: false, compare: false, history: false, data: false };
+
+        // Verbose logging helper (Generate panel)
+        function verboseLog(msg) {
+            const el = $('verbose-log');
+            if (!$('verbose-mode').checked) { el.classList.add('hidden'); return; }
+            el.classList.remove('hidden');
+            const ts = new Date().toLocaleTimeString('en-GB', {hour12:false, hour:'2-digit',minute:'2-digit',second:'2-digit'});
+            el.innerHTML += `<div>[${ts}] ${msg}</div>`;
+            el.scrollTop = el.scrollHeight;
+        }
+        function verboseClear() { $('verbose-log').innerHTML = ''; }
+
+        // Verbose logging helper (Regenerate panel)
+        function regenVerboseLog(msg) {
+            const el = $('regen-verbose-log');
+            if (!$('regen-verbose-mode').checked) { el.classList.add('hidden'); return; }
+            el.classList.remove('hidden');
+            const ts = new Date().toLocaleTimeString('en-GB', {hour12:false, hour:'2-digit',minute:'2-digit',second:'2-digit'});
+            el.innerHTML += `<div>[${ts}] ${msg}</div>`;
+            el.scrollTop = el.scrollHeight;
+        }
+        function regenVerboseClear() { $('regen-verbose-log').innerHTML = ''; }
+
+        async function loadActiveTopic() {
+            try {
+                const resp = await fetch('/api/topics');
+                const data = await resp.json();
+                const active = (data.topics || []).find(t => t.active);
+                const el = $('active-topic-subtitle');
+                if (active && active.topic) el.textContent = '\ud83d\udccc Topic: ' + active.topic;
+                else el.textContent = '';
+            } catch(e) {}
+        }
+
+        // ── Init ──────────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTopics();
+            loadPromptList();
+            loadModels();
+            bindEvents();
+            checkSyncStatus();
+            loadActiveTopic();
+        });
+
+        // ── Event Binding ─────────────────────────────────────────────
+        function bindEvents() {
+            // View toggle
+            $('view-single').addEventListener('click',  () => switchView('single'));
+            $('view-compare').addEventListener('click', () => switchView('compare'));
+            $('view-history').addEventListener('click', () => switchView('history'));
+            $('view-data').addEventListener('click',    () => switchView('data'));
+
+            // Test data events
+            $('btn-save-data').addEventListener('click', saveTestData);
+            $('btn-cancel-data').addEventListener('click', () => loadDataForCurrentSelection());
+            $('btn-add-scenario').addEventListener('click', addScenario);
+            $('btn-close-scenario').addEventListener('click', () => $('scenario-editor').classList.add('hidden'));
+            $('btn-apply-scenario').addEventListener('click', applyScenarioEdit);
+            document.querySelectorAll('.data-tab').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    loadedDataType = btn.dataset.dtype;
+                    highlightDataTab();
+                    loadDataForCurrentSelection();
+                });
+            });
+
+            // Model selector
+            $('current-model').addEventListener('change', e => {
+                currentModel = e.target.value;
+                viewLoaded.single = false;
+                if (currentPromptType && currentView === 'single') { loadSinglePrompt(currentModel, currentPromptType); viewLoaded.single = true; }
+            });
+
+            // Edit toggle
+            $('btn-toggle-edit').addEventListener('click', toggleEdit);
+            $('btn-cancel-edit').addEventListener('click', cancelEdit);
+            $('btn-save').addEventListener('click', savePrompt);
+
+            // Generate
+            $('btn-generate').addEventListener('click', generatePrompts);
+
+            // Regenerate test data
+            $('btn-regenerate').addEventListener('click', regenerateTestData);
+
+            // Import external topic
+            $('btn-import-topic').addEventListener('click', importTopic);
+
+            // History
+            $('btn-refresh-history').addEventListener('click', () => { viewLoaded.history = false; loadHistory(); viewLoaded.history = true; });
+            $('history-filter-topic').addEventListener('input', () => { viewLoaded.history = false; loadHistory(); viewLoaded.history = true; });
+            $('history-filter-model').addEventListener('change', () => { viewLoaded.history = false; loadHistory(); viewLoaded.history = true; });
+            $('history-filter-type').addEventListener('change', () => { viewLoaded.history = false; loadHistory(); viewLoaded.history = true; });
+            $('btn-close-preview').addEventListener('click', () => $('version-preview').classList.add('hidden'));
+            $('btn-restore').addEventListener('click', restoreVersion);
+            $('btn-delete-version').addEventListener('click', () => { if (selectedVersionId) deleteVersion(selectedVersionId); });
+            $('btn-delete-selected').addEventListener('click', deleteSelectedVersions);
+            $('history-select-all').addEventListener('change', (e) => {
+                document.querySelectorAll('.version-checkbox').forEach(cb => cb.checked = e.target.checked);
+                updateBulkBar();
+            });
+        }
+
+        function $(id) { return document.getElementById(id); }
+
+        // ── View Switching ────────────────────────────────────────────
+        function switchView(view) {
+            currentView = view;
+            const views = { single: 'single-view', compare: 'compare-view', history: 'history-view', data: 'data-view' };
+            const btns  = { single: 'view-single', compare: 'view-compare', history: 'view-history', data: 'view-data' };
+
+            Object.entries(views).forEach(([k, id]) => {
+                $(id).classList.toggle('hidden', k !== view);
+            });
+            Object.entries(btns).forEach(([k, id]) => {
+                const el = $(id);
+                if (k === view) {
+                    el.className = 'px-4 py-2 bg-blue-600 text-white rounded-lg text-sm';
+                } else {
+                    el.className = 'px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300';
+                }
+            });
+
+            $('model-selector').classList.toggle('hidden', view !== 'single');
+
+            // Only reload content the first time a tab is visited (preserves results on revisit)
+            if (view === 'history' && !viewLoaded.history) { loadHistory(); viewLoaded.history = true; }
+            if (view === 'compare' && currentPromptType && !viewLoaded.compare) { loadComparePrompts(currentPromptType); viewLoaded.compare = true; }
+            if (view === 'single' && currentPromptType && !viewLoaded.single) { loadSinglePrompt(currentModel, currentPromptType); viewLoaded.single = true; }
+            if (view === 'data' && !viewLoaded.data) { loadDataOverview(); viewLoaded.data = true; }
+        }
+
+        // ── Load Prompt List (sidebar) ────────────────────────────────
+        async function loadPromptList() {
+            try {
+                const resp = await fetch('/api/prompts');
+                const data = await resp.json();
+                const listEl = $('prompt-list');
+                listEl.innerHTML = '';
+
+                for (const [model, prompts] of Object.entries(data)) {
+                    if (['templates', 'history', 'topics'].includes(model)) continue;
+                    const section = document.createElement('div');
+                    section.innerHTML = `
+                        <h3 class="font-medium text-gray-700 mb-2">${model.toUpperCase()}</h3>
+                        <ul class="space-y-1">
+                            ${prompts.map(p => `
+                                <li>
+                                    <button class="prompt-btn text-left w-full px-2 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-blue-50 hover:text-blue-700 rounded transition"
+                                            data-model="${model}" data-type="${p}">
+                                        📄 ${p.replace(/_/g, ' ')}
+                                    </button>
+                                </li>`).join('')}
+                        </ul>`;
+                    listEl.appendChild(section);
+                }
+
+                document.querySelectorAll('.prompt-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.prompt-btn').forEach(b => b.classList.remove('bg-blue-100', 'text-blue-800', 'font-medium'));
+                        btn.classList.add('bg-blue-100', 'text-blue-800', 'font-medium');
+                        loadPrompt(btn.dataset.model, btn.dataset.type);
+                    });
+                });
+            } catch (err) {
+                $('prompt-list').innerHTML = '<p class="text-red-500 text-sm">Error loading prompts</p>';
+            }
+        }
+
+        // ── Model display names ─────────────────────────────────────
+        let modelNames = {};
+        function displayName(key) { return modelNames[key] || key; }
+
+        // ── Load Models (for generator dropdown + display names) ──────
+        async function loadModels() {
+            try {
+                const resp = await fetch('/api/models');
+                const data = await resp.json();
+                availableModels = data.models || [];
+                availableModels.forEach(m => { modelNames[m.name] = m.deployment; });
+                const sel = $('gen-model');
+                sel.innerHTML = availableModels.map(m =>
+                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.deployment}</option>`
+                ).join('');
+                // Also populate regen model dropdown
+                const regenSel = $('regen-model');
+                regenSel.innerHTML = availableModels.map(m =>
+                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.deployment}</option>`
+                ).join('');
+                // Also populate import model dropdown
+                const importSel = $('import-gen-model');
+                importSel.innerHTML = availableModels.map(m =>
+                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.deployment}</option>`
+                ).join('');
+                // Update compare-view headings
+                const g4title = $('compare-gpt4-title');
+                const g5title = $('compare-gpt5-title');
+                if (g4title) g4title.textContent = displayName('gpt4');
+                if (g5title) g5title.textContent = displayName('gpt5');
+                // Update sidebar Key Differences headings
+                document.querySelectorAll('.key-diff-gpt4-name').forEach(el => el.textContent = displayName('gpt4') + ' Prompts');
+                document.querySelectorAll('.key-diff-gpt5-name').forEach(el => el.textContent = displayName('gpt5') + ' Prompts');
+                // Populate model selector dropdown
+                const curSel = $('current-model');
+                curSel.innerHTML = availableModels
+                    .filter(m => m.name === 'gpt4' || m.name === 'gpt5')
+                    .map(m => `<option value="${m.name}">${m.deployment}</option>`)
+                    .join('');
+                // Populate history filter model dropdown
+                const histSel = $('history-filter-model');
+                histSel.innerHTML = '<option value="">All models</option>' +
+                    availableModels.map(m => `<option value="${m.name}">${m.deployment}</option>`).join('');
+            } catch (err) {
+                console.error('Failed to load models', err);
+            }
+        }
+
+        // ── Load Prompt ───────────────────────────────────────────────
+        function loadPrompt(model, type) {
+            currentModel = model;
+            currentPromptType = type;
+            $('current-model').value = model;
+            cancelEdit();
+            // Reset single/compare caches so new prompt loads
+            viewLoaded.single = false;
+            viewLoaded.compare = false;
+
+            if (currentView === 'single')  { loadSinglePrompt(model, type); viewLoaded.single = true; }
+            if (currentView === 'compare') { loadComparePrompts(type); viewLoaded.compare = true; }
+        }
+
+        async function loadSinglePrompt(model, type) {
+            try {
+                const resp = await fetch(`/api/prompts/${model}/${type}`);
+                const data = await resp.json();
+                $('prompt-title').textContent = type.replace(/_/g, ' ');
+                const badge = $('prompt-model');
+                badge.textContent = displayName(model);
+                badge.className = `px-3 py-1 rounded-full text-sm font-medium ${model === 'gpt4' ? 'bg-blue-100 text-blue-800' : 'bg-brand-100 text-brand-700'}`;
+                $('prompt-readonly').innerHTML = `<pre class="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-lg overflow-auto max-h-[700px]">${esc(data.content)}</pre>`;
+                $('btn-toggle-edit').classList.remove('hidden');
+                // Pre-fill editor
+                $('prompt-editor').value = data.content;
+            } catch (err) {
+                $('prompt-readonly').innerHTML = `<p class="text-red-500">Error: ${err.message}</p>`;
+            }
+        }
+
+        async function loadComparePrompts(type) {
+            for (const model of ['gpt4', 'gpt5']) {
+                try {
+                    const resp = await fetch(`/api/prompts/${model}/${type}`);
+                    const data = await resp.json();
+                    $(`compare-${model}`).innerHTML = `<pre class="whitespace-pre-wrap text-xs bg-gray-50 p-3 rounded-lg">${esc(data.content)}</pre>`;
+                } catch (err) {
+                    $(`compare-${model}`).innerHTML = '<p class="text-red-500 text-sm">Not available</p>';
+                }
+            }
+        }
+
+        // ── Edit / Save ───────────────────────────────────────────────
+        function toggleEdit() {
+            isEditing = !isEditing;
+            $('prompt-readonly').classList.toggle('hidden', isEditing);
+            $('prompt-edit-area').classList.toggle('hidden', !isEditing);
+            $('btn-toggle-edit').textContent = isEditing ? '👁️ View' : '✏️ Edit';
+            $('save-status').innerHTML = '';
+        }
+
+        function cancelEdit() {
+            if (isEditing) {
+                isEditing = false;
+                $('prompt-readonly').classList.remove('hidden');
+                $('prompt-edit-area').classList.add('hidden');
+                $('btn-toggle-edit').textContent = '✏️ Edit';
+                $('save-status').innerHTML = '';
+            }
+        }
+
+        async function savePrompt() {
+            if (!currentPromptType) return;
+            const content = $('prompt-editor').value;
+            const topic   = $('save-topic').value;
+            $('save-status').innerHTML = '<span class="text-blue-600">Saving…</span>';
+
+            try {
+                const resp = await fetch(`/api/prompts/${currentModel}/${currentPromptType}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, topic }),
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    let statusMsg = '<span class="text-green-600">✅ Saved successfully! Version snapshot created.</span>';
+                    // Check if data is out of sync
+                    if (data.data_sync && !data.data_sync.in_sync) {
+                        statusMsg += '<br><span class="text-orange-600">⚠️ Test data may be out of sync with the new topic. Use the Data Sync panel to regenerate.</span>';
+                    }
+                    $('save-status').innerHTML = statusMsg;
+                    // Refresh read-only view
+                    $('prompt-readonly').innerHTML = `<pre class="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-lg overflow-auto max-h-[700px]">${esc(content)}</pre>`;
+                    // Refresh sync status
+                    checkSyncStatus();
+                } else {
+                    $('save-status').innerHTML = `<span class="text-red-600">❌ ${data.error}</span>`;
+                }
+            } catch (err) {
+                $('save-status').innerHTML = `<span class="text-red-600">❌ ${err.message}</span>`;
+            }
+        }
+
+        // ── AI Generation (async with polling) ──────────────────────
+        async function generatePrompts() {
+            const topic = $('gen-topic').value.trim();
+            if (!topic) { $('gen-status').innerHTML = '<span class="text-red-500">Enter a topic first.</span>'; return; }
+
+            const generatorModel = $('gen-model').value;
+            const btn     = $('btn-generate');
+            const spinner = $('gen-spinner');
+
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+            $('gen-status').innerHTML = '<span class="text-blue-600">Generating prompts + test data… this may take 2-4 minutes.</span>';
+            verboseClear();
+            verboseLog('Starting AI generation');
+            verboseLog('Topic: ' + topic);
+            verboseLog('Generator model: ' + displayName(generatorModel));
+            verboseLog('Sending POST /api/prompts/generate …');
+            const t0 = performance.now();
+
+            try {
+                // 1. POST to kick off async generation — returns 202
+                const resp = await fetch('/api/prompts/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic, generator_model: generatorModel }),
+                });
+                const kickoff = await resp.json();
+                if (!resp.ok) {
+                    verboseLog('❌ Error: ' + (kickoff.error || resp.statusText));
+                    $('gen-status').innerHTML = `<span class="text-red-600">❌ ${kickoff.error || resp.statusText}</span>`;
+                    return;
+                }
+                const runId = kickoff.run_id;
+                verboseLog('Job accepted — run_id: ' + runId);
+                verboseLog('Polling for completion…');
+
+                // 2. Poll status endpoint every 2.5 s
+                const POLL_MS = 2500;
+                let dotCount = 0;
+                const poll = () => new Promise((resolve, reject) => {
+                    const timer = setInterval(async () => {
+                        try {
+                            dotCount++;
+                            const elapsed = ((performance.now() - t0) / 1000).toFixed(0);
+                            $('gen-status').innerHTML = `<span class="text-blue-600">Generating prompts + test data… ${elapsed}s${ '.'.repeat((dotCount % 3) + 1) }</span>`;
+                            const sr = await fetch(`/api/prompts/generate/${runId}/status`);
+                            const sj = await sr.json();
+                            if (sj.status === 'completed') {
+                                clearInterval(timer);
+                                resolve(sj.result);
+                            } else if (sj.status === 'failed') {
+                                clearInterval(timer);
+                                reject(new Error(sj.error || 'Generation failed'));
+                            }
+                            // else still running — keep polling
+                        } catch (pollErr) {
+                            // transient network glitch — keep retrying
+                            verboseLog('⚠️ Poll glitch: ' + pollErr.message);
+                        }
+                    }, POLL_MS);
+                });
+
+                const data = await poll();
+                const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+                verboseLog('Response received — completed (' + elapsed + 's)');
+
+                // 3. Process successful result
+                const promptCount = Object.values(data.prompts || {}).reduce((n, obj) => n + Object.keys(obj).length, 0);
+                const dataInfo = data.data || {};
+                const dataParts = [];
+                if (dataInfo.classification) dataParts.push(`${dataInfo.classification.count || 0} classification`);
+                if (dataInfo.dialog) dataParts.push(`${dataInfo.dialog.count || 0} dialog`);
+                if (dataInfo.general) dataParts.push(`${dataInfo.general.count || 0} general`);
+                const dataErrors = Object.values(dataInfo).filter(d => d.error).length;
+                const derivedTopic = data.derived_topic || topic;
+                let statusHtml = `<span class="text-green-600">✅ Generated ${promptCount} prompts`;
+                if (dataParts.length) statusHtml += ` + ${dataParts.join(', ')} test scenarios`;
+                statusHtml += ` for "${esc(derivedTopic)}"</span>`;
+                if (dataErrors) statusHtml += `<br><span class="text-yellow-600">⚠️ ${dataErrors} data set(s) had errors — check server logs.</span>`;
+                verboseLog('Prompts generated: ' + promptCount);
+                if (dataParts.length) verboseLog('Test data: ' + dataParts.join(', '));
+                if (dataErrors) verboseLog('⚠️ ' + dataErrors + ' data set(s) had errors');
+                verboseLog('✅ Generation complete.');
+                $('gen-status').innerHTML = statusHtml;
+                // Reload sidebar, topics & current view
+                loadTopics();
+                loadPromptList();
+                loadActiveTopic();
+                if (currentPromptType) loadSinglePrompt(currentModel, currentPromptType);
+                // Refresh sync status (should now show in-sync)
+                checkSyncStatus();
+            } catch (err) {
+                verboseLog('❌ Error: ' + err.message);
+                $('gen-status').innerHTML = `<span class="text-red-600">❌ ${err.message}</span>`;
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+            }
+        }
+
+        // ── Import External Topic ─────────────────────────────────────
+        async function importTopic() {
+            const topicName = $('import-topic-name').value.trim();
+            if (!topicName) {
+                $('import-status').innerHTML = '<span class="text-red-500">Enter a topic name.</span>';
+                return;
+            }
+
+            // Collect files
+            const classPrompt  = $('import-class-prompt').files[0];
+            const dialogPrompt = $('import-dialog-prompt').files[0];
+            if (!classPrompt && !dialogPrompt) {
+                $('import-status').innerHTML = '<span class="text-red-500">Select at least one GPT-4 prompt file.</span>';
+                return;
+            }
+
+            const classData   = $('import-class-data').files[0];
+            const dialogData  = $('import-dialog-data').files[0];
+            const generalData = $('import-general-data').files[0];
+            if (!classData && !dialogData && !generalData) {
+                $('import-status').innerHTML = '<span class="text-red-500">Select at least one test data file.</span>';
+                return;
+            }
+
+            const generatorModel = $('import-gen-model').value;
+            const force = $('import-force').checked;
+
+            // Build multipart form
+            const form = new FormData();
+            form.append('topic', topicName);
+            form.append('generator_model', generatorModel);
+            form.append('force', force ? 'true' : 'false');
+            if (classPrompt)  form.append('gpt4_class_prompt', classPrompt);
+            if (dialogPrompt) form.append('gpt4_dialog_prompt', dialogPrompt);
+            if (classData)    form.append('class_test_data', classData);
+            if (dialogData)   form.append('dialog_test_data', dialogData);
+            if (generalData)  form.append('general_test_data', generalData);
+
+            const btn     = $('btn-import-topic');
+            const spinner = $('import-spinner');
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+            $('import-status').innerHTML = '<span class="text-blue-600">⏳ Importing topic… GPT-5 prompt generation may take 1-2 minutes.</span>';
+            const t0 = performance.now();
+
+            try {
+                const resp = await fetch('/api/topics/import', {
+                    method: 'POST',
+                    body: form,  // no Content-Type header — browser sets multipart boundary
+                });
+                const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+                const data = await resp.json();
+
+                if (resp.ok) {
+                    // Build success message
+                    const promptParts = Object.entries(data.prompts || {}).map(
+                        ([task, info]) => `${task} (${info.generation_time}s)`
+                    );
+                    const dataParts = Object.entries(data.data || {}).map(
+                        ([task, info]) => `${info.count} ${task}`
+                    );
+                    let html = `<span class="text-green-600">✅ Imported "${esc(data.topic)}" in ${elapsed}s</span>`;
+                    if (promptParts.length) html += `<br><span class="text-[var(--text-secondary)]">Prompts: ${promptParts.join(', ')}</span>`;
+                    if (dataParts.length)   html += `<br><span class="text-[var(--text-secondary)]">Data: ${dataParts.join(', ')}</span>`;
+
+                    // Show data warnings if any
+                    for (const [task, info] of Object.entries(data.data || {})) {
+                        if (info.warnings && info.warnings.length) {
+                            html += `<br><span class="text-yellow-600">⚠️ ${task}: ${esc(info.warnings.join('; '))}</span>`;
+                        }
+                    }
+                    $('import-status').innerHTML = html;
+
+                    // Reload sidebar topics and caches
+                    viewLoaded = { single: false, compare: false, history: false, data: false };
+                    await Promise.all([loadTopics(), loadPromptList(), checkSyncStatus(), loadActiveTopic()]);
+
+                    // Clear file inputs for next import
+                    $('import-class-prompt').value  = '';
+                    $('import-dialog-prompt').value  = '';
+                    $('import-class-data').value    = '';
+                    $('import-dialog-data').value   = '';
+                    $('import-general-data').value  = '';
+                } else {
+                    $('import-status').innerHTML = `<span class="text-red-600">❌ ${esc(data.error || 'Unknown error')}</span>`;
+                }
+            } catch (err) {
+                $('import-status').innerHTML = `<span class="text-red-600">❌ ${esc(err.message)}</span>`;
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+            }
+        }
+
+        // ── Topic Management ──────────────────────────────────────────
+        async function loadTopics() {
+            try {
+                const resp = await fetch('/api/topics');
+                const data = await resp.json();
+                const list = $('topic-list');
+                const topics = data.topics || [];
+
+                if (topics.length === 0) {
+                    list.innerHTML = '<p class="text-gray-400 text-sm italic">No topics yet. Generate prompts to create one.</p>';
+                    return;
+                }
+
+                list.innerHTML = topics.map(t => `
+                    <div class="px-3 py-2 rounded-lg text-sm
+                        ${t.active ? 'bg-green-50 border border-green-300' : 'bg-gray-50 border border-gray-200 hover:border-blue-300 cursor-pointer'}"
+                        ${t.active ? '' : `onclick="activateTopic('${t.slug}')"`}>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center min-w-0">
+                                <span class="mr-2">${t.active ? '✅' : '📁'}</span>
+                                <span class="truncate font-medium ${t.active ? 'text-green-800' : 'text-gray-700'}">${escapeHtml(t.topic)}</span>
+                            </div>
+                            <div class="flex items-center gap-1 ml-2 flex-shrink-0">
+                                ${t.active ? '<span class="text-xs text-green-600 font-medium">Active</span>' : ''}
+                                ${!t.active && t.archived_at ? `<button onclick="event.stopPropagation(); deleteTopic('${t.slug}', '${escJs(t.topic)}')" class="text-red-400 hover:text-red-600 p-1" title="Delete topic">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>` : ''}
+                            </div>
+                        </div>
+                        ${t.active ? `
+                        <div class="mt-2 pt-2 border-t border-green-200">
+                            <button onclick="event.stopPropagation(); regenerateActiveTopic('${escJs(t.topic)}')"
+                                    id="btn-regen-topic"
+                                    class="w-full fluent-btn-secondary text-xs py-1.5 px-3 flex items-center justify-center">
+                                <svg class="h-4 w-4 mr-1.5 hidden animate-spin" id="regen-topic-spinner" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                                </svg>
+                                🔄 Regenerar Prompts + Datos
+                            </button>
+                            <div id="regen-topic-status" class="mt-1 text-xs"></div>
+                        </div>` : ''}
+                    </div>
+                `).join('');
+            } catch (err) {
+                $('topic-list').innerHTML = '<p class="text-red-500 text-sm">Error loading topics</p>';
+            }
+        }
+
+        async function activateTopic(slug) {
+            const statusEl = $('topic-status');
+            statusEl.innerHTML = '<span class="text-blue-600">⏳ Switching topic…</span>';
+            try {
+                const resp = await fetch('/api/topics/activate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ slug })
+                });
+                const data = await resp.json();
+                if (data.error) throw new Error(data.error);
+                statusEl.innerHTML = `<span class="text-green-600">✅ Switched to "${escapeHtml(data.topic?.topic || slug)}"</span>`;
+                // Reset view caches so content reloads for the new topic
+                viewLoaded = { single: false, compare: false, history: false, data: false };
+                // Reload everything
+                await Promise.all([loadTopics(), loadPromptList(), checkSyncStatus(), loadActiveTopic()]);
+                if (currentPromptType) loadPrompt(currentModel, currentPromptType);
+            } catch (err) {
+                statusEl.innerHTML = `<span class="text-red-600">❌ ${escapeHtml(err.message)}</span>`;
+            }
+        }
+
+        async function deleteTopic(slug, name) {
+            if (!confirm(`Delete archived topic "${name}"?\nThis will remove all its saved prompts and test data permanently.`)) return;
+            const statusEl = $('topic-status');
+            try {
+                const resp = await fetch(`/api/topics/${slug}`, { method: 'DELETE' });
+                const data = await resp.json();
+                if (data.error) throw new Error(data.error);
+                statusEl.innerHTML = `<span class="text-green-600">🗑️ Deleted "${escapeHtml(name)}"</span>`;
+                loadTopics();
+            } catch (err) {
+                statusEl.innerHTML = `<span class="text-red-600">❌ ${escapeHtml(err.message)}</span>`;
+            }
+        }
+
+        async function regenerateActiveTopic(topicName) {
+            if (!confirm(`Regenerar prompts y datos de test para "${topicName}"?\n\nEsto sobrescribirá los prompts y datos actuales del tema activo.`)) return;
+
+            const btn = $('btn-regen-topic');
+            const spinner = $('regen-topic-spinner');
+            const statusEl = $('regen-topic-status');
+            const generatorModel = $('gen-model').value;
+
+            btn.disabled = true;
+            if (spinner) spinner.classList.remove('hidden');
+            statusEl.innerHTML = '<span class="text-blue-600">⏳ Regenerando prompts + datos… puede tardar 1-2 minutos.</span>';
+
+            try {
+                const resp = await fetch('/api/prompts/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic: topicName, generator_model: generatorModel }),
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || 'Unknown error');
+
+                const promptCount = Object.values(data.prompts || {}).reduce((n, obj) => n + Object.keys(obj).length, 0);
+                const dataInfo = data.data || {};
+                const dataParts = [];
+                if (dataInfo.classification) dataParts.push(`${dataInfo.classification.count || 0} classification`);
+                if (dataInfo.dialog) dataParts.push(`${dataInfo.dialog.count || 0} dialog`);
+                if (dataInfo.general) dataParts.push(`${dataInfo.general.count || 0} general`);
+
+                statusEl.innerHTML = `<span class="text-green-600">✅ ${promptCount} prompts + ${dataParts.join(', ')} datos regenerados</span>`;
+
+                // Reload everything
+                viewLoaded = { single: false, compare: false, history: false, data: false };
+                await Promise.all([loadTopics(), loadPromptList(), checkSyncStatus(), loadActiveTopic()]);
+                if (currentPromptType) loadPrompt(currentModel, currentPromptType);
+            } catch (err) {
+                statusEl.innerHTML = `<span class="text-red-600">❌ ${escapeHtml(err.message)}</span>`;
+            } finally {
+                btn.disabled = false;
+                if (spinner) spinner.classList.add('hidden');
+            }
+        }
+
+        // ── Data Sync Status ───────────────────────────────────────────
+        async function checkSyncStatus() {
+            try {
+                const resp = await fetch('/api/data/sync-status');
+                const data = await resp.json();
+                const panel = $('sync-panel');
+                const statusEl = $('sync-status');
+                const actionsEl = $('sync-actions');
+
+                if (!data.topic) {
+                    panel.classList.add('hidden');
+                    return;
+                }
+
+                panel.classList.remove('hidden');
+
+                if (data.in_sync) {
+                    statusEl.innerHTML = `
+                        <div class="flex items-center space-x-2">
+                            <span class="inline-block w-3 h-3 bg-green-500 rounded-full"></span>
+                            <span class="text-green-700 font-medium">In Sync</span>
+                        </div>
+                        <p class="text-[var(--text-secondary)] mt-1">Topic: <strong>${esc(data.topic)}</strong></p>
+                        <p class="text-xs text-gray-400 mt-1">Test data matches current prompts.</p>`;
+                    actionsEl.classList.add('hidden');
+                } else {
+                    const reasonText = {
+                        'data_never_generated': 'Test data has never been generated for this topic.',
+                        'prompts_updated_after_data': 'Prompts were updated after the last test data generation.'
+                    }[data.reason] || 'Data may be out of date.';
+
+                    statusEl.innerHTML = `
+                        <div class="flex items-center space-x-2">
+                            <span class="inline-block w-3 h-3 bg-orange-500 rounded-full animate-pulse"></span>
+                            <span class="text-orange-700 font-medium">Out of Sync</span>
+                        </div>
+                        <p class="text-[var(--text-secondary)] mt-1">Topic: <strong>${esc(data.topic)}</strong></p>
+                        <p class="text-xs text-orange-600 mt-1">⚠️ ${reasonText}</p>
+                        <p class="text-xs text-gray-500 mt-1">Regenerate test data to ensure evaluation results are accurate.</p>`;
+                    actionsEl.classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error('Failed to check sync status', err);
+            }
+        }
+
+        // ── Regenerate Test Data (async with polling) ─────────────────
+        async function regenerateTestData() {
+            const generatorModel = $('regen-model').value;
+            const btn = $('btn-regenerate');
+            const spinner = $('regen-spinner');
+
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+            $('regen-status').innerHTML = '<span class="text-blue-600">Regenerating test data… this may take 2-4 minutes.</span>';
+            regenVerboseClear();
+            regenVerboseLog('Starting test data regeneration');
+            regenVerboseLog('Model: ' + displayName(generatorModel));
+            regenVerboseLog('Sending POST /api/data/regenerate …');
+            const t0 = performance.now();
+
+            try {
+                // 1. POST to kick off async regeneration — returns 202
+                const resp = await fetch('/api/data/regenerate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ generator_model: generatorModel }),
+                });
+                const kickoff = await resp.json();
+                if (!resp.ok) {
+                    regenVerboseLog('❌ Error: ' + (kickoff.error || resp.statusText));
+                    $('regen-status').innerHTML = `<span class="text-red-600">❌ ${kickoff.error || resp.statusText}</span>`;
+                    return;
+                }
+                const runId = kickoff.run_id;
+                regenVerboseLog('Job accepted — run_id: ' + runId);
+                regenVerboseLog('Polling for completion…');
+
+                // 2. Poll status endpoint every 2.5 s
+                const POLL_MS = 2500;
+                let dotCount = 0;
+                const poll = () => new Promise((resolve, reject) => {
+                    const timer = setInterval(async () => {
+                        try {
+                            dotCount++;
+                            const elapsed = ((performance.now() - t0) / 1000).toFixed(0);
+                            $('regen-status').innerHTML = `<span class="text-blue-600">Regenerating test data… ${elapsed}s${ '.'.repeat((dotCount % 3) + 1) }</span>`;
+                            const sr = await fetch(`/api/data/regenerate/${runId}/status`);
+                            const sj = await sr.json();
+                            if (sj.status === 'completed') {
+                                clearInterval(timer);
+                                resolve(sj.result);
+                            } else if (sj.status === 'failed') {
+                                clearInterval(timer);
+                                reject(new Error(sj.error || 'Regeneration failed'));
+                            }
+                        } catch (pollErr) {
+                            regenVerboseLog('⚠️ Poll glitch: ' + pollErr.message);
+                        }
+                    }, POLL_MS);
+                });
+
+                const data = await poll();
+                const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+                regenVerboseLog('Response received — completed (' + elapsed + 's)');
+
+                // 3. Process successful result
+                const info = data.data || {};
+                const parts = [];
+                if (info.classification) parts.push(`${info.classification.count || 0} classification`);
+                if (info.dialog) parts.push(`${info.dialog.count || 0} dialog`);
+                if (info.general) parts.push(`${info.general.count || 0} general`);
+                const errors = Object.values(info).filter(d => d.error).length;
+                regenVerboseLog('Regenerated: ' + parts.join(', '));
+                if (errors) regenVerboseLog('⚠️ ' + errors + ' data set(s) had errors');
+                regenVerboseLog('✅ Regeneration complete.');
+                let html = `<span class="text-green-600">✅ Regenerated: ${parts.join(', ')} scenarios</span>`;
+                if (errors) html += `<br><span class="text-yellow-600">⚠️ ${errors} data set(s) had errors.</span>`;
+                $('regen-status').innerHTML = html;
+                // Refresh topics & sync status
+                loadTopics();
+                checkSyncStatus();
+            } catch (err) {
+                regenVerboseLog('❌ Error: ' + err.message);
+                $('regen-status').innerHTML = `<span class="text-red-600">❌ ${err.message}</span>`;
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+            }
+        }
+
+        // ── Version History ───────────────────────────────────────────
+        async function loadHistory() {
+            const params = new URLSearchParams();
+            const model = $('history-filter-model').value;
+            const type  = $('history-filter-type').value;
+            const topic = $('history-filter-topic').value.trim();
+            if (model) params.set('model', model);
+            if (type)  params.set('type', type);
+            if (topic) params.set('topic', topic);
+
+            try {
+                const resp = await fetch(`/api/prompts/history?${params}`);
+                const data = await resp.json();
+                const versions = data.versions || [];
+                const listEl = $('history-list');
+
+                // Update count badge
+                const countEl = $('history-count');
+                if (countEl) countEl.textContent = versions.length;
+
+                if (!versions.length) {
+                    listEl.innerHTML = '<p class="text-gray-500 text-sm">No version history yet. Save or generate prompts to create versions.</p>';
+                    return;
+                }
+
+                listEl.innerHTML = versions.map(v => {
+                    const date = new Date(v.timestamp).toLocaleString();
+                    const srcBadge = {
+                        'manual': 'bg-yellow-100 text-yellow-800',
+                        'ai-generated': 'bg-green-100 text-green-800',
+                        'restore': 'bg-blue-100 text-blue-800',
+                        'snapshot': 'bg-orange-100 text-orange-800',
+                    }[v.source] || 'bg-gray-100 text-gray-800';
+                    return `
+                    <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition version-item" data-id="${v.id}">
+                        <input type="checkbox" class="version-checkbox rounded border-gray-300 mr-3 flex-shrink-0" data-id="${v.id}" onclick="event.stopPropagation(); updateBulkBar()">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-medium text-sm text-gray-800">${v.model.toUpperCase()} / ${v.prompt_type.replace(/_/g, ' ')}</span>
+                                <span class="px-2 py-0.5 rounded-full text-xs ${srcBadge}">${v.source}</span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-0.5 truncate">
+                                ${v.topic ? '📌 Topic: ' + esc(v.topic) + ' · ' : ''}${date}${v.author ? ' · ' + esc(v.author) : ''}
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-1 ml-3 flex-shrink-0">
+                            <button class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 preview-btn" data-id="${v.id}" title="Preview">
+                                Preview
+                            </button>
+                            <button class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 delete-single-btn" data-id="${v.id}" title="Delete">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                // Reset bulk bar
+                updateBulkBar();
+
+                // Click to preview
+                document.querySelectorAll('.version-item').forEach(el => {
+                    el.addEventListener('click', (e) => {
+                        if (e.target.closest('.version-checkbox') || e.target.closest('.delete-single-btn')) return;
+                        previewVersion(el.dataset.id);
+                    });
+                });
+                document.querySelectorAll('.preview-btn').forEach(el => {
+                    el.addEventListener('click', (e) => { e.stopPropagation(); previewVersion(el.dataset.id); });
+                });
+                // Inline delete buttons
+                document.querySelectorAll('.delete-single-btn').forEach(el => {
+                    el.addEventListener('click', (e) => { e.stopPropagation(); deleteVersion(el.dataset.id); });
+                });
+            } catch (err) {
+                $('history-list').innerHTML = `<p class="text-red-500 text-sm">Error: ${err.message}</p>`;
+            }
+        }
+
+        async function previewVersion(versionId) {
+            selectedVersionId = versionId;
+            try {
+                const resp = await fetch(`/api/prompts/history/${versionId}`);
+                const data = await resp.json();
+                if (!resp.ok) { alert(data.error); return; }
+
+                const meta = data.metadata || {};
+                $('version-preview-title').textContent = `${(meta.model || '').toUpperCase()} / ${(meta.prompt_type || '').replace(/_/g, ' ')}`;
+                $('version-preview-meta').textContent = `Source: ${meta.source || '-'} · Topic: ${meta.topic || '-'} · ${new Date(meta.timestamp).toLocaleString()} · Author: ${meta.author || '-'}`;
+                $('version-preview-content').textContent = data.content;
+                $('version-preview').classList.remove('hidden');
+                $('restore-status').innerHTML = '';
+            } catch (err) {
+                alert('Error loading version: ' + err.message);
+            }
+        }
+
+        async function restoreVersion() {
+            if (!selectedVersionId) return;
+            $('restore-status').innerHTML = '<span class="text-blue-600">Restoring…</span>';
+            try {
+                const resp = await fetch('/api/prompts/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ version_id: selectedVersionId }),
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    $('restore-status').innerHTML = '<span class="text-green-600">✅ Restored successfully!</span>';
+                    loadHistory();
+                    if (currentPromptType) loadSinglePrompt(currentModel, currentPromptType);
+                } else {
+                    $('restore-status').innerHTML = `<span class="text-red-600">❌ ${data.error}</span>`;
+                }
+            } catch (err) {
+                $('restore-status').innerHTML = `<span class="text-red-600">❌ ${err.message}</span>`;
+            }
+        }
+
+        // ── Delete versions ─────────────────────────────────────────
+        async function deleteVersion(versionId) {
+            if (!confirm('¿Eliminar esta versión del historial? Esta acción no se puede deshacer.')) return;
+            try {
+                const resp = await fetch(`/api/prompts/history/${versionId}`, { method: 'DELETE' });
+                const data = await resp.json();
+                if (resp.ok) {
+                    // If the deleted version was being previewed, close the preview
+                    if (selectedVersionId === versionId) {
+                        $('version-preview').classList.add('hidden');
+                        selectedVersionId = null;
+                    }
+                    loadHistory();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        async function deleteSelectedVersions() {
+            const checked = document.querySelectorAll('.version-checkbox:checked');
+            if (!checked.length) return;
+            const count = checked.length;
+            if (!confirm(`¿Eliminar ${count} versión(es) seleccionada(s)? Esta acción no se puede deshacer.`)) return;
+            const ids = Array.from(checked).map(c => c.dataset.id);
+            try {
+                const resp = await fetch('/api/prompts/history/bulk-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ version_ids: ids }),
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    // Close preview if the previewed version was among deleted
+                    if (selectedVersionId && ids.includes(selectedVersionId)) {
+                        $('version-preview').classList.add('hidden');
+                        selectedVersionId = null;
+                    }
+                    loadHistory();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        function updateBulkBar() {
+            const checkboxes = document.querySelectorAll('.version-checkbox');
+            const checked = document.querySelectorAll('.version-checkbox:checked');
+            const bar = $('history-bulk-bar');
+            const selectAll = $('history-select-all');
+            if (checked.length > 0) {
+                bar.classList.remove('hidden');
+                $('history-selected-count').textContent = `${checked.length} selected`;
+                selectAll.checked = checked.length === checkboxes.length;
+                selectAll.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
+            } else {
+                bar.classList.add('hidden');
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+            }
+        }
+
+        // ── Test Data Explorer ──────────────────────────────────
+        let loadedDataItems = [];     // current in-memory data
+        let loadedDataType  = 'classification';  // classification | dialog | general
+        let loadedDataTopic = '';     // '' = active, slug = archived
+        let loadedDataTopicName = ''; // display name
+        let editingScenarioIdx = -1;  // index being edited in detail view
+        let dataOverviewCache = [];   // cached overview for cards
+
+        function highlightDataTab() {
+            document.querySelectorAll('.data-tab').forEach(b => {
+                if (b.dataset.dtype === loadedDataType) {
+                    b.className = 'data-tab px-3 py-1.5 rounded-lg text-sm bg-blue-600 text-white';
+                } else {
+                    b.className = 'data-tab px-3 py-1.5 rounded-lg text-sm bg-gray-200 text-gray-700 hover:bg-gray-300';
+                }
+            });
+        }
+
+        function highlightTopicCard(slug) {
+            document.querySelectorAll('.data-topic-card').forEach(c => {
+                if (c.dataset.slug === slug) {
+                    c.classList.add('ring-2', 'ring-blue-500');
+                    c.classList.remove('ring-0');
+                } else {
+                    c.classList.remove('ring-2', 'ring-blue-500');
+                    c.classList.add('ring-0');
+                }
+            });
+        }
+
+        async function loadDataOverview() {
+            const container = $('data-overview-cards');
+            try {
+                const resp = await fetch('/api/data/overview');
+                const data = await resp.json();
+                dataOverviewCache = data.overview || [];
+
+                if (!dataOverviewCache.length) {
+                    container.innerHTML = '<p class="text-gray-500 text-sm col-span-2">No data found. Generate prompts + test data first.</p>';
+                    return;
+                }
+
+                container.innerHTML = dataOverviewCache.map(t => {
+                    const total = (t.counts.classification || 0) + (t.counts.dialog || 0) + (t.counts.general || 0);
+                    const badge = t.active
+                        ? '<span class="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800 ml-2">Active</span>'
+                        : '<span class="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-[var(--text-secondary)] ml-2">Archived</span>';
+                    const borderColor = t.active ? 'border-green-300' : 'border-gray-200';
+                    return `
+                    <div class="data-topic-card ring-0 rounded-lg border-2 ${borderColor} p-4 cursor-pointer hover:shadow-md transition"
+                         data-slug="${t.slug}" data-topic="${esc(t.topic)}">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-medium text-sm text-gray-800 truncate" title="${esc(t.topic)}">${esc(t.topic)}</span>
+                            ${badge}
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div class="bg-blue-50 rounded p-1.5">
+                                <div class="text-lg font-bold text-blue-700">${t.counts.classification || 0}</div>
+                                <div class="text-[10px] text-blue-500 uppercase tracking-wide">Classification</div>
+                            </div>
+                            <div class="bg-brand-50 rounded p-1.5">
+                                <div class="text-lg font-bold text-brand-600">${t.counts.dialog || 0}</div>
+                                <div class="text-[10px] text-brand-500 uppercase tracking-wide">Dialog</div>
+                            </div>
+                            <div class="bg-teal-50 rounded p-1.5">
+                                <div class="text-lg font-bold text-teal-700">${t.counts.general || 0}</div>
+                                <div class="text-[10px] text-teal-500 uppercase tracking-wide">General</div>
+                            </div>
+                        </div>
+                        <div class="text-[11px] text-gray-400 mt-2 text-right">${total} scenarios total</div>
+                    </div>`;
+                }).join('');
+
+                // Click on a card to select that topic and auto-load
+                document.querySelectorAll('.data-topic-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                        loadedDataTopic = card.dataset.slug;
+                        loadedDataTopicName = card.dataset.topic;
+                        highlightTopicCard(loadedDataTopic);
+                        highlightDataTab();
+                        loadDataForCurrentSelection();
+                    });
+                });
+
+                // Auto-select the active topic card on first load
+                if (!loadedDataTopic && dataOverviewCache.length) {
+                    const active = dataOverviewCache.find(t => t.active);
+                    if (active) {
+                        loadedDataTopic = active.slug;
+                        loadedDataTopicName = active.topic;
+                        highlightTopicCard(loadedDataTopic);
+                        highlightDataTab();
+                        loadDataForCurrentSelection();
+                    }
+                }
+            } catch (err) {
+                container.innerHTML = `<p class="text-red-500 text-sm col-span-2">Error: ${err.message}</p>`;
+            }
+        }
+
+        async function loadDataForCurrentSelection() {
+            $('data-save-status').innerHTML = '';
+            $('scenario-editor').classList.add('hidden');
+
+            // Update panel header
+            const topicLabel = loadedDataTopicName || 'Active';
+            const isArchived = !!loadedDataTopic;
+            $('data-panel-title').innerHTML = `${esc(topicLabel)} ${isArchived ? '<span class="text-xs font-normal bg-gray-100 text-[var(--text-secondary)] px-2 py-0.5 rounded-full ml-2">archived</span>' : '<span class="text-xs font-normal bg-green-100 text-green-700 px-2 py-0.5 rounded-full ml-2">active</span>'}`;
+            $('data-panel-subtitle').textContent = `${loadedDataType} scenarios`;
+            $('data-info').textContent = 'Loading…';
+
+            const url = loadedDataTopic
+                ? `/api/data/raw/${loadedDataType}?topic=${loadedDataTopic}`
+                : `/api/data/raw/${loadedDataType}`;
+
+            try {
+                const resp = await fetch(url);
+                const result = await resp.json();
+                if (result.error) { $('data-info').textContent = result.error; return; }
+
+                loadedDataItems = result.data || [];
+                $('data-info').innerHTML = `<span class="font-medium">${loadedDataType}</span> · <span class="font-bold text-blue-700">${loadedDataItems.length}</span> scenarios`
+                    + (!result.exists ? ' <span class="text-orange-600">(file not found — empty)</span>' : '');
+                renderDataTable();
+                $('data-actions').classList.remove('hidden');
+                $('data-count').textContent = `${loadedDataItems.length} scenario(s)`;
+            } catch (err) {
+                $('data-info').textContent = 'Error: ' + err.message;
+            }
+        }
+
+        // Keep backward compat: old loadTestData is now loadDataForCurrentSelection
+        const loadTestData = loadDataForCurrentSelection;
+
+        // populateDataTopicSelect no longer needed but keep a stub for safety
+        function populateDataTopicSelect() { loadDataOverview(); }
+
+        function renderDataTable() {
+            const wrapper = $('data-table-wrapper');
+            if (!loadedDataItems.length) {
+                wrapper.innerHTML = '<p class="p-4 text-gray-500 text-sm">No scenarios. Click ➕ Add Scenario to create one.</p>';
+                return;
+            }
+
+            // Determine columns based on data type
+            let cols;
+            if (loadedDataType === 'classification') {
+                cols = [
+                    { key: 'id', label: 'ID', w: 'w-20' },
+                    { key: 'scenario', label: 'Scenario', w: 'w-40' },
+                    { key: 'customer_input', label: 'Customer Input', w: 'w-64' },
+                    { key: 'expected_category', label: 'Category', w: 'w-32' },
+                    { key: 'expected_subcategory', label: 'Subcategory', w: 'w-36' },
+                    { key: 'expected_priority', label: 'Priority', w: 'w-20' },
+                    { key: 'expected_sentiment', label: 'Sentiment', w: 'w-24' },
+                ];
+            } else if (loadedDataType === 'dialog') {
+                cols = [
+                    { key: 'id', label: 'ID', w: 'w-20' },
+                    { key: 'scenario', label: 'Scenario', w: 'w-40' },
+                    { key: 'category', label: 'Category', w: 'w-32' },
+                    { key: '_conv_summary', label: 'Conversation', w: 'w-64' },
+                    { key: 'context_gaps', label: 'Gaps', w: 'w-40' },
+                    { key: 'expected_resolution_turns', label: 'Turns', w: 'w-16' },
+                ];
+            } else {
+                cols = [
+                    { key: 'id', label: 'ID', w: 'w-20' },
+                    { key: 'test_type', label: 'Type', w: 'w-28' },
+                    { key: 'complexity', label: 'Complexity', w: 'w-24' },
+                    { key: 'prompt', label: 'Prompt', w: 'w-96' },
+                ];
+            }
+
+            let html = '<table class="min-w-full text-sm">';
+            html += '<thead class="bg-gray-50 sticky top-0"><tr>';
+            html += '<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 w-16">#</th>';
+            cols.forEach(c => {
+                html += `<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 ${c.w}">${c.label}</th>`;
+            });
+            html += '<th class="px-3 py-2 text-center text-xs font-medium text-gray-500 w-24">Actions</th>';
+            html += '</tr></thead><tbody>';
+
+            loadedDataItems.forEach((item, idx) => {
+                html += `<tr class="border-t border-gray-100 hover:bg-blue-50 transition">`;
+                html += `<td class="px-3 py-2 text-gray-400 text-xs">${idx + 1}</td>`;
+                cols.forEach(c => {
+                    let val;
+                    if (c.key === '_conv_summary') {
+                        // Summarise conversation for dialog type
+                        const conv = item.conversation || [];
+                        val = conv.map(m => `${m.role}: ${(m.message || '').substring(0, 40)}…`).join(' → ');
+                    } else if (c.key === 'context_gaps') {
+                        val = Array.isArray(item[c.key]) ? item[c.key].join(', ') : String(item[c.key] || '');
+                    } else {
+                        val = item[c.key] != null ? String(item[c.key]) : '';
+                    }
+                    const truncated = val.length > 80 ? val.substring(0, 77) + '…' : val;
+                    html += `<td class="px-3 py-2 text-gray-700 text-xs" title="${esc(val)}">${esc(truncated)}</td>`;
+                });
+                html += `<td class="px-3 py-2 text-center">
+                    <button onclick="editScenario(${idx})" class="text-blue-600 hover:text-blue-800 text-xs mr-1" title="Edit">✏️</button>
+                    <button onclick="deleteScenario(${idx})" class="text-red-500 hover:text-red-700 text-xs" title="Delete">🗑️</button>
+                </td>`;
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            wrapper.innerHTML = html;
+        }
+
+        function editScenario(idx) {
+            editingScenarioIdx = idx;
+            const item = loadedDataItems[idx];
+            $('scenario-editor-title').textContent = `Edit Scenario #${idx + 1} (${item.id || 'new'})`;
+            $('scenario-json-editor').value = JSON.stringify(item, null, 2);
+            $('scenario-editor').classList.remove('hidden');
+            $('scenario-edit-status').innerHTML = '';
+            $('scenario-json-editor').focus();
+        }
+
+        function applyScenarioEdit() {
+            try {
+                const parsed = JSON.parse($('scenario-json-editor').value);
+                if (editingScenarioIdx >= 0 && editingScenarioIdx < loadedDataItems.length) {
+                    loadedDataItems[editingScenarioIdx] = parsed;
+                } else {
+                    // New scenario being added
+                    loadedDataItems.push(parsed);
+                }
+                renderDataTable();
+                $('data-count').textContent = `${loadedDataItems.length} scenario(s)`;
+                $('scenario-edit-status').innerHTML = '<span class="text-green-600">✅ Applied (remember to Save Changes)</span>';
+            } catch (err) {
+                $('scenario-edit-status').innerHTML = `<span class="text-red-600">❌ Invalid JSON: ${esc(err.message)}</span>`;
+            }
+        }
+
+        function addScenario() {
+            // Create a blank template based on type
+            let template;
+            const nextId = loadedDataItems.length + 1;
+            if (loadedDataType === 'classification') {
+                template = {
+                    id: `CLASS_${String(nextId).padStart(3, '0')}`,
+                    scenario: '',
+                    customer_input: '',
+                    expected_category: '',
+                    expected_subcategory: '',
+                    expected_priority: 'medium',
+                    expected_sentiment: 'neutral',
+                    context: {},
+                    follow_up_questions_expected: []
+                };
+            } else if (loadedDataType === 'dialog') {
+                template = {
+                    id: `DLG_${String(nextId).padStart(3, '0')}`,
+                    scenario: '',
+                    conversation: [{ role: 'customer', message: '' }],
+                    context_gaps: [],
+                    optimal_follow_up: '',
+                    follow_up_rules: [],
+                    expected_resolution_turns: 2,
+                    category: ''
+                };
+            } else {
+                template = {
+                    id: `GEN_${String(nextId).padStart(3, '0')}`,
+                    test_type: '',
+                    prompt: '',
+                    complexity: 'medium',
+                    expected_behavior: ''
+                };
+            }
+            editingScenarioIdx = loadedDataItems.length; // will append
+            $('scenario-editor-title').textContent = `New Scenario #${nextId}`;
+            $('scenario-json-editor').value = JSON.stringify(template, null, 2);
+            $('scenario-editor').classList.remove('hidden');
+            $('scenario-edit-status').innerHTML = '';
+            $('scenario-json-editor').focus();
+        }
+
+        function deleteScenario(idx) {
+            const item = loadedDataItems[idx];
+            if (!confirm(`Delete scenario ${item.id || '#' + (idx+1)}?`)) return;
+            loadedDataItems.splice(idx, 1);
+            renderDataTable();
+            $('data-count').textContent = `${loadedDataItems.length} scenario(s)`;
+            // Close editor if it was editing this one
+            if (editingScenarioIdx === idx) $('scenario-editor').classList.add('hidden');
+        }
+
+        async function saveTestData() {
+            $('data-save-status').innerHTML = '<span class="text-blue-600">Saving…</span>';
+            try {
+                const body = { data: loadedDataItems };
+                if (loadedDataTopic) body.topic = loadedDataTopic;
+                const resp = await fetch(`/api/data/raw/${loadedDataType}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const result = await resp.json();
+                if (resp.ok) {
+                    $('data-save-status').innerHTML = `<span class="text-green-600">✅ Saved ${result.count} scenarios.</span>`;
+                    // Refresh overview cards to update counts
+                    loadDataOverview();
+                } else {
+                    $('data-save-status').innerHTML = `<span class="text-red-600">❌ ${result.error}</span>`;
+                }
+            } catch (err) {
+                $('data-save-status').innerHTML = `<span class="text-red-600">❌ ${err.message}</span>`;
+            }
+        }
+
+        // ── Helpers ───────────────────────────────────────────────────
+        function esc(text) {
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
+        }
+        /** Escape a string for safe embedding inside single-quoted JS in an onclick attribute */
+        function escJs(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+        // Alias for templates that used the old name
+        const escapeHtml = esc;
+    </script>
+</div><!-- end content area -->
+</body>
+</html>

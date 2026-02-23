@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Evaluation - Model Migration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% include '_fluent_head.html' %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script>Chart.defaults.plugins.colors = { enabled: false };</script>
+    <style>
+        .info-tooltip { position: relative; display: inline-flex; }
+        .info-tooltip .tooltip-text {
+            visibility: hidden; opacity: 0; position: absolute; z-index: 50;
+            bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+            width: 220px; padding: 8px 10px; border-radius: 8px;
+            background: #1e293b; color: #f1f5f9; font-size: 12px; line-height: 1.4;
+            text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,.25);
+            transition: opacity .15s; pointer-events: none;
+        }
+        .info-tooltip .tooltip-text::after {
+            content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+            border: 6px solid transparent; border-top-color: #1e293b;
+        }
+        .info-tooltip:hover .tooltip-text,
+        .info-tooltip:focus-within .tooltip-text { visibility: visible; opacity: 1; }
+    </style>
+</head>
+<body class="bg-[#faf9f8] min-h-screen">
+    {% set active_page = 'evaluate' %}
+    {% include '_sidebar.html' %}
+
+    <main class="flex-1 max-w-7xl mx-auto w-full px-8 py-6">
+        <h1 class="fluent-page-title mb-1">Run Batch Evaluation</h1>
+        <p id="active-topic-subtitle" class="text-sm text-brand-600 font-semibold mb-6"></p>
+
+        <!-- Configuration -->
+        <div class="fluent-card p-5 mb-8">
+            <h2 class="fluent-section-title text-[16px] mb-4">Evaluation Configuration</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div>
+                    <label class="fluent-label">Model</label>
+                    <select id="model" class="fluent-input">
+                        <!-- populated dynamically -->
+                    </select>
+                </div>
+                <div>
+                    <label class="fluent-label">Evaluation Type</label>
+                    <select id="eval-type" class="fluent-input">
+                        <option value="classification">Classification</option>
+                        <option value="dialog">Dialog</option>
+                        <option value="general">General</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="fluent-label">Scenario Limit</label>
+                    <input type="number" id="limit" value="10" min="1" max="50" class="fluent-input">
+                </div>
+                <div class="flex items-end">
+                    <div class="w-full space-y-2">
+                        <button id="run-eval" class="w-full fluent-btn-primary">
+                            Run Evaluation
+                        </button>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="verbose-mode" class="h-4 w-4 text-blue-600 rounded border-gray-300">
+                            <span class="ml-1.5 text-sm text-[var(--text-secondary)]">Verbose</span>
+                        </label>
+                        <label id="foundry-toggle-label" class="hidden items-center cursor-pointer">
+                            <input type="checkbox" id="foundry-mode" class="h-4 w-4 text-brand-500 rounded border-gray-300">
+                            <span class="ml-1.5 text-sm text-brand-500 font-medium" title="Also submit results to Microsoft Foundry Control Plane for LLM-as-judge evaluation">Include Foundry LLM-as-judge</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Preview -->
+        <div class="fluent-card p-5 mb-8">
+            <h2 class="fluent-section-title text-[16px] mb-4">Test Data Preview</h2>
+            <div id="data-preview" class="overflow-x-auto">
+                <p class="text-gray-500">Select an evaluation type to preview test scenarios...</p>
+            </div>
+        </div>
+
+        <!-- Foundry Control Plane Banner -->
+        <div id="foundry-banner" class="hidden mb-6">
+            <div class="bg-brand-50 border border-brand-200 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <svg class="h-5 w-5 text-brand-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                        </svg>
+                        <div>
+                            <h4 class="text-sm font-medium text-brand-700" id="foundry-banner-title">Foundry Evaluation</h4>
+                            <p class="text-sm text-brand-500" id="foundry-banner-detail"></p>
+                        </div>
+                    </div>
+                    <a id="foundry-report-link" href="#" target="_blank" class="hidden px-4 py-2 bg-brand-500 text-white text-sm font-medium rounded-lg hover:bg-brand-600 transition-colors">
+                        📊 View in Control Plane
+                    </a>
+                </div>
+                <!-- Evaluator badges -->
+                <div id="foundry-evaluators" class="mt-2 flex flex-wrap gap-1"></div>
+            </div>
+        </div>
+
+        <!-- Foundry LLM-as-Judge Scores Section -->
+        <div id="foundry-scores-section" class="hidden mb-8">
+            <h2 class="text-xl font-bold text-brand-700 mb-4 flex items-center">
+                <svg class="h-6 w-6 mr-2 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                </svg>
+                Foundry LLM-as-Judge Scores
+                <span class="info-tooltip ml-2 align-middle"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-100 hover:bg-brand-200 text-brand-600 text-[11px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Semantic quality scores from Microsoft Foundry Control Plane. A GPT-4.1 grader model rates each response on a 1–5 scale across multiple dimensions (coherence, fluency, relevance, etc.).</span></span>
+            </h2>
+            <!-- Foundry metric cards -->
+            <div id="foundry-metric-cards" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"></div>
+            <!-- Radar chart (1/3) + Evaluator Insights table (2/3) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                <!-- Left column: Quality Profile + Legend stacked -->
+                <div class="flex flex-col gap-4">
+                    <div class="fluent-card p-5 border-2 border-brand-200">
+                        <h3 class="text-lg font-bold text-brand-700 mb-4">Quality Profile <span class="info-tooltip ml-1 align-middle"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-100 hover:bg-brand-200 text-brand-600 text-[11px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Radar chart showing the model's quality across all Foundry evaluator dimensions. Each axis represents a 1–5 score. A larger, more regular polygon indicates better overall quality.</span></span></h3>
+                        <canvas id="foundry-radar-chart"></canvas>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-md p-4 border border-purple-100 text-xs text-gray-500">
+                        <div class="flex flex-wrap gap-x-4 gap-y-1">
+                            <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span><strong>4–5</strong> Good</span>
+                            <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500"></span><strong>3</strong> Acceptable</span>
+                            <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500"></span><strong>1–2</strong> Poor</span>
+                        </div>
+                        <p class="mt-2 leading-relaxed">Scores by GPT-4.1 grader via Foundry <code>score_model</code> (1–5). Click a row to expand reasoning.</p>
+                    </div>
+                </div>
+                <!-- Right column: Evaluator Insights Table -->
+                <div class="md:col-span-2 fluent-card p-5 border-2 border-brand-200 flex flex-col">
+                    <h3 class="text-lg font-bold text-brand-700 mb-4">📋 Evaluator Insights — Per-Scenario Breakdown</h3>
+                    <div id="foundry-reasons" class="overflow-x-auto flex-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results-section" class="hidden">
+            <!-- Metrics Summary — dynamic cards -->
+            <div id="metrics-cards" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <!-- populated by displayResults() -->
+            </div>
+
+            <!-- Deferred Foundry Submit Button -->
+            <div id="foundry-send-btn-container" class="hidden mb-6">
+                <button id="foundry-send-btn" class="inline-flex items-center px-5 py-2.5 bg-brand-500 text-white text-sm font-medium rounded-lg hover:bg-brand-600 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                    </svg>
+                    ☁️ Send to Foundry (LLM-as-Judge)
+                </button>
+                <span class="ml-3 text-sm text-gray-500">Evaluate response quality with Foundry Control Plane graders</span>
+            </div>
+
+            <!-- Error Banner (shown when there are evaluation errors) -->
+            <div id="errors-banner" class="hidden bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8">
+                <div class="flex items-start">
+                    <svg class="h-5 w-5 text-yellow-600 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div>
+                        <h4 class="text-sm font-medium text-yellow-800">Some scenarios had errors</h4>
+                        <p id="errors-detail" class="text-sm text-yellow-700 mt-1"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div id="charts-section" class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div id="category-chart-container" class="fluent-card p-5">
+                    <h3 class="text-[16px] font-semibold text-[var(--text-primary)] mb-4">Category Distribution <span class="info-tooltip ml-1 align-middle"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-500 text-[11px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Distribution of test scenarios across classification categories. Shows how many scenarios belong to each category and the correct vs. incorrect predictions per category.</span></span></h3>
+                    <canvas id="category-chart"></canvas>
+                </div>
+                <div class="fluent-card p-5">
+                    <h3 class="text-[16px] font-semibold text-[var(--text-primary)] mb-4">Latency Distribution <span class="info-tooltip ml-1 align-middle"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-500 text-[11px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Histogram of response times across all test scenarios. Shows how latency is spread — a narrow distribution indicates consistent performance; a long tail means some requests took significantly longer.</span></span></h3>
+                    <canvas id="latency-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- NEW: Confusion Matrix & Calibration -->
+            <div id="advanced-charts" class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div id="confusion-matrix-container" class="hidden fluent-card p-5">
+                    <h3 class="text-[16px] font-semibold text-[var(--text-primary)] mb-4">Confusion Matrix <span class="info-tooltip ml-1 align-middle"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-500 text-[11px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Heatmap showing predicted vs. expected categories. Diagonal cells (dark) are correct predictions. Off-diagonal cells reveal which categories the model confuses with each other.</span></span></h3>
+                    <div id="confusion-matrix" class="overflow-auto"></div>
+                </div>
+                <div id="calibration-chart-container" class="hidden fluent-card p-5">
+                    <h3 class="text-[16px] font-semibold text-[var(--text-primary)] mb-4">Confidence Calibration <span class="info-tooltip ml-1 align-middle"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-500 text-[11px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Plots the model's reported confidence against actual accuracy. A well-calibrated model follows the diagonal — points above mean overconfidence, points below mean underconfidence.</span></span></h3>
+                    <canvas id="calibration-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Raw Results -->
+            <div class="fluent-card p-5">
+                <h3 class="fluent-section-title text-[16px] mb-4">Individual Results</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr id="results-table-header">
+                                <!-- populated by updateResultsTable() -->
+                            </tr>
+                        </thead>
+                        <tbody id="results-table" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="hidden text-center py-12">
+            <svg class="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-[var(--text-secondary)]">Running batch evaluation...</p>
+            <p id="progress-text" class="text-gray-400 text-sm mt-2">This may take a few minutes</p>
+            <div id="verbose-log" class="hidden mt-4 mx-auto max-w-3xl text-left bg-white border border-gray-200 rounded-xl p-5 text-sm text-gray-700 max-h-[420px] overflow-auto shadow-inner space-y-2"></div>
+        </div>
+    </main>
+
+    <script>
+        let categoryChart = null;
+        let latencyChart = null;
+        let foundryRadarChart = null;
+        let modelNames = {};
+        let lastRawResults = [];  // Store raw results for cross-referencing in Foundry insights
+
+        // Last evaluation context (for deferred Foundry submission)
+        let lastSavedFilename = null;
+        let lastEvalType = null;
+        let lastModelName = null;
+
+        // Metric descriptions for info tooltips
+        const METRIC_INFO = {
+            'Accuracy': 'Percentage of correctly classified categories out of all predictions (weighted).',
+            'F1 Score': 'Harmonic mean of precision and recall. Balances false positives and false negatives.',
+            'Avg Latency': 'Mean end-to-end response time across all evaluated scenarios.',
+            'Consistency': 'Reproducibility score: how often the model returns the exact same answer across multiple runs.',
+            'Subcategory Acc': 'Percentage of correctly predicted subcategories vs ground truth.',
+            'Priority Acc': 'Percentage of correctly predicted priority levels (high/medium/low).',
+            'Sentiment Acc': 'Percentage of correctly predicted sentiment labels (positive/negative/neutral).',
+            'Cost / Req': 'Estimated USD cost per request based on token usage and model pricing.',
+            'Cache Hit Rate': 'Percentage of prompt tokens served from Azure\'s prompt cache (cached_tokens / prompt_tokens).',
+            'Reasoning Tok %': 'Percentage of completion tokens used for internal reasoning (o-series models).',
+            'Avg Confidence': 'Mean confidence score reported by the model across all predictions.',
+            'Tokens/sec': 'Total tokens processed per second of wall-clock time.',
+            'Follow-up Quality': 'Keyword-overlap score measuring how well generated follow-up questions match expected ones.',
+            'Context Coverage': 'Proportion of identified context gaps addressed in the agent response.',
+            'P95 Latency': '95th percentile latency — 95% of requests complete within this time.',
+            'Format Compliance': 'Percentage of responses that are valid JSON matching the expected schema.',
+            'Completeness': 'Proportion of required fields present in the response.',
+            'Rule Compliance': 'How well the response follows the follow-up rules (empathy, minimal data, avoid assumptions).',
+            'Empathy Score': 'Detection of empathetic, professional tone in the response opener (sorry, understand, help).',
+            'Optimal Similarity': 'Word-level similarity between the actual response and the gold-standard optimal follow-up.',
+            'Resolution Eff.': 'Whether the number of follow-up questions matches the expected resolution turns for the scenario.',
+            // Foundry LLM-as-judge evaluators
+            'Coherence': 'Foundry LLM-as-judge (1-5). Evaluates logical flow, organization and consistency of the response.',
+            'Fluency': 'Foundry LLM-as-judge (1-5). Evaluates grammatical correctness and natural language quality.',
+            'Relevance': 'Foundry LLM-as-judge (1-5). Evaluates how well the response addresses the original query.',
+            'Task Adherence': 'Foundry LLM-as-judge (1-5). Evaluates how well the response follows the task instructions.',
+            'Similarity': 'Foundry LLM-as-judge (1-5). Evaluates semantic similarity between response and ground truth.',
+            'Intent Resolution': 'Foundry LLM-as-judge (1-5). Evaluates whether the user\'s intent was properly identified and addressed.',
+            'Response Completeness': 'Foundry LLM-as-judge (1-5). Evaluates whether all aspects of the query were addressed.',
+        };
+
+        // Verbose logging helpers — narrative style
+        function verboseLog(msg, type) {
+            const el = document.getElementById('verbose-log');
+            if (!document.getElementById('verbose-mode').checked) { el.classList.add('hidden'); return; }
+            el.classList.remove('hidden');
+            const ts = new Date().toLocaleTimeString('en-GB', {hour12:false, hour:'2-digit',minute:'2-digit',second:'2-digit'});
+            const colors = { step: 'bg-blue-50 border-blue-200 text-blue-800', ok: 'bg-green-50 border-green-200 text-green-800', warn: 'bg-yellow-50 border-yellow-200 text-yellow-800', err: 'bg-red-50 border-red-200 text-red-800', detail: 'bg-gray-50 border-gray-200 text-gray-700', head: 'bg-brand-50 border-brand-200 text-brand-700', foundry: 'bg-brand-50 border-brand-200 text-brand-700' };
+            const cls = colors[type] || colors.step;
+            el.innerHTML += `<div class="rounded-lg border px-3 py-2 ${cls}"><span class="text-[10px] text-gray-400 float-right">${ts}</span>${msg}</div>`;
+            el.scrollTop = el.scrollHeight;
+        }
+        function verboseClear() { document.getElementById('verbose-log').innerHTML = ''; }
+
+        function makeRunId(prefix = 'run') {
+            return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        async function startBackendLogPolling(runId, tag = 'Backend') {
+            if (!document.getElementById('verbose-mode').checked || !runId) {
+                return async () => {};
+            }
+
+            let offset = 0;
+            let active = true;
+
+            const levelToType = (lvl) => {
+                const u = String(lvl || '').toUpperCase();
+                if (u.includes('ERROR') || u.includes('CRITICAL')) return 'err';
+                if (u.includes('WARN')) return 'warn';
+                if (u.includes('INFO')) return 'detail';
+                return 'step';
+            };
+
+            const pollOnce = async () => {
+                if (!active) return;
+                try {
+                    const r = await fetch(`/api/logs/${encodeURIComponent(runId)}?offset=${offset}`);
+                    if (!r.ok) return;
+                    const data = await r.json();
+                    const entries = data.entries || [];
+                    for (const e of entries) {
+                        const loggerName = escapeHtml(e.logger || 'app');
+                        const level = escapeHtml(e.level || 'INFO');
+                        const msg = escapeHtml(e.message || '');
+                        verboseLog(`🖥️ <strong>${tag}</strong> [${loggerName}] <span class="opacity-70">${level}</span> — ${msg}`, levelToType(level));
+                    }
+                    offset = Number(data.next_offset || offset);
+                } catch (_) {
+                    // silent by design
+                }
+            };
+
+            const timer = setInterval(pollOnce, 1200);
+            await pollOnce();
+
+            return async () => {
+                active = false;
+                clearInterval(timer);
+                try {
+                    const r = await fetch(`/api/logs/${encodeURIComponent(runId)}?offset=${offset}`);
+                    if (!r.ok) return;
+                    const data = await r.json();
+                    const entries = data.entries || [];
+                    for (const e of entries) {
+                        const loggerName = escapeHtml(e.logger || 'app');
+                        const level = escapeHtml(e.level || 'INFO');
+                        const msg = escapeHtml(e.message || '');
+                        verboseLog(`🖥️ <strong>${tag}</strong> [${loggerName}] <span class="opacity-70">${level}</span> — ${msg}`, levelToType(level));
+                    }
+                } catch (_) {
+                    // silent by design
+                }
+            };
+        }
+
+        async function loadActiveTopic() {
+            try {
+                const resp = await fetch('/api/topics');
+                const data = await resp.json();
+                const active = (data.topics || []).find(t => t.active);
+                const el = document.getElementById('active-topic-subtitle');
+                if (active && active.topic) el.textContent = '📌 Topic: ' + active.topic;
+            } catch(e) {}
+        }
+
+        function displayName(key) { return modelNames[key] || key; }
+
+        async function loadModels() {
+            try {
+                const resp = await fetch('/api/models');
+                const data = await resp.json();
+                const models = data.models || [];
+                const sel = document.getElementById('model');
+                sel.innerHTML = '';
+                models.forEach(m => {
+                    modelNames[m.name] = m.deployment;
+                    const opt = document.createElement('option');
+                    opt.value = m.name;
+                    opt.textContent = m.deployment;
+                    sel.appendChild(opt);
+                });
+            } catch (e) { console.error('Failed to load models', e); }
+        }
+
+        // Load data preview on type change
+        document.getElementById('eval-type').addEventListener('change', loadDataPreview);
+        
+        // Initial load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadModels();
+            loadDataPreview();
+            loadActiveTopic();
+            checkFoundryStatus();
+        });
+
+        // Check Foundry availability on page load
+        async function checkFoundryStatus() {
+            try {
+                const resp = await fetch('/api/foundry/status');
+                const data = await resp.json();
+                const label = document.getElementById('foundry-toggle-label');
+                if (data.configured) {
+                    label.classList.remove('hidden');
+                    label.classList.add('flex');
+                } else {
+                    label.classList.add('hidden');
+                }
+            } catch (e) {
+                // Foundry not available — toggle stays hidden
+            }
+        }
+
+        // Submit results to Foundry Control Plane
+        async function submitToFoundry(resultFilename, evalType, modelName) {
+            const banner = document.getElementById('foundry-banner');
+            const title = document.getElementById('foundry-banner-title');
+            const detail = document.getElementById('foundry-banner-detail');
+            const link = document.getElementById('foundry-report-link');
+            const badges = document.getElementById('foundry-evaluators');
+
+            banner.classList.remove('hidden');
+            link.classList.add('hidden');
+            badges.innerHTML = '';
+            title.textContent = '☁️ Submitting to Foundry Control Plane...';
+            detail.textContent = 'Uploading dataset and running LLM-as-judge evaluators (coherence, fluency, relevance, task adherence...)';
+            verboseLog('☁️ <strong>Foundry:</strong> Submitting evaluation to Microsoft Foundry Control Plane...', 'foundry');
+            const runId = makeRunId('foundry');
+            const stopBackendLogs = await startBackendLogPolling(runId, 'Foundry');
+
+            try {
+                const resp = await fetch('/api/foundry/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ result_filename: resultFilename, run_id: runId })
+                });
+                const data = await resp.json();
+
+                if (data.error) {
+                    title.textContent = '❌ Foundry evaluation failed';
+                    detail.textContent = data.error;
+                    verboseLog('❌ <strong>Foundry:</strong> ' + data.error, 'err');
+                    return;
+                }
+
+                if (data.status === 'completed' && data.report_url) {
+                    title.textContent = '✅ Foundry evaluation completed';
+                    detail.textContent = `Eval: ${data.eval_name || data.eval_id} — ${(data.evaluators || []).length} evaluators`;
+                    link.href = data.report_url;
+                    link.classList.remove('hidden');
+                    verboseLog(`✅ <strong>Foundry:</strong> Evaluation completed! <a href="${data.report_url}" target="_blank" class="underline">Open in Control Plane →</a>`, 'ok');
+                    // Display Foundry scores in local UI
+                    if (data.foundry_scores) {
+                        displayFoundryResults(data.foundry_scores);
+                    }
+                } else if (data.status === 'failed') {
+                    title.textContent = '❌ Foundry evaluation failed';
+                    detail.textContent = `Run ${data.run_id} failed`;
+                    verboseLog('❌ <strong>Foundry:</strong> Evaluation run failed on the server.', 'err');
+                } else {
+                    title.textContent = '⏳ Foundry evaluation in progress';
+                    detail.textContent = `Status: ${data.status} — check the Control Plane for updates`;
+                    if (data.report_url) {
+                        link.href = data.report_url;
+                        link.classList.remove('hidden');
+                    }
+                    verboseLog(`⏳ <strong>Foundry:</strong> Run status: ${data.status}. Check Control Plane for updates.`, 'warn');
+                }
+
+                // Show evaluator badges
+                if (data.evaluators && data.evaluators.length) {
+                    badges.innerHTML = data.evaluators.map(e =>
+                        `<span class="inline-block px-2 py-0.5 text-xs rounded-full bg-brand-100 text-brand-600">${e}</span>`
+                    ).join('');
+                }
+
+            } catch (e) {
+                title.textContent = '❌ Foundry submission error';
+                detail.textContent = e.message;
+                verboseLog('❌ <strong>Foundry:</strong> Network error: ' + e.message, 'err');
+            } finally {
+                await stopBackendLogs();
+            }
+        }
+
+        // Deferred Foundry submit button handler
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('foundry-send-btn');
+            if (btn) {
+                btn.addEventListener('click', async () => {
+                    if (!lastSavedFilename) return;
+                    btn.disabled = true;
+                    btn.innerHTML = '<svg class="animate-spin h-4 w-4 mr-2 inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Submitting to Foundry...';
+                    document.getElementById('foundry-send-btn-container').classList.add('hidden');
+                    await submitToFoundry(lastSavedFilename, lastEvalType, lastModelName);
+                });
+            }
+        });
+
+        // =====================================================================
+        // Display Foundry LLM-as-Judge scores in local UI
+        // =====================================================================
+        const FOUNDRY_FRIENDLY = {
+            'coherence': 'Coherence',
+            'fluency': 'Fluency',
+            'relevance': 'Relevance',
+            'task_adherence': 'Task Adherence',
+            'similarity': 'Similarity',
+            'intent_resolution': 'Intent Resolution',
+            'response_completeness': 'Response Completeness',
+        };
+
+        function displayFoundryResults(foundryScores) {
+            if (!foundryScores || !foundryScores.aggregated || Object.keys(foundryScores.aggregated).length === 0) {
+                verboseLog('☁️ <strong>Foundry:</strong> Evaluation completed but no scores were returned. Check the Control Plane for details.', 'warn');
+                return;
+            }
+
+            const section = document.getElementById('foundry-scores-section');
+            section.classList.remove('hidden');
+
+            const aggregated = foundryScores.aggregated;
+            const perRow = foundryScores.per_row || [];
+            const metricNames = Object.keys(aggregated);
+
+            // --- 1. Metric cards with score bar ---
+            const cardsEl = document.getElementById('foundry-metric-cards');
+            cardsEl.innerHTML = metricNames.map(name => {
+                const label = FOUNDRY_FRIENDLY[name] || name;
+                const desc = METRIC_INFO[label] || '';
+                const infoBtn = desc
+                    ? `<span class="info-tooltip ml-1 align-middle"><button class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-200 hover:bg-brand-200 text-brand-600 text-[10px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">${desc}</span></span>`
+                    : '';
+                const val = aggregated[name];
+                const pct = Math.round((val / 5) * 100);
+                return `<div class="fluent-card p-5 text-center border-2 border-brand-200">
+                    <h3 class="text-lg font-medium text-brand-500 mb-2">${label}${infoBtn}</h3>
+                    <p class="text-3xl font-bold text-brand-600">${val.toFixed(1)}<span class="text-lg text-purple-400">/5</span></p>
+                    <div class="mt-2 w-full bg-brand-100 rounded-full h-2">
+                        <div class="bg-brand-500 h-2 rounded-full" style="width: ${pct}%"></div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            // --- 2. Radar / spider chart ---
+            const ctx = document.getElementById('foundry-radar-chart').getContext('2d');
+            if (foundryRadarChart) foundryRadarChart.destroy();
+            foundryRadarChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: metricNames.map(n => FOUNDRY_FRIENDLY[n] || n),
+                    datasets: [{
+                        label: 'Foundry Score',
+                        data: metricNames.map(n => aggregated[n]),
+                        backgroundColor: 'rgba(15, 108, 189, 0.15)',
+                        borderColor: 'rgba(15, 108, 189, 1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: 'rgba(15, 108, 189, 1)',
+                        pointRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 5,
+                            ticks: { stepSize: 1, font: { size: 11 } },
+                            pointLabels: { font: { size: 12 } },
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.label}: ${ctx.raw.toFixed(2)} / 5`
+                            }
+                        }
+                    }
+                }
+            });
+
+            // --- 3. Evaluator Insights Table ---
+            const reasonsEl = document.getElementById('foundry-reasons');
+            const ORDERED_METRICS = ['coherence', 'fluency', 'relevance', 'similarity', 'task_adherence',
+                                     'intent_resolution', 'response_completeness'];
+            // Only show columns that exist in this run
+            const activeCols = ORDERED_METRICS.filter(m => metricNames.includes(m));
+
+            if (perRow.length === 0 || activeCols.length === 0) {
+                reasonsEl.innerHTML = '<p class="text-gray-400">No evaluator reasoning available for this run.</p>';
+            } else {
+                const scoreBadge = (val) => {
+                    if (val == null) return '<span class="text-gray-300">—</span>';
+                    const bg = val >= 4 ? 'bg-green-100 text-green-800' : val >= 3 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
+                    return `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold ${bg}">${val}/5</span>`;
+                };
+
+                let html = '<table class="min-w-full divide-y divide-gray-200 text-sm">';
+                // Header
+                html += '<thead class="bg-brand-50"><tr>';
+                html += '<th class="px-3 py-2 text-left text-xs font-semibold text-brand-600 uppercase w-10">#</th>';
+                html += '<th class="px-3 py-2 text-left text-xs font-semibold text-brand-600 uppercase" style="min-width:200px">Input</th>';
+                for (const m of activeCols) {
+                    html += `<th class="px-3 py-2 text-center text-xs font-semibold text-brand-600 uppercase">${FOUNDRY_FRIENDLY[m] || m}</th>`;
+                }
+                html += '</tr></thead>';
+                // Body
+                html += '<tbody class="divide-y divide-gray-100">';
+                for (const row of perRow) {
+                    const idx = row.row_index;
+                    const scores = row.scores || {};
+                    // Get input text from raw results
+                    const rawRow = lastRawResults[idx];
+                    const inputText = rawRow?.input || rawRow?.customer_input || `Row ${idx + 1}`;
+                    const inputTrunc = inputText.length > 80 ? inputText.substring(0, 80) + '…' : inputText;
+                    const hasAnyReason = activeCols.some(m => scores[m]?.reason);
+                    const rowId = `foundry-detail-${idx}`;
+
+                    // Main row
+                    html += `<tr class="${hasAnyReason ? 'cursor-pointer hover:bg-brand-50' : ''}" ${hasAnyReason ? `onclick="document.getElementById('${rowId}').classList.toggle('hidden')"` : ''}>`;
+                    html += `<td class="px-3 py-2 font-medium text-gray-700">${idx + 1}</td>`;
+                    html += `<td class="px-3 py-2 text-[var(--text-secondary)]" title="${inputText.replace(/"/g, '&quot;').substring(0, 300)}">${inputTrunc}</td>`;
+                    for (const m of activeCols) {
+                        const d = scores[m];
+                        html += `<td class="px-3 py-2 text-center">${scoreBadge(d?.score)}</td>`;
+                    }
+                    html += '</tr>';
+
+                    // Expandable detail row with reasoning
+                    if (hasAnyReason) {
+                        html += `<tr id="${rowId}" class="hidden bg-brand-50/50">`;
+                        html += `<td colspan="${activeCols.length + 2}" class="px-4 py-3">`;
+                        html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">';
+                        for (const m of activeCols) {
+                            const d = scores[m];
+                            if (!d?.reason) continue;
+                            const reasonFormatted = d.reason.replace(/\n/g, '<br>');
+                            const color = d.score >= 4 ? 'border-green-400' : d.score >= 3 ? 'border-yellow-400' : 'border-red-400';
+                            html += `<div class="border-l-4 ${color} pl-3">`;
+                            html += `<p class="font-semibold text-brand-700 text-xs mb-1">${FOUNDRY_FRIENDLY[m] || m} — ${d.score}/5</p>`;
+                            html += `<p class="text-[var(--text-secondary)] text-xs leading-relaxed">${reasonFormatted}</p>`;
+                            html += '</div>';
+                        }
+                        html += '</div></td></tr>';
+                    }
+                }
+                html += '</tbody></table>';
+                reasonsEl.innerHTML = html;
+            }
+
+            // --- 4. Add Foundry columns to the results table ---
+            const headerRow = document.getElementById('results-table-header');
+            const tableBody = document.getElementById('results-table');
+            if (headerRow && perRow.length > 0) {
+                const evalNames = Object.keys(perRow[0].scores || {});
+                if (evalNames.length > 0) {
+                    for (const ename of evalNames) {
+                        const th = document.createElement('th');
+                        th.className = 'px-4 py-3 text-left text-xs font-medium text-brand-500 uppercase';
+                        th.textContent = '☁️ ' + (FOUNDRY_FRIENDLY[ename] || ename);
+                        headerRow.appendChild(th);
+                    }
+                    const rows = tableBody.querySelectorAll('tr');
+                    for (let i = 0; i < rows.length && i < perRow.length; i++) {
+                        const rowScores = perRow[i].scores || {};
+                        for (const ename of evalNames) {
+                            const td = document.createElement('td');
+                            td.className = 'px-4 py-2 text-sm font-medium';
+                            const d = rowScores[ename];
+                            if (d) {
+                                const color = d.score >= 4 ? 'text-green-700' : d.score >= 3 ? 'text-yellow-700' : 'text-red-700';
+                                td.className += ' ' + color;
+                                td.textContent = d.score.toFixed(1) + '/5';
+                                if (d.reason) td.title = d.reason;
+                            } else {
+                                td.className += ' text-gray-400';
+                                td.textContent = '-';
+                            }
+                            rows[i].appendChild(td);
+                        }
+                    }
+                }
+            }
+
+            // --- 5. Verbose log entries ---
+            verboseLog('☁️ <strong>Foundry LLM-as-Judge Scores</strong>', 'foundry');
+            for (const name of metricNames) {
+                const label = FOUNDRY_FRIENDLY[name] || name;
+                const val = aggregated[name];
+                const bar = '█'.repeat(Math.round(val)) + '░'.repeat(5 - Math.round(val));
+                verboseLog(`&nbsp;&nbsp;${bar} <strong>${label}:</strong> ${val.toFixed(2)} / 5`, 'foundry');
+            }
+        }
+
+        async function loadDataPreview() {
+            const evalType = document.getElementById('eval-type').value;
+            const endpoint = evalType === 'classification' ? '/api/data/classification' : 
+                            evalType === 'dialog' ? '/api/data/dialog' : '/api/data/general';
+
+            try {
+                const response = await fetch(endpoint);
+                const data = await response.json();
+                
+                const previewEl = document.getElementById('data-preview');
+                
+                let html = `<p class="text-sm text-[var(--text-secondary)] mb-4">Total scenarios: ${data.count}</p>`;
+                html += '<table class="min-w-full divide-y divide-gray-200">';
+                html += '<thead class="bg-gray-50"><tr>';
+                html += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID</th>';
+                html += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Scenario</th>';
+                html += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>';
+                html += '</tr></thead><tbody class="divide-y divide-gray-200">';
+                
+                const scenarios = data.scenarios.slice(0, 5);
+                for (const s of scenarios) {
+                    html += `<tr>
+                        <td class="px-4 py-2 text-sm text-gray-900">${s.id}</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${s.scenario || s.customer_input?.substring(0, 50) || '-'}...</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${s.expected_category || s.category || '-'}</td>
+                    </tr>`;
+                }
+                
+                html += '</tbody></table>';
+                previewEl.innerHTML = html;
+            } catch (error) {
+                document.getElementById('data-preview').innerHTML = 
+                    `<p class="text-red-500">Error loading preview: ${error.message}</p>`;
+            }
+        }
+
+        // Run evaluation
+        document.getElementById('run-eval').addEventListener('click', async function() {
+            const model = document.getElementById('model').value;
+            const evalType = document.getElementById('eval-type').value;
+            const limit = parseInt(document.getElementById('limit').value);
+
+            document.getElementById('results-section').classList.add('hidden');
+            document.getElementById('foundry-scores-section').classList.add('hidden');
+            document.getElementById('foundry-banner').classList.add('hidden');
+            document.getElementById('foundry-send-btn-container').classList.add('hidden');
+            lastSavedFilename = null;
+            document.getElementById('loading-state').classList.remove('hidden');
+            verboseClear();
+            verboseLog('🚀 <strong>Starting batch evaluation</strong>', 'head');
+            verboseLog(`<strong>Model:</strong> ${displayName(model)} &nbsp;|&nbsp; <strong>Type:</strong> ${evalType} &nbsp;|&nbsp; <strong>Limit:</strong> ${limit} scenarios<br>The system will send each test scenario to the model and compare its response against the expected ground-truth answer.`, 'step');
+            verboseLog('📡 Sending request to the evaluation API…', 'step');
+            const t0 = performance.now();
+            const runId = makeRunId('eval');
+            const stopBackendLogs = await startBackendLogPolling(runId, 'Evaluation');
+
+            try {
+                const response = await fetch('/api/evaluate/batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: model,
+                        type: evalType,
+                        limit: limit,
+                        run_id: runId,
+                    })
+                });
+
+                const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+                verboseLog(`✅ Response received from server (HTTP ${response.status}) after <strong>${elapsed}s</strong>.`, 'ok');
+                const data = await response.json();
+                
+                if (data.error) {
+                    verboseLog('❌ The server returned an error: <em>' + data.error + '</em>', 'err');
+                    throw new Error(data.error);
+                }
+
+                verboseLog(`📊 <strong>${data.scenarios_tested || '?'} scenarios</strong> were evaluated. Now reviewing each one:`, 'head');
+
+                // Per-scenario narrative
+                if (data.raw_results) {
+                    for (let i = 0; i < data.raw_results.length; i++) {
+                        const r = data.raw_results[i];
+                        const n = i + 1;
+                        if (evalType === 'classification') {
+                            const input = (r.input || '').substring(0, 120);
+                            const exp = String(r.expected?.category || '?');
+                            const pred = String(r.predicted?.category || '?');
+                            const match = exp.toLowerCase() === pred.toLowerCase();
+                            const conf = r.predicted?.confidence;
+                            const confStr = conf != null && conf > 0 ? (conf * 100).toFixed(0) + '%' : 'not reported';
+                            const lat = r.latency != null ? r.latency.toFixed(3) + 's' : '?';
+                            const td = r.token_detail || {};
+                            const tokStr = td.prompt != null ? `${td.prompt} prompt + ${td.completion} completion` : '';
+                            const cachedStr = td.cached > 0 ? ` (${td.cached} cached)` : '';
+                            const _expSub = r.expected?.subcategory, _predSub = r.predicted?.subcategory;
+                            const subMatch = _expSub && _predSub ? (String(_expSub).toLowerCase() === String(_predSub).toLowerCase() ? '✓' : '✗ got "' + _predSub + '"') : '';
+                            const _expPri = r.expected?.priority, _predPri = r.predicted?.priority;
+                            const priMatch = _expPri && _predPri ? (String(_expPri).toLowerCase() === String(_predPri).toLowerCase() ? '✓' : '✗ got "' + _predPri + '"') : '';
+                            const _expSen = r.expected?.sentiment, _predSen = r.predicted?.sentiment;
+                            const senMatch = _expSen && _predSen ? (String(_expSen).toLowerCase() === String(_predSen).toLowerCase() ? '✓' : '✗ got "' + _predSen + '"') : '';
+                            let detail = `<strong>Scenario ${n} — ${r.scenario_id || '?'}</strong><br>`;
+                            detail += `💬 <em>"${input}${r.input && r.input.length > 120 ? '…' : ''}"</em><br>`;
+                            detail += `🎯 Expected category: <strong>${exp}</strong> → Model predicted: <strong>${pred}</strong> `;
+                            detail += match ? '— <span class="text-green-700 font-semibold">Correct ✓</span>' : '— <span class="text-red-700 font-semibold">Incorrect ✗</span>';
+                            detail += `<br>📈 Confidence: ${confStr} &nbsp;|&nbsp; Latency: ${lat}`;
+                            if (tokStr) detail += ` &nbsp;|&nbsp; Tokens: ${tokStr}${cachedStr}`;
+                            if (subMatch) detail += `<br>&nbsp;&nbsp;↳ Subcategory (expected "${r.expected.subcategory}"): ${subMatch}`;
+                            if (priMatch) detail += ` &nbsp;|&nbsp; Priority (expected "${r.expected.priority}"): ${priMatch}`;
+                            if (senMatch) detail += ` &nbsp;|&nbsp; Sentiment (expected "${r.expected.sentiment}"): ${senMatch}`;
+                            verboseLog(detail, match ? 'ok' : 'warn');
+                        } else if (evalType === 'dialog') {
+                            const gaps = Array.isArray(r.context_gaps) ? r.context_gaps.join(', ') : (r.context_gaps || '-');
+                            const resp = (r.response || '').substring(0, 150);
+                            const lat = r.latency != null ? r.latency.toFixed(3) + 's' : '?';
+                            const cat = r.category || '';
+                            const qCount = r.question_count != null ? r.question_count : '?';
+                            const expTurns = r.expected_turns != null ? r.expected_turns : '?';
+                            const tokDetail = r.token_detail;
+                            let detail = `<strong>Scenario ${n} — ${r.scenario_id || '?'}</strong>`;
+                            if (cat) detail += ` <span class="text-gray-500">(${cat})</span>`;
+                            detail += `<br>`;
+                            detail += `🔍 Context gaps to detect: <em>${gaps}</em><br>`;
+                            detail += `❓ Follow-up questions generated: <strong>${qCount}</strong> (expected: ${expTurns})`;
+                            if (qCount !== '?' && expTurns !== '?') {
+                                const ratio = qCount / expTurns;
+                                detail += ratio >= 0.8 && ratio <= 1.5
+                                    ? ' — <span class="text-green-700 font-semibold">On target ✓</span>'
+                                    : ' — <span class="text-yellow-700 font-semibold">Off target ⚠</span>';
+                            }
+                            detail += `<br>`;
+                            detail += `💬 Model response: <em>"${resp}${r.response && r.response.length > 150 ? '…' : ''}"</em><br>`;
+                            detail += `⏱ Latency: ${lat}`;
+                            if (tokDetail) {
+                                detail += ` &nbsp;|&nbsp; Tokens: ${tokDetail.prompt_tokens || 0}↑ ${tokDetail.completion_tokens || 0}↓`;
+                                if (tokDetail.cached_tokens) detail += ` (${tokDetail.cached_tokens} cached)`;
+                                if (tokDetail.reasoning_tokens) detail += ` (${tokDetail.reasoning_tokens} reasoning)`;
+                            }
+                            verboseLog(detail, 'detail');
+                        } else {
+                            const prompt = (r.prompt || '').substring(0, 120);
+                            const resp = Array.isArray(r.responses) && r.responses.length > 0 ? r.responses[0].substring(0, 120) : '?';
+                            const avgLat = Array.isArray(r.latencies) ? (r.latencies.reduce((a,b) => a+b, 0) / r.latencies.length).toFixed(3) + 's' : (r.latency != null ? r.latency.toFixed(3) + 's' : '?');
+                            let detail = `<strong>Test ${n} — ${r.test_id || '?'}</strong> (${r.test_type || 'general'})<br>`;
+                            detail += `📝 Prompt: <em>"${prompt}${r.prompt && r.prompt.length > 120 ? '…' : ''}"</em><br>`;
+                            detail += `💬 Response: <em>"${resp}…"</em><br>`;
+                            detail += `⏱ Avg latency: ${avgLat}`;
+                            if (r.expected_behavior) detail += ` &nbsp;|&nbsp; Expected behavior: <em>${r.expected_behavior.substring(0, 80)}</em>`;
+                            verboseLog(detail, 'detail');
+                        }
+                    }
+                }
+
+                // Summary
+                let summary = '📋 <strong>Summary</strong><br>';
+                if (data.classification_metrics) {
+                    const cm = data.classification_metrics;
+                    summary += `Accuracy: <strong>${(cm.accuracy * 100).toFixed(1)}%</strong> &nbsp;|&nbsp; F1 Score: <strong>${(cm.f1_score * 100).toFixed(1)}%</strong>`;
+                    if (cm.subcategory_accuracy != null) summary += ` &nbsp;|&nbsp; Subcategory: ${(cm.subcategory_accuracy * 100).toFixed(1)}%`;
+                    summary += '<br>';
+                }
+                if (data.latency_metrics) {
+                    const lm = data.latency_metrics;
+                    summary += `Avg latency: <strong>${lm.mean_latency.toFixed(3)}s</strong> &nbsp;|&nbsp; P95: ${lm.p95_latency.toFixed(3)}s`;
+                    if (lm.tokens_per_second) summary += ` &nbsp;|&nbsp; Throughput: ${lm.tokens_per_second.toFixed(0)} tok/s`;
+                    if (lm.cost_per_request) summary += ` &nbsp;|&nbsp; Cost/req: $${lm.cost_per_request.toFixed(4)}`;
+                    summary += '<br>';
+                }
+                if (data.quality_metrics) {
+                    const qm = data.quality_metrics;
+                    let qParts = [];
+                    if (qm.follow_up_quality) qParts.push(`Follow-up quality: ${(qm.follow_up_quality * 100).toFixed(1)}%`);
+                    if (qm.rule_compliance) qParts.push(`Rule compliance: ${(qm.rule_compliance * 100).toFixed(1)}%`);
+                    if (qm.empathy_score) qParts.push(`Empathy: ${(qm.empathy_score * 100).toFixed(1)}%`);
+                    if (qm.optimal_similarity) qParts.push(`Optimal similarity: ${(qm.optimal_similarity * 100).toFixed(1)}%`);
+                    if (qm.resolution_efficiency) qParts.push(`Resolution eff.: ${(qm.resolution_efficiency * 100).toFixed(1)}%`);
+                    if (qParts.length) summary += `🎯 Quality: ${qParts.join(' &nbsp;|&nbsp; ')}<br>`;
+                }
+                if (data.consistency_metrics) {
+                    const cons = data.consistency_metrics;
+                    if (cons.reproducibility_score != null) summary += `🔄 Consistency: <strong>${(cons.reproducibility_score * 100).toFixed(1)}%</strong>`;
+                    if (cons.response_variance != null) summary += ` &nbsp;|&nbsp; Variance: ${(cons.response_variance * 100).toFixed(1)}%`;
+                    summary += '<br>';
+                }
+                if (data.errors && data.errors.length) summary += `<br>⚠️ ${data.errors.length} scenario(s) failed: ${data.errors.slice(0, 2).join('; ')}`;
+                verboseLog(summary, 'head');
+                verboseLog('🏁 <strong>Evaluation complete.</strong>', 'ok');
+
+                displayResults(data, evalType);
+                lastRawResults = data.raw_results || [];
+
+                // Store context for deferred Foundry submission
+                lastSavedFilename = data.saved_filename || null;
+                lastEvalType = evalType;
+                lastModelName = model;
+
+                // Submit to Foundry Control Plane if toggle is enabled
+                if (document.getElementById('foundry-mode').checked && data.saved_filename) {
+                    document.getElementById('foundry-send-btn-container').classList.add('hidden');
+                    submitToFoundry(data.saved_filename, evalType, model);
+                } else if (lastSavedFilename && !document.getElementById('foundry-toggle-label').classList.contains('hidden')) {
+                    // Foundry is configured but not auto-triggered — show the send button
+                    document.getElementById('foundry-send-btn-container').classList.remove('hidden');
+                    document.getElementById('foundry-send-btn').disabled = false;
+                    document.getElementById('foundry-send-btn').textContent = '\u2601\ufe0f Send to Foundry (LLM-as-Judge)';
+                }
+            } catch (error) {
+                document.getElementById('loading-state').classList.add('hidden');
+                alert('Error: ' + error.message);
+            } finally {
+                await stopBackendLogs();
+            }
+        });
+
+        function displayResults(data, evalType) {
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('results-section').classList.remove('hidden');
+
+            const cm = data.classification_metrics;
+            const lm = data.latency_metrics;
+            const cons = data.consistency_metrics;
+            const qm = data.quality_metrics;
+
+            // --- Dynamic Metric Cards ---
+            const cardsEl = document.getElementById('metrics-cards');
+            let cards = [];
+
+            if (evalType === 'classification') {
+                cards = [
+                    { label: 'Accuracy', value: cm ? (cm.accuracy * 100).toFixed(1) + '%' : '-', color: 'blue' },
+                    { label: 'F1 Score', value: cm ? (cm.f1_score * 100).toFixed(1) + '%' : '-', color: 'green' },
+                    { label: 'Avg Latency', value: lm ? lm.mean_latency.toFixed(3) + 's' : '-', color: 'yellow' },
+                    { label: 'Consistency', value: cons ? (cons.reproducibility_score * 100).toFixed(1) + '%' : '-', color: 'purple' },
+                    { label: 'Subcategory Acc', value: cm && cm.subcategory_accuracy != null ? (cm.subcategory_accuracy * 100).toFixed(1) + '%' : '-', color: 'blue' },
+                    { label: 'Priority Acc', value: cm && cm.priority_accuracy != null ? (cm.priority_accuracy * 100).toFixed(1) + '%' : '-', color: 'green' },
+                    { label: 'Sentiment Acc', value: cm && cm.sentiment_accuracy != null ? (cm.sentiment_accuracy * 100).toFixed(1) + '%' : '-', color: 'purple' },
+                    { label: 'Cost / Req', value: lm && lm.cost_per_request ? '$' + lm.cost_per_request.toFixed(4) : '-', color: 'yellow' },
+                    { label: 'Cache Hit Rate', value: lm && lm.cache_hit_rate != null ? lm.cache_hit_rate.toFixed(1) + '%' : '-', color: 'green' },
+                    { label: 'Reasoning Tok %', value: lm && lm.reasoning_token_pct != null ? lm.reasoning_token_pct.toFixed(1) + '%' : '-', color: 'purple' },
+                    { label: 'Avg Confidence', value: cm && cm.avg_confidence ? (cm.avg_confidence * 100).toFixed(1) + '%' : '-', color: 'blue' },
+                    { label: 'Tokens/sec', value: lm && lm.tokens_per_second ? lm.tokens_per_second.toFixed(0) : '-', color: 'yellow' },
+                ];
+            } else if (evalType === 'dialog') {
+                cards = [
+                    { label: 'Follow-up Quality', value: qm ? (qm.follow_up_quality * 100).toFixed(1) + '%' : '-', color: 'blue' },
+                    { label: 'Context Coverage', value: qm ? (qm.relevance * 100).toFixed(1) + '%' : '-', color: 'green' },
+                    { label: 'Rule Compliance', value: qm && qm.rule_compliance != null ? (qm.rule_compliance * 100).toFixed(1) + '%' : '-', color: 'blue' },
+                    { label: 'Empathy Score', value: qm && qm.empathy_score != null ? (qm.empathy_score * 100).toFixed(1) + '%' : '-', color: 'green' },
+                    { label: 'Optimal Similarity', value: qm && qm.optimal_similarity != null ? (qm.optimal_similarity * 100).toFixed(1) + '%' : '-', color: 'purple' },
+                    { label: 'Resolution Eff.', value: qm && qm.resolution_efficiency != null ? (qm.resolution_efficiency * 100).toFixed(1) + '%' : '-', color: 'blue' },
+                    { label: 'Consistency', value: cons ? (cons.reproducibility_score * 100).toFixed(1) + '%' : '-', color: 'purple' },
+                    { label: 'Avg Latency', value: lm ? lm.mean_latency.toFixed(3) + 's' : '-', color: 'yellow' },
+                    { label: 'P95 Latency', value: lm ? lm.p95_latency.toFixed(3) + 's' : '-', color: 'yellow' },
+                    { label: 'Cost / Req', value: lm && lm.cost_per_request ? '$' + lm.cost_per_request.toFixed(4) : '-', color: 'yellow' },
+                    { label: 'Cache Hit Rate', value: lm && lm.cache_hit_rate != null ? lm.cache_hit_rate.toFixed(1) + '%' : '-', color: 'green' },
+                    { label: 'Tokens/sec', value: lm && lm.tokens_per_second ? lm.tokens_per_second.toFixed(0) : '-', color: 'purple' },
+                ];
+            } else {
+                cards = [
+                    { label: 'Format Compliance', value: qm ? (qm.format_compliance * 100).toFixed(1) + '%' : '-', color: 'blue' },
+                    { label: 'Completeness', value: qm ? (qm.completeness * 100).toFixed(1) + '%' : '-', color: 'green' },
+                    { label: 'Avg Latency', value: lm ? lm.mean_latency.toFixed(3) + 's' : '-', color: 'yellow' },
+                    { label: 'P95 Latency', value: lm ? lm.p95_latency.toFixed(3) + 's' : '-', color: 'purple' },
+                ];
+            }
+
+            const colorMap = { blue: 'text-blue-600', green: 'text-green-600', yellow: 'text-yellow-600', purple: 'text-brand-500' };
+            cardsEl.innerHTML = cards.map(c => {
+                const desc = METRIC_INFO[c.label] || '';
+                const infoBtn = desc ? `<span class="info-tooltip ml-1 align-middle"><button class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-500 text-[10px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">${desc}</span></span>` : '';
+                return `<div class="fluent-card p-5 text-center">
+                    <h3 class="text-lg font-medium text-gray-500 mb-2">${c.label}${infoBtn}</h3>
+                    <p class="text-3xl font-bold ${colorMap[c.color]}">${c.value}</p>
+                </div>`;
+            }).join('');
+
+            // --- Errors banner ---
+            const errorsBanner = document.getElementById('errors-banner');
+            if (data.errors && data.errors.length > 0) {
+                errorsBanner.classList.remove('hidden');
+                document.getElementById('errors-detail').textContent =
+                    `${data.errors.length} of ${data.scenarios_tested} scenarios failed: ${data.errors.slice(0, 3).join('; ')}${data.errors.length > 3 ? '...' : ''}`;
+            } else {
+                errorsBanner.classList.add('hidden');
+            }
+
+            // --- Charts ---
+            const categoryContainer = document.getElementById('category-chart-container');
+            const chartsSection = document.getElementById('charts-section');
+            chartsSection.classList.remove('md:grid-cols-1', 'md:grid-cols-2');
+            
+            if (evalType === 'classification' && cm && cm.category_accuracy) {
+                categoryContainer.classList.remove('hidden');
+                chartsSection.classList.add('md:grid-cols-2');
+                updateCategoryChart(cm.category_accuracy);
+            } else {
+                categoryContainer.classList.add('hidden');
+                chartsSection.classList.add('md:grid-cols-1');
+            }
+
+            if (data.raw_results && data.raw_results.length > 0) {
+                updateLatencyChart(data.raw_results);
+                updateResultsTable(data.raw_results, evalType);
+            }
+
+            // --- NEW: Confusion Matrix Heatmap ---
+            renderConfusionMatrix(cm);
+            
+            // --- NEW: Confidence Calibration Chart ---
+            renderCalibrationChart(cm);
+        }
+
+        function updateCategoryChart(categoryAccuracy) {
+            const ctx = document.getElementById('category-chart').getContext('2d');
+            
+            if (categoryChart) categoryChart.destroy();
+
+            const labels = Object.keys(categoryAccuracy);
+            const values = Object.values(categoryAccuracy).map(v => v * 100);
+
+            categoryChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Accuracy %',
+                        data: values,
+                        backgroundColor: 'rgba(15, 108, 189, 0.75)',
+                        borderColor: 'rgba(15, 108, 189, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateLatencyChart(results) {
+            const ctx = document.getElementById('latency-chart').getContext('2d');
+            
+            if (latencyChart) latencyChart.destroy();
+
+            // Collect latencies — handle both r.latency (single) and r.latencies (array)
+            const latencies = [];
+            for (const r of results) {
+                if (r.latency != null) latencies.push(r.latency);
+                if (Array.isArray(r.latencies)) latencies.push(...r.latencies);
+            }
+
+            if (latencies.length === 0) return;
+            
+            // Create histogram bins
+            const bins = {};
+            for (const l of latencies) {
+                const bin = Math.floor(l * 10) / 10;  // Round to 0.1s
+                bins[bin] = (bins[bin] || 0) + 1;
+            }
+
+            const sortedBins = Object.keys(bins).sort((a, b) => a - b);
+
+            latencyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedBins.map(b => b + 's'),
+                    datasets: [{
+                        label: 'Count',
+                        data: sortedBins.map(b => bins[b]),
+                        backgroundColor: 'rgba(3, 131, 135, 0.75)',
+                        borderColor: 'rgba(3, 131, 135, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function updateResultsTable(results, evalType) {
+            const headerRow = document.getElementById('results-table-header');
+            const tableBody = document.getElementById('results-table');
+            headerRow.innerHTML = '';
+            tableBody.innerHTML = '';
+
+            const th = (text) => `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">${text}</th>`;
+
+            if (evalType === 'classification') {
+                headerRow.innerHTML = th('ID') + th('Input (truncated)') + th('Expected') + th('Predicted') + th('Correct') + th('Confidence') + th('Latency') + th('Cost');
+
+                for (const r of results) {
+                    const expected = r.expected?.category || '-';
+                    const predicted = r.predicted?.category || '-';
+                    const isCorrect = expected === predicted;
+                    const conf = r.predicted?.confidence;
+                    const confStr = conf != null && conf > 0 ? (conf * 100).toFixed(0) + '%' : '-';
+                    const td = r.token_detail || {};
+                    const costStr = td.prompt != null ? '$' + ((td.prompt - (td.cached||0))/1000*0.0025 + (td.cached||0)/1000*0.00125 + (td.completion||0)/1000*0.01).toFixed(4) : '-';
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="px-4 py-2 text-sm text-gray-900">${r.scenario_id || '-'}</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${(r.input || '').substring(0, 60)}...</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${expected}</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${predicted}</td>
+                        <td class="px-4 py-2">
+                            <span class="px-2 py-1 text-xs rounded-full ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${isCorrect ? '\u2713' : '\u2717'}
+                            </span>
+                        </td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${confStr}</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${r.latency?.toFixed(3) || '-'}s</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${costStr}</td>
+                    `;
+                    tableBody.appendChild(row);
+                }
+            } else if (evalType === 'dialog') {
+                headerRow.innerHTML = th('ID') + th('Category') + th('Context Gaps') + th('Questions') + th('Response (truncated)') + th('Latency') + th('Tokens');
+
+                for (const r of results) {
+                    const row = document.createElement('tr');
+                    const gaps = Array.isArray(r.context_gaps) ? r.context_gaps.join(', ') : (r.context_gaps || '-');
+                    const qCount = r.question_count != null ? r.question_count : (r.questions_generated ? r.questions_generated.length : '?');
+                    const expTurns = r.expected_turns || '?';
+                    const td = r.token_detail || {};
+                    const tokStr = td.prompt != null ? (td.prompt + td.completion) : (r.tokens || '-');
+                    row.innerHTML = `
+                        <td class="px-4 py-2 text-sm text-gray-900">${r.scenario_id || '-'}</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${r.category || '-'}</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]" title="${gaps}">${gaps.substring(0, 60)}${gaps.length > 60 ? '...' : ''}</td>
+                        <td class="px-4 py-2 text-sm text-center">
+                            <span class="px-2 py-1 text-xs rounded-full ${qCount >= 1 && qCount <= expTurns * 1.5 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                                ${qCount} / ${expTurns}
+                            </span>
+                        </td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${(r.response || '').substring(0, 70)}...</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${r.latency?.toFixed(3) || '-'}s</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${tokStr}</td>
+                    `;
+                    tableBody.appendChild(row);
+                }
+            } else {
+                // General
+                headerRow.innerHTML = th('ID') + th('Type') + th('Prompt (truncated)') + th('Expected') + th('Latency');
+
+                for (const r of results) {
+                    const row = document.createElement('tr');
+                    const avgLat = Array.isArray(r.latencies) ? (r.latencies.reduce((a,b) => a+b, 0) / r.latencies.length) : r.latency;
+                    row.innerHTML = `
+                        <td class="px-4 py-2 text-sm text-gray-900">${r.test_id || '-'}</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${r.test_type || '-'}</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${(r.prompt || '').substring(0, 60)}...</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${(r.expected_behavior || r.expected_output || '-').substring(0, 60)}</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${avgLat?.toFixed(3) || '-'}s</td>
+                    `;
+                    tableBody.appendChild(row);
+                }
+            }
+        }
+        // === NEW: Confusion Matrix Heatmap ===
+        function renderConfusionMatrix(cm) {
+            const container = document.getElementById('confusion-matrix-container');
+            const el = document.getElementById('confusion-matrix');
+            if (!cm || !cm.confusion_matrix || !cm.confusion_matrix_labels) {
+                container.classList.add('hidden');
+                return;
+            }
+            container.classList.remove('hidden');
+            const labels = cm.confusion_matrix_labels;
+            const matrix = cm.confusion_matrix;
+            const maxVal = Math.max(...matrix.flat(), 1);
+
+            let html = '<table class="text-xs w-full"><thead><tr><th class="p-1"></th>';
+            for (const l of labels) html += `<th class="p-1 text-[var(--text-secondary)] truncate max-w-[80px]" title="${l}">${l.substring(0,12)}</th>`;
+            html += '</tr></thead><tbody>';
+            for (let i = 0; i < labels.length; i++) {
+                html += `<tr><td class="p-1 font-medium text-[var(--text-secondary)] truncate max-w-[100px]" title="${labels[i]}">${labels[i].substring(0,14)}</td>`;
+                for (let j = 0; j < labels.length; j++) {
+                    const v = matrix[i][j];
+                    const intensity = Math.round((v / maxVal) * 255);
+                    const bg = i === j
+                        ? `rgba(3,131,135,${v/maxVal * 0.8 + 0.1})`
+                        : `rgba(196,89,17,${v/maxVal * 0.7})`;
+                    const textColor = v / maxVal > 0.5 ? 'white' : '#333';
+                    html += `<td class="p-1 text-center border" style="background:${bg};color:${textColor}">${v}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</tbody></table>';
+            el.innerHTML = html;
+        }
+
+        // === NEW: Confidence Calibration Chart ===
+        let calibrationChart = null;
+        function renderCalibrationChart(cm) {
+            const container = document.getElementById('calibration-chart-container');
+            if (!cm || !cm.confidence_calibration || cm.confidence_calibration.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+            container.classList.remove('hidden');
+            const ctx = document.getElementById('calibration-chart').getContext('2d');
+            if (calibrationChart) calibrationChart.destroy();
+
+            const bins = cm.confidence_calibration;
+            const labels = bins.map(b => b.bin);
+            const accuracies = bins.map(b => b.accuracy * 100);
+            const confidences = bins.map(b => b.confidence * 100);
+
+            calibrationChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Actual Accuracy %', data: accuracies, backgroundColor: 'rgba(40, 134, 222, 0.75)', borderColor: 'rgba(40, 134, 222, 1)', borderWidth: 1 },
+                        { label: 'Avg Confidence %', data: confidences, type: 'line', borderColor: 'rgba(196, 89, 17, 1)', borderWidth: 2, pointRadius: 4, fill: false },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: '%' } } },
+                    plugins: { tooltip: { callbacks: { afterBody: (items) => { const idx = items[0].dataIndex; return 'Count: ' + bins[idx].count; } } } }
+                }
+            });
+        }
+
+    </script>
+</div><!-- end content area -->
+</body>
+</html>

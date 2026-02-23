@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results Browser - Model Migration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% include '_fluent_head.html' %}
+</head>
+<body class="bg-[#faf9f8] min-h-screen">
+    {% set active_page = 'results' %}
+    {% include '_sidebar.html' %}
+
+    <main class="flex-1 max-w-7xl mx-auto w-full px-8 py-6">
+        <h1 class="fluent-page-title mb-1">Saved Evaluation Results</h1>
+        <p id="active-topic-subtitle" class="text-sm text-brand-600 font-semibold mb-6"></p>
+
+        <!-- Results List -->
+        <div class="fluent-card p-5 mb-8">
+            <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+                <h2 class="fluent-section-title text-[16px]">
+                    Available Results
+                    <span id="results-count" class="fluent-badge fluent-badge-warning ml-2">0</span>
+                </h2>
+                <div class="flex items-center space-x-2">
+                    <select id="filter-type" class="fluent-input text-sm w-auto">
+                        <option value="">All types</option>
+                        <option value="classification">Classification</option>
+                        <option value="dialog">Dialog</option>
+                        <option value="general">General</option>
+                        <option value="comparison">Comparison</option>
+                    </select>
+                    <button id="refresh-btn" class="fluent-btn-secondary text-sm">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+            
+            <div id="results-list" class="space-y-3">
+                <p class="text-gray-500">Loading results...</p>
+            </div>
+        </div>
+
+        <!-- Result Detail Modal -->
+        <div id="result-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-[var(--surface-card)] rounded-lg shadow-xl border border-[var(--border-subtle)] max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h3 id="modal-title" class="fluent-section-title text-[16px]">Result Details</h3>
+                    <button id="close-modal" class="text-gray-500 hover:text-gray-700">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div id="modal-content" class="p-6 overflow-auto max-h-[70vh]">
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let allResults = [];
+        let modelNames = {};
+
+        function displayName(key) { return modelNames[key] || key; }
+
+        async function loadActiveTopic() {
+            try {
+                const resp = await fetch('/api/topics');
+                const data = await resp.json();
+                const active = (data.topics || []).find(t => t.active);
+                const el = document.getElementById('active-topic-subtitle');
+                if (active && active.topic) el.textContent = '📌 Topic: ' + active.topic;
+            } catch(e) {}
+        }
+
+        async function loadModels() {
+            try {
+                const resp = await fetch('/api/models');
+                const data = await resp.json();
+                (data.models || []).forEach(m => { modelNames[m.name] = m.deployment; });
+            } catch(e) {}
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadModels();
+            loadResults();
+            loadActiveTopic();
+        });
+        document.getElementById('refresh-btn').addEventListener('click', loadResults);
+        document.getElementById('filter-type').addEventListener('change', renderResults);
+        document.getElementById('close-modal').addEventListener('click', () => {
+            document.getElementById('result-modal').classList.add('hidden');
+        });
+
+        async function loadResults() {
+            try {
+                const response = await fetch('/api/results');
+                const data = await response.json();
+                allResults = data.results || [];
+                renderResults();
+            } catch (error) {
+                document.getElementById('results-list').innerHTML = 
+                    `<p class="text-red-500">Error loading results: ${error.message}</p>`;
+            }
+        }
+
+        function renderResults() {
+            const filterType = document.getElementById('filter-type').value;
+            let filtered = allResults;
+
+            if (filterType) {
+                if (filterType === 'comparison') {
+                    filtered = allResults.filter(r => r.filename.startsWith('comparison_'));
+                } else {
+                    filtered = allResults.filter(r => r.type === filterType && !r.filename.startsWith('comparison_'));
+                }
+            }
+
+            document.getElementById('results-count').textContent = filtered.length;
+            const listEl = document.getElementById('results-list');
+                
+            if (filtered.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-12">
+                        <svg class="h-16 w-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <p class="text-gray-500 text-lg">No saved results yet</p>
+                        <p class="text-gray-400 text-sm mt-2">Run an evaluation from the <a href="/evaluate" class="text-blue-600 hover:underline">Evaluate</a> or <a href="/compare" class="text-blue-600 hover:underline">Compare</a> page — results are saved automatically.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            listEl.innerHTML = '';
+            
+            for (const result of filtered) {
+                const card = document.createElement('div');
+                card.className = 'border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors';
+                
+                const isComparison = result.filename.startsWith('comparison_');
+                const typeColors = {
+                    'classification': 'bg-blue-100 text-blue-800',
+                    'dialog': 'bg-green-100 text-green-800',
+                    'general': 'bg-brand-100 text-brand-700',
+                    'unknown': 'bg-gray-100 text-gray-800'
+                };
+                
+                const typeColor = isComparison ? 'bg-orange-100 text-orange-800' : (typeColors[result.type] || typeColors.unknown);
+                const typeLabel = isComparison ? 'comparison' : result.type;
+                const modelLabel = isComparison ? result.model : displayName(result.model);
+                const dateStr = result.timestamp ? new Date(result.timestamp).toLocaleString() : 'Unknown date';
+                
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 cursor-pointer result-clickable" data-filename="${result.filename}">
+                            <div class="flex items-center space-x-3">
+                                <span class="font-medium text-gray-800">${esc(modelLabel)}</span>
+                                <span class="px-2 py-1 text-xs rounded-full ${typeColor}">${typeLabel}</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">${dateStr}</p>
+                        </div>
+                        <div class="flex items-center space-x-2 ml-4">
+                            <span class="text-xs text-gray-400 hidden sm:inline max-w-[200px] truncate" title="${result.filename}">${result.filename}</span>
+                            <button class="delete-result-btn px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition" data-filename="${result.filename}" title="Delete">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                listEl.appendChild(card);
+            }
+
+            // Bind click handlers
+            document.querySelectorAll('.result-clickable').forEach(el => {
+                el.addEventListener('click', () => showResultDetail(el.dataset.filename));
+            });
+            document.querySelectorAll('.delete-result-btn').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteResult(el.dataset.filename);
+                });
+            });
+        }
+
+        async function deleteResult(filename) {
+            if (!confirm(`Delete result "${filename}"?\nThis cannot be undone.`)) return;
+            try {
+                const resp = await fetch(`/api/results/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+                const data = await resp.json();
+                if (resp.ok) {
+                    allResults = allResults.filter(r => r.filename !== filename);
+                    renderResults();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        async function showResultDetail(filename) {
+            try {
+                const response = await fetch(`/api/results/${encodeURIComponent(filename)}`);
+                const data = await response.json();
+                
+                document.getElementById('modal-title').textContent = filename;
+                
+                let html = '<div class="space-y-6">';
+                
+                const isComparison = filename.startsWith('comparison_');
+
+                if (isComparison) {
+                    html += `
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="text-sm text-gray-500">Model A</p>
+                                <p class="font-medium">${displayName(data.model_a || '-')}</p>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="text-sm text-gray-500">Model B</p>
+                                <p class="font-medium">${displayName(data.model_b || '-')}</p>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="text-sm text-gray-500">Type</p>
+                                <p class="font-medium">${data.evaluation_type || '-'}</p>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="text-sm text-gray-500">Winner</p>
+                                <p class="font-medium text-brand-500">${data.summary?.overall_winner === 'tie' ? 'Tie' : displayName(data.summary?.overall_winner || '-')}</p>
+                            </div>
+                        </div>
+                    `;
+                    if (data.dimensions && data.dimensions.length) {
+                        html += '<div><h4 class="font-medium text-gray-800 mb-3">Dimensions</h4><div class="overflow-x-auto"><table class="min-w-full text-sm divide-y divide-gray-200"><thead class="bg-gray-50"><tr>';
+                        html += '<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Dimension</th>';
+                        html += `<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">${displayName(data.model_a)}</th>`;
+                        html += `<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">${displayName(data.model_b)}</th>`;
+                        html += '<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Change</th>';
+                        html += '<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Significance</th>';
+                        html += '</tr></thead><tbody class="divide-y divide-gray-200">';
+                        for (const d of data.dimensions) {
+                            const changeColor = d.percent_change > 0 ? 'text-green-600' : d.percent_change < 0 ? 'text-red-600' : 'text-gray-500';
+                            html += `<tr>
+                                <td class="px-3 py-2 font-medium">${d.dimension}</td>
+                                <td class="px-3 py-2">${d.model_a_value?.toFixed(4)}</td>
+                                <td class="px-3 py-2">${d.model_b_value?.toFixed(4)}</td>
+                                <td class="px-3 py-2 ${changeColor}">${d.percent_change > 0 ? '+' : ''}${d.percent_change?.toFixed(1)}%</td>
+                                <td class="px-3 py-2"><span class="px-2 py-0.5 rounded-full text-xs bg-gray-100">${d.significance}</span></td>
+                            </tr>`;
+                        }
+                        html += '</tbody></table></div></div>';
+                    }
+                    if (data.recommendations && data.recommendations.length) {
+                        html += '<div><h4 class="font-medium text-gray-800 mb-3">Recommendations</h4><ul class="space-y-2">';
+                        for (const r of data.recommendations) {
+                            html += `<li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span><span class="text-gray-700 text-sm">${esc(r)}</span></li>`;
+                        }
+                        html += '</ul></div>';
+                    }
+                } else {
+                    html += `
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="text-sm text-gray-500">Model</p>
+                                <p class="font-medium">${displayName(data.model_name || '-')}</p>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="text-sm text-gray-500">Type</p>
+                                <p class="font-medium">${data.evaluation_type || '-'}</p>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="text-sm text-gray-500">Scenarios</p>
+                                <p class="font-medium">${data.scenarios_tested || '-'}</p>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="text-sm text-gray-500">Errors</p>
+                                <p class="font-medium">${data.error_count || 0}</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    if (data.classification_metrics) {
+                        const cm = data.classification_metrics;
+                        html += `<div>
+                            <h4 class="font-medium text-gray-800 mb-3">Classification Metrics</h4>
+                            <div class="grid grid-cols-4 gap-4 text-sm">
+                                <div class="bg-blue-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">Accuracy</p>
+                                    <p class="font-bold text-blue-600">${(cm.accuracy * 100).toFixed(1)}%</p>
+                                </div>
+                                <div class="bg-green-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">F1 Score</p>
+                                    <p class="font-bold text-green-600">${(cm.f1_score * 100).toFixed(1)}%</p>
+                                </div>
+                                <div class="bg-yellow-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">Precision</p>
+                                    <p class="font-bold text-yellow-600">${(cm.precision * 100).toFixed(1)}%</p>
+                                </div>
+                                <div class="bg-brand-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">Recall</p>
+                                    <p class="font-bold text-brand-500">${(cm.recall * 100).toFixed(1)}%</p>
+                                </div>
+                            </div>`;
+                        // Extended classification metrics — second row
+                        let extCards = [];
+                        if (cm.subcategory_accuracy) extCards.push({label:'Subcategory Acc', val:(cm.subcategory_accuracy*100).toFixed(1)+'%', color:'blue'});
+                        if (cm.priority_accuracy) extCards.push({label:'Priority Acc', val:(cm.priority_accuracy*100).toFixed(1)+'%', color:'indigo'});
+                        if (cm.sentiment_accuracy) extCards.push({label:'Sentiment Acc', val:(cm.sentiment_accuracy*100).toFixed(1)+'%', color:'pink'});
+                        if (cm.kappa) extCards.push({label:"Cohen's Kappa", val:cm.kappa.toFixed(3), color:'gray'});
+                        if (cm.avg_confidence) extCards.push({label:'Avg Confidence', val:(cm.avg_confidence*100).toFixed(1)+'%', color:'teal'});
+                        if (extCards.length) {
+                            html += `<div class="grid grid-cols-4 gap-4 text-sm mt-3">`;
+                            for (const c of extCards) {
+                                html += `<div class="bg-${c.color}-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">${c.label}</p>
+                                    <p class="font-bold text-${c.color}-600">${c.val}</p>
+                                </div>`;
+                            }
+                            html += `</div>`;
+                        }
+                        // Per-category breakdown
+                        if (cm.category_accuracy && Object.keys(cm.category_accuracy).length) {
+                            html += `<details class="mt-3"><summary class="text-sm font-medium text-[var(--text-secondary)] cursor-pointer hover:text-blue-600">Per-Category Accuracy (${Object.keys(cm.category_accuracy).length} categories)</summary>
+                            <div class="grid grid-cols-3 gap-2 text-xs mt-2">`;
+                            for (const [cat, acc] of Object.entries(cm.category_accuracy).sort((a,b) => b[1] - a[1])) {
+                                const pct = (acc * 100).toFixed(0);
+                                const barColor = acc >= 0.8 ? 'bg-green-400' : acc >= 0.5 ? 'bg-yellow-400' : 'bg-red-400';
+                                html += `<div class="bg-gray-50 p-2 rounded">
+                                    <div class="flex justify-between"><span class="truncate" title="${cat}">${cat}</span><span class="font-bold">${pct}%</span></div>
+                                    <div class="h-1.5 bg-gray-200 rounded mt-1"><div class="${barColor} h-1.5 rounded" style="width:${pct}%"></div></div>
+                                </div>`;
+                            }
+                            html += `</div></details>`;
+                        }
+                        html += `</div>`;
+                    }
+
+                    if (data.quality_metrics) {
+                        const qm = data.quality_metrics;
+                        let qCards = [];
+                        if (qm.follow_up_quality) qCards.push({label:'Follow-up Quality', val:(qm.follow_up_quality*100).toFixed(1)+'%', color:'green'});
+                        if (qm.relevance) qCards.push({label:'Context Coverage', val:(qm.relevance*100).toFixed(1)+'%', color:'blue'});
+                        if (qm.rule_compliance) qCards.push({label:'Rule Compliance', val:(qm.rule_compliance*100).toFixed(1)+'%', color:'indigo'});
+                        if (qm.empathy_score) qCards.push({label:'Empathy Score', val:(qm.empathy_score*100).toFixed(1)+'%', color:'pink'});
+                        if (qm.optimal_similarity) qCards.push({label:'Optimal Similarity', val:(qm.optimal_similarity*100).toFixed(1)+'%', color:'purple'});
+                        if (qm.resolution_efficiency) qCards.push({label:'Resolution Eff.', val:(qm.resolution_efficiency*100).toFixed(1)+'%', color:'teal'});
+                        if (qm.format_compliance) qCards.push({label:'Format Compliance', val:(qm.format_compliance*100).toFixed(1)+'%', color:'gray'});
+                        if (qm.completeness) qCards.push({label:'Completeness', val:(qm.completeness*100).toFixed(1)+'%', color:'yellow'});
+                        if (qm.instruction_following) qCards.push({label:'Instruction Following', val:(qm.instruction_following*100).toFixed(1)+'%', color:'orange'});
+                        if (qm.question_count_avg) qCards.push({label:'Avg Questions', val:qm.question_count_avg.toFixed(1), color:'gray'});
+                        if (qCards.length) {
+                            html += `<div>
+                                <h4 class="font-medium text-gray-800 mb-3">Quality Metrics</h4>
+                                <div class="grid grid-cols-4 gap-4 text-sm">`;
+                            for (const c of qCards) {
+                                html += `<div class="bg-${c.color}-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">${c.label}</p>
+                                    <p class="font-bold text-${c.color}-600">${c.val}</p>
+                                </div>`;
+                            }
+                            html += `</div></div>`;
+                        }
+                    }
+
+                    if (data.latency_metrics) {
+                        const lm = data.latency_metrics;
+                        html += `<div>
+                            <h4 class="font-medium text-gray-800 mb-3">Latency & Performance</h4>
+                            <div class="grid grid-cols-4 gap-4 text-sm">
+                                <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">Mean</p>
+                                    <p class="font-bold">${lm.mean_latency?.toFixed(3)}s</p>
+                                </div>
+                                <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">Median</p>
+                                    <p class="font-bold">${lm.median_latency?.toFixed(3)}s</p>
+                                </div>
+                                <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">P95</p>
+                                    <p class="font-bold">${lm.p95_latency?.toFixed(3)}s</p>
+                                </div>
+                                <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">Std Dev</p>
+                                    <p class="font-bold">${lm.std_latency?.toFixed(3)}s</p>
+                                </div>
+                            </div>`;
+                        // Extended latency — token & cost analytics
+                        let lExtCards = [];
+                        if (lm.tokens_per_second) lExtCards.push({label:'Tokens/sec', val:lm.tokens_per_second.toFixed(0), color:'green'});
+                        if (lm.cost_per_request) lExtCards.push({label:'Cost/Request', val:'$'+lm.cost_per_request.toFixed(4), color:'yellow'});
+                        if (lm.total_cost) lExtCards.push({label:'Total Cost', val:'$'+lm.total_cost.toFixed(4), color:'orange'});
+                        if (lm.cache_hit_rate) lExtCards.push({label:'Cache Hit Rate', val:lm.cache_hit_rate.toFixed(1)+'%', color:'blue'});
+                        if (lm.reasoning_token_pct) lExtCards.push({label:'Reasoning Tok %', val:lm.reasoning_token_pct.toFixed(1)+'%', color:'purple'});
+                        if (lm.avg_prompt_tokens) lExtCards.push({label:'Avg Prompt Tok', val:lm.avg_prompt_tokens.toFixed(0), color:'gray'});
+                        if (lm.avg_completion_tokens) lExtCards.push({label:'Avg Completion Tok', val:lm.avg_completion_tokens.toFixed(0), color:'gray'});
+                        if (lm.p99_latency) lExtCards.push({label:'P99 Latency', val:lm.p99_latency.toFixed(3)+'s', color:'red'});
+                        if (lExtCards.length) {
+                            html += `<div class="grid grid-cols-4 gap-4 text-sm mt-3">`;
+                            for (const c of lExtCards) {
+                                html += `<div class="bg-${c.color}-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">${c.label}</p>
+                                    <p class="font-bold text-${c.color}-600">${c.val}</p>
+                                </div>`;
+                            }
+                            html += `</div>`;
+                        }
+                        html += `</div>`;
+                    }
+
+                    if (data.consistency_metrics) {
+                        const cons = data.consistency_metrics;
+                        html += `<div>
+                            <h4 class="font-medium text-gray-800 mb-3">Consistency Metrics</h4>
+                            <div class="grid grid-cols-4 gap-4 text-sm">
+                                <div class="bg-brand-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">Reproducibility</p>
+                                    <p class="font-bold text-brand-500">${(cons.reproducibility_score * 100).toFixed(1)}%</p>
+                                </div>
+                                <div class="bg-blue-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">Semantic Similarity</p>
+                                    <p class="font-bold text-blue-600">${(cons.semantic_similarity * 100).toFixed(1)}%</p>
+                                </div>
+                                <div class="bg-green-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">Format Consistency</p>
+                                    <p class="font-bold text-green-600">${(cons.format_consistency * 100).toFixed(1)}%</p>
+                                </div>
+                                <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                    <p class="text-gray-500">Response Variance</p>
+                                    <p class="font-bold">${(cons.variance_coefficient * 100).toFixed(1)}%</p>
+                                </div>
+                            </div>
+                        </div>`;
+                    }
+                }
+                
+                // Raw JSON (collapsible)
+                html += `
+                    <details>
+                        <summary class="font-medium text-gray-800 cursor-pointer hover:text-blue-600">Raw JSON Data</summary>
+                        <pre class="bg-gray-50 p-4 rounded-lg text-xs overflow-auto max-h-64 mt-3">${esc(JSON.stringify(data, null, 2))}</pre>
+                    </details>
+                `;
+                
+                html += '</div>';
+                
+                document.getElementById('modal-content').innerHTML = html;
+                document.getElementById('result-modal').classList.remove('hidden');
+                
+            } catch (error) {
+                alert('Error loading result: ' + error.message);
+            }
+        }
+
+        // Close modal on outside click
+        document.getElementById('result-modal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('result-modal')) {
+                document.getElementById('result-modal').classList.add('hidden');
+            }
+        });
+
+        function esc(text) {
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
+        }
+    </script>
+</div><!-- end content area -->
+</body>
+</html>

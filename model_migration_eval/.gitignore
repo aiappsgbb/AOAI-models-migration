@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment and secrets
+.env
+config/settings.local.yaml
+
+# Caches
+.cache/
+*.diskcache/
+
+# Logs
+logs/
+
+# Evaluation results (keep directory, ignore files)
+data/results/*.json
+
+# Docker & deployment
+containerapp-config.yaml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Other
+OLD/
+.dockerignore
+*.pptx

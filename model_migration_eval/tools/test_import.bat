@@ -1,0 +1,1 @@
+python import_topic.py --topic "Movistar Support" --gpt4-class-prompt gpt4_classification_prompt.md --gpt4-dialog-prompt gpt4_dialog_prompt.txt --class-test-data test_data_classification.json --general-test-data test_data_general.json --dialog-test-data test_data_dialog.json    

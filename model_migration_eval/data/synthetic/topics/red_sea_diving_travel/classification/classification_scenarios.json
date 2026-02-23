@@ -1,0 +1,391 @@
+[
+  {
+    "id": "CLASS_001",
+    "scenario": "liveaboard_booking_for_brothers_islands",
+    "customer_input": "I'm looking to book a 7-day liveaboard to the Brothers Islands in late October, ideally departing from Hurghada. We are two advanced open water divers with around 80 logged dives each and prefer smaller boats. Can you suggest suitable itineraries and typical price ranges for that period?",
+    "expected_category": "trip_planning_and_booking",
+    "expected_subcategory": "liveaboard_trip_selection",
+    "expected_priority": "medium",
+    "expected_sentiment": "curious",
+    "context": {
+      "group_size": 2,
+      "certification_level": "advanced_open_water",
+      "preferred_departure_port": "hurghada",
+      "target_month": "october"
+    },
+    "follow_up_questions_expected": [
+      "Do you have specific dates in late October or are your travel dates flexible?",
+      "Do you require a cabin with a private bathroom or are shared facilities acceptable?"
+    ]
+  },
+  {
+    "id": "CLASS_002",
+    "scenario": "shore_diving_family_trip_dahab",
+    "customer_input": "We’re planning a family holiday in Dahab and want to include some easy shore dives for my wife and me while our teenagers snorkel. We’ll be there in mid-April for a week and prefer relaxed, shallow sites rather than deep walls. Can you recommend a suitable dive plan and whether we should pre-book guided dives?",
+    "expected_category": "itinerary_and_destination_info",
+    "expected_subcategory": "family_friendly_dive_sites",
+    "expected_priority": "medium",
+    "expected_sentiment": "positive",
+    "context": {
+      "destination": "dahab",
+      "travel_month": "april",
+      "family_with_teenagers": true,
+      "experience_level": "recreational_casual"
+    },
+    "follow_up_questions_expected": [
+      "What are your and your wife’s certification levels and approximate number of logged dives?",
+      "Are you looking to stay in Dahab town center or in a quieter area like Lagoon or Assalah?"
+    ]
+  },
+  {
+    "id": "CLASS_003",
+    "scenario": "open_water_course_in_marsa_alam",
+    "customer_input": "I’d like to complete my PADI Open Water course in Marsa Alam this June. I’ve done the eLearning theory already and just need the confined and open water sessions. How many days should I plan for, and do you run the course in English?",
+    "expected_category": "diving_courses_and_certification",
+    "expected_subcategory": "entry_level_certification_courses",
+    "expected_priority": "medium",
+    "expected_sentiment": "curious",
+    "context": {
+      "course_type": "padi_open_water",
+      "location_preference": "marsa_alam",
+      "theory_completed_online": true,
+      "language_requirement": "english"
+    },
+    "follow_up_questions_expected": [
+      "On which exact dates in June will you be in Marsa Alam?",
+      "Do you have any previous diving experience such as try dives or snorkeling in open water?"
+    ]
+  },
+  {
+    "id": "CLASS_004",
+    "scenario": "airport_transfers_and_hotel_in_hurghada",
+    "customer_input": "I’ve booked flights to Hurghada for a week of diving but haven’t arranged accommodation or transfers yet. I’ll be arriving late at night and want a hotel close to the marina where most day boats depart. Can you help organize the airport pickup and recommend a diver-friendly hotel?",
+    "expected_category": "travel_logistics_and_accommodation",
+    "expected_subcategory": "airport_transfers_and_hotel_booking",
+    "expected_priority": "high",
+    "expected_sentiment": "professional",
+    "context": {
+      "arrival_airport": "hurghada_hrg",
+      "arrival_time": "late_night",
+      "trip_type": "day_boat_diving",
+      "budget_range": "mid_range"
+    },
+    "follow_up_questions_expected": [
+      "What is your exact arrival date and flight number into Hurghada?",
+      "Do you prefer an all-inclusive resort or a smaller dive-focused hotel near the marina?"
+    ]
+  },
+  {
+    "id": "CLASS_005",
+    "scenario": "payment_issue_for_red_sea_liveaboard_deposit",
+    "customer_input": "I tried to pay the deposit for the Red Sea liveaboard you quoted, but my credit card keeps getting declined on your payment page. My bank says they don’t see any attempted charges. Can you check if there’s an issue on your side or provide an alternative way to pay the deposit today?",
+    "expected_category": "payments_pricing_and_billing",
+    "expected_subcategory": "deposit_payment_failures",
+    "expected_priority": "high",
+    "expected_sentiment": "frustrated",
+    "context": {
+      "booking_type": "liveaboard",
+      "payment_method_attempted": "credit_card",
+      "deposit_due_date": "today",
+      "currency": "eur"
+    },
+    "follow_up_questions_expected": [
+      "Can you confirm the exact time and timezone when you last attempted the payment?",
+      "Have you tried using a different browser or device to complete the payment?"
+    ]
+  },
+  {
+    "id": "CLASS_006",
+    "scenario": "last_minute_cancellation_due_to_illness",
+    "customer_input": "I’m supposed to join your northern Red Sea safari departing from Hurghada tomorrow, but I’ve just been diagnosed with a severe ear infection and my doctor has advised against diving. I need to cancel my spot and understand what refund, if any, I’m entitled to at this late stage.",
+    "expected_category": "issues_changes_and_cancellations",
+    "expected_subcategory": "medical_cancellation_and_refund_policy",
+    "expected_priority": "critical",
+    "expected_sentiment": "worried",
+    "context": {
+      "trip_type": "liveaboard_safari",
+      "departure_port": "hurghada",
+      "time_until_departure_hours": 24,
+      "reason_for_cancellation": "ear_infection_with_doctor_note"
+    },
+    "follow_up_questions_expected": [
+      "Can you please send a copy of the medical certificate or doctor’s note?",
+      "Did you purchase any travel or dive insurance that might cover medical cancellations?"
+    ]
+  },
+  {
+    "id": "CLASS_007",
+    "scenario": "concern_about_shark_safety_at_brothers",
+    "customer_input": "I’ve heard mixed stories about shark encounters at the Brothers Islands and I’m a bit nervous. I’m an advanced diver but haven’t done many deep or blue water dives. How safe are these dives really, and what safety measures do your guides follow during shark sightings?",
+    "expected_category": "diving_conditions_and_safety",
+    "expected_subcategory": "shark_encounter_safety_guidelines",
+    "expected_priority": "high",
+    "expected_sentiment": "concerned",
+    "context": {
+      "destination": "brothers_islands",
+      "experience_level": "advanced_but_limited_blue_water",
+      "primary_concern": "shark_safety",
+      "planned_trip_type": "liveaboard"
+    },
+    "follow_up_questions_expected": [
+      "Have you previously dived in locations with regular shark encounters?",
+      "Are you comfortable with negative entries and maintaining depth and buddy contact in strong blue water currents?"
+    ]
+  },
+  {
+    "id": "CLASS_008",
+    "scenario": "nitrox_and_tech_gear_rental_enquiry",
+    "customer_input": "I’m planning a week of diving in Sharm el Sheikh and would like to dive nitrox on all days. I also need to rent a backplate and wing setup plus an additional stage cylinder for a deco course. Do you provide this kind of technical gear and what are the daily rental rates?",
+    "expected_category": "equipment_rental_and_technical_gear",
+    "expected_subcategory": "technical_gear_and_nitrox_availability",
+    "expected_priority": "medium",
+    "expected_sentiment": "professional",
+    "context": {
+      "destination": "sharm_el_sheikh",
+      "gas_preference": "nitrox",
+      "gear_needs": [
+        "backplate_and_wing",
+        "stage_cylinder"
+      ],
+      "course_type": "decompression_procedures"
+    },
+    "follow_up_questions_expected": [
+      "What cylinder volumes and valve configurations do you prefer for back gas and stage cylinders?",
+      "On which dates will you be in Sharm so we can confirm gear availability?"
+    ]
+  },
+  {
+    "id": "CLASS_009",
+    "scenario": "group_discount_for_dive_club_safari",
+    "customer_input": "We’re a dive club from Germany with 12 divers interested in chartering a full boat for a southern Red Sea itinerary next May. Do you offer group discounts for full-boat bookings, and can we get a free spot for our club leader or instructor?",
+    "expected_category": "loyalty_groups_and_special_requests",
+    "expected_subcategory": "group_discounts_and_free_spots",
+    "expected_priority": "medium",
+    "expected_sentiment": "professional",
+    "context": {
+      "group_size": 12,
+      "origin_country": "germany",
+      "requested_itinerary_region": "southern_red_sea",
+      "travel_month": "may"
+    },
+    "follow_up_questions_expected": [
+      "Are all 12 divers certified to at least Advanced Open Water or equivalent?",
+      "Do you have preferred departure dates in May or are you flexible within the month?"
+    ]
+  },
+  {
+    "id": "CLASS_010",
+    "scenario": "general_question_about_best_time_for_red_sea",
+    "customer_input": "I’m flexible with my vacation dates and trying to figure out the best time of year to dive the Red Sea for good visibility and not-too-crowded boats. I’m not a fan of very cold water either. Could you give me an overview of the seasons and what you’d recommend?",
+    "expected_category": "general_questions_and_other",
+    "expected_subcategory": "seasonality_and_overall_recommendations",
+    "expected_priority": "low",
+    "expected_sentiment": "curious",
+    "context": {
+      "flexible_dates": true,
+      "crowd_avoidance": true,
+      "cold_water_tolerance": "low",
+      "experience_level": "intermediate_recreational"
+    },
+    "follow_up_questions_expected": [
+      "Are you more interested in northern wrecks, southern reefs, or a mix of both?",
+      "What is your preferred water temperature range for comfortable diving?"
+    ]
+  },
+  {
+    "id": "CLASS_011",
+    "scenario": "upgrade_to_single_cabin_request",
+    "customer_input": "I’m already booked on your October ‘Best of Red Sea’ safari in a shared twin cabin, but I’d really prefer a single cabin if possible. Are there any single cabins still available, and what would be the additional cost to upgrade?",
+    "expected_category": "trip_planning_and_booking",
+    "expected_subcategory": "cabin_preferences_and_upgrades",
+    "expected_priority": "medium",
+    "expected_sentiment": "professional",
+    "context": {
+      "trip_name": "best_of_red_sea",
+      "month": "october",
+      "current_cabin_type": "shared_twin",
+      "requested_cabin_type": "single"
+    },
+    "follow_up_questions_expected": [
+      "Can you provide your booking reference so we can check your reservation?",
+      "Are your travel dates flexible in case a different departure has single cabin availability?"
+    ]
+  },
+  {
+    "id": "CLASS_012",
+    "scenario": "request_for_detailed_daily_itinerary",
+    "customer_input": "I’m considering your ‘Deep South St. John’s’ route but the website only shows a brief description. Could you send me a more detailed day-by-day itinerary, including typical dive sites and approximate depths for each day?",
+    "expected_category": "itinerary_and_destination_info",
+    "expected_subcategory": "detailed_daily_dive_plan",
+    "expected_priority": "low",
+    "expected_sentiment": "curious",
+    "context": {
+      "itinerary_name": "deep_south_st_johns",
+      "trip_duration_days": 7,
+      "focus": "reef_and_drift_dives",
+      "information_requested": "daily_dive_sites_and_depths"
+    },
+    "follow_up_questions_expected": [
+      "What is your current certification level and maximum comfortable depth?",
+      "Are there any specific types of sites you particularly want to include or avoid, such as night dives or strong currents?"
+    ]
+  },
+  {
+    "id": "CLASS_013",
+    "scenario": "advanced_and_rescue_course_combo_in_sharm",
+    "customer_input": "I’ll be in Sharm el Sheikh for 10 days and would like to do both the Advanced Open Water and Rescue Diver courses while still having a couple of fun dive days. Is it realistic to complete both courses in that time, and do you offer a package price for combining them?",
+    "expected_category": "diving_courses_and_certification",
+    "expected_subcategory": "combined_advanced_and_rescue_training",
+    "expected_priority": "medium",
+    "expected_sentiment": "positive",
+    "context": {
+      "destination": "sharm_el_sheikh",
+      "stay_length_days": 10,
+      "requested_courses": [
+        "advanced_open_water",
+        "rescue_diver"
+      ],
+      "goal": "training_plus_fun_dives"
+    },
+    "follow_up_questions_expected": [
+      "Are you already certified as an Open Water diver and how many logged dives do you have?",
+      "Do you have a valid first aid/CPR certification within the last 24 months for the Rescue course?"
+    ]
+  },
+  {
+    "id": "CLASS_014",
+    "scenario": "hotel_change_request_due_to_construction_noise",
+    "customer_input": "I checked into the hotel you booked for me in Hurghada yesterday and there is loud construction noise from early morning right next door. It’s making it impossible to rest between dive days. I want to change to a quieter hotel as soon as possible—can you arrange this and confirm if there will be any extra cost?",
+    "expected_category": "travel_logistics_and_accommodation",
+    "expected_subcategory": "post_arrival_hotel_change",
+    "expected_priority": "high",
+    "expected_sentiment": "angry",
+    "context": {
+      "current_city": "hurghada",
+      "issue_reported": "construction_noise",
+      "booking_status": "already_checked_in",
+      "trip_component": "hotel_only_with_separate_diving"
+    },
+    "follow_up_questions_expected": [
+      "Can you share your current room number and booking reference so we can contact the hotel?",
+      "Are you willing to move to a hotel slightly farther from the marina if it is significantly quieter?"
+    ]
+  },
+  {
+    "id": "CLASS_015",
+    "scenario": "overcharge_dispute_for_gear_rental",
+    "customer_input": "I’ve just received my final invoice for the Red Sea trip and noticed I was charged for a full week of equipment rental, even though I only used your gear for three days and then switched to my own. This doesn’t match what was agreed on board. Please correct the invoice and refund the difference.",
+    "expected_category": "payments_pricing_and_billing",
+    "expected_subcategory": "billing_discrepancy_and_refund_request",
+    "expected_priority": "high",
+    "expected_sentiment": "frustrated",
+    "context": {
+      "trip_type": "liveaboard_or_resort_package",
+      "charge_type": "equipment_rental",
+      "charged_duration_days": 7,
+      "claimed_usage_days": 3
+    },
+    "follow_up_questions_expected": [
+      "Can you send a copy or photo of the invoice showing the rental charges?",
+      "Do you recall which staff member you agreed the three-day rental with on board?"
+    ]
+  },
+  {
+    "id": "CLASS_016",
+    "scenario": "storm_forecast_and_trip_cancellation_concern",
+    "customer_input": "I’ve seen a forecast for strong winds and rough seas in the Red Sea next week, right when my liveaboard is scheduled to depart from Port Ghalib. I’m worried the trip might be cancelled or that conditions will be unsafe. What is your policy in such cases and how do you decide whether to sail?",
+    "expected_category": "issues_changes_and_cancellations",
+    "expected_subcategory": "weather_related_schedule_changes",
+    "expected_priority": "critical",
+    "expected_sentiment": "concerned",
+    "context": {
+      "departure_port": "port_ghalib",
+      "time_until_departure_days": 5,
+      "issue_type": "strong_wind_and_rough_sea_forecast",
+      "trip_type": "liveaboard"
+    },
+    "follow_up_questions_expected": [
+      "Can you share your exact travel dates so we can check the latest marine forecast for those days?",
+      "Are your flights and pre- or post-cruise hotels already booked and non-refundable?"
+    ]
+  },
+  {
+    "id": "CLASS_017",
+    "scenario": "medical_form_and_fitness_to_dive_query",
+    "customer_input": "I’m 62 and have mild high blood pressure that’s controlled with medication. I’d like to join your northern wrecks itinerary, but I’m unsure if this will be an issue with the medical form. Do I need a doctor’s clearance before I can dive with you in the Red Sea?",
+    "expected_category": "diving_conditions_and_safety",
+    "expected_subcategory": "medical_clearance_and_fitness_requirements",
+    "expected_priority": "medium",
+    "expected_sentiment": "cautious",
+    "context": {
+      "age": 62,
+      "medical_condition": "controlled_hypertension",
+      "planned_itinerary": "northern_wrecks",
+      "medication_use": true
+    },
+    "follow_up_questions_expected": [
+      "When was your last medical check-up regarding your blood pressure?",
+      "Can you obtain a written fitness-to-dive statement from your doctor before your trip?"
+    ]
+  },
+  {
+    "id": "CLASS_018",
+    "scenario": "request_for_sidemount_and_dpvs",
+    "customer_input": "For my upcoming Marsa Alam trip, I’d like to dive sidemount and possibly use DPVs for a couple of guided dives if available. Do you support sidemount configurations on your boats and do you rent DPVs, or is it strictly backmount only?",
+    "expected_category": "equipment_rental_and_technical_gear",
+    "expected_subcategory": "special_configuration_and_dpvs",
+    "expected_priority": "low",
+    "expected_sentiment": "curious",
+    "context": {
+      "destination": "marsa_alam",
+      "requested_configuration": "sidemount",
+      "dpv_interest": true,
+      "trip_type": "day_boat_or_house_reef"
+    },
+    "follow_up_questions_expected": [
+      "What sidemount training or certification do you currently hold?",
+      "On which dates will you be diving so we can check DPV and sidemount hardware availability?"
+    ]
+  },
+  {
+    "id": "CLASS_019",
+    "scenario": "anniversary_and_vegan_meal_request",
+    "customer_input": "My partner and I will be celebrating our 10th anniversary on your ‘Best of Wrecks’ Red Sea safari next month. We’re both vegan and would love to have a small celebration dinner on board if possible. Can the chef cater fully vegan meals for the week and arrange something special for our anniversary night?",
+    "expected_category": "loyalty_groups_and_special_requests",
+    "expected_subcategory": "dietary_requirements_and_special_occasion",
+    "expected_priority": "medium",
+    "expected_sentiment": "positive",
+    "context": {
+      "itinerary_name": "best_of_wrecks",
+      "celebration_type": "10th_anniversary",
+      "dietary_requirement": "vegan",
+      "travel_month": "next_month"
+    },
+    "follow_up_questions_expected": [
+      "Do you have any additional food allergies or ingredients you need us to avoid beyond being vegan?",
+      "On which night of the cruise would you like to schedule the special anniversary dinner?"
+    ]
+  },
+  {
+    "id": "CLASS_020",
+    "scenario": "clarification_on_visa_and_entry_requirements",
+    "customer_input": "I’m a UK citizen flying into Sharm el Sheikh for a week of diving, including a day trip to the Thistlegorm. I’m confused about whether I need a full Egyptian visa or if the Sinai-only stamp is enough for this kind of diving. Can you clarify what I should get on arrival?",
+    "expected_category": "general_questions_and_other",
+    "expected_subcategory": "visa_and_entry_requirements_for_divers",
+    "expected_priority": "low",
+    "expected_sentiment": "neutral",
+    "context": {
+      "nationality": "uk",
+      "arrival_airport": "sharm_el_sheikh",
+      "planned_activities": [
+        "local_diving",
+        "thistlegorm_day_trip"
+      ],
+      "stay_duration_days": 7
+    },
+    "follow_up_questions_expected": [
+      "Are you planning any overland trips outside the Sinai region during your stay?",
+      "Will you be entering Egypt only once or do you have multiple entries planned within the same trip?"
+    ]
+  }
+]

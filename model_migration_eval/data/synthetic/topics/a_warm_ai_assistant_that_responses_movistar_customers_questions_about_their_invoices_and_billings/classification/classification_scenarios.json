@@ -1,0 +1,402 @@
+[
+  {
+    "id": "CLASS_001",
+    "scenario": "cannot_download_latest_invoice",
+    "customer_input": "Hola, intento descargar mi última factura de Movistar desde la app Mi Movistar pero me sale un error y no se abre el PDF. Necesito enviarla a mi empresa para justificar gastos y me corre un poco de prisa. ¿Me podéis ayudar a conseguirla?",
+    "expected_category": "invoice_access_and_delivery",
+    "expected_subcategory": "invoice_download_error",
+    "expected_priority": "high",
+    "expected_sentiment": "concerned",
+    "context": {
+      "channel": "mobile_app",
+      "product_type": "mobile_postpaid",
+      "billing_cycle": "2026-01",
+      "language": "es",
+      "customer_tenure_months": 18
+    },
+    "follow_up_questions_expected": [
+      "¿Qué mensaje de error exacto aparece cuando intentas abrir o descargar el PDF de la factura?",
+      "¿Has probado a acceder también desde la versión web de Mi Movistar o desde otro dispositivo o navegador?"
+    ]
+  },
+  {
+    "id": "CLASS_002",
+    "scenario": "invoice_not_received_by_email",
+    "customer_input": "Buenas, siempre recibo la factura de Movistar por correo electrónico y este mes no me ha llegado nada. He mirado en spam y tampoco está. Necesito el documento para contabilidad, ¿sabéis qué puede haber pasado?",
+    "expected_category": "invoice_access_and_delivery",
+    "expected_subcategory": "missing_email_invoice",
+    "expected_priority": "medium",
+    "expected_sentiment": "curious",
+    "context": {
+      "channel": "email",
+      "product_type": "convergent_fusion",
+      "billing_cycle": "2026-02",
+      "language": "es",
+      "customer_tenure_months": 36
+    },
+    "follow_up_questions_expected": [
+      "¿Puedes confirmarme la dirección de correo electrónico donde sueles recibir las facturas?",
+      "¿Has cambiado recientemente de dirección de email o de preferencias de facturación en Mi Movistar?"
+    ]
+  },
+  {
+    "id": "CLASS_003",
+    "scenario": "unexpected_high_mobile_bill_roaming",
+    "customer_input": "Acabo de ver mi factura y me ha llegado casi el triple de lo habitual. Estuve unos días en Francia pero pensaba que el roaming estaba incluido en mi tarifa. Estoy bastante molesto porque nadie me avisó de estos cargos.",
+    "expected_category": "invoice_amount_and_breakdown",
+    "expected_subcategory": "roaming_charges_dispute",
+    "expected_priority": "high",
+    "expected_sentiment": "angry",
+    "context": {
+      "channel": "web_selfcare",
+      "product_type": "mobile_postpaid",
+      "billing_cycle": "2026-01",
+      "language": "es",
+      "customer_tenure_months": 8
+    },
+    "follow_up_questions_expected": [
+      "¿En qué fechas exactas estuviste en Francia y utilizaste la línea móvil?",
+      "¿Has recibido anteriormente algún SMS o notificación de Movistar sobre las condiciones de roaming de tu tarifa?"
+    ]
+  },
+  {
+    "id": "CLASS_004",
+    "scenario": "clarify_charges_premium_sms",
+    "customer_input": "En la factura de este mes me aparecen varios cargos por SMS premium que yo no recuerdo haber solicitado. No entiendo de qué son esos importes ni cómo se han activado. ¿Me lo podéis explicar?",
+    "expected_category": "invoice_amount_and_breakdown",
+    "expected_subcategory": "premium_services_charges",
+    "expected_priority": "medium",
+    "expected_sentiment": "concerned",
+    "context": {
+      "channel": "call_center",
+      "product_type": "mobile_postpaid",
+      "billing_cycle": "2026-02",
+      "language": "es",
+      "customer_tenure_months": 24
+    },
+    "follow_up_questions_expected": [
+      "¿Puedes indicarme los importes y fechas aproximadas de esos cargos por SMS premium que ves en la factura?",
+      "¿Has recibido últimamente mensajes de suscripción a sorteos, tonos o servicios de terceros en tu línea?"
+    ]
+  },
+  {
+    "id": "CLASS_005",
+    "scenario": "discount_for_new_customers_not_applied",
+    "customer_input": "Cuando contraté la fibra con Movistar me dijeron que tendría un descuento durante los primeros 6 meses, pero en la factura de este mes ya me cobran el precio completo. Todavía estoy dentro de esos 6 meses, ¿por qué no se ha aplicado el descuento?",
+    "expected_category": "discounts_and_promotions",
+    "expected_subcategory": "missing_contracted_discount",
+    "expected_priority": "high",
+    "expected_sentiment": "frustrated",
+    "context": {
+      "channel": "store",
+      "product_type": "fixed_fiber",
+      "billing_cycle": "2026-02",
+      "language": "es",
+      "customer_tenure_months": 3
+    },
+    "follow_up_questions_expected": [
+      "¿Recuerdas el nombre de la promoción o el porcentaje de descuento que te ofrecieron al contratar?",
+      "¿Tienes algún correo de confirmación o contrato donde aparezcan las condiciones del descuento?"
+    ]
+  },
+  {
+    "id": "CLASS_006",
+    "scenario": "clarify_end_of_promo_price_increase",
+    "customer_input": "He visto que este mes mi factura ha subido unos 15 euros y en el detalle pone algo de fin de promoción. ¿Me podéis explicar exactamente qué promoción ha terminado y cuál será el precio final a partir de ahora?",
+    "expected_category": "discounts_and_promotions",
+    "expected_subcategory": "promotion_expired_price_change",
+    "expected_priority": "medium",
+    "expected_sentiment": "curious",
+    "context": {
+      "channel": "web_selfcare",
+      "product_type": "convergent_fusion",
+      "billing_cycle": "2026-01",
+      "language": "es",
+      "customer_tenure_months": 14
+    },
+    "follow_up_questions_expected": [
+      "¿Desde cuándo tienes contratada la tarifa actual y recuerdas si te ofrecieron un precio promocional temporal?",
+      "¿Quieres que te detallemos el precio desglosado de cada servicio sin la promoción aplicada?"
+    ]
+  },
+  {
+    "id": "CLASS_007",
+    "scenario": "doubt_about_first_bill_proration",
+    "customer_input": "Es mi primera factura con Movistar y no entiendo por qué me cobran más días de los que llevo con la línea. Parece que hay un prorrateo pero no lo tengo claro. ¿Me podéis explicar cómo se calcula la primera factura?",
+    "expected_category": "plan_and_package_billing",
+    "expected_subcategory": "first_invoice_proration_explanation",
+    "expected_priority": "medium",
+    "expected_sentiment": "curious",
+    "context": {
+      "channel": "mobile_app",
+      "product_type": "mobile_postpaid",
+      "billing_cycle": "2026-02",
+      "language": "es",
+      "customer_tenure_months": 1
+    },
+    "follow_up_questions_expected": [
+      "¿En qué fecha se activó exactamente tu línea con Movistar?",
+      "¿Puedes indicar la fecha de inicio y fin que aparecen en la parte superior de tu factura?"
+    ]
+  },
+  {
+    "id": "CLASS_008",
+    "scenario": "charged_old_plan_after_change",
+    "customer_input": "El mes pasado cambié de Fusión a una tarifa miMovistar más barata, pero en la factura actual me siguen cobrando como si tuviera el paquete antiguo. No entiendo por qué no se refleja el cambio.",
+    "expected_category": "plan_and_package_billing",
+    "expected_subcategory": "plan_change_not_reflected",
+    "expected_priority": "high",
+    "expected_sentiment": "frustrated",
+    "context": {
+      "channel": "call_center",
+      "product_type": "convergent_fusion",
+      "billing_cycle": "2026-01",
+      "language": "es",
+      "customer_tenure_months": 30
+    },
+    "follow_up_questions_expected": [
+      "¿En qué fecha solicitaste el cambio de Fusión a la nueva tarifa miMovistar?",
+      "¿Has recibido algún SMS o correo de confirmación indicando la fecha efectiva del cambio de tarifa?"
+    ]
+  },
+  {
+    "id": "CLASS_009",
+    "scenario": "urgent_line_suspension_for_unpaid_bill",
+    "customer_input": "Me acaban de cortar la línea por una factura pendiente y necesito el móvil para trabajar. No me había dado cuenta de que el recibo fue devuelto. ¿Qué puedo hacer para pagar ahora mismo y que me la reactiven cuanto antes?",
+    "expected_category": "payment_and_collections",
+    "expected_subcategory": "service_suspension_due_to_non_payment",
+    "expected_priority": "critical",
+    "expected_sentiment": "worried",
+    "context": {
+      "channel": "sms",
+      "product_type": "mobile_postpaid",
+      "billing_cycle": "2025-12",
+      "language": "es",
+      "customer_tenure_months": 10
+    },
+    "follow_up_questions_expected": [
+      "¿Tienes acceso a la app Mi Movistar o a la web para realizar el pago con tarjeta o bizum?",
+      "¿Sabes si el banco ha devuelto solo la última factura o también alguna anterior?"
+    ]
+  },
+  {
+    "id": "CLASS_010",
+    "scenario": "change_direct_debit_bank_account",
+    "customer_input": "Quiero cambiar la cuenta bancaria donde me cargan las facturas de Movistar porque he cambiado de banco. ¿Me podéis indicar cómo hacerlo y desde qué factura se aplicaría el cambio?",
+    "expected_category": "payment_and_collections",
+    "expected_subcategory": "update_direct_debit_details",
+    "expected_priority": "medium",
+    "expected_sentiment": "professional",
+    "context": {
+      "channel": "web_selfcare",
+      "product_type": "fixed_fiber",
+      "billing_cycle": "2026-02",
+      "language": "es",
+      "customer_tenure_months": 60
+    },
+    "follow_up_questions_expected": [
+      "¿Tienes a mano el IBAN completo de la nueva cuenta bancaria donde quieres domiciliar los recibos?",
+      "¿Quieres que el cambio se aplique a todas tus líneas y servicios o solo a alguno en concreto?"
+    ]
+  },
+  {
+    "id": "CLASS_011",
+    "scenario": "question_about_iva_on_bill",
+    "customer_input": "Estoy revisando la factura y veo una línea de IVA que no termino de entender. ¿Me podéis explicar qué tipo de IVA se aplica a los servicios de Movistar y si es correcto el cálculo que aparece?",
+    "expected_category": "taxes_and_regulatory_charges",
+    "expected_subcategory": "iva_calculation_explanation",
+    "expected_priority": "low",
+    "expected_sentiment": "curious",
+    "context": {
+      "channel": "email",
+      "product_type": "convergent_fusion",
+      "billing_cycle": "2026-01",
+      "language": "es",
+      "customer_tenure_months": 22
+    },
+    "follow_up_questions_expected": [
+      "¿Puedes indicarme el importe base y el importe de IVA que aparecen en tu factura?",
+      "¿La factura está emitida a tu nombre como particular o a nombre de una empresa/autónomo?"
+    ]
+  },
+  {
+    "id": "CLASS_012",
+    "scenario": "regulatory_fee_for_line_maintenance",
+    "customer_input": "En la factura aparece un concepto de cuota de mantenimiento de línea y otros cargos regulados que no sé muy bien qué son. ¿Son obligatorios estos cargos o se pueden quitar?",
+    "expected_category": "taxes_and_regulatory_charges",
+    "expected_subcategory": "regulated_fees_explanation",
+    "expected_priority": "medium",
+    "expected_sentiment": "concerned",
+    "context": {
+      "channel": "call_center",
+      "product_type": "fixed_fiber",
+      "billing_cycle": "2026-02",
+      "language": "es",
+      "customer_tenure_months": 12
+    },
+    "follow_up_questions_expected": [
+      "¿Puedes decirme el nombre exacto del concepto regulado que aparece en tu factura?",
+      "¿Desde cuándo has empezado a ver este cargo en tus facturas o es la primera vez que aparece?"
+    ]
+  },
+  {
+    "id": "CLASS_013",
+    "scenario": "update_billing_address_company_name",
+    "customer_input": "Necesito que las próximas facturas de Movistar salgan a nombre de mi empresa y con la nueva dirección fiscal. ¿Cómo puedo cambiar estos datos de facturación para que sean válidos para Hacienda?",
+    "expected_category": "billing_profile_and_personal_data",
+    "expected_subcategory": "update_billing_name_and_address",
+    "expected_priority": "medium",
+    "expected_sentiment": "professional",
+    "context": {
+      "channel": "web_selfcare",
+      "product_type": "mobile_postpaid",
+      "billing_cycle": "2026-02",
+      "language": "es",
+      "customer_tenure_months": 5
+    },
+    "follow_up_questions_expected": [
+      "¿La línea pasará a estar a nombre de persona jurídica o seguirás siendo tú el titular pero con datos de facturación de empresa?",
+      "¿Puedes facilitar la razón social completa, NIF y la nueva dirección fiscal que quieres que aparezca en la factura?"
+    ]
+  },
+  {
+    "id": "CLASS_014",
+    "scenario": "request_invoice_copy_for_past_month",
+    "customer_input": "He perdido la factura de octubre y la necesito para presentarla en la declaración. ¿Podéis enviarme una copia o decirme cómo descargar facturas antiguas de Movistar?",
+    "expected_category": "billing_profile_and_personal_data",
+    "expected_subcategory": "historical_invoice_copy_request",
+    "expected_priority": "low",
+    "expected_sentiment": "neutral",
+    "context": {
+      "channel": "mobile_app",
+      "product_type": "convergent_fusion",
+      "billing_cycle": "2025-10",
+      "language": "es",
+      "customer_tenure_months": 40
+    },
+    "follow_up_questions_expected": [
+      "¿Necesitas solo la factura de octubre o también de otros meses concretos?",
+      "¿Prefieres recibir la copia por correo electrónico o descargarla tú mismo desde Mi Movistar?"
+    ]
+  },
+  {
+    "id": "CLASS_015",
+    "scenario": "request_refund_for_service_outage",
+    "customer_input": "Durante casi tres días no tuve internet en casa por una avería de Movistar y aun así me habéis cobrado el mes completo. Me parece injusto y quiero saber si me corresponde algún abono o devolución en la próxima factura.",
+    "expected_category": "refunds_and_compensations",
+    "expected_subcategory": "compensation_for_service_outage",
+    "expected_priority": "high",
+    "expected_sentiment": "frustrated",
+    "context": {
+      "channel": "call_center",
+      "product_type": "fixed_fiber",
+      "billing_cycle": "2026-01",
+      "language": "es",
+      "customer_tenure_months": 16
+    },
+    "follow_up_questions_expected": [
+      "¿Recuerdas las fechas y horas aproximadas en las que estuviste sin servicio de internet?",
+      "¿Tienes algún número de incidencia o parte de avería que te facilitara Movistar cuando reportaste el problema?"
+    ]
+  },
+  {
+    "id": "CLASS_016",
+    "scenario": "refund_for_duplicate_payment",
+    "customer_input": "He pagado dos veces la misma factura de Movistar por error, una por domiciliación y otra con tarjeta desde la app. ¿Cómo puedo solicitar la devolución del importe duplicado y cuánto tarda en hacerse efectiva?",
+    "expected_category": "refunds_and_compensations",
+    "expected_subcategory": "duplicate_payment_refund",
+    "expected_priority": "medium",
+    "expected_sentiment": "concerned",
+    "context": {
+      "channel": "mobile_app",
+      "product_type": "mobile_postpaid",
+      "billing_cycle": "2026-01",
+      "language": "es",
+      "customer_tenure_months": 7
+    },
+    "follow_up_questions_expected": [
+      "¿Puedes indicar la fecha y el método de cada uno de los pagos realizados para esa factura?",
+      "¿Quieres que el importe duplicado se devuelva a tu cuenta bancaria o que se compense en la próxima factura?"
+    ]
+  },
+  {
+    "id": "CLASS_017",
+    "scenario": "repeated_wrong_charges_every_month",
+    "customer_input": "Llevo varios meses reclamando lo mismo: me estáis cobrando un paquete de TV que ya di de baja. Cada factura viene igual y estoy muy cansado de esta situación. Quiero una solución definitiva y que me devolváis todo lo cobrado de más.",
+    "expected_category": "recurring_or_historical_issues",
+    "expected_subcategory": "repeated_incorrect_tv_charges",
+    "expected_priority": "critical",
+    "expected_sentiment": "very_angry",
+    "context": {
+      "channel": "call_center",
+      "product_type": "tv_and_fiber_bundle",
+      "billing_cycle": "2026-02",
+      "language": "es",
+      "customer_tenure_months": 28
+    },
+    "follow_up_questions_expected": [
+      "¿En qué fecha solicitaste la baja del paquete de TV y tienes algún número de gestión o confirmación?",
+      "¿Puedes indicarme desde qué mes exacto se te está cobrando indebidamente ese paquete en la factura?"
+    ]
+  },
+  {
+    "id": "CLASS_018",
+    "scenario": "confusion_between_two_mobile_lines_on_bill",
+    "customer_input": "En mi factura aparecen dos líneas móviles y me cuesta saber qué consumo corresponde a cada número. Además, creo que a una de las líneas se le ha cobrado un bono de datos que no pedimos. ¿Me lo podéis aclarar?",
+    "expected_category": "multi_account_or_multi_line_billing",
+    "expected_subcategory": "multi_line_usage_and_addons_confusion",
+    "expected_priority": "medium",
+    "expected_sentiment": "concerned",
+    "context": {
+      "channel": "web_selfcare",
+      "product_type": "family_mobile_bundle",
+      "billing_cycle": "2026-01",
+      "language": "es",
+      "customer_tenure_months": 19
+    },
+    "follow_up_questions_expected": [
+      "¿Puedes indicarme los dos números de móvil que aparecen en la factura para revisar el detalle de cada uno?",
+      "¿Recuerdas si alguien de la familia activó recientemente algún bono extra de datos desde la app o por SMS?"
+    ]
+  },
+  {
+    "id": "CLASS_019",
+    "scenario": "billing_during_technical_installation_delay",
+    "customer_input": "Contraté la fibra hace un mes y el técnico tardó casi dos semanas en venir a instalarla. Sin embargo, la factura me cobra el mes completo como si hubiera tenido servicio desde el primer día. ¿Eso es correcto?",
+    "expected_category": "technical_or_service_related_billing",
+    "expected_subcategory": "charges_before_service_activation",
+    "expected_priority": "high",
+    "expected_sentiment": "concerned",
+    "context": {
+      "channel": "store",
+      "product_type": "fixed_fiber",
+      "billing_cycle": "2026-02",
+      "language": "es",
+      "customer_tenure_months": 1
+    },
+    "follow_up_questions_expected": [
+      "¿En qué fecha firmaste el contrato y en qué fecha se completó finalmente la instalación de la fibra?",
+      "¿Has recibido alguna factura previa o es esta la primera factura desde que contrataste el servicio?"
+    ]
+  },
+  {
+    "id": "CLASS_020",
+    "scenario": "ask_what_is_billing_cycle_and_due_date",
+    "customer_input": "Estoy un poco perdido con las fechas de facturación de Movistar. ¿Cuál es exactamente mi ciclo de facturación y en qué día del mes se suele pasar el recibo al banco?",
+    "expected_category": "general_billing_information",
+    "expected_subcategory": "billing_cycle_and_due_date_info",
+    "expected_priority": "low",
+    "expected_sentiment": "neutral",
+    "context": {
+      "channel": "mobile_app",
+      "product_type": "mobile_postpaid",
+      "billing_cycle": "2026-02",
+      "language": "es",
+      "customer_tenure_months": 4
+    },
+    "follow_up_questions_expected": [
+      "¿Puedes decirme la fecha de emisión que aparece en tu última factura de Movistar?",
+      "¿Quieres que te explique también cómo se reflejan en la factura los consumos realizados fuera del ciclo habitual?"
+    ]
+  }
+]

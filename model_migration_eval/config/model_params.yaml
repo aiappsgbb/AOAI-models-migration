@@ -1,0 +1,243 @@
+# =============================================================================
+# Model Parameter Comparison: GPT-4o vs GPT-5.x
+# =============================================================================
+# This file documents the key parameter differences between model versions
+
+# =============================================================================
+# SECTION 1: Parameter Changes
+# =============================================================================
+parameters:
+  # Parameters that remain the same
+  common:
+    - name: "temperature"
+      description: "Controls randomness in responses"
+      range: "0.0 - 2.0"
+      recommended_production: 0.1
+      notes: "Lower values for reproducibility in classification tasks"
+      
+    - name: "max_tokens"
+      description: "Maximum tokens in completion"
+      gpt4_max: 4096
+      gpt5_max: 32768
+      notes: "GPT-5 supports much longer outputs"
+      
+    - name: "top_p"
+      description: "Nucleus sampling probability"
+      range: "0.0 - 1.0"
+      recommended: 1.0
+      notes: "Use temperature OR top_p, not both"
+      
+    - name: "frequency_penalty"
+      description: "Reduces repetition of frequent tokens"
+      range: "-2.0 - 2.0"
+      recommended: 0.0
+      
+    - name: "presence_penalty"
+      description: "Reduces repetition of any token used"
+      range: "-2.0 - 2.0"
+      recommended: 0.0
+
+  # Parameters deprecated/changed in GPT-5
+  deprecated_in_gpt5:
+    - name: "best_of"
+      status: "REMOVED"
+      alternative: "Use multiple API calls with seed parameter"
+      migration_action: "Remove from requests, implement client-side if needed"
+      
+    - name: "logprobs"
+      status: "CHANGED"
+      gpt4_behavior: "Returns log probabilities for tokens"
+      gpt5_behavior: "Enhanced with reasoning token visibility"
+      migration_action: "Update parsing logic for new response format"
+
+  # New parameters in GPT-5
+  new_in_gpt5:
+    - name: "reasoning_effort"
+      description: "Controls depth of reasoning in o-series models"
+      values: ["low", "medium", "high"]
+      default: "medium"
+      impact: "Higher = better quality, more latency, higher cost"
+      use_case: "Complex classification, multi-step reasoning"
+      
+    - name: "reasoning_summary"
+      description: "Request summary of reasoning process"
+      values: [true, false]
+      default: false
+      impact: "Provides visibility into model thinking"
+      
+    - name: "prediction"
+      description: "Predicted output for speculative decoding"
+      type: "object"
+      impact: "Can significantly reduce latency for predictable outputs"
+      use_case: "Form filling, structured responses"
+      
+    - name: "store"
+      description: "Enable conversation storage for fine-tuning"
+      values: [true, false]
+      default: false
+      impact: "Allows distillation and improvement workflows"
+      
+    - name: "metadata"
+      description: "Custom metadata for request tracking"
+      type: "object"
+      impact: "Enhanced observability and governance"
+
+# =============================================================================
+# SECTION 2: Functional Differences
+# =============================================================================
+functional_differences:
+  reasoning:
+    gpt4:
+      capability: "Chain-of-thought via prompting"
+      reliability: "Inconsistent without explicit instructions"
+      visibility: "No internal reasoning visibility"
+      
+    gpt5:
+      capability: "Native reasoning tokens (o-series)"
+      reliability: "More consistent complex reasoning"
+      visibility: "reasoning_summary provides transparency"
+      
+    migration_impact:
+      - "Classification accuracy typically improves 5-15%"
+      - "May need to remove explicit CoT instructions"
+      - "Adjust prompts to leverage native reasoning"
+
+  function_calling:
+    gpt4:
+      capability: "Tools/functions with JSON schema"
+      reliability: "Generally reliable, occasional formatting errors"
+      parallel: "Supports parallel function calls"
+      
+    gpt5:
+      capability: "Enhanced tool use with better planning"
+      reliability: "Improved schema adherence"
+      parallel: "More intelligent parallelization"
+      new_features:
+        - "Tool result caching hints"
+        - "Multi-step tool planning"
+        - "Better error recovery"
+      
+    migration_impact:
+      - "Review and potentially simplify tool descriptions"
+      - "May need fewer guardrails for JSON formatting"
+      - "Consider using new planning features"
+
+  response_variance:
+    gpt4:
+      with_seed: "~95% reproducibility with temperature=0 and seed"
+      without_seed: "High variance possible"
+      factors:
+        - "System load"
+        - "Token sampling"
+        - "Context length"
+        
+    gpt5:
+      with_seed: "~98% reproducibility"
+      deterministic_mode: "Available for critical applications"
+      new_controls:
+        - "Enhanced seed behavior"
+        - "Reasoning path pinning"
+        
+    migration_impact:
+      - "May achieve better consistency without extra effort"
+      - "Review seed usage patterns"
+      - "Consider deterministic mode for critical paths"
+
+# =============================================================================
+# SECTION 3: Performance Characteristics
+# =============================================================================
+performance:
+  latency:
+    gpt4o:
+      ttft_typical: "200-400ms"
+      tokens_per_second: "80-120"
+      factors:
+        - "Prompt length"
+        - "Region selection"
+        - "Time of day"
+        
+    gpt5:
+      ttft_typical: "300-600ms"  # May be higher initially
+      tokens_per_second: "60-100"  # Varies with reasoning
+      reasoning_overhead: "500-2000ms for complex tasks"
+      
+    optimization_strategies:
+      - technique: "Prompt Caching"
+        benefit: "Up to 50% latency reduction for repeated prefixes"
+        requirement: "Minimum 1024 token prefix"
+        
+      - technique: "Predicted Outputs"
+        benefit: "Up to 70% reduction for structured outputs"
+        requirement: "Predictable response format"
+        
+      - technique: "Streaming"
+        benefit: "Improved perceived latency"
+        requirement: "Client-side stream handling"
+
+  throughput:
+    gpt4o:
+      tpm_typical: "150K-1M tokens/minute"
+      rpm_typical: "1000-10000 requests/minute"
+      
+    gpt5:
+      tpm_typical: "100K-500K tokens/minute"  # Initial availability
+      rpm_typical: "500-5000 requests/minute"
+      
+    migration_consideration: "Plan for potentially lower initial quotas"
+
+# =============================================================================
+# SECTION 4: Cost Comparison
+# =============================================================================
+cost_comparison:
+  note: "Prices are illustrative - check Azure pricing for current rates"
+  
+  gpt4o:
+    input_per_1k: "$0.0025"
+    output_per_1k: "$0.01"
+    cached_input_per_1k: "$0.00125"
+    
+  gpt5:
+    input_per_1k: "$0.005"  # Estimated
+    output_per_1k: "$0.02"  # Estimated
+    cached_input_per_1k: "$0.0025"
+    reasoning_tokens_per_1k: "$0.015"  # For o-series
+    
+  optimization_tips:
+    - "Use caching aggressively for repeated contexts"
+    - "Right-size reasoning_effort for the task"
+    - "Consider GPT-4 for simpler tasks, GPT-5 for complex"
+    - "Monitor and optimize prompt length"
+
+# =============================================================================
+# SECTION 5: Migration Checklist
+# =============================================================================
+migration_checklist:
+  pre_migration:
+    - "Inventory all prompts and their purposes"
+    - "Document current performance baselines"
+    - "Identify critical vs. non-critical use cases"
+    - "Set up parallel deployment infrastructure"
+    
+  testing:
+    - "Run A/B tests with synthetic data"
+    - "Measure accuracy, latency, cost differences"
+    - "Test edge cases and failure modes"
+    - "Validate reproducibility requirements"
+    
+  prompt_updates:
+    - "Remove explicit CoT instructions if using reasoning models"
+    - "Update deprecated parameters"
+    - "Optimize for new capabilities"
+    - "Test prompt caching eligibility"
+    
+  deployment:
+    - "Implement gradual rollout (canary deployment)"
+    - "Set up monitoring and alerting"
+    - "Prepare rollback procedures"
+    - "Document changes for governance"
+    
+  post_migration:
+    - "Monitor production metrics"
+    - "Collect user feedback"
+    - "Iterate on prompt optimizations"
+    - "Update documentation"

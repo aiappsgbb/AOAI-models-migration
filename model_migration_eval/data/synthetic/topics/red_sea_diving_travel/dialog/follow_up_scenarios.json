@@ -1,0 +1,445 @@
+[
+  {
+    "id": "DLG_001",
+    "scenario": "liveaboard_vs_day_trips_advice",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "I'm planning a diving holiday in the Red Sea in October and I'm torn between a liveaboard and staying at a resort with day trips. Can you help me decide?"
+      }
+    ],
+    "context_gaps": [
+      "Customer's exact travel dates and flexibility",
+      "Customer's diving experience level and certification",
+      "Budget range for the trip",
+      "Preference for comfort vs. adventure and social atmosphere",
+      "Whether they are traveling solo, as a couple, or with family"
+    ],
+    "optimal_follow_up": "Absolutely, I can help you weigh up both options for October in the Red Sea. To give you tailored advice, could you tell me a bit more about your plans? For example:\n\n1) What are your exact or approximate dates in October, and how flexible are they?\n2) What is your current certification level and how many logged dives do you have?\n3) Are you traveling alone, with a partner, or with family/children?\n4) What kind of budget are you considering per person for diving and accommodation (a rough range is fine)?\n5) Do you prefer a more social, boat‑based adventure with multiple dives per day, or would you like more land time, spa/pool access, and non‑diving activities?\n\nWith this information I can recommend whether a liveaboard or resort‑based diving would suit you better, and suggest specific Red Sea routes or areas.",
+    "follow_up_rules": [
+      "Ask targeted questions to clarify dates, experience, budget, and travel companions",
+      "Explain why each question matters for choosing between liveaboard and resort",
+      "Keep the tone reassuring and non‑pushy, emphasizing customer preferences",
+      "Avoid recommending specific products until basic requirements are clear"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "trip_planning_and_booking"
+  },
+  {
+    "id": "DLG_002",
+    "scenario": "family_friendly_resort_with_diving",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "We want to dive the Red Sea but we’re bringing our 8‑year‑old who doesn’t dive. Are there family‑friendly resorts where my partner and I can still do a couple of boat dives each day?"
+      },
+      {
+        "role": "agent",
+        "message": "Yes, there are several Red Sea resorts that cater well to families while offering great diving. I can suggest some options."
+      }
+    ],
+    "context_gaps": [
+      "Preferred Red Sea region (e.g., Sharm, Hurghada, Marsa Alam, Saudi side)",
+      "Travel dates and length of stay",
+      "Budget and preferred resort standard",
+      "Whether kids’ club or babysitting services are required",
+      "Customer’s and partner’s certification level"
+    ],
+    "optimal_follow_up": "To narrow this down to the best family‑friendly options, could you share a few more details?\n\n1) Which month are you planning to travel, and for how many nights?\n2) Do you have a preferred area of the Red Sea, or are you flexible on locations like Sharm el Sheikh, Hurghada, or Marsa Alam?\n3) What resort standard are you looking for (for example, mid‑range 3–4★ or more upscale 5★)?\n4) Is a kids’ club or organized childcare essential while you’re out diving, or would a family‑friendly pool and beach be enough?\n5) What are you and your partner’s diving certifications and roughly how many dives do you each have?\n\nWith this, I can recommend specific resorts and dive centers that can look after your child safely while you enjoy your dives.",
+    "follow_up_rules": [
+      "Clarify family needs and childcare expectations before suggesting resorts",
+      "Confirm diving experience to ensure suitable dive sites and schedules",
+      "Keep language clear and reassuring about child safety and supervision",
+      "Avoid promising specific childcare services until availability is confirmed"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "travel_logistics_and_accommodation"
+  },
+  {
+    "id": "DLG_003",
+    "scenario": "north_vs_south_red_sea_itinerary",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "For a one‑week trip in May, should I focus on the northern Red Sea like Ras Mohammed and the Thistlegorm, or go south to places like Fury Shoals? I like wrecks but also healthy reefs."
+      },
+      {
+        "role": "agent",
+        "message": "Both regions have fantastic diving, but the experience is quite different between north and south."
+      },
+      {
+        "role": "customer",
+        "message": "Okay, how do I choose which is better for me?"
+      }
+    ],
+    "context_gaps": [
+      "Customer’s certification level and comfort with currents/depth",
+      "Interest in shark or big‑fish encounters vs. macro/reef life",
+      "Departure airport and flight constraints",
+      "Tolerance for longer boat rides or remote locations",
+      "Whether they prefer liveaboard or land‑based diving"
+    ],
+    "optimal_follow_up": "To help you choose between north and south for May, I need to understand your diving style a bit better. Could you tell me:\n\n1) What is your current certification level and how comfortable are you with currents, blue‑water ascents, and deeper dives (30–40 m)?\n2) Are you more excited by iconic wrecks and busy boat traffic, or quieter reefs with a higher chance of big pelagics like sharks and dolphins?\n3) Will you be flying in from Europe, the Middle East, or elsewhere, and do you have fixed arrival/departure dates?\n4) Do you prefer a liveaboard itinerary or staying at a resort with day boats?\n\nOnce I know this, I can explain the pros and cons of a classic northern wreck/reef route versus a southern reef/shark‑focused itinerary for your specific situation.",
+    "follow_up_rules": [
+      "Link follow‑up questions directly to the choice between north and south itineraries",
+      "Assess diver experience and risk tolerance before suggesting advanced sites",
+      "Mention seasonal conditions briefly but avoid detailed forecasts without data",
+      "Stay neutral and informative, not biased toward one region"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "itinerary_and_destination_info"
+  },
+  {
+    "id": "DLG_004",
+    "scenario": "open_water_course_in_red_sea",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "I’d like to do my first scuba certification in the Red Sea this summer. Can I complete the full Open Water course in a week while on holiday?"
+      }
+    ],
+    "context_gaps": [
+      "Exact travel dates and location preference",
+      "Customer’s age and medical fitness for diving",
+      "Preferred training agency (PADI, SSI, etc.) if any",
+      "Language preference for course materials and instruction",
+      "Whether they want e‑learning theory done before arrival"
+    ],
+    "optimal_follow_up": "Yes, it’s usually possible to complete a full Open Water course in about 3–4 days, so a one‑week holiday is ideal. To check what will work best for you, could you let me know:\n\n1) When are you planning to travel and which Red Sea area you’re considering (for example Sharm el Sheikh, Hurghada, Marsa Alam, or Saudi Red Sea)?\n2) How old are you, and do you have any medical conditions or medications that might require a doctor’s clearance for diving?\n3) Do you have a preference for a training agency like PADI or SSI, or are you open to either?\n4) Which language would you like your course and materials in?\n5) Would you like to complete the theory portion online before you arrive so you can focus on the water sessions during your holiday?\n\nWith this information I can confirm if a full Open Water course is realistic for your week and suggest suitable dive centers.",
+    "follow_up_rules": [
+      "Confirm medical and age suitability in a sensitive, non‑intrusive way",
+      "Clarify timing to ensure course completion is realistic",
+      "Offer e‑learning as an option to optimize holiday time",
+      "Avoid guaranteeing certification, focusing instead on course structure"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "diving_courses_and_certification"
+  },
+  {
+    "id": "DLG_005",
+    "scenario": "advanced_course_plus_specialty_combo",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "I’m already Open Water with about 25 dives. I’ll be in Hurghada for 6 days and I’d like to do Advanced plus maybe a Nitrox specialty. Is that doable?"
+      },
+      {
+        "role": "agent",
+        "message": "Combining Advanced and Nitrox in one trip is quite common, especially in the Red Sea."
+      }
+    ],
+    "context_gaps": [
+      "Exact arrival and departure dates and daily availability",
+      "Training agency of existing certification",
+      "Customer’s recent dive history and last dive date",
+      "Whether they prefer private or group instruction",
+      "Language preference for course materials"
+    ],
+    "optimal_follow_up": "That sounds like a great plan for Hurghada. To confirm if we can comfortably fit both the Advanced course and Nitrox specialty into your 6 days, could you share:\n\n1) Your exact arrival and departure dates, and whether you’re available to dive every day or need some non‑diving days?\n2) Which agency issued your Open Water certification (e.g., PADI, SSI, CMAS)?\n3) When was your last dive, and have you been diving regularly over the past year?\n4) Do you prefer to join small group courses or would you rather have private instruction?\n5) What language would you like the theory and briefings in?\n\nWith this, I can outline a realistic schedule for Advanced plus Nitrox and let you know how many days you’d need in the water versus classroom/theory time.",
+    "follow_up_rules": [
+      "Check recency of diving to assess need for a refresher",
+      "Clarify schedule constraints before committing to course combo",
+      "Be transparent about workload and safety considerations",
+      "Keep tone encouraging while managing expectations"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "diving_courses_and_certification"
+  },
+  {
+    "id": "DLG_006",
+    "scenario": "airport_transfers_and_dive_schedule",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "Our flight lands in Marsa Alam at 21:30. Can we still arrange a transfer to the dive resort and start diving the next morning?"
+      },
+      {
+        "role": "agent",
+        "message": "Late arrivals are common, and many resorts can arrange transfers outside normal hours."
+      },
+      {
+        "role": "customer",
+        "message": "Okay, what do you need from me to set that up and confirm the first dive day?"
+      }
+    ],
+    "context_gaps": [
+      "Exact arrival date and airline/flight number",
+      "Name and location of the chosen or preferred resort",
+      "Number of travelers and luggage (including dive gear)",
+      "Customer’s certification level and desire to dive on arrival day",
+      "Any local no‑fly/no‑dive timing constraints"
+    ],
+    "optimal_follow_up": "To organize your late‑night transfer and advise on your first dive day, I’ll need a few details:\n\n1) Your exact arrival date, airline, and flight number into Marsa Alam at 21:30.\n2) The name of the resort you’ve booked (or your shortlist if you haven’t decided yet).\n3) How many people are traveling, and whether you’ll have large dive bags or just regular luggage.\n4) What is your current certification level, and are you hoping to do a full dive day the very next morning or would a slightly later start be acceptable?\n\nOnce I have this, I can check typical transfer times, coordinate with the resort’s driver, and let you know a realistic plan for your first day of diving given your late arrival and rest needs.",
+    "follow_up_rules": [
+      "Gather precise logistical details before confirming transfers",
+      "Consider rest and safety when advising on next‑day diving",
+      "Avoid promising exact pickup times until checked with provider",
+      "Communicate clearly about typical transfer and check‑in procedures"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "travel_logistics_and_accommodation"
+  },
+  {
+    "id": "DLG_007",
+    "scenario": "payment_currency_and_deposit_policy",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "If I book a Red Sea liveaboard with you, do I pay in euros or in Egyptian pounds, and how much deposit do you need upfront?"
+      }
+    ],
+    "context_gaps": [
+      "Specific liveaboard or trip type the customer is considering",
+      "Customer’s country of residence and preferred payment method",
+      "Booking date relative to departure date",
+      "Whether the customer needs an invoice for a company or personal trip"
+    ],
+    "optimal_follow_up": "Our currency and deposit policies depend slightly on the specific liveaboard and how close you are to the departure date, but I can clarify this for you. Could you let me know:\n\n1) Which liveaboard or Red Sea route you’re interested in, and your preferred travel dates?\n2) Which country you’ll be paying from and whether you prefer card, bank transfer, or another method?\n3) How soon you’re looking to travel (for example, more than 60 days from now or within the next 1–2 months)?\n4) Do you need a formal invoice in a company name, or is this a personal holiday booking?\n\nWith this information I can confirm whether your booking would be charged in euros or local currency, the exact deposit percentage, and when the balance would be due.",
+    "follow_up_rules": [
+      "Clarify trip details and timing before quoting deposit terms",
+      "Ask about customer’s location to address currency and payment options",
+      "Be transparent about policies without sharing internal system details",
+      "Keep tone clear and businesslike while remaining friendly"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "payments_pricing_and_billing"
+  },
+  {
+    "id": "DLG_008",
+    "scenario": "price_difference_online_vs_email_quote",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "Your website shows a 7‑night Red Sea liveaboard for €1,150, but the quote I got by email yesterday says €1,260. Why is there a difference?"
+      },
+      {
+        "role": "agent",
+        "message": "Thanks for flagging that. There are a few reasons why the price might differ between the website and a manual quote."
+      }
+    ],
+    "context_gaps": [
+      "Customer’s full name and email used for the quote",
+      "Exact trip name, dates, and cabin type",
+      "Currency and any promo codes applied online",
+      "Whether extras like park fees or nitrox were included in the email quote"
+    ],
+    "optimal_follow_up": "Let me look into this for you so we can clarify the difference and make sure you get the correct price. Could you please provide:\n\n1) Your full name and the email address where you received the €1,260 quote.\n2) The trip name or boat name, plus the exact departure date you’re looking at.\n3) The cabin type you selected online (for example, standard twin, upper deck, or suite).\n4) A quick confirmation of whether the email quote included extras such as marine park fees, fuel surcharges, nitrox, or equipment rental.\n\nOnce I have these details, I’ll compare the online fare with your quote, explain any included extras or recent price updates, and adjust the booking price if an error was made on our side.",
+    "follow_up_rules": [
+      "Request identifiers needed to locate the specific quote",
+      "Explain that extras and fees can cause apparent price differences",
+      "Remain transparent and open to correcting mistakes",
+      "Avoid assigning blame before verifying details"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "payments_pricing_and_billing"
+  },
+  {
+    "id": "DLG_009",
+    "scenario": "reschedule_due_to_flight_cancellation",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "My flight to Hurghada was just cancelled and the airline rebooked me a day later. I’m going to miss the first day of my dive package. What can we do?"
+      },
+      {
+        "role": "agent",
+        "message": "I’m sorry to hear about your flight disruption. Let’s see what options we have for adjusting your diving schedule."
+      }
+    ],
+    "context_gaps": [
+      "Customer’s booking reference and dive package details",
+      "New confirmed arrival date and time",
+      "Whether the booking is part of a group or individual",
+      "Resort and dive center cancellation/rescheduling policies",
+      "Customer’s flexibility to extend stay or add extra dives later"
+    ],
+    "optimal_follow_up": "To help you with this, I’ll first need to pull up your booking and see what flexibility we have. Could you please share:\n\n1) Your booking reference number and the name the reservation is under.\n2) Your original arrival date and the new confirmed arrival date and time from the airline.\n3) Whether you booked a fixed‑day dive package (e.g., 5 days/10 dives) or a more flexible schedule.\n4) Are you able to extend your stay by a day at the end, or are your return flights fixed?\n\nOnce I have this information, I can check with the dive center about shifting your dive days, possibly compressing the schedule, or issuing a partial credit or refund for the missed day, in line with their policy.",
+    "follow_up_rules": [
+      "Show empathy about the disruption before asking for details",
+      "Gather booking and new flight information before proposing solutions",
+      "Avoid promising refunds or free changes until policies are checked",
+      "Offer to liaise with the dive center on the customer’s behalf"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "issues_changes_and_cancellations"
+  },
+  {
+    "id": "DLG_010",
+    "scenario": "medical_issue_and_trip_cancellation",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "I’ve just been diagnosed with an ear infection and my doctor says I shouldn’t dive for at least a month. My Red Sea liveaboard is in two weeks. Can I cancel or move it?"
+      }
+    ],
+    "context_gaps": [
+      "Customer’s booking reference and fare type",
+      "Exact departure date and boat name",
+      "Whether the customer has travel insurance",
+      "Operator’s medical cancellation policy and deadlines",
+      "Customer’s flexibility for alternative dates"
+    ],
+    "optimal_follow_up": "I’m sorry you’re dealing with that, especially so close to your trip. Let’s see what options are available. To start, could you please provide:\n\n1) Your booking reference number, the boat name, and the scheduled departure date.\n2) Whether you purchased travel insurance, and if so, whether it includes medical cancellation cover.\n3) Are you hoping to fully cancel, or would you prefer to move the booking to a later date if possible?\n\nOnce I have these details, I can review the liveaboard’s medical cancellation policy and deadlines, advise what documentation (such as a doctor’s note) may be needed, and let you know whether a date change, credit, or partial refund is possible.",
+    "follow_up_rules": [
+      "Respond empathetically to the medical situation",
+      "Request only essential booking and insurance details initially",
+      "Explain that options depend on operator policy and timing",
+      "Avoid giving medical advice; focus on booking implications"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "issues_changes_and_cancellations"
+  },
+  {
+    "id": "DLG_011",
+    "scenario": "water_temperature_and_wetsuit_choice",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "I’m diving the Red Sea in early March. What’s the typical water temperature and what thickness wetsuit do you recommend?"
+      },
+      {
+        "role": "agent",
+        "message": "Temperatures in March are cooler than in summer, but still comfortable for most divers."
+      },
+      {
+        "role": "customer",
+        "message": "I get cold quite easily though, so I’m not sure what to pack."
+      }
+    ],
+    "context_gaps": [
+      "Specific Red Sea region and depth range",
+      "Customer’s body type and cold tolerance",
+      "Number of dives per day planned",
+      "Whether customer owns multiple suit options",
+      "If customer is shore diving or on a liveaboard with wind exposure"
+    ],
+    "optimal_follow_up": "That’s helpful to know. In early March, surface water is usually around 21–23°C, but how warm you feel can vary a lot. To give you a more precise recommendation, could you tell me:\n\n1) Which area you’ll be diving (for example, Sharm el Sheikh, Hurghada, Marsa Alam, or a specific liveaboard route)?\n2) How many dives per day you expect to do, and whether they’ll be mostly shallow reef dives or include deeper sites around 30 m.\n3) What you’ve used comfortably in similar temperatures before (for example, did you feel cold in a 5 mm at 22°C)?\n4) Do you already own a 5 mm or 7 mm suit, and do you have access to a hooded vest or gloves?\n\nWith this, I can suggest a practical combination, such as a 5 mm plus hooded vest or going up to a 7 mm if you really feel the cold.",
+    "follow_up_rules": [
+      "Ask about region and dive profile to refine temperature guidance",
+      "Factor in personal cold sensitivity and gear already owned",
+      "Avoid absolute guarantees about comfort, present ranges instead",
+      "Keep advice practical and easy to act on"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "diving_conditions_and_safety"
+  },
+  {
+    "id": "DLG_012",
+    "scenario": "safety_standards_and_dive_guides",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "I’ve heard mixed things about safety standards in some Red Sea dive centers. How do I know the operators you work with are safe?"
+      }
+    ],
+    "context_gaps": [
+      "Whether customer is asking about a specific center or general policy",
+      "Customer’s previous negative experiences or particular concerns",
+      "Customer’s certification level and expectations for guiding",
+      "Whether they are more worried about equipment, boats, or procedures"
+    ],
+    "optimal_follow_up": "Your concern is completely understandable, and safety is a key priority for us. I can explain how we vet our Red Sea partners, but it would help to know a bit more about what worries you most. Could you tell me:\n\n1) Are you asking about a specific dive center or liveaboard we proposed, or more generally about the region?\n2) Have you had any previous negative experiences or heard particular stories that concern you (for example, equipment maintenance, briefings, or boat safety)?\n3) What is your certification level, and do you prefer to dive with a guide on all dives or are you comfortable with more independent buddy diving where allowed?\n\nWith this context, I can outline the safety standards we require from our partners—such as equipment servicing, emergency oxygen and first aid on board, guide‑to‑diver ratios, and emergency procedures—and address your specific concerns one by one.",
+    "follow_up_rules": [
+      "Acknowledge safety concerns without dismissing them",
+      "Clarify whether the question is general or about a specific operator",
+      "Explain vetting and safety practices in concrete terms",
+      "Avoid criticizing other operators by name"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "diving_conditions_and_safety"
+  },
+  {
+    "id": "DLG_013",
+    "scenario": "equipment_rental_sizes_and_brands",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "I don’t want to bring my BCD and regulator to the Red Sea. Do your partner centers in Sharm have good rental gear in larger sizes?"
+      },
+      {
+        "role": "agent",
+        "message": "Most of our partner centers in Sharm offer full sets of rental equipment, including BCDs and regulators."
+      }
+    ],
+    "context_gaps": [
+      "Customer’s height, weight, and usual BCD size",
+      "Preferred gear brands or specific requirements",
+      "Travel dates and number of diving days",
+      "Whether customer needs additional items like computer or wetsuit",
+      "Any medical or comfort issues affecting gear fit"
+    ],
+    "optimal_follow_up": "We can usually arrange suitable rental gear, including larger sizes, but I’d like to make sure you’ll be comfortable. Could you please tell me:\n\n1) Your height, approximate weight, and the BCD size you normally use (for example, L or XL in a specific brand).\n2) Whether you have any brand preferences or requirements, such as integrated weights or a back‑inflate BCD.\n3) Your planned travel dates and how many days you expect to dive in Sharm.\n4) Besides BCD and regulator, do you also need to rent a wetsuit, dive computer, or other items?\n5) Do you have any shoulder, back, or mobility issues that might affect the fit or style of BCD that works best for you?\n\nWith this information, I can check availability with our partner centers and, where possible, reserve appropriate sizes in advance.",
+    "follow_up_rules": [
+      "Gather sizing and comfort details to ensure proper gear fit",
+      "Clarify which items need to be rented beyond core gear",
+      "Avoid guaranteeing exact brands or models before checking",
+      "Emphasize advance reservation for larger or less common sizes"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "equipment_rental_and_technical_gear"
+  },
+  {
+    "id": "DLG_014",
+    "scenario": "technical_diving_support_and_gas_mixes",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "Do any of your Red Sea partners support technical diving? I’ll need twinsets, stage bottles, and trimix for some deeper wrecks."
+      },
+      {
+        "role": "agent",
+        "message": "We do work with a few Red Sea operators that cater to technical divers, including mixed gas."
+      },
+      {
+        "role": "customer",
+        "message": "Great, what do you need from me to see if they can support my plan?"
+      }
+    ],
+    "context_gaps": [
+      "Customer’s technical diving certification level and agency",
+      "Planned depth range and type of dives",
+      "Exact dates and preferred Red Sea region",
+      "Required gases (nitrox, deco mixes, trimix) and cylinder configurations",
+      "Need for guides/instructors vs. self‑sufficient team"
+    ],
+    "optimal_follow_up": "To check which of our Red Sea partners can fully support your technical dives, I’ll need some specific details about your plan. Could you please share:\n\n1) Your highest technical certification level, issuing agency (e.g., TDI, GUE, IANTD), and approximate number of technical dives logged.\n2) Your planned depth range and target wrecks or sites, if you already have some in mind.\n3) Your travel dates and whether you prefer the northern Red Sea (e.g., around Sharm/Hurghada) or southern routes.\n4) What gas mixes and cylinder setups you require—for example, twin 12s or 15s, number and size of stage/deco bottles, nitrox and/or trimix, and whether you need oxygen for decompression.\n5) Will you need a technical guide or instructor, or are you diving as a self‑sufficient team within your certification limits?\n\nWith this information, I can confirm which operators can provide the necessary gases, hardware, and support, and outline any pre‑trip documentation or check dives they require.",
+    "follow_up_rules": [
+      "Verify technical certification and experience before discussing deep dives",
+      "Gather detailed gas and equipment requirements",
+      "Clarify whether guiding or instruction is needed",
+      "Avoid encouraging dives beyond training or local regulations"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "equipment_rental_and_technical_gear"
+  },
+  {
+    "id": "DLG_015",
+    "scenario": "group_discount_and_private_guide_request",
+    "conversation": [
+      {
+        "role": "customer",
+        "message": "We’re a group of 7 divers thinking about a Red Sea trip next spring. Do you offer group discounts, and could we have a private guide just for our group?"
+      },
+      {
+        "role": "agent",
+        "message": "We often arrange group trips to the Red Sea and there can be discounts or special arrangements for larger parties."
+      }
+    ],
+    "context_gaps": [
+      "Exact travel window and trip duration",
+      "Group members’ certification levels and experience range",
+      "Preferred destination (liveaboard vs. resort‑based)",
+      "Budget level and room/ cabin sharing preferences",
+      "Whether any non‑divers are in the group"
+    ],
+    "optimal_follow_up": "We can definitely explore group pricing and a private guide setup for you. To see what’s possible, could you let me know:\n\n1) Your approximate dates next spring and how many nights you’re planning to stay.\n2) Whether you prefer a liveaboard, a resort with day‑boat diving, or if you’re open to both.\n3) The certification levels and approximate number of logged dives for each of the 7 divers, and whether any non‑divers will join.\n4) Your budget range per person and whether you’re happy to share rooms/cabins or need single occupancy for some members.\n\nWith this information, I can check which Red Sea options can offer a group discount, confirm if we can allocate a private guide exclusively to your group, and outline how that would affect the total price.",
+    "follow_up_rules": [
+      "Clarify group composition and experience to ensure suitable arrangements",
+      "Ask about trip style and budget before quoting discounts",
+      "Explain that private guide availability depends on operator capacity",
+      "Maintain a friendly, consultative tone focused on group needs"
+    ],
+    "expected_resolution_turns": 2,
+    "category": "loyalty_groups_and_special_requests"
+  }
+]

@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Comparison</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% include '_fluent_head.html' %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script>Chart.defaults.plugins.colors = { enabled: false };</script>
+    <style>
+        .info-tooltip { position: relative; display: inline-flex; }
+        .info-tooltip .tooltip-text {
+            visibility: hidden; opacity: 0; position: absolute; z-index: 50;
+            bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+            width: min(360px, 75vw); padding: 8px 10px; border-radius: 8px;
+            background: #1e293b; color: #f1f5f9; font-size: 12px; line-height: 1.4;
+            text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,.25);
+            transition: opacity .15s; pointer-events: none;
+            white-space: normal; overflow-wrap: anywhere; word-break: break-word;
+        }
+        .info-tooltip .tooltip-text::after {
+            content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+            border: 6px solid transparent; border-top-color: #1e293b;
+        }
+        .info-tooltip:hover .tooltip-text,
+        .info-tooltip:focus-within .tooltip-text { visibility: visible; opacity: 1; }
+    </style>
+</head>
+<body class="bg-[#faf9f8] min-h-screen">
+    {% set active_page = 'compare' %}
+    {% include '_sidebar.html' %}
+
+    <main class="flex-1 max-w-7xl mx-auto w-full px-8 py-6">
+        <h1 id="compare-heading" class="fluent-page-title mb-1">Model Comparison</h1>
+        <p id="active-topic-subtitle" class="text-sm text-brand-600 font-semibold mb-6"></p>
+
+        <!-- Comparison Controls -->
+        <div class="fluent-card p-5 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div>
+                    <label class="fluent-label">Model A</label>
+                    <select id="model-a" class="fluent-input">
+                        <!-- populated dynamically -->
+                    </select>
+                </div>
+                <div>
+                    <label class="fluent-label">Model B</label>
+                    <select id="model-b" class="fluent-input">
+                        <!-- populated dynamically -->
+                    </select>
+                </div>
+                <div>
+                    <label class="fluent-label">Evaluation Type</label>
+                    <select id="eval-type" class="fluent-input">
+                        <option value="classification">Classification</option>
+                        <option value="dialog">Dialog</option>
+                        <option value="general">General</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <div class="w-full space-y-2">
+                        <button id="run-comparison" class="w-full fluent-btn-primary">
+                            Run Comparison
+                        </button>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="verbose-mode" class="h-4 w-4 text-brand-500 rounded border-gray-300">
+                            <span class="ml-1.5 text-sm text-[var(--text-secondary)]">Verbose</span>
+                        </label>
+                        <label id="foundry-toggle-label" class="hidden items-center cursor-pointer">
+                            <input type="checkbox" id="foundry-mode" class="h-4 w-4 text-brand-500 rounded border-gray-300">
+                            <span class="ml-1.5 text-sm text-[var(--text-secondary)]">Include Foundry LLM-as-judge</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results-section" class="hidden">
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div id="winner-card" class="fluent-card p-5 text-center">
+                    <h3 class="text-lg font-medium text-gray-500 mb-2">Overall Winner</h3>
+                    <p id="winner-name" class="text-[24px] font-semibold text-brand-500">-</p>
+                </div>
+                <div class="fluent-card p-5 text-center">
+                    <h3 class="text-lg font-medium text-gray-500 mb-2">Dimensions Compared</h3>
+                    <p id="dimensions-count" class="text-[24px] font-semibold text-brand-500">-</p>
+                </div>
+                <div class="fluent-card p-5 text-center">
+                    <h3 class="text-lg font-medium text-gray-500 mb-2">High Impact Changes</h3>
+                    <p id="high-impact-count" class="text-[24px] font-semibold text-[#B10E1C]">-</p>
+                </div>
+            </div>
+
+            <!-- Metrics Comparison (bucketed bar charts for readability) -->
+            <div class="fluent-card p-5 mb-8">
+                <h3 class="fluent-section-title text-[16px] mb-4">Metrics Comparison <span class="info-tooltip ml-1 align-middle"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-500 text-[11px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Side-by-side bar charts comparing both models across all evaluation dimensions. Metrics are grouped into three buckets by scale: 0–1 (accuracy, F1, etc.), 1–100 (latency ms, cost, etc.), and Tokens/sec. Longer bars indicate higher values — whether that’s better or worse depends on the metric.</span></span></h3>
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    <div>
+                        <h4 class="text-sm font-semibold text-blue-700 mb-2">0.00–1.00 Metrics</h4>
+                        <div class="border rounded-lg p-3">
+                            <div class="h-80">
+                                <canvas id="comparison-chart-0-1"></canvas>
+                            </div>
+                            <p id="comparison-empty-0-1" class="hidden text-xs text-gray-400 mt-2">No metrics in this bucket.</p>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold text-brand-600 mb-2">1–100 Metrics</h4>
+                        <div class="border rounded-lg p-3">
+                            <div class="h-80">
+                                <canvas id="comparison-chart-1-100"></canvas>
+                            </div>
+                            <p id="comparison-empty-1-100" class="hidden text-xs text-gray-400 mt-2">No metrics in this bucket.</p>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold text-green-700 mb-2">Tokens/Second</h4>
+                        <div class="border rounded-lg p-3">
+                            <div class="h-80">
+                                <canvas id="comparison-chart-tps"></canvas>
+                            </div>
+                            <p id="comparison-empty-tps" class="hidden text-xs text-gray-400 mt-2">No metrics in this bucket.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Foundry Comparison -->
+            <div id="foundry-compare-section" class="hidden fluent-card p-5 mb-8 border-2 border-brand-200">
+                <h3 class="text-xl font-bold text-brand-700 mb-2">☁️ Foundry LLM-as-Judge Comparison <span class="info-tooltip ml-1 align-middle"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-100 hover:bg-brand-200 text-brand-600 text-[11px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Semantic quality comparison from Microsoft Foundry Control Plane. Both models are evaluated by a GPT-4.1 grader on a 1–5 scale across dimensions like coherence, fluency, relevance and task adherence. The table shows per-dimension averages for each model with percentage change and significance level.</span></span></h3>
+                <p id="foundry-compare-meta" class="text-sm text-gray-500 mb-4"></p>
+                <div id="foundry-report-links" class="hidden mb-4 flex flex-wrap gap-2">
+                    <a id="foundry-report-model-a" href="#" target="_blank" class="hidden inline-flex items-center px-3 py-1.5 rounded-md text-sm bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors">
+                        Open Foundry report (Model A)
+                    </a>
+                    <a id="foundry-report-model-b" href="#" target="_blank" class="hidden inline-flex items-center px-3 py-1.5 rounded-md text-sm bg-indigo-100 text-brand-700 hover:bg-indigo-200 transition-colors">
+                        Open Foundry report (Model B)
+                    </a>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-brand-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-brand-600 uppercase tracking-wider">Metric</th>
+                                <th id="foundry-th-model-a" class="px-4 py-3 text-left text-xs font-medium text-brand-600 uppercase tracking-wider">Model A</th>
+                                <th id="foundry-th-model-b" class="px-4 py-3 text-left text-xs font-medium text-brand-600 uppercase tracking-wider">Model B</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-brand-600 uppercase tracking-wider">Change</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-brand-600 uppercase tracking-wider">Winner</th>
+                            </tr>
+                        </thead>
+                        <tbody id="foundry-compare-table" class="bg-white divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Detailed Dimensions Table -->
+            <div class="fluent-card p-5 mb-8">
+                <h3 class="fluent-section-title text-[16px] mb-4">Detailed Comparison</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dimension</th>
+                                <th id="th-model-a" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model A</th>
+                                <th id="th-model-b" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model B</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Change</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Winner</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Significance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dimensions-table" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="fluent-card p-5 mb-8">
+                <h3 class="fluent-section-title text-[16px] mb-4">Recommendations</h3>
+                <ul id="recommendations-list" class="space-y-3">
+                </ul>
+            </div>
+
+            <!-- NEW: Statistical Significance -->
+            <div id="significance-section" class="hidden fluent-card p-5">
+                <h3 class="fluent-section-title text-[16px] mb-4">Statistical Significance</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="significance-cards"></div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="hidden text-center py-12">
+            <svg class="animate-spin h-12 w-12 text-brand-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-[var(--text-secondary)]">Running comparison evaluation...</p>
+            <p class="text-gray-400 text-sm mt-2">This may take a few minutes</p>
+            <div id="verbose-log" class="hidden mt-4 mx-auto max-w-3xl text-left bg-white border border-gray-200 rounded-xl p-5 text-sm text-gray-700 max-h-[420px] overflow-auto shadow-inner space-y-2"></div>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-state" class="hidden bg-red-50 rounded-lg p-6 text-center">
+            <svg class="h-12 w-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <p id="error-message" class="text-red-600"></p>
+        </div>
+    </main>
+
+    <script>
+        let comparisonChart01 = null;
+        let comparisonChart1100 = null;
+        let comparisonChartTps = null;
+        let modelNames = {};
+
+        const FOUNDRY_FRIENDLY = {
+            'coherence': 'Coherence',
+            'fluency': 'Fluency',
+            'relevance': 'Relevance',
+            'similarity': 'Similarity',
+            'task_adherence': 'Task Adherence',
+            'intent_resolution': 'Intent Resolution',
+            'response_completeness': 'Response Completeness',
+        };
+
+        // Dimension descriptions for info tooltips
+        const DIMENSION_INFO = {
+            'Accuracy': 'Weighted classification accuracy across all categories.',
+            'F1 Score': 'Harmonic mean of precision and recall (weighted average).',
+            'Precision': 'Proportion of positive predictions that are correct.',
+            'Recall': 'Proportion of actual positives correctly identified.',
+            'Subcategory Accuracy': 'Percentage of correctly predicted subcategories.',
+            'Priority Accuracy': 'Percentage of correctly predicted priority levels.',
+            'Sentiment Accuracy': 'Percentage of correctly predicted sentiment labels.',
+            'Avg Confidence': 'Mean confidence score reported by the model.',
+            'Mean Latency': 'Average end-to-end response time (seconds).',
+            'P95 Latency': '95th percentile response time — 95% of requests are faster.',
+            'Latency Std Dev': 'Standard deviation of response times — lower is more predictable.',
+            'Cost/Request (USD)': 'Estimated USD cost per request based on token pricing.',
+            'Cache Hit Rate %': 'Percentage of prompt tokens served from Azure prompt cache.',
+            'Reasoning Token %': 'Percentage of completion tokens used for internal reasoning.',
+            'Tokens/Second': 'Total tokens processed per second of wall-clock time.',
+            'Reproducibility': 'How often the model returns the exact same answer across runs.',
+            'Format Consistency': 'How consistently the model produces the same output format.',
+            'Format Compliance': 'Percentage of responses matching expected schema/format.',
+            'Completeness': 'Proportion of required fields present in the response.',
+            'Follow-up Quality': 'Quality of generated follow-up questions vs expected ones.',
+            'Context Coverage': 'How well the response addresses all identified context/information gaps.',
+            'Rule Compliance': 'How well follow-up rules (e.g. show empathy, ask minimum details) are respected.',
+            'Empathy Score': 'Detection of empathetic/professional tone in the opening of the response.',
+            'Optimal Similarity': 'Word-level similarity between the response and the gold-standard optimal follow-up.',
+            'Resolution Efficiency': 'Whether the number of questions asked matches the expected resolution turns.',
+            'Coherence (Foundry)': 'LLM-as-judge score (1-5) for logical flow and internal consistency.',
+            'Fluency (Foundry)': 'LLM-as-judge score (1-5) for grammar and readability.',
+            'Relevance (Foundry)': 'LLM-as-judge score (1-5) for how well the response addresses the query.',
+            'Similarity (Foundry)': 'LLM-as-judge score (1-5) for semantic similarity with expected answer.',
+            'Task Adherence (Foundry)': 'LLM-as-judge score (1-5) for following task requirements and format.',
+            'Intent Resolution (Foundry)': 'LLM-as-judge score (1-5) for resolving the user intent.',
+            'Response Completeness (Foundry)': 'LLM-as-judge score (1-5) for coverage of required response aspects.',
+        };
+
+        async function checkFoundryStatus() {
+            try {
+                const resp = await fetch('/api/foundry/status');
+                const data = await resp.json();
+                const label = document.getElementById('foundry-toggle-label');
+                if (data.configured) {
+                    label.classList.remove('hidden');
+                    label.classList.add('flex');
+                } else {
+                    label.classList.add('hidden');
+                }
+            } catch (e) {
+                // keep hidden
+            }
+        }
+
+        // Verbose logging helpers — narrative style
+        function verboseLog(msg, type) {
+            const el = document.getElementById('verbose-log');
+            if (!document.getElementById('verbose-mode').checked) { el.classList.add('hidden'); return; }
+            el.classList.remove('hidden');
+            const ts = new Date().toLocaleTimeString('en-GB', {hour12:false, hour:'2-digit',minute:'2-digit',second:'2-digit'});
+            const colors = { step: 'bg-blue-50 border-blue-200 text-blue-800', ok: 'bg-green-50 border-green-200 text-green-800', warn: 'bg-yellow-50 border-yellow-200 text-yellow-800', err: 'bg-red-50 border-red-200 text-red-800', detail: 'bg-gray-50 border-gray-200 text-gray-700', head: 'bg-brand-50 border-brand-200 text-brand-700' };
+            const cls = colors[type] || colors.step;
+            el.innerHTML += `<div class="rounded-lg border px-3 py-2 ${cls}"><span class="text-[10px] text-gray-400 float-right">${ts}</span>${msg}</div>`;
+            el.scrollTop = el.scrollHeight;
+        }
+        function verboseClear() { document.getElementById('verbose-log').innerHTML = ''; }
+
+        function makeRunId(prefix = 'run') {
+            return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        async function startBackendLogPolling(runId, tag = 'Backend') {
+            if (!document.getElementById('verbose-mode').checked || !runId) {
+                return async () => {};
+            }
+
+            let offset = 0;
+            let active = true;
+
+            const levelToType = (lvl) => {
+                const u = String(lvl || '').toUpperCase();
+                if (u.includes('ERROR') || u.includes('CRITICAL')) return 'err';
+                if (u.includes('WARN')) return 'warn';
+                if (u.includes('INFO')) return 'detail';
+                return 'step';
+            };
+
+            const pollOnce = async () => {
+                if (!active) return;
+                try {
+                    const r = await fetch(`/api/logs/${encodeURIComponent(runId)}?offset=${offset}`);
+                    if (!r.ok) return;
+                    const data = await r.json();
+                    const entries = data.entries || [];
+                    for (const e of entries) {
+                        const loggerName = escapeHtml(e.logger || 'app');
+                        const level = escapeHtml(e.level || 'INFO');
+                        const msg = escapeHtml(e.message || '');
+                        verboseLog(`🖥️ <strong>${tag}</strong> [${loggerName}] <span class="opacity-70">${level}</span> — ${msg}`, levelToType(level));
+                    }
+                    offset = Number(data.next_offset || offset);
+                } catch (_) {
+                    // silent by design
+                }
+            };
+
+            const timer = setInterval(pollOnce, 1200);
+            await pollOnce();
+
+            return async () => {
+                active = false;
+                clearInterval(timer);
+                try {
+                    const r = await fetch(`/api/logs/${encodeURIComponent(runId)}?offset=${offset}`);
+                    if (!r.ok) return;
+                    const data = await r.json();
+                    const entries = data.entries || [];
+                    for (const e of entries) {
+                        const loggerName = escapeHtml(e.logger || 'app');
+                        const level = escapeHtml(e.level || 'INFO');
+                        const msg = escapeHtml(e.message || '');
+                        verboseLog(`🖥️ <strong>${tag}</strong> [${loggerName}] <span class="opacity-70">${level}</span> — ${msg}`, levelToType(level));
+                    }
+                } catch (_) {
+                    // silent by design
+                }
+            };
+        }
+
+        async function loadActiveTopic() {
+            try {
+                const resp = await fetch('/api/topics');
+                const data = await resp.json();
+                const active = (data.topics || []).find(t => t.active);
+                const el = document.getElementById('active-topic-subtitle');
+                if (active && active.topic) el.textContent = '📌 Topic: ' + active.topic;
+            } catch(e) {}
+        }
+
+        function displayName(key) { return modelNames[key] || key; }
+
+        async function loadModels() {
+            try {
+                const resp = await fetch('/api/models');
+                const data = await resp.json();
+                const models = data.models || [];
+                const selA = document.getElementById('model-a');
+                const selB = document.getElementById('model-b');
+                selA.innerHTML = '';
+                selB.innerHTML = '';
+                models.forEach((m, i) => {
+                    modelNames[m.name] = m.deployment;
+                    const optA = new Option(m.deployment, m.name);
+                    const optB = new Option(m.deployment, m.name);
+                    selA.appendChild(optA);
+                    selB.appendChild(optB);
+                });
+                // Default: first model in A, second in B
+                if (models.length >= 2) selB.value = models[1].name;
+            } catch (e) { console.error('Failed to load models', e); }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadModels();
+            await checkFoundryStatus();
+            loadActiveTopic();
+            // Update heading with actual deployment names
+            const heading = document.getElementById('compare-heading');
+            heading.textContent = `${displayName('gpt4')} vs ${displayName('gpt5')} Comparison`;
+            document.title = `Model Comparison - ${displayName('gpt4')} vs ${displayName('gpt5')}`;
+        });
+
+        document.getElementById('run-comparison').addEventListener('click', async function() {
+            const modelA = document.getElementById('model-a').value;
+            const modelB = document.getElementById('model-b').value;
+            const evalType = document.getElementById('eval-type').value;
+            const includeFoundry = document.getElementById('foundry-mode')?.checked || false;
+            const runId = makeRunId('compare');
+
+            // Show loading
+            document.getElementById('results-section').classList.add('hidden');
+            document.getElementById('error-state').classList.add('hidden');
+            document.getElementById('loading-state').classList.remove('hidden');
+            verboseClear();
+            verboseLog('🚀 <strong>Starting model comparison</strong>', 'head');
+            verboseLog(`Both models will be evaluated on the same set of <strong>${evalType}</strong> test scenarios, and their results will be compared dimension by dimension.<br><strong>Model A:</strong> ${displayName(modelA)} &nbsp;|&nbsp; <strong>Model B:</strong> ${displayName(modelB)}`, 'step');
+            if (includeFoundry) {
+                verboseLog('☁️ Foundry mode enabled: both model outputs will also be graded by LLM-as-judge evaluators.', 'step');
+            }
+            verboseLog('📡 Sending comparison request to the API — this runs both models sequentially, so it may take a while…', 'step');
+            const t0 = performance.now();
+            const stopBackendLogs = await startBackendLogPolling(runId, 'Comparison');
+
+            try {
+                const response = await fetch('/api/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model_a: modelA,
+                        model_b: modelB,
+                        type: evalType,
+                        include_foundry: includeFoundry,
+                        run_id: runId,
+                    })
+                });
+
+                if (!response.ok) {
+                    let serverMsg = '';
+                    try {
+                        const errBody = await response.json();
+                        serverMsg = errBody.error || '';
+                    } catch (_) {}
+                    const detail = serverMsg ? `: ${serverMsg}` : '';
+                    verboseLog(`❌ The server rejected the request. HTTP ${response.status}${detail}`, 'err');
+                    throw new Error(`Comparison failed (HTTP ${response.status})${detail}`);
+                }
+
+                verboseLog('⏳ Comparison is running in the background — polling for completion…', 'step');
+
+                // Poll /api/compare/<run_id>/status until done
+                let data = null;
+                while (true) {
+                    await new Promise(r => setTimeout(r, 2500));
+                    try {
+                        const statusResp = await fetch(`/api/compare/${encodeURIComponent(runId)}/status`);
+                        if (!statusResp.ok) continue;
+                        const statusData = await statusResp.json();
+                        if (statusData.status === 'completed') {
+                            data = statusData.result;
+                            break;
+                        } else if (statusData.status === 'failed') {
+                            throw new Error(statusData.error || 'Comparison failed on the server');
+                        }
+                        // else still 'running' — keep polling
+                    } catch (pollErr) {
+                        if (pollErr.message && pollErr.message.includes('Comparison failed')) throw pollErr;
+                        // transient network error — retry silently
+                    }
+                }
+
+                const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+                verboseLog(`✅ Comparison completed in <strong>${elapsed}s</strong>.`, 'ok');
+                const winnerKey = data.summary?.overall_winner || '?';
+                const winnerLabel = winnerKey === 'tie' ? 'Tie — no clear winner' : displayName(winnerKey);
+                verboseLog(`🏆 <strong>Overall winner: ${winnerLabel}</strong> — across <strong>${data.summary?.total_dimensions || '?'} dimensions</strong>.`, 'head');
+
+                if (data.dimensions) {
+                    verboseLog('📊 <strong>Dimension-by-dimension breakdown:</strong>', 'head');
+                    for (const d of data.dimensions) {
+                        const better = d.better_model === 'model_a' ? displayName(data.model_a) : d.better_model === 'model_b' ? displayName(data.model_b) : 'Tie';
+                        const arrow = d.percent_change > 0 ? '📈' : d.percent_change < 0 ? '📉' : '➡️';
+                        const sigLabel = { high: '🔴 High impact', medium: '🟡 Medium', low: '🔵 Low', negligible: '⚪ Negligible' }[d.significance] || d.significance;
+                        let line = `<strong>${d.dimension}</strong>: `;
+                        line += `${displayName(data.model_a)} = <strong>${d.model_a_value.toFixed(4)}</strong> vs ${displayName(data.model_b)} = <strong>${d.model_b_value.toFixed(4)}</strong>`;
+                        line += ` &nbsp;${arrow} ${d.percent_change > 0 ? '+' : ''}${d.percent_change.toFixed(1)}%`;
+                        line += ` &nbsp;|&nbsp; Winner: <strong>${better}</strong> &nbsp;|&nbsp; Impact: ${sigLabel}`;
+                        const type = d.significance === 'high' ? 'warn' : d.significance === 'medium' ? 'step' : 'detail';
+                        verboseLog(line, type);
+                    }
+                }
+
+                if (data.recommendations && data.recommendations.length) {
+                    let recHtml = '💡 <strong>Recommendations:</strong><br>';
+                    data.recommendations.forEach((r, i) => { recHtml += `${i + 1}. ${r}<br>`; });
+                    verboseLog(recHtml, 'ok');
+                }
+
+                verboseLog('🏁 <strong>Comparison analysis complete.</strong>', 'ok');
+                displayResults(data);
+            } catch (error) {
+                console.error('[Comparison Error]', error);
+                verboseLog(`❌ <strong>Error:</strong> ${error.message || error}`, 'err');
+                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('error-state').classList.remove('hidden');
+                document.getElementById('error-message').textContent = error.message || 'Unknown error';
+            } finally {
+                await stopBackendLogs();
+            }
+        });
+
+        function displayResults(data) {
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('results-section').classList.remove('hidden');
+
+            // Update summary cards
+            document.getElementById('winner-name').textContent = 
+                data.summary.overall_winner === 'tie' ? 'Tie' : displayName(data.summary.overall_winner);
+            document.getElementById('dimensions-count').textContent = data.summary.total_dimensions;
+            document.getElementById('high-impact-count').textContent = 
+                data.summary.high_impact_dimensions?.length || 0;
+
+            // Update bucketed metrics tables
+            updateChart(data.dimensions, data.model_a, data.model_b);
+
+            // Update table column headers with actual deployment names
+            document.getElementById('th-model-a').textContent = displayName(data.model_a);
+            document.getElementById('th-model-b').textContent = displayName(data.model_b);
+
+            // Update dimensions table
+            const tableBody = document.getElementById('dimensions-table');
+            tableBody.innerHTML = '';
+            
+            for (const dim of data.dimensions) {
+                const row = document.createElement('tr');
+                
+                const changeClass = dim.percent_change > 0 ? 'text-green-600' : dim.percent_change < 0 ? 'text-red-600' : 'text-[var(--text-secondary)]';
+                const significanceClass = {
+                    'high': 'bg-red-100 text-red-800',
+                    'medium': 'bg-yellow-100 text-yellow-800',
+                    'low': 'bg-blue-100 text-blue-800',
+                    'negligible': 'bg-gray-100 text-gray-800'
+                }[dim.significance] || 'bg-gray-100';
+                
+                const winnerDisplay = dim.better_model === 'model_a' ? displayName(data.model_a) : 
+                                     dim.better_model === 'model_b' ? displayName(data.model_b) : 'Tie';
+                
+                const dimDesc = DIMENSION_INFO[dim.dimension] || '';
+                const dimInfoBtn = dimDesc ? `<span class="info-tooltip ml-1.5 align-middle"><button class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-500 text-[10px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">${dimDesc}</span></span>` : '';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${dim.dimension}${dimInfoBtn}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${dim.model_a_value.toFixed(4)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${dim.model_b_value.toFixed(4)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm ${changeClass}">${dim.percent_change > 0 ? '+' : ''}${dim.percent_change.toFixed(1)}%</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-brand-500">${winnerDisplay}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${significanceClass}">${dim.significance}</span>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            }
+
+            // Update recommendations
+            const recList = document.getElementById('recommendations-list');
+            recList.innerHTML = '';
+            
+            for (const rec of data.recommendations) {
+                const li = document.createElement('li');
+                li.className = 'flex items-start';
+                li.innerHTML = `
+                    <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="text-gray-700">${rec}</span>
+                `;
+                recList.appendChild(li);
+            }
+
+            // --- NEW: Statistical Significance ---
+            const sigSection = document.getElementById('significance-section');
+            const sigCards = document.getElementById('significance-cards');
+            const sig = data.statistical_significance;
+            if (sig && (sig.mcnemar || sig.latency_ttest)) {
+                sigSection.classList.remove('hidden');
+                let html = '';
+                if (sig.mcnemar) {
+                    const m = sig.mcnemar;
+                    const badge = m.significant
+                        ? '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Significant (p < 0.05)</span>'
+                        : '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">Not Significant</span>';
+                    html += `<div class="border rounded-lg p-4">
+                        <h4 class="font-medium text-gray-700 mb-2">McNemar Test (Classification)</h4>
+                        <div class="text-sm text-[var(--text-secondary)] space-y-1">
+                            <div>Chi\u00b2 = ${m.chi2.toFixed(3)}  &nbsp; p = ${m.p_value.toFixed(4)}</div>
+                            <div>A correct / B wrong: ${m.a_correct_b_wrong} &nbsp;|&nbsp; A wrong / B correct: ${m.a_wrong_b_correct}</div>
+                            <div class="mt-2">${badge}</div>
+                        </div>
+                    </div>`;
+                }
+                if (sig.latency_ttest) {
+                    const t = sig.latency_ttest;
+                    const badge = t.significant
+                        ? '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Significant (p < 0.05)</span>'
+                        : '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">Not Significant</span>';
+                    html += `<div class="border rounded-lg p-4">
+                        <h4 class="font-medium text-gray-700 mb-2">Paired t-Test (Latency)</h4>
+                        <div class="text-sm text-[var(--text-secondary)] space-y-1">
+                            <div>t = ${t.t_statistic.toFixed(3)}  &nbsp; p = ${t.p_value.toFixed(4)}</div>
+                            <div class="mt-2">${badge}</div>
+                        </div>
+                    </div>`;
+                }
+                sigCards.innerHTML = html;
+            } else {
+                sigSection.classList.add('hidden');
+            }
+
+            // --- Foundry comparison section ---
+            renderFoundryComparison(data);
+        }
+
+        function renderFoundryComparison(data) {
+            const section = document.getElementById('foundry-compare-section');
+            const metaEl = document.getElementById('foundry-compare-meta');
+            const tbody = document.getElementById('foundry-compare-table');
+            const thA = document.getElementById('foundry-th-model-a');
+            const thB = document.getElementById('foundry-th-model-b');
+            const linksWrap = document.getElementById('foundry-report-links');
+            const reportA = document.getElementById('foundry-report-model-a');
+            const reportB = document.getElementById('foundry-report-model-b');
+
+            const fa = data.foundry_scores_a?.aggregated || null;
+            const fb = data.foundry_scores_b?.aggregated || null;
+            const fm = data.foundry_meta || null;
+
+            if (!fa || !fb) {
+                section.classList.add('hidden');
+                return;
+            }
+
+            section.classList.remove('hidden');
+            thA.textContent = displayName(data.model_a);
+            thB.textContent = displayName(data.model_b);
+
+            // Report links (one per model)
+            const reportUrlA = fm?.model_a?.report_url;
+            const reportUrlB = fm?.model_b?.report_url;
+            reportA.classList.add('hidden');
+            reportB.classList.add('hidden');
+            linksWrap.classList.add('hidden');
+            if (reportUrlA) {
+                reportA.href = reportUrlA;
+                reportA.textContent = `Open Foundry report (${displayName(data.model_a)})`;
+                reportA.classList.remove('hidden');
+            }
+            if (reportUrlB) {
+                reportB.href = reportUrlB;
+                reportB.textContent = `Open Foundry report (${displayName(data.model_b)})`;
+                reportB.classList.remove('hidden');
+            }
+            if (reportUrlA || reportUrlB) {
+                linksWrap.classList.remove('hidden');
+            }
+
+            const errors = (fm?.errors || []).filter(Boolean);
+            metaEl.textContent = errors.length
+                ? `Completed with warnings: ${errors.join(' | ')}`
+                : 'Foundry scores computed successfully for both models.';
+
+            const order = [
+                'coherence', 'fluency', 'relevance', 'similarity',
+                'task_adherence', 'intent_resolution', 'response_completeness'
+            ];
+            const rows = [];
+            for (const key of order) {
+                if (fa[key] == null || fb[key] == null) continue;
+                const a = Number(fa[key]);
+                const b = Number(fb[key]);
+                if (Number.isNaN(a) || Number.isNaN(b)) continue;
+                const diff = b - a;
+                const pct = a !== 0 ? (diff / Math.abs(a)) * 100 : (b !== 0 ? 100 : 0);
+                const winner = b > a ? displayName(data.model_b) : a > b ? displayName(data.model_a) : 'Tie';
+                const changeClass = diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : 'text-[var(--text-secondary)]';
+                rows.push(`
+                    <tr>
+                        <td class="px-4 py-3 text-sm font-medium text-gray-800">${FOUNDRY_FRIENDLY[key] || key}</td>
+                        <td class="px-4 py-3 text-sm text-[var(--text-secondary)]">${a.toFixed(2)} / 5</td>
+                        <td class="px-4 py-3 text-sm text-[var(--text-secondary)]">${b.toFixed(2)} / 5</td>
+                        <td class="px-4 py-3 text-sm ${changeClass}">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</td>
+                        <td class="px-4 py-3 text-sm font-medium text-brand-600">${winner}</td>
+                    </tr>
+                `);
+            }
+
+            tbody.innerHTML = rows.length
+                ? rows.join('')
+                : '<tr><td colspan="5" class="px-4 py-3 text-sm text-gray-400">No common Foundry metrics to compare.</td></tr>';
+        }
+
+        function updateChart(dimensions, modelA, modelB) {
+            const ctx01 = document.getElementById('comparison-chart-0-1').getContext('2d');
+            const ctx1100 = document.getElementById('comparison-chart-1-100').getContext('2d');
+            const ctxTps = document.getElementById('comparison-chart-tps').getContext('2d');
+            const empty01 = document.getElementById('comparison-empty-0-1');
+            const empty1100 = document.getElementById('comparison-empty-1-100');
+            const emptyTps = document.getElementById('comparison-empty-tps');
+
+            if (comparisonChart01) comparisonChart01.destroy();
+            if (comparisonChart1100) comparisonChart1100.destroy();
+            if (comparisonChartTps) comparisonChartTps.destroy();
+
+            const force01 = new Set([
+                'Accuracy', 'F1 Score', 'Precision', 'Recall', 'Subcategory Accuracy', 'Priority Accuracy',
+                'Sentiment Accuracy', 'Avg Confidence', 'Reproducibility', 'Format Consistency',
+                'Format Compliance', 'Completeness', 'Follow-up Quality', 'Context Coverage',
+                'Rule Compliance', 'Empathy Score', 'Optimal Similarity', 'Resolution Efficiency'
+            ]);
+
+            const createBucketChart = (ctx, rows, labelA, labelB, emptyEl) => {
+                if (!rows.length) {
+                    emptyEl.classList.remove('hidden');
+                    return null;
+                }
+                emptyEl.classList.add('hidden');
+                return new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: rows.map(d => d.dimension),
+                        datasets: [
+                            {
+                                label: displayName(labelA),
+                                data: rows.map(d => d.model_a_value),
+                                backgroundColor: 'rgba(15, 108, 189, 0.75)',
+                                borderColor: 'rgba(15, 108, 189, 1)',
+                                borderWidth: 1,
+                            },
+                            {
+                                label: displayName(labelB),
+                                data: rows.map(d => d.model_b_value),
+                                backgroundColor: 'rgba(3, 131, 135, 0.75)',
+                                borderColor: 'rgba(3, 131, 135, 1)',
+                                borderWidth: 1,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        plugins: {
+                            legend: { position: 'top' },
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => `${ctx.dataset.label}: ${Number(ctx.raw).toFixed(3)}`
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { beginAtZero: true },
+                            y: { ticks: { font: { size: 11 } } },
+                        }
+                    }
+                });
+            };
+
+            const tokensRows = dimensions.filter(d => d.dimension.toLowerCase().includes('tokens/second'));
+            const nonTokens = dimensions.filter(d => !d.dimension.toLowerCase().includes('tokens/second'));
+
+            const zeroOneRows = nonTokens.filter(d => {
+                if (force01.has(d.dimension)) return true;
+                const maxv = Math.max(d.model_a_value, d.model_b_value);
+                return maxv <= 1.0;
+            });
+
+            const oneToHundredRows = nonTokens.filter(d => !zeroOneRows.includes(d));
+
+            comparisonChart01 = createBucketChart(ctx01, zeroOneRows, modelA, modelB, empty01);
+            comparisonChart1100 = createBucketChart(ctx1100, oneToHundredRows, modelA, modelB, empty1100);
+            comparisonChartTps = createBucketChart(ctxTps, tokensRows, modelA, modelB, emptyTps);
+        }
+    </script>
+</div><!-- end content area -->
+</body>
+</html>

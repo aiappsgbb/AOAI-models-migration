@@ -8,6 +8,9 @@ Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI model
 
 > **Scope:** This guide focuses on **text generation models** (GPT series and o-series). For audio models (gpt-audio, gpt-realtime, Whisper), image models (gpt-image, DALL-E, Sora), and embedding models (text-embedding-3-*), see the [official retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements).
 
+> [!TIP]
+> **Looking for a visual evaluation tool?** The [`model_migration_eval/`](model_migration_eval/) subfolder contains a full-featured **web UI** for comparing models side-by-side — batch evaluation, AI-powered prompt generation, classification/dialog/general metrics, statistical significance, prompt versioning, and optional Azure AI Foundry LLM-as-judge integration. Run it with `cd model_migration_eval && pip install -r requirements.txt && python app.py`.
+
 ## Migration at a Glance
 
 Migrating an Azure OpenAI model involves five key steps:
