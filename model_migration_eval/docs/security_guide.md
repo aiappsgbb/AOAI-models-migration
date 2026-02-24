@@ -1,7 +1,7 @@
 # Security & Governance Guide
 ## Azure OpenAI Model Migration Security Best Practices
 
-This guide covers security considerations for migrating live systems from GPT-4 to GPT-5 on Azure AI Foundry.
+This guide covers security considerations for migrating live systems from GPT-4.1 to GPT-5.x on Azure AI Foundry.
 
 ---
 
@@ -198,9 +198,159 @@ class SecureToolExecutor:
 
 ---
 
-## 4. Customer Identification Methods
+## 4. RAG Security Considerations
 
-### 4.1 Comparison Matrix
+### 4.1 Context Document Sanitisation
+
+When using RAG (Retrieval-Augmented Generation), the provided context documents can contain sensitive information. Apply these security measures:
+
+```python
+# Sanitise context documents before including in prompts
+def sanitise_rag_context(documents: list[str]) -> list[str]:
+    """Remove sensitive data from context documents before sending to model"""
+    sanitised = []
+    for doc in documents:
+        # Redact PII patterns
+        doc = redact_pii(doc)
+        # Remove internal-only markers
+        doc = re.sub(r'\[INTERNAL\].*?\[/INTERNAL\]', '[REDACTED]', doc, flags=re.DOTALL)
+        # Limit document size to prevent context overflow
+        if len(doc) > 10000:
+            doc = doc[:10000] + "\n[Document truncated]"
+        sanitised.append(doc)
+    return sanitised
+```
+
+### 4.2 Groundedness Validation
+
+Always validate that model responses are grounded in the provided context — ungrounded responses may indicate hallucination or prompt injection through context documents.
+
+| Risk | Mitigation |
+|------|-----------|
+| Hallucinated facts | Groundedness evaluation (≥ 0.85 threshold) |
+| Context injection | Sanitise retrieved documents |
+| Data leakage | PII redaction before retrieval |
+| Stale data | Document freshness checks |
+
+### 4.3 Context Isolation
+
+Ensure that RAG context is scoped per user/tenant to prevent cross-tenant data leakage:
+
+```python
+# Enforce tenant isolation in document retrieval
+def retrieve_documents(query: str, tenant_id: str) -> list[str]:
+    """Retrieve documents scoped to a specific tenant"""
+    filters = {
+        "tenant_id": tenant_id,
+        "access_level": "permitted"
+    }
+    return vector_store.search(query, filters=filters, top_k=5)
+```
+
+---
+
+## 5. Tool Calling Security
+
+### 5.1 Tool Allowlisting
+
+Only permit explicitly approved tools. Never allow dynamic tool registration in production:
+
+```python
+# Strict tool allowlist
+ALLOWED_TOOLS = {
+    "get_account_balance": {"risk_level": "low", "requires_auth": True},
+    "check_order_status": {"risk_level": "low", "requires_auth": True},
+    "update_profile": {"risk_level": "high", "requires_auth": True, "requires_mfa": True},
+    "process_refund": {"risk_level": "critical", "requires_auth": True, "requires_mfa": True, "requires_approval": True},
+}
+
+def validate_tool_call(tool_name: str, params: dict, user_context: dict) -> bool:
+    """Validate tool call against allowlist and security rules"""
+    if tool_name not in ALLOWED_TOOLS:
+        log_security_event("unauthorized_tool_call", tool_name)
+        return False
+    
+    tool_config = ALLOWED_TOOLS[tool_name]
+    
+    if tool_config.get("requires_mfa") and not user_context.get("mfa_verified"):
+        return False
+    
+    if tool_config.get("requires_approval") and not user_context.get("supervisor_approved"):
+        return False
+    
+    return True
+```
+
+### 5.2 Parameter Validation
+
+Always validate extracted parameters before executing tool calls:
+
+```python
+# Validate parameters match expected schemas
+def validate_tool_parameters(tool_name: str, params: dict) -> bool:
+    """Validate parameters against the tool schema"""
+    schema = TOOL_SCHEMAS.get(tool_name)
+    if not schema:
+        return False
+    
+    for required_param in schema.get("required", []):
+        if required_param not in params:
+            return False
+    
+    # Validate parameter formats (prevent injection)
+    for param_name, param_value in params.items():
+        expected_type = schema["properties"].get(param_name, {}).get("type")
+        pattern = schema["properties"].get(param_name, {}).get("pattern")
+        
+        if pattern and not re.match(pattern, str(param_value)):
+            log_security_event("invalid_parameter_format", {
+                "tool": tool_name, "param": param_name, "value": param_value
+            })
+            return False
+    
+    return True
+```
+
+### 5.3 Tool Execution Audit Trail
+
+Log all tool calls and their results for compliance:
+
+```python
+# Audit logging for tool executions
+def execute_tool_with_audit(tool_name: str, params: dict, request_id: str) -> dict:
+    """Execute tool call with full audit trail"""
+    start_time = time.time()
+    
+    try:
+        result = execute_tool(tool_name, params)
+        duration_ms = (time.time() - start_time) * 1000
+        
+        log_audit_event({
+            "request_id": request_id,
+            "tool_name": tool_name,
+            "params_hash": hash_params(params),  # Hash, not raw values
+            "status": "success",
+            "duration_ms": duration_ms,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+        
+        return result
+    except Exception as e:
+        log_audit_event({
+            "request_id": request_id,
+            "tool_name": tool_name,
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        })
+        raise
+```
+
+---
+
+## 6. Customer Identification Methods
+
+### 6.1 Comparison Matrix
 
 | Method | Security Level | UX | Legal | Cost | Recommendation |
 |--------|---------------|-----|-------|------|----------------|
@@ -210,7 +360,7 @@ class SecureToolExecutor:
 | Knowledge-based | ★★ | ★★ | ✅ | Low | Avoid |
 | PIN | ★★ | ★★★ | ✅ | Low | Legacy |
 
-### 4.2 Passkey Implementation
+### 6.2 Passkey Implementation
 
 ```python
 # Passkey/WebAuthn for voice agents
@@ -250,7 +400,7 @@ class PasskeyAuthenticator:
         )
 ```
 
-### 4.3 Voice Biometrics (With Consent)
+### 6.3 Voice Biometrics (With Consent)
 
 ```python
 # Voice biometrics with explicit consent
@@ -279,9 +429,9 @@ class VoiceBiometrics:
 
 ---
 
-## 5. Audit & Compliance
+## 7. Audit & Compliance
 
-### 5.1 Logging Requirements
+### 7.1 Logging Requirements
 
 ```python
 # Comprehensive audit logging
@@ -311,7 +461,7 @@ def log_model_interaction(
     )
 ```
 
-### 5.2 Compliance Checklist
+### 7.2 Compliance Checklist
 
 **GDPR:**
 - [ ] Data minimization in prompts
@@ -333,9 +483,9 @@ def log_model_interaction(
 
 ---
 
-## 6. Incident Response
+## 8. Incident Response
 
-### 6.1 Security Event Categories
+### 8.1 Security Event Categories
 
 | Event Type | Severity | Response |
 |------------|----------|----------|
@@ -345,7 +495,7 @@ def log_model_interaction(
 | Rate limit exceeded | Medium | Throttle, log |
 | Authentication failure | Low-Medium | Log, track patterns |
 
-### 6.2 Response Procedures
+### 8.2 Response Procedures
 
 ```python
 class SecurityIncidentHandler:
@@ -371,9 +521,9 @@ class SecurityIncidentHandler:
 
 ---
 
-## 7. Network Security
+## 9. Network Security
 
-### 7.1 Azure OpenAI Network Configuration
+### 9.1 Azure OpenAI Network Configuration
 
 ```yaml
 # Recommended network configuration
@@ -406,7 +556,7 @@ network_security:
       - "10.0.0.0/8"  # Internal only
 ```
 
-### 7.2 API Key Management
+### 9.2 API Key Management
 
 ```python
 # Use Azure Key Vault for API keys
@@ -434,7 +584,7 @@ class SecureKeyManager:
 
 ---
 
-## 8. Best Practices Summary
+## 10. Best Practices Summary
 
 ### Do's ✅
 
@@ -446,6 +596,9 @@ class SecureKeyManager:
 6. Use Passkey/FIDO2 for customer authentication
 7. Implement rate limiting and throttling
 8. Regular security audits and penetration testing
+9. Sanitise RAG context documents for PII before sending to models
+10. Enforce tenant isolation in document retrieval
+11. Validate tool parameters against strict schemas before execution
 
 ### Don'ts ❌
 
@@ -456,12 +609,14 @@ class SecureKeyManager:
 5. Never use knowledge-based authentication alone
 6. Never ignore rate limit warnings
 7. Never deploy without security review
+8. Never include unsanitised user content in RAG context documents
+9. Never allow dynamic tool registration in production environments
 
 ---
 
-## 9. Deployment & Container Security
+## 11. Deployment & Container Security
 
-### 9.1 Docker Image Hardening
+### 11.1 Docker Image Hardening
 
 The framework ships a `Dockerfile` based on **Python 3.13-slim**.  Security considerations:
 
@@ -472,7 +627,7 @@ The framework ships a `Dockerfile` based on **Python 3.13-slim**.  Security cons
 | **No secrets in image** | Credentials injected at runtime via `--env-file` or Azure Container Apps secrets (`secretRef`) |
 | **Azure CLI inside container** | Required only for `DefaultAzureCredential` / Foundry integration |
 
-### 9.2 Azure Container Apps Secrets
+### 11.2 Azure Container Apps Secrets
 
 When deployed via `deploy.ps1`, sensitive values are stored as **Container Apps secrets** and injected through `secretRef` — they never appear in plain text in the YAML configuration or container logs.
 
@@ -481,11 +636,11 @@ When deployed via `deploy.ps1`, sensitive values are stored as **Container Apps 
 .env  ─→  deploy.ps1  ─→  Container Apps secrets  ─→  env vars inside container
 ```
 
-### 9.3 Service Principal for Foundry
+### 11.3 Service Principal for Foundry
 
 The deployment script automatically creates a Service Principal (`sp-model-migration-eval`) scoped to the Foundry project.  Credentials (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`) are written to `.env` and injected as container secrets.
 
-### 9.4 Web UI Security
+### 11.4 Web UI Security
 
 The Fluent 2 web interface serves only an **internal evaluation tool** — it is not designed for public-facing traffic.  Recommendations:
 
@@ -495,4 +650,4 @@ The Fluent 2 web interface serves only an **internal evaluation tool** — it is
 
 ---
 
-*Security guide version: 1.1 | Last updated: June 2025*
+*Security guide version: 2.0 | Last updated: February 2026*

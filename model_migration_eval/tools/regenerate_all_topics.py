@@ -4,12 +4,18 @@ Uses gpt5 (GPT-5.1) as the generator model so it is at least as
 capable as the most advanced target model.
 
 This script:
-  1. For each topic slug → activate the topic, then call generate_prompts()
+  1. For each topic slug -> activate the topic, then call generate_prompts()
      which overwrites active prompts + data AND re-archives the result.
   2. The last topic processed becomes the active one.
 
+NOTE: Topics are processed sequentially because they share the same
+active file space (prompts/gpt4, gpt5, data/synthetic/*).  However,
+each topic now benefits from **internal parallelism** in
+generate_prompts() — LLM calls for prompts and data are batched
+concurrently, giving ~3-4x speedup per topic.
+
 Usage:
-    python _regen_all_topics.py
+    python tools/regenerate_all_topics.py
 """
 
 import sys, os, time, json, logging
@@ -103,7 +109,7 @@ def main():
                 log.error(f"  Data {dtype}: FAILED — {info['error']}")
                 overall_ok = False
             else:
-                log.info(f"  Data {dtype}: {info['count']} scenarios → {info['file']}")
+                log.info(f"  Data {dtype}: {info['count']} scenarios -> {info['file']}")
 
         log.info("")
 

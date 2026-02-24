@@ -34,12 +34,6 @@ data/results/*.json
 # Docker & deployment
 containerapp-config.yaml
 
-# Bicep build artifacts
-infra/main.json
-
-# Azure Developer CLI
-.azure/
-
 # OS files
 .DS_Store
 Thumbs.db
@@ -48,3 +42,4 @@ Thumbs.db
 OLD/
 .dockerignore
 *.pptx
+prompts/history/*.md

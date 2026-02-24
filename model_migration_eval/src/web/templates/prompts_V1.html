@@ -565,20 +565,20 @@
                 const resp = await fetch('/api/models');
                 const data = await resp.json();
                 availableModels = data.models || [];
-                availableModels.forEach(m => { modelNames[m.name] = m.deployment; });
+                availableModels.forEach(m => { modelNames[m.name] = m.display_name || m.deployment; });
                 const sel = $('gen-model');
                 sel.innerHTML = availableModels.map(m =>
-                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.deployment}</option>`
+                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
                 // Also populate regen model dropdown
                 const regenSel = $('regen-model');
                 regenSel.innerHTML = availableModels.map(m =>
-                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.deployment}</option>`
+                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
                 // Also populate import model dropdown
                 const importSel = $('import-gen-model');
                 importSel.innerHTML = availableModels.map(m =>
-                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.deployment}</option>`
+                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
                 // Update compare-view headings
                 const g4title = $('compare-gpt4-title');
@@ -592,12 +592,12 @@
                 const curSel = $('current-model');
                 curSel.innerHTML = availableModels
                     .filter(m => m.name === 'gpt4' || m.name === 'gpt5')
-                    .map(m => `<option value="${m.name}">${m.deployment}</option>`)
+                    .map(m => `<option value="${m.name}">${m.display_name || m.deployment}</option>`)
                     .join('');
                 // Populate history filter model dropdown
                 const histSel = $('history-filter-model');
                 histSel.innerHTML = '<option value="">All models</option>' +
-                    availableModels.map(m => `<option value="${m.name}">${m.deployment}</option>`).join('');
+                    availableModels.map(m => `<option value="${m.name}">${m.display_name || m.deployment}</option>`).join('');
             } catch (err) {
                 console.error('Failed to load models', err);
             }

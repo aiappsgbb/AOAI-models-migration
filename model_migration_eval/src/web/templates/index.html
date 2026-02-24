@@ -367,7 +367,7 @@
                 const resp = await fetch('/api/models');
                 const data = await resp.json();
                 const models = data.models || [];
-                models.forEach(m => { modelNames[m.name] = m.deployment; });
+                models.forEach(m => { modelNames[m.name] = m.display_name || m.deployment; });
                 // Update checkbox labels
                 document.querySelectorAll('#test-gpt4').forEach(el => {
                     el.parentElement.querySelector('span').textContent = displayName('gpt4');

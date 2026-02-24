@@ -208,6 +208,7 @@ def create_app(config_path: str = None) -> Flask:
                 evaluator=get_evaluator(),
                 foundry_evaluator=get_foundry_evaluator(),
                 parallel_models=perf.get('parallel_models', True),
+                config_path=app.config.get('CONFIG_PATH', 'config/settings.yaml'),
             )
         elif _comparator is not None:
             # Keep Foundry evaluator refreshed/config-aware
@@ -319,9 +320,16 @@ def create_app(config_path: str = None) -> Flask:
             
         models = []
         for name, config in client.models.items():
+            # Build a human-friendly display name:
+            # reasoning models get a "(reasoning)" suffix so the UI
+            # distinguishes them from the regular deployment.
+            display = config.deployment_name
+            if name.endswith('_reasoning'):
+                display = f"{config.deployment_name} (reasoning)"
             models.append({
                 'name': name,
                 'deployment': config.deployment_name,
+                'display_name': display,
                 'version': config.model_version,
                 'max_tokens': config.max_tokens
             })
@@ -401,6 +409,53 @@ def create_app(config_path: str = None) -> Flask:
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/data/rag')
+    def get_rag_data():
+        """Get RAG test scenarios"""
+        try:
+            loader = get_data_loader()
+            scenarios = loader.load_rag_scenarios()
+            return jsonify({
+                'count': len(scenarios),
+                'scenarios': [
+                    {
+                        'id': s.id,
+                        'scenario': s.scenario,
+                        'query': s.query[:80] if s.query else '-',
+                        'complexity': s.complexity,
+                    }
+                    for s in scenarios
+                ]
+            })
+        except FileNotFoundError:
+            return jsonify({'count': 0, 'scenarios': []})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/data/tool_calling')
+    def get_tool_calling_data():
+        """Get tool-calling test scenarios"""
+        try:
+            loader = get_data_loader()
+            scenarios = loader.load_tool_calling_scenarios()
+            return jsonify({
+                'count': len(scenarios),
+                'scenarios': [
+                    {
+                        'id': s.id,
+                        'scenario': s.scenario,
+                        'query': s.query[:80] if s.query else '-',
+                        'complexity': s.complexity,
+                        'expected_tool_calls': s.expected_tool_calls,
+                    }
+                    for s in scenarios
+                ]
+            })
+        except FileNotFoundError:
+            return jsonify({'count': 0, 'scenarios': []})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/api/evaluate/single', methods=['POST'])
     def evaluate_single():
         """Evaluate a single prompt against one or both models"""
@@ -412,9 +467,10 @@ def create_app(config_path: str = None) -> Flask:
         models_to_test = data.get('models', ['gpt4'])
         evaluation_type = data.get('type', 'classification')
         
-        if evaluation_type not in ('classification', 'dialog'):
+        valid_types = ('classification', 'dialog', 'general', 'rag', 'tool_calling')
+        if evaluation_type not in valid_types:
             _current_run_id.reset(token)
-            return jsonify({'error': f"Invalid evaluation type '{evaluation_type}'. Must be 'classification' or 'dialog'."}), 400
+            return jsonify({'error': f"Invalid evaluation type '{evaluation_type}'. Must be one of {valid_types}."}), 400
 
         if not customer_input:
             _current_run_id.reset(token)
@@ -441,10 +497,31 @@ def create_app(config_path: str = None) -> Flask:
                         customer_message=customer_input
                     )
                     response_format = {"type": "json_object"}
-                else:
+                elif evaluation_type == 'dialog':
                     messages = prompt_loader.load_dialog_prompt(
                         model=model_name,
                         conversation=[{'role': 'customer', 'message': customer_input}]
+                    )
+                    response_format = None
+                elif evaluation_type == 'rag':
+                    messages = prompt_loader.load_rag_prompt(
+                        model=model_name,
+                        query=customer_input,
+                        context=data.get('context', '')
+                    )
+                    response_format = None
+                elif evaluation_type == 'tool_calling':
+                    messages = prompt_loader.load_tool_calling_prompt(
+                        model=model_name,
+                        query=customer_input,
+                        available_tools=data.get('available_tools', [])
+                    )
+                    response_format = None
+                else:
+                    # general
+                    messages = prompt_loader.load_general_prompt(
+                        model=model_name,
+                        prompt=customer_input
                     )
                     response_format = None
                     
@@ -506,6 +583,12 @@ def create_app(config_path: str = None) -> Flask:
             elif evaluation_type == 'dialog':
                 scenarios = loader.load_dialog_scenarios()[:limit]
                 result = evaluator.evaluate_dialog(model_name, scenarios)
+            elif evaluation_type == 'rag':
+                scenarios = loader.load_rag_scenarios()[:limit]
+                result = evaluator.evaluate_rag(model_name, scenarios)
+            elif evaluation_type == 'tool_calling':
+                scenarios = loader.load_tool_calling_scenarios()[:limit]
+                result = evaluator.evaluate_tool_calling(model_name, scenarios)
             else:
                 scenarios = loader.load_general_tests()[:limit]
                 result = evaluator.evaluate_general(model_name, scenarios)
@@ -1049,7 +1132,7 @@ def create_app(config_path: str = None) -> Flask:
     def get_raw_data(data_type: str):
         """Return the raw JSON array for a data type, optionally from an archived topic."""
         import re as _re
-        valid_types = ('classification', 'dialog', 'general')
+        valid_types = ('classification', 'dialog', 'general', 'rag', 'tool_calling')
         if data_type not in valid_types:
             return jsonify({'error': f'Invalid data_type. Must be one of {valid_types}'}), 400
 
@@ -1082,7 +1165,7 @@ def create_app(config_path: str = None) -> Flask:
     def save_raw_data(data_type: str):
         """Save the entire JSON array for a data type, optionally to an archived topic."""
         import re as _re
-        valid_types = ('classification', 'dialog', 'general')
+        valid_types = ('classification', 'dialog', 'general', 'rag', 'tool_calling')
         if data_type not in valid_types:
             return jsonify({'error': f'Invalid data_type. Must be one of {valid_types}'}), 400
 
@@ -1135,9 +1218,13 @@ def create_app(config_path: str = None) -> Flask:
             force           (str, optional) — 'true' to overwrite existing.
             gpt4_class_prompt  (file, optional) — Classification system prompt (.txt/.md).
             gpt4_dialog_prompt (file, optional) — Dialog system prompt (.txt/.md).
+            gpt4_rag_prompt    (file, optional) — RAG system prompt (.txt/.md).
+            gpt4_tool_prompt   (file, optional) — Tool Calling system prompt (.txt/.md).
             class_test_data    (file, optional) — Classification scenarios JSON.
             dialog_test_data   (file, optional) — Dialog scenarios JSON.
             general_test_data  (file, optional) — General capability tests JSON.
+            rag_test_data      (file, optional) — RAG scenarios JSON.
+            tool_calling_test_data (file, optional) — Tool Calling scenarios JSON.
 
         At least one prompt file and one test data file are required.
         """
@@ -1169,19 +1256,23 @@ def create_app(config_path: str = None) -> Flask:
         # ── Collect uploaded prompt files ──
         prompt_files = {}
         for task_key, field_name in (('classification', 'gpt4_class_prompt'),
-                                      ('dialog', 'gpt4_dialog_prompt')):
+                                      ('dialog', 'gpt4_dialog_prompt'),
+                                      ('rag', 'gpt4_rag_prompt'),
+                                      ('tool_calling', 'gpt4_tool_prompt')):
             f = request.files.get(field_name)
             if f and f.filename:
                 prompt_files[task_key] = f.read().decode('utf-8')
 
         if not prompt_files:
-            return jsonify({'error': 'At least one GPT-4 prompt file is required (gpt4_class_prompt and/or gpt4_dialog_prompt).'}), 400
+            return jsonify({'error': 'At least one GPT-4 prompt file is required.'}), 400
 
         # ── Collect uploaded test data files ──
         data_files = {}
         for data_key, field_name in (('classification', 'class_test_data'),
                                       ('dialog', 'dialog_test_data'),
-                                      ('general', 'general_test_data')):
+                                      ('general', 'general_test_data'),
+                                      ('rag', 'rag_test_data'),
+                                      ('tool_calling', 'tool_calling_test_data')):
             f = request.files.get(field_name)
             if f and f.filename:
                 raw = json.loads(f.read().decode('utf-8-sig'))
@@ -1211,21 +1302,47 @@ def create_app(config_path: str = None) -> Flask:
         if not client:
             return jsonify({'error': 'Azure OpenAI client not configured'}), 500
 
-        # ── Process each prompt: validate + generate GPT-5 ──
-        prompts_map = {}
-        gen_times = {}
+        # ── Validate all prompts first (fast, no LLM) ──
+        validated_prompts: dict[str, str] = {}
         for task, gpt4_raw in prompt_files.items():
             app.logger.info(f'Import topic: validating {task} prompt ({len(gpt4_raw)} chars)')
-            gpt4_content = _ensure_output_format(gpt4_raw, task)
+            validated_prompts[task] = _ensure_output_format(gpt4_raw, task)
 
-            app.logger.info(f'Import topic: generating GPT-5 {task} prompt…')
+        # ── Generate GPT-5 prompts in parallel ──
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _gen_one(task: str, gpt4_content: str):
+            """Generate a single GPT-5 prompt (runs in thread pool)."""
+            app.logger.info(f'Import topic: [parallel] generating GPT-5 {task} prompt...')
             t0 = _time.time()
-            gpt5_content = generate_gpt5_prompt(
+            gpt5 = generate_gpt5_prompt(
                 client, topic_name, task, gpt4_content, generator_model,
             )
-            gen_times[task] = round(_time.time() - t0, 1)
-            app.logger.info(f'Import topic: GPT-5 {task} prompt generated in {gen_times[task]}s')
+            elapsed = round(_time.time() - t0, 1)
+            app.logger.info(f'Import topic: [parallel] GPT-5 {task} prompt generated in {elapsed}s')
+            return task, gpt4_content, gpt5, elapsed
+
+        async def _gen_all():
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor(max_workers=len(validated_prompts)) as pool:
+                futures = [
+                    loop.run_in_executor(pool, _gen_one, task, content)
+                    for task, content in validated_prompts.items()
+                ]
+                return await asyncio.gather(*futures)
+
+        t_total = _time.time()
+        results = asyncio.run(_gen_all())
+        app.logger.info(
+            f'Import topic: all GPT-5 prompts generated in {round(_time.time() - t_total, 1)}s (parallel)'
+        )
+
+        prompts_map = {}
+        gen_times = {}
+        for task, gpt4_content, gpt5_content, elapsed in results:
             prompts_map[task] = (gpt4_content, gpt5_content)
+            gen_times[task] = elapsed
 
         # ── Write archived topic ──
         app.logger.info(f'Import topic: writing archived topic "{slug}"…')
@@ -1409,7 +1526,6 @@ def create_app(config_path: str = None) -> Flask:
                 evaluation_type=evaluation_type,
                 model_name=model_name,
                 poll=True,
-                timeout=300,
             )
 
             # Persist Foundry scores alongside the local result file

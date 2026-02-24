@@ -6,12 +6,14 @@ import_topic.py — Importar un tema externo en la solución de evaluación
 Crea un tema archivado dentro de la estructura de la solución
 (prompts/topics/{slug}/ y data/synthetic/topics/{slug}/) a partir de:
   - Un nombre de tema
-  - Uno o dos ficheros de texto con prompts GPT-4 (clasificación y/o diálogo)
-  - Hasta tres ficheros JSON de datos de prueba (classification, dialog, general)
+  - Uno o mas ficheros de texto con prompts GPT-4
+  - Uno o mas ficheros JSON de datos de prueba
 
-El tipo de tarea se infiere automáticamente de los parámetros utilizados:
-  --gpt4-class-prompt  →  classification
-  --gpt4-dialog-prompt →  dialog
+El tipo de tarea se infiere automaticamente de los parametros utilizados:
+  --gpt4-class-prompt         ->  classification
+  --gpt4-dialog-prompt        ->  dialog
+  --gpt4-rag-prompt           ->  rag
+  --gpt4-tool-calling-prompt  ->  tool_calling
 
 El tema queda listo para activarse desde la interfaz web y ejecutar
 evaluaciones y comparaciones exactamente igual que cualquier otro tema
@@ -50,11 +52,25 @@ Uso
         --gpt4-dialog-prompt retail_dlg.txt ^
         --class-test-data retail_cls.json ^
         --general-test-data retail_general.json
+
+    # Todos los prompts y datos
+    python tools/import_topic.py ^
+        --topic "Full Service Desk" ^
+        --gpt4-class-prompt cls.txt ^
+        --gpt4-dialog-prompt dlg.txt ^
+        --gpt4-rag-prompt rag.txt ^
+        --gpt4-tool-calling-prompt tc.txt ^
+        --class-test-data cls.json ^
+        --dialog-test-data dlg.json ^
+        --general-test-data gen.json ^
+        --rag-test-data rag.json ^
+        --tool-calling-test-data tc.json
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 import os
@@ -84,12 +100,16 @@ GENERATOR_MODEL = "gpt5"
 TASK_PROMPT_MAP = {
     "classification": "classification_agent_system",
     "dialog":         "dialog_agent_system",
+    "rag":            "rag_agent_system",
+    "tool_calling":   "tool_calling_agent_system",
 }
 
 DATA_FILE_MAP = {
     "classification": "classification_scenarios.json",
     "dialog":         "follow_up_scenarios.json",
     "general":        "capability_tests.json",
+    "rag":            "rag_scenarios.json",
+    "tool_calling":   "tool_calling_scenarios.json",
 }
 
 # Archive directories inside the solution
@@ -155,6 +175,32 @@ When responding to the customer:
 5. Maintain a professional, warm tone throughout.
 """
 
+_RAG_OUTPUT_BLOCK = """
+
+---
+## RAG RESPONSE GUIDELINES
+
+When answering based on retrieved context:
+1. Ground ALL claims in the provided context — cite specific passages.
+2. If the context does not contain sufficient information, state that explicitly.
+3. NEVER fabricate or hallucinate information beyond the context.
+4. Synthesize information from multiple context passages when relevant.
+5. Indicate confidence level when context is ambiguous or incomplete.
+"""
+
+_TOOL_CALLING_OUTPUT_BLOCK = """
+
+---
+## TOOL CALLING GUIDELINES
+
+When selecting and invoking tools:
+1. Select the most appropriate tool(s) based on the user's request.
+2. Extract ALL required parameters from the user's message.
+3. If required parameters are missing, ask the user before calling the tool.
+4. Chain tool calls in the correct order when multiple steps are needed.
+5. Explain what each tool call will accomplish before executing it.
+"""
+
 
 def _ensure_output_format(prompt: str, task: str) -> str:
     """Asegura que el prompt GPT-4 contiene el bloque de formato de salida
@@ -178,6 +224,20 @@ def _ensure_output_format(prompt: str, task: str) -> str:
             return prompt
         log.warning("El prompt GPT-4 de diálogo no tiene guías de follow-up — se añade bloque.")
         return prompt.rstrip() + "\n" + _DIALOG_OUTPUT_BLOCK
+
+    elif task == "rag":
+        if re.search(r"(ground|context|retriev|cite|passage)", prompt, re.I):
+            log.info("El prompt GPT-4 de RAG ya contiene guías de grounding.")
+            return prompt
+        log.warning("El prompt GPT-4 de RAG no tiene guías de grounding — se añade bloque.")
+        return prompt.rstrip() + "\n" + _RAG_OUTPUT_BLOCK
+
+    elif task == "tool_calling":
+        if re.search(r"(tool|function|parameter|invoke|call)", prompt, re.I):
+            log.info("El prompt GPT-4 de tool_calling ya contiene guías de tools.")
+            return prompt
+        log.warning("El prompt GPT-4 de tool_calling no tiene guías de tools — se añade bloque.")
+        return prompt.rstrip() + "\n" + _TOOL_CALLING_OUTPUT_BLOCK
 
     # General: no requiere formato especial
     return prompt
@@ -223,6 +283,22 @@ def _build_gpt5_generation_meta_prompt(
             "- Maintains professional tone appropriate to the topic\n"
             "- Handles escalation and resolution flows\n"
             "- Adapts conversation style and knowledge to the given TOPIC"
+        ),
+        "rag": (
+            "a RAG (Retrieval-Augmented Generation) system prompt that:\n"
+            "- Grounds all responses in provided context passages\n"
+            "- Refuses to hallucinate beyond available evidence\n"
+            "- Cites relevant passages or sections\n"
+            "- Handles conflicting or incomplete context gracefully\n"
+            "- Adapts domain knowledge to the given TOPIC"
+        ),
+        "tool_calling": (
+            "a TOOL CALLING / FUNCTION CALLING agent system prompt that:\n"
+            "- Selects appropriate tools based on user intent\n"
+            "- Extracts required parameters accurately from queries\n"
+            "- Chains multiple tool calls when needed\n"
+            "- Handles missing parameters by asking clarifying questions\n"
+            "- Adapts tool usage patterns to the given TOPIC"
         ),
     }
 
@@ -418,6 +494,36 @@ def validate_and_fix_test_data(data: list, task: str) -> List[str]:
             if "category" not in item:
                 item["category"] = "general"
 
+    elif task == "rag":
+        required = {"id", "query", "context", "ground_truth"}
+        missing = required - set(sample.keys())
+        if missing:
+            warnings.append(f"Campos obligatorios ausentes en rag: {missing}")
+        for i, item in enumerate(data):
+            if "id" not in item:
+                item["id"] = f"RAG_{i+1:03d}"
+            if "scenario" not in item:
+                item["scenario"] = item.get("id", f"rag_scenario_{i+1}")
+            if "expected_behavior" not in item:
+                item["expected_behavior"] = "grounded_answer"
+            if "complexity" not in item:
+                item["complexity"] = "medium"
+
+    elif task == "tool_calling":
+        required = {"id", "query", "available_tools", "expected_tool_calls"}
+        missing = required - set(sample.keys())
+        if missing:
+            warnings.append(f"Campos obligatorios ausentes en tool_calling: {missing}")
+        for i, item in enumerate(data):
+            if "id" not in item:
+                item["id"] = f"TC_{i+1:03d}"
+            if "scenario" not in item:
+                item["scenario"] = item.get("id", f"tool_scenario_{i+1}")
+            if "expected_parameters" not in item:
+                item["expected_parameters"] = {}
+            if "complexity" not in item:
+                item["complexity"] = "medium"
+
     elif task == "general":
         required = {"id", "test_type"}
         missing = required - set(sample.keys())
@@ -450,11 +556,12 @@ def write_archived_topic(
     Args:
         slug: Identificador del tema (filesystem-safe).
         topic_name: Nombre legible del tema.
-        prompts_map: Dict con claves de tarea (classification, dialog)
-                     mapeando a tuplas (gpt4_content, gpt5_content).
-        test_data_map: Dict con hasta 3 claves (classification, dialog,
-                       general) mapeando a la lista de escenarios de cada
-                       tipo de tarea.
+        prompts_map: Dict con claves de tarea (classification, dialog,
+                     rag, tool_calling) mapeando a tuplas
+                     (gpt4_content, gpt5_content).
+        test_data_map: Dict con hasta 5 claves (classification, dialog,
+                       general, rag, tool_calling) mapeando a la lista
+                       de escenarios de cada tipo de tarea.
 
     Estructura creada:
         prompts/topics/{slug}/
@@ -463,9 +570,11 @@ def write_archived_topic(
         └── topic.json
 
         data/synthetic/topics/{slug}/
-        ├── classification/classification_scenarios.json   (si se proporcionó)
-        ├── dialog/follow_up_scenarios.json                (si se proporcionó)
-        └── general/capability_tests.json                  (si se proporcionó)
+        ├── classification/classification_scenarios.json   (si se proporciono)
+        ├── dialog/follow_up_scenarios.json                (si se proporciono)
+        ├── general/capability_tests.json                  (si se proporciono)
+        ├── rag/rag_scenarios.json                         (si se proporciono)
+        └── tool_calling/tool_calling_scenarios.json       (si se proporciono)
     """
 
     prompt_topic_dir = PROMPTS_TOPICS_DIR / slug
@@ -544,11 +653,19 @@ def main():
         "--gpt4-dialog-prompt", type=Path, default=None,
         help="Fichero de texto (.txt o .md) con el prompt de sistema GPT-4 de diálogo.",
     )
+    prompt_group.add_argument(
+        "--gpt4-rag-prompt", type=Path, default=None,
+        help="Fichero de texto (.txt o .md) con el prompt de sistema GPT-4 de RAG.",
+    )
+    prompt_group.add_argument(
+        "--gpt4-tool-calling-prompt", type=Path, default=None,
+        help="Fichero de texto (.txt o .md) con el prompt de sistema GPT-4 de tool calling.",
+    )
 
     # --- Test data files (at least one required) ---
     data_group = parser.add_argument_group(
         "Datos de prueba",
-        "Al menos uno es obligatorio. Se pueden proporcionar hasta tres.",
+        "Al menos uno es obligatorio. Se pueden proporcionar hasta cinco.",
     )
     data_group.add_argument(
         "--class-test-data", type=Path, default=None,
@@ -561,6 +678,14 @@ def main():
     data_group.add_argument(
         "--general-test-data", type=Path, default=None,
         help="Fichero JSON con tests de capacidad general (capability_tests).",
+    )
+    data_group.add_argument(
+        "--rag-test-data", type=Path, default=None,
+        help="Fichero JSON con escenarios RAG (rag_scenarios).",
+    )
+    data_group.add_argument(
+        "--tool-calling-test-data", type=Path, default=None,
+        help="Fichero JSON con escenarios de tool calling (tool_calling_scenarios).",
     )
 
     # --- Optional settings ---
@@ -590,11 +715,14 @@ def main():
     gpt4_prompt_args = {
         "classification": args.gpt4_class_prompt,
         "dialog":         args.gpt4_dialog_prompt,
+        "rag":            args.gpt4_rag_prompt,
+        "tool_calling":   args.gpt4_tool_calling_prompt,
     }
     if not any(gpt4_prompt_args.values()):
         parser.error(
             "Debes proporcionar al menos un prompt GPT-4.\n"
-            "  Usa --gpt4-class-prompt y/o --gpt4-dialog-prompt."
+            "  Usa --gpt4-class-prompt, --gpt4-dialog-prompt, --gpt4-rag-prompt\n"
+            "  y/o --gpt4-tool-calling-prompt."
         )
 
     # --- Verify at least one test data file is provided ---
@@ -602,11 +730,14 @@ def main():
         "classification": args.class_test_data,
         "dialog":         args.dialog_test_data,
         "general":        args.general_test_data,
+        "rag":            args.rag_test_data,
+        "tool_calling":   args.tool_calling_test_data,
     }
     if not any(test_data_args.values()):
         parser.error(
             "Debes proporcionar al menos un fichero de datos de prueba.\n"
-            "  Usa --class-test-data, --dialog-test-data y/o --general-test-data."
+            "  Usa --class-test-data, --dialog-test-data, --general-test-data,\n"
+            "  --rag-test-data y/o --tool-calling-test-data."
         )
 
     slug = _slugify(args.topic)
@@ -658,12 +789,12 @@ def main():
         warnings = validate_and_fix_test_data(raw, data_task)
         if warnings:
             for w in warnings:
-                log.warning(f"  ⚠ {w}")
+                log.warning(f"  [!] {w}")
             if any("obligatorios" in w for w in warnings):
                 log.error(f"Los datos de {data_task} tienen problemas críticos de esquema. Abortando.")
                 sys.exit(1)
         else:
-            log.info(f"  ✓ Esquema de datos {data_task} válido.")
+            log.info(f"  [OK] Esquema de datos {data_task} valido.")
         test_data_map[data_task] = raw
 
     # --- Create Azure OpenAI client ---
@@ -674,29 +805,75 @@ def main():
         log.error(f"No se pudo crear el cliente: {e}")
         sys.exit(1)
 
-    # --- Load, validate and generate GPT-5 for each prompt ---
+    # --- Load, validate and generate GPT-5 for each prompt (PARALLEL) ---
     prompts_map: Dict[str, tuple] = {}
+
+    # First pass: load and validate all GPT-4 prompts (fast, no LLM)
+    gpt4_contents: Dict[str, str] = {}
     for task, prompt_path in gpt4_prompt_args.items():
         if prompt_path is None:
             continue
-
         log.info(f"Cargando prompt GPT-4 ({task})...")
         if not prompt_path.exists():
             log.error(f"Fichero de prompt no encontrado: {prompt_path}")
             sys.exit(1)
         gpt4_raw = prompt_path.read_text(encoding="utf-8")
         log.info(f"  {len(gpt4_raw)} caracteres desde {prompt_path}")
+        log.info(f"Validando prompt GPT-4 ({task}) para compatibilidad con evaluacion...")
+        gpt4_contents[task] = _ensure_output_format(gpt4_raw, task)
 
-        # Validate / patch GPT-4 prompt
-        log.info(f"Validando prompt GPT-4 ({task}) para compatibilidad con evaluación...")
-        gpt4_content = _ensure_output_format(gpt4_raw, task)
+    # Second pass: generate ALL GPT-5 prompts in parallel via async
+    async def _generate_all_gpt5():
+        sem = asyncio.Semaphore(5)
+        async def _gen_one(task_name, gpt4_content):
+            async with sem:
+                log.info(f"[parallel] Generando prompt GPT-5 ({task_name})...")
+                t0 = time.time()
+                categories = None
+                if task_name == "classification":
+                    categories = _extract_categories_from_prompt(gpt4_content)
+                meta_prompt = _build_gpt5_generation_meta_prompt(
+                    args.topic, task_name, gpt4_content, categories,
+                )
+                res = await client.complete_async(
+                    messages=[
+                        {"role": "system", "content": (
+                            "You are an expert prompt engineer specialising in Azure OpenAI models. "
+                            "You create high-quality system prompts that follow each model family's "
+                            "best practices.  Return ONLY the system prompt content, no explanations, "
+                            "no markdown fences."
+                        )},
+                        {"role": "user", "content": meta_prompt},
+                    ],
+                    model_name=args.generator_model,
+                )
+                generated = res.content.strip()
+                elapsed = time.time() - t0
+                log.info(f"[parallel] GPT-5 ({task_name}) generado en {elapsed:.1f}s ({len(generated)} chars)")
 
-        # Generate GPT-5 prompt
-        gpt5_content = generate_gpt5_prompt(
-            client, args.topic, task, gpt4_content, args.generator_model,
-        )
+                # Category validation for classification
+                if categories:
+                    gpt5_cats = _extract_categories_from_prompt(generated)
+                    overlap = set(gpt5_cats) & set(categories)
+                    if len(overlap) < len(categories) * 0.5:
+                        log.warning(f"Bajo solapamiento categorias GPT-5 ({task_name}). Auto-fix...")
+                        generated = _fix_gpt5_categories(
+                            client, generated, categories, args.generator_model,
+                        )
+                return (task_name, generated)
 
-        prompts_map[task] = (gpt4_content, gpt5_content)
+        tasks = [_gen_one(t, c) for t, c in gpt4_contents.items()]
+        return await asyncio.gather(*tasks)
+
+    if gpt4_contents:
+        t0 = time.time()
+        log.info(f"Generando {len(gpt4_contents)} prompts GPT-5 en paralelo...")
+        gpt5_results = asyncio.run(_generate_all_gpt5())
+        elapsed = time.time() - t0
+        log.info(f"Todos los prompts GPT-5 generados en {elapsed:.1f}s (paralelo)")
+
+        for task_name, gpt5_content in gpt5_results:
+            prompts_map[task_name] = (gpt4_contents[task_name], gpt5_content)
 
     # --- Write archived topic ---
     log.info("Escribiendo tema archivado en la solución...")

@@ -109,7 +109,11 @@
                     <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Classification prompt (.txt / .md)</label>
                     <input id="import-class-prompt" type="file" accept=".txt,.md,.text" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                     <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Dialog prompt (.txt / .md)</label>
-                    <input id="import-dialog-prompt" type="file" accept=".txt,.md,.text" class="w-full text-xs mb-3 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-brand-50 file:text-brand-600 hover:file:bg-brand-100">
+                    <input id="import-dialog-prompt" type="file" accept=".txt,.md,.text" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-brand-50 file:text-brand-600 hover:file:bg-brand-100">
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">RAG prompt (.txt / .md)</label>
+                    <input id="import-rag-prompt" type="file" accept=".txt,.md,.text" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Tool Calling prompt (.txt / .md)</label>
+                    <input id="import-tool-prompt" type="file" accept=".txt,.md,.text" class="w-full text-xs mb-3 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
 
                     <!-- Test Data -->
                     <p class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Test Data <span class="text-red-500">*</span> <span class="font-normal normal-case text-gray-400">(at least one)</span></p>
@@ -118,7 +122,11 @@
                     <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Dialog scenarios (.json)</label>
                     <input id="import-dialog-data" type="file" accept=".json" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-brand-50 file:text-brand-600 hover:file:bg-brand-100">
                     <label class="block text-xs text-[var(--text-secondary)] mb-0.5">General capability tests (.json)</label>
-                    <input id="import-general-data" type="file" accept=".json" class="w-full text-xs mb-3 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100">
+                    <input id="import-general-data" type="file" accept=".json" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100">
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">RAG scenarios (.json)</label>
+                    <input id="import-rag-data" type="file" accept=".json" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Tool Calling scenarios (.json)</label>
+                    <input id="import-tool-data" type="file" accept=".json" class="w-full text-xs mb-3 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
 
                     <!-- Options -->
                     <label class="fluent-label mb-1">Generator model</label>
@@ -311,10 +319,12 @@
                                 <h3 id="data-panel-title" class="text-[16px] font-semibold text-[var(--text-primary)]">Select a dataset above</h3>
                                 <p id="data-panel-subtitle" class="text-xs text-gray-500 mt-0.5"></p>
                             </div>
-                            <div class="flex items-center space-x-1" id="data-type-tabs">
+                            <div class="flex items-center space-x-1 flex-wrap gap-1" id="data-type-tabs">
                                 <button data-dtype="classification" class="data-tab px-3 py-1.5 rounded-lg text-sm bg-gray-200 text-gray-700 hover:bg-gray-300">Classification</button>
                                 <button data-dtype="dialog"         class="data-tab px-3 py-1.5 rounded-lg text-sm bg-gray-200 text-gray-700 hover:bg-gray-300">Dialog</button>
                                 <button data-dtype="general"        class="data-tab px-3 py-1.5 rounded-lg text-sm bg-gray-200 text-gray-700 hover:bg-gray-300">General</button>
+                                <button data-dtype="rag"            class="data-tab px-3 py-1.5 rounded-lg text-sm bg-gray-200 text-gray-700 hover:bg-gray-300">RAG</button>
+                                <button data-dtype="tool_calling"   class="data-tab px-3 py-1.5 rounded-lg text-sm bg-gray-200 text-gray-700 hover:bg-gray-300">Tool Calling</button>
                             </div>
                         </div>
 
@@ -547,20 +557,20 @@
                 const resp = await fetch('/api/models');
                 const data = await resp.json();
                 availableModels = data.models || [];
-                availableModels.forEach(m => { modelNames[m.name] = m.deployment; });
+                availableModels.forEach(m => { modelNames[m.name] = m.display_name || m.deployment; });
                 const sel = $('gen-model');
                 sel.innerHTML = availableModels.map(m =>
-                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.deployment}</option>`
+                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
                 // Also populate regen model dropdown
                 const regenSel = $('regen-model');
                 regenSel.innerHTML = availableModels.map(m =>
-                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.deployment}</option>`
+                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
                 // Also populate import model dropdown
                 const importSel = $('import-gen-model');
                 importSel.innerHTML = availableModels.map(m =>
-                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.deployment}</option>`
+                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
                 // Update compare-view headings
                 const g4title = $('compare-gpt4-title');
@@ -574,12 +584,12 @@
                 const curSel = $('current-model');
                 curSel.innerHTML = availableModels
                     .filter(m => m.name === 'gpt4' || m.name === 'gpt5')
-                    .map(m => `<option value="${m.name}">${m.deployment}</option>`)
+                    .map(m => `<option value="${m.name}">${m.display_name || m.deployment}</option>`)
                     .join('');
                 // Populate history filter model dropdown
                 const histSel = $('history-filter-model');
                 histSel.innerHTML = '<option value="">All models</option>' +
-                    availableModels.map(m => `<option value="${m.name}">${m.deployment}</option>`).join('');
+                    availableModels.map(m => `<option value="${m.name}">${m.display_name || m.deployment}</option>`).join('');
             } catch (err) {
                 console.error('Failed to load models', err);
             }
@@ -790,7 +800,9 @@
             // Collect files
             const classPrompt  = $('import-class-prompt').files[0];
             const dialogPrompt = $('import-dialog-prompt').files[0];
-            if (!classPrompt && !dialogPrompt) {
+            const ragPrompt    = $('import-rag-prompt').files[0];
+            const toolPrompt   = $('import-tool-prompt').files[0];
+            if (!classPrompt && !dialogPrompt && !ragPrompt && !toolPrompt) {
                 $('import-status').innerHTML = '<span class="text-red-500">Select at least one GPT-4 prompt file.</span>';
                 return;
             }
@@ -798,7 +810,9 @@
             const classData   = $('import-class-data').files[0];
             const dialogData  = $('import-dialog-data').files[0];
             const generalData = $('import-general-data').files[0];
-            if (!classData && !dialogData && !generalData) {
+            const ragData     = $('import-rag-data').files[0];
+            const toolData    = $('import-tool-data').files[0];
+            if (!classData && !dialogData && !generalData && !ragData && !toolData) {
                 $('import-status').innerHTML = '<span class="text-red-500">Select at least one test data file.</span>';
                 return;
             }
@@ -813,9 +827,13 @@
             form.append('force', force ? 'true' : 'false');
             if (classPrompt)  form.append('gpt4_class_prompt', classPrompt);
             if (dialogPrompt) form.append('gpt4_dialog_prompt', dialogPrompt);
+            if (ragPrompt)    form.append('gpt4_rag_prompt', ragPrompt);
+            if (toolPrompt)   form.append('gpt4_tool_prompt', toolPrompt);
             if (classData)    form.append('class_test_data', classData);
             if (dialogData)   form.append('dialog_test_data', dialogData);
             if (generalData)  form.append('general_test_data', generalData);
+            if (ragData)      form.append('rag_test_data', ragData);
+            if (toolData)     form.append('tool_calling_test_data', toolData);
 
             const btn     = $('btn-import-topic');
             const spinner = $('import-spinner');
@@ -859,9 +877,13 @@
                     // Clear file inputs for next import
                     $('import-class-prompt').value  = '';
                     $('import-dialog-prompt').value  = '';
+                    $('import-rag-prompt').value     = '';
+                    $('import-tool-prompt').value    = '';
                     $('import-class-data').value    = '';
                     $('import-dialog-data').value   = '';
                     $('import-general-data').value  = '';
+                    $('import-rag-data').value      = '';
+                    $('import-tool-data').value     = '';
                 } else {
                     $('import-status').innerHTML = `<span class="text-red-600">❌ ${esc(data.error || 'Unknown error')}</span>`;
                 }
@@ -1317,7 +1339,7 @@
 
         // ── Test Data Explorer ──────────────────────────────────
         let loadedDataItems = [];     // current in-memory data
-        let loadedDataType  = 'classification';  // classification | dialog | general
+        let loadedDataType  = 'classification';  // classification | dialog | general | rag | tool_calling
         let loadedDataTopic = '';     // '' = active, slug = archived
         let loadedDataTopicName = ''; // display name
         let editingScenarioIdx = -1;  // index being edited in detail view
@@ -1358,7 +1380,7 @@
                 }
 
                 container.innerHTML = dataOverviewCache.map(t => {
-                    const total = (t.counts.classification || 0) + (t.counts.dialog || 0) + (t.counts.general || 0);
+                    const total = (t.counts.classification || 0) + (t.counts.dialog || 0) + (t.counts.general || 0) + (t.counts.rag || 0) + (t.counts.tool_calling || 0);
                     const badge = t.active
                         ? '<span class="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800 ml-2">Active</span>'
                         : '<span class="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-[var(--text-secondary)] ml-2">Archived</span>';
@@ -1370,10 +1392,10 @@
                             <span class="font-medium text-sm text-gray-800 truncate" title="${esc(t.topic)}">${esc(t.topic)}</span>
                             ${badge}
                         </div>
-                        <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="grid grid-cols-5 gap-2 text-center">
                             <div class="bg-blue-50 rounded p-1.5">
                                 <div class="text-lg font-bold text-blue-700">${t.counts.classification || 0}</div>
-                                <div class="text-[10px] text-blue-500 uppercase tracking-wide">Classification</div>
+                                <div class="text-[10px] text-blue-500 uppercase tracking-wide">Class.</div>
                             </div>
                             <div class="bg-brand-50 rounded p-1.5">
                                 <div class="text-lg font-bold text-brand-600">${t.counts.dialog || 0}</div>
@@ -1382,6 +1404,14 @@
                             <div class="bg-teal-50 rounded p-1.5">
                                 <div class="text-lg font-bold text-teal-700">${t.counts.general || 0}</div>
                                 <div class="text-[10px] text-teal-500 uppercase tracking-wide">General</div>
+                            </div>
+                            <div class="bg-purple-50 rounded p-1.5">
+                                <div class="text-lg font-bold text-purple-700">${t.counts.rag || 0}</div>
+                                <div class="text-[10px] text-purple-500 uppercase tracking-wide">RAG</div>
+                            </div>
+                            <div class="bg-amber-50 rounded p-1.5">
+                                <div class="text-lg font-bold text-amber-700">${t.counts.tool_calling || 0}</div>
+                                <div class="text-[10px] text-amber-500 uppercase tracking-wide">Tools</div>
                             </div>
                         </div>
                         <div class="text-[11px] text-gray-400 mt-2 text-right">${total} scenarios total</div>
@@ -1465,7 +1495,7 @@
                 cols = [
                     { key: 'id', label: 'ID', w: 'w-20' },
                     { key: 'scenario', label: 'Scenario', w: 'w-40' },
-                    { key: 'customer_input', label: 'Customer Input', w: 'w-64' },
+                    { key: 'customer_input', label: 'Customer Input', w: 'w-96' },
                     { key: 'expected_category', label: 'Category', w: 'w-32' },
                     { key: 'expected_subcategory', label: 'Subcategory', w: 'w-36' },
                     { key: 'expected_priority', label: 'Priority', w: 'w-20' },
@@ -1480,6 +1510,25 @@
                     { key: 'context_gaps', label: 'Gaps', w: 'w-40' },
                     { key: 'expected_resolution_turns', label: 'Turns', w: 'w-16' },
                 ];
+            } else if (loadedDataType === 'rag') {
+                cols = [
+                    { key: 'id', label: 'ID', w: 'w-20' },
+                    { key: 'scenario', label: 'Scenario', w: 'w-40' },
+                    { key: 'query', label: 'Query', w: 'w-64' },
+                    { key: 'context', label: 'Context', w: 'w-64' },
+                    { key: 'ground_truth', label: 'Ground Truth', w: 'w-48' },
+                    { key: 'expected_behavior', label: 'Behavior', w: 'w-28' },
+                    { key: 'complexity', label: 'Complexity', w: 'w-20' },
+                ];
+            } else if (loadedDataType === 'tool_calling') {
+                cols = [
+                    { key: 'id', label: 'ID', w: 'w-20' },
+                    { key: 'scenario', label: 'Scenario', w: 'w-40' },
+                    { key: 'query', label: 'Query', w: 'w-64' },
+                    { key: '_tools_summary', label: 'Available Tools', w: 'w-48' },
+                    { key: '_expected_calls', label: 'Expected Calls', w: 'w-40' },
+                    { key: 'complexity', label: 'Complexity', w: 'w-20' },
+                ];
             } else {
                 cols = [
                     { key: 'id', label: 'ID', w: 'w-20' },
@@ -1491,15 +1540,19 @@
 
             let html = '<table class="min-w-full text-sm">';
             html += '<thead class="bg-gray-50 sticky top-0"><tr>';
+            html += '<th class="px-3 py-2 text-center text-xs font-medium text-gray-500 w-28 sticky left-0 bg-gray-50 z-10">Actions</th>';
             html += '<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 w-16">#</th>';
             cols.forEach(c => {
                 html += `<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 ${c.w}">${c.label}</th>`;
             });
-            html += '<th class="px-3 py-2 text-center text-xs font-medium text-gray-500 w-24">Actions</th>';
             html += '</tr></thead><tbody>';
 
             loadedDataItems.forEach((item, idx) => {
                 html += `<tr class="border-t border-gray-100 hover:bg-blue-50 transition">`;
+                html += `<td class="px-3 py-2 text-center whitespace-nowrap sticky left-0 bg-white z-10">
+                    <button onclick="editScenario(${idx})" class="text-blue-600 hover:text-blue-800 text-xs mr-1" title="Edit">✏️</button>
+                    <button onclick="deleteScenario(${idx})" class="text-red-500 hover:text-red-700 text-xs" title="Delete">🗑️</button>
+                </td>`;
                 html += `<td class="px-3 py-2 text-gray-400 text-xs">${idx + 1}</td>`;
                 cols.forEach(c => {
                     let val;
@@ -1507,6 +1560,14 @@
                         // Summarise conversation for dialog type
                         const conv = item.conversation || [];
                         val = conv.map(m => `${m.role}: ${(m.message || '').substring(0, 40)}…`).join(' → ');
+                    } else if (c.key === '_tools_summary') {
+                        // Summarise available tools for tool_calling type
+                        const tools = item.available_tools || [];
+                        val = tools.map(t => t.name || t).join(', ');
+                    } else if (c.key === '_expected_calls') {
+                        // Summarise expected tool calls
+                        const calls = item.expected_tool_calls || [];
+                        val = Array.isArray(calls) ? calls.join(', ') : String(calls);
                     } else if (c.key === 'context_gaps') {
                         val = Array.isArray(item[c.key]) ? item[c.key].join(', ') : String(item[c.key] || '');
                     } else {
@@ -1515,10 +1576,6 @@
                     const truncated = val.length > 80 ? val.substring(0, 77) + '…' : val;
                     html += `<td class="px-3 py-2 text-gray-700 text-xs" title="${esc(val)}">${esc(truncated)}</td>`;
                 });
-                html += `<td class="px-3 py-2 text-center">
-                    <button onclick="editScenario(${idx})" class="text-blue-600 hover:text-blue-800 text-xs mr-1" title="Edit">✏️</button>
-                    <button onclick="deleteScenario(${idx})" class="text-red-500 hover:text-red-700 text-xs" title="Delete">🗑️</button>
-                </td>`;
                 html += '</tr>';
             });
 
@@ -1579,6 +1636,26 @@
                     follow_up_rules: [],
                     expected_resolution_turns: 2,
                     category: ''
+                };
+            } else if (loadedDataType === 'rag') {
+                template = {
+                    id: `RAG_${String(nextId).padStart(3, '0')}`,
+                    scenario: '',
+                    query: '',
+                    context: '',
+                    ground_truth: '',
+                    expected_behavior: 'grounded_answer',
+                    complexity: 'medium'
+                };
+            } else if (loadedDataType === 'tool_calling') {
+                template = {
+                    id: `TC_${String(nextId).padStart(3, '0')}`,
+                    scenario: '',
+                    query: '',
+                    available_tools: [{ name: '', description: '', parameters: {} }],
+                    expected_tool_calls: [],
+                    expected_parameters: {},
+                    complexity: 'medium'
                 };
             } else {
                 template = {

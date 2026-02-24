@@ -78,7 +78,7 @@
             try {
                 const resp = await fetch('/api/models');
                 const data = await resp.json();
-                (data.models || []).forEach(m => { modelNames[m.name] = m.deployment; });
+                (data.models || []).forEach(m => { modelNames[m.name] = m.display_name || m.deployment; });
             } catch(e) {}
         }
 
@@ -256,7 +256,15 @@
                     if (data.recommendations && data.recommendations.length) {
                         html += '<div><h4 class="font-medium text-gray-800 mb-3">Recommendations</h4><ul class="space-y-2">';
                         for (const r of data.recommendations) {
-                            html += `<li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span><span class="text-gray-700 text-sm">${esc(r)}</span></li>`;
+                            const trimmed = r.trim();
+                            if (!trimmed) {
+                                html += '<li>&nbsp;</li>';
+                            } else if (trimmed.startsWith('📋')) {
+                                html += `<li><span class="text-gray-700 text-sm font-semibold">${esc(trimmed)}</span></li>`;
+                            } else {
+                                const clean = trimmed.replace(/^•\s*/, '');
+                                html += `<li class="flex items-start"><span class="text-green-500 mr-2 mt-0.5">✓</span><span class="text-gray-700 text-sm">${esc(clean)}</span></li>`;
+                            }
                         }
                         html += '</ul></div>';
                     }

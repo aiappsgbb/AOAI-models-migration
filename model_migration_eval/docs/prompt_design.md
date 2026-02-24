@@ -1,7 +1,7 @@
 # Prompt Design Best Practices
-## Optimizing Prompts for GPT-4 and GPT-5 Models
+## Optimizing Prompts for GPT-4.1 and GPT-5.x Models
 
-This guide covers prompt engineering best practices for migrating from GPT-4 to GPT-5, with focus on stability, reproducibility, and performance.
+This guide covers prompt engineering best practices for migrating from GPT-4.1 to GPT-5.x, with focus on stability, reproducibility, and performance.
 
 ---
 
@@ -349,9 +349,147 @@ constraints:
 
 ---
 
-## 5. Output Consistency Techniques
+## 5. RAG Prompt Design
 
-### 5.1 Structured Output Enforcement
+### 5.1 RAG-Specific Prompt Structure
+
+RAG prompts must enforce **groundedness** — the model should only use information from the provided context documents.
+
+#### GPT-4 RAG Prompt (verbose, explicit grounding instructions)
+
+```markdown
+# RAG AGENT - GPT-4
+
+## YOUR TASK
+Answer the user's question using ONLY the provided context documents.
+
+## CRITICAL RULES
+Think step by step:
+1. Read all context documents carefully
+2. Identify which documents are relevant to the question
+3. Extract the specific information that answers the question
+4. Formulate your answer using ONLY information from the context
+5. If the context doesn't contain the answer, say "I don't have enough information"
+
+## GROUNDING RULES
+- NEVER use information not in the context
+- ALWAYS cite which document(s) you used
+- If uncertain, say so explicitly
+- Do not hallucinate or infer beyond the context
+
+## OUTPUT FORMAT
+Return a clear, grounded answer with document citations.
+```
+
+#### GPT-5 RAG Prompt (concise, native reasoning)
+
+```yaml
+# RAG AGENT - GPT-5
+role: Grounded retrieval agent
+
+task: Answer questions using ONLY provided context
+
+rules:
+  - Use exclusively the provided context documents
+  - Cite relevant document sources
+  - State clearly when context is insufficient
+  - Never fabricate information
+
+output: Grounded answer with citations
+```
+
+### 5.2 RAG Test Data Structure
+
+Each RAG test scenario includes:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `query` | string | The user's question |
+| `context` | string | Retrieved document(s) provided to the model |
+| `ground_truth` | string | Expected correct answer for evaluation |
+| `expected_format` | string | `text`, `json`, `list`, etc. |
+| `difficulty` | string | `easy`, `medium`, `hard` |
+| `metadata` | object | Additional context (topic, source, etc.) |
+
+### 5.3 Groundedness Best Practices
+
+- Place context documents **before** the question in the prompt
+- Use clear delimiters between documents (e.g. `---` or `[Document 1]`)
+- Keep system prompt > 1,024 tokens for **prompt caching** benefits
+- Instruct the model to quote or paraphrase from context, not generate new facts
+
+---
+
+## 6. Tool Calling Prompt Design
+
+### 6.1 Tool Definition Best Practices
+
+Well-defined tool schemas improve both **tool selection accuracy** and **parameter extraction accuracy**.
+
+```python
+# Example tool definitions for a customer service agent
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "check_order_status",
+            "description": "Check the current status of a customer order by order ID",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order_id": {
+                        "type": "string",
+                        "description": "Order ID (format: ORD-XXXXXXXX)"
+                    }
+                },
+                "required": ["order_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_billing_history",
+            "description": "Retrieve billing history for a customer account",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "customer_id": {"type": "string", "description": "Customer ID"},
+                    "months": {"type": "integer", "description": "Number of months to look back", "default": 3}
+                },
+                "required": ["customer_id"]
+            }
+        }
+    }
+]
+```
+
+### 6.2 GPT-4 vs GPT-5 Tool Calling Differences
+
+| Aspect | GPT-4.1 | GPT-5.x |
+|--------|---------|---------|
+| Schema detail needed | Verbose descriptions | Concise descriptions sufficient |
+| Parameter inference | Requires explicit examples | Infers from context |
+| Multi-tool chains | Manual orchestration | Native multi-step |
+| Error recovery | Manual retry logic | Self-correcting |
+
+### 6.3 Tool Calling Test Data Structure
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `user_message` | string | The user's request |
+| `available_tools` | array | List of tool names available |
+| `expected_tool_calls` | array | Tool(s) that should be selected |
+| `expected_parameters` | object | Expected parameter values |
+| `expected_format` | string | Expected output format |
+| `difficulty` | string | `easy`, `medium`, `hard` |
+| `metadata` | object | Additional context |
+
+---
+
+## 7. Output Consistency Techniques
+
+### 7.1 Structured Output Enforcement
 
 ```python
 # GPT-4: Use explicit formatting instructions
@@ -372,7 +510,7 @@ response = client.chat.completions.create(
 )
 ```
 
-### 5.2 Reproducibility Settings
+### 7.2 Reproducibility Settings
 
 ```python
 # Maximum reproducibility configuration
@@ -385,7 +523,7 @@ reproducibility_config = {
 }
 ```
 
-### 5.3 Output Validation
+### 7.3 Output Validation
 
 ```python
 from pydantic import BaseModel, Field
@@ -414,9 +552,9 @@ def validate_classification(response: str) -> ClassificationOutput:
 
 ---
 
-## 6. Prompt Caching Optimization
+## 8. Prompt Caching Optimization
 
-### 6.1 Cache-Friendly Structure
+### 8.1 Cache-Friendly Structure
 
 ```python
 # Structure prompts for maximum cache benefit
@@ -438,7 +576,7 @@ def create_messages(customer_input: str) -> list:
     ]
 ```
 
-### 6.2 Cache Hit Requirements
+### 8.2 Cache Hit Requirements
 
 | Requirement | Value |
 |-------------|-------|
@@ -449,9 +587,9 @@ def create_messages(customer_input: str) -> list:
 
 ---
 
-## 7. Testing & Validation
+## 9. Testing & Validation
 
-### 7.1 Prompt Testing Checklist
+### 9.1 Prompt Testing Checklist
 
 - [ ] Test with clear cases (expect >0.9 confidence)
 - [ ] Test with ambiguous cases (expect follow-up request)
@@ -461,7 +599,7 @@ def create_messages(customer_input: str) -> list:
 - [ ] Test format compliance (valid JSON)
 - [ ] Measure latency impact
 
-### 7.2 A/B Testing Framework
+### 9.2 A/B Testing Framework
 
 ```python
 class PromptABTest:
@@ -497,9 +635,9 @@ class PromptABTest:
 
 ---
 
-## 8. Migration Prompt Conversion
+## 10. Migration Prompt Conversion
 
-### 8.1 Converting GPT-4 → GPT-5
+### 10.1 Converting GPT-4 → GPT-5
 
 **Before (GPT-4):**
 ```markdown
@@ -518,7 +656,7 @@ output: JSON with category and confidence
 # Remove: explicit reasoning steps (native reasoning handles this)
 ```
 
-### 8.2 Common Conversions
+### 10.2 Common Conversions
 
 | GPT-4 Pattern | GPT-5 Replacement |
 |---------------|-------------------|
@@ -530,19 +668,19 @@ output: JSON with category and confidence
 
 ---
 
-## 9. Web-Based Prompt Editor
+## 11. Web-Based Prompt Editor
 
 The evaluation framework includes a full **Prompts** page (`/prompts`) with a Copilot Studio–style Fluent 2 interface for managing prompts without leaving the browser:
 
 | Sub-Tab | Capability |
 |---------|------------|
 | **View / Edit** | Read and edit the active prompt template for any model/type; changes take effect on the next API call |
-| **✨ AI Generate** | Enter a topic and generate all 4 prompts + 3 test datasets in one click (async with progress) |
+| **✨ AI Generate** | Enter a topic and generate all 8 prompts (4 task types × 2 models) + 5 test datasets (70 scenarios) in one click (async with progress) |
 | **Version History** | Filter, preview, restore, or delete (single/bulk) any past prompt version |
-| **Test Data** | Browse and edit raw test scenarios (classification/dialog/general) with inline JSON editor |
+| **Test Data** | Browse and edit raw test scenarios (classification/dialog/general/RAG/tool calling) with inline JSON editor |
 
 The editor uses **Fluent 2 styled inputs** (`.fluent-input`), **brand-blue action buttons** (`.fluent-btn-primary`), and **Fluent cards** (`.fluent-card`) for a consistent Copilot Studio look and feel.  All prompt saves automatically create a versioned snapshot in `prompts/history/`.
 
 ---
 
-*Prompt Design Guide v1.1 | Last Updated: June 2025*
+*Prompt Design Guide v2.0 | Last Updated: February 2026*

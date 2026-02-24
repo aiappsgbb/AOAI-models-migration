@@ -10,7 +10,8 @@ azure:
   # In Azure Container Apps the User-Assigned Managed Identity is used
   # automatically via the AZURE_CLIENT_ID env var set by Bicep.
   # For local development, run 'az login' — no API key needed.
-  # To use an API key instead, set AZURE_OPENAI_API_KEY env var.
+  # To use an API key as fallback, set AZURE_OPENAI_API_KEY env var.
+  api_key: "${AZURE_OPENAI_API_KEY}"    # Use environment variable
   api_version: "2025-04-01-preview"
   
   # Model Deployments
@@ -44,6 +45,15 @@ foundry:
   # Model used inside score_model graders (must be a supported grader model:
   # gpt-4.1, gpt-4o, gpt-4.1-mini, o3-mini, o4-mini, etc.)
   grader_model: "gpt-4.1"
+  # Include safety evaluators (safety_violence, safety_hate_unfairness).
+  # These prompts can trigger Azure OpenAI content filters and cause the
+  # Foundry internal eval run to fail with InternalServerError.
+  # If Foundry evals fail repeatedly, try setting this to false.
+  include_safety_evaluators: true
+  # Timeout (seconds) for each Foundry eval run polling cycle.
+  # With 7 evaluators × 20 rows and two models running in parallel,
+  # runs typically complete in 150-350s.  Default: 600.
+  timeout: 600
 
 # =============================================================================
 # Evaluation Settings
@@ -78,6 +88,28 @@ evaluation:
     - latency
     - token_usage
     - cost
+
+  # Acceptance thresholds — PASS / FAIL gates for migration readiness
+  acceptance_thresholds:
+    classification:
+      accuracy: 0.90
+      consistency: 0.85
+      max_latency_ms: 3000
+    dialog:
+      quality_score: 0.80
+      consistency: 0.80
+      max_latency_ms: 5000
+    rag:
+      groundedness: 0.85
+      relevance: 0.80
+      max_latency_ms: 5000
+    tool_calling:
+      tool_selection_accuracy: 0.90
+      parameter_accuracy: 0.85
+      max_latency_ms: 4000
+    general:
+      quality_score: 0.75
+      max_latency_ms: 5000
 
 # =============================================================================
 # Caching Configuration

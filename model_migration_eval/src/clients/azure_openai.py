@@ -9,6 +9,7 @@ import time
 import asyncio
 import hashlib
 import logging
+import threading
 from typing import Optional, Dict, Any, List, Generator
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -28,7 +29,12 @@ from openai import AzureOpenAI, AsyncAzureOpenAI
 from openai.types.chat import ChatCompletion
 import diskcache
 
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+# Azure Identity — optional; falls back to API key if not installed
+try:
+    from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+    _HAS_AZURE_IDENTITY = True
+except ImportError:
+    _HAS_AZURE_IDENTITY = False
 
 logger = logging.getLogger(__name__)
 
@@ -127,17 +133,13 @@ class AzureOpenAIClient:
         """
         Initialize the Azure OpenAI client.
         
-        Supports two authentication modes:
-          1. **Entra ID / Managed Identity (recommended)** — used automatically
-             when no API key is provided.  ``DefaultAzureCredential`` picks up
-             the User-Assigned Managed Identity via ``AZURE_CLIENT_ID`` in
-             Azure Container Apps, or ``az login`` for local development.
-          2. **API key** — used when ``api_key`` is explicitly passed, set in
-             ``settings.yaml``, or available via ``AZURE_OPENAI_API_KEY``.
+        Auth priority:
+          1. DefaultAzureCredential (Entra ID / Managed Identity) — if azure-identity is installed
+          2. API key — explicit param, config file, or AZURE_OPENAI_API_KEY env var
         
         Args:
             endpoint: Azure OpenAI endpoint URL
-            api_key: API key (optional — omit to use Entra ID auth)
+            api_key: API key (fallback when DefaultAzureCredential is unavailable)
             api_version: API version string
             config_path: Path to settings.yaml config file
         """
@@ -152,7 +154,7 @@ class AzureOpenAIClient:
         
         # Resolve environment variable references (${VAR_NAME} syntax)
         self.endpoint = self._resolve_env_var(endpoint) or os.getenv('AZURE_OPENAI_ENDPOINT')
-        resolved_key = self._resolve_env_var(api_key) or os.getenv('AZURE_OPENAI_API_KEY')
+        self.api_key = self._resolve_env_var(api_key) or os.getenv('AZURE_OPENAI_API_KEY')
         self.api_version = self._resolve_env_var(api_version) or api_version
         
         if not self.endpoint:
@@ -160,25 +162,43 @@ class AzureOpenAIClient:
                 "Azure OpenAI endpoint is required. "
                 "Set via parameters, config file, or AZURE_OPENAI_ENDPOINT env var."
             )
-
-        # Determine auth mode: API key vs Entra ID (DefaultAzureCredential)
-        # Treat placeholder / unresolved env vars as empty.
-        self.api_key = resolved_key if (resolved_key and not resolved_key.startswith('${')) else None
+        
+        # -----------------------------------------------------------
+        # Auth: try DefaultAzureCredential first, fall back to API key
+        # -----------------------------------------------------------
+        self._auth_method = "api_key"          # track which auth is in use
         self._token_provider = None
+        auth_kwargs: Dict[str, Any] = {}
 
-        if self.api_key:
-            logger.info("Using API key authentication for Azure OpenAI")
-            auth_kwargs = {'api_key': self.api_key}
+        if _HAS_AZURE_IDENTITY:
+            try:
+                credential = DefaultAzureCredential()
+                self._token_provider = get_bearer_token_provider(
+                    credential,
+                    "https://cognitiveservices.azure.com/.default",
+                )
+                auth_kwargs["azure_ad_token_provider"] = self._token_provider
+                self._auth_method = "entra_id"
+                logger.info("Azure OpenAI client: using DefaultAzureCredential (Entra ID)")
+            except Exception as exc:
+                logger.warning(
+                    "DefaultAzureCredential failed (%s). Falling back to API key.", exc
+                )
+                if not self.api_key:
+                    raise ValueError(
+                        "DefaultAzureCredential failed and no API key provided. "
+                        "Set AZURE_OPENAI_API_KEY or configure Entra ID credentials."
+                    ) from exc
+                auth_kwargs["api_key"] = self.api_key
         else:
-            logger.info("Using Entra ID (DefaultAzureCredential) for Azure OpenAI")
-            managed_id = os.getenv('AZURE_CLIENT_ID')
-            credential = DefaultAzureCredential(
-                managed_identity_client_id=managed_id
-            ) if managed_id else DefaultAzureCredential()
-            self._token_provider = get_bearer_token_provider(
-                credential, "https://cognitiveservices.azure.com/.default"
-            )
-            auth_kwargs = {'azure_ad_token_provider': self._token_provider}
+            # azure-identity not installed — API key only
+            if not self.api_key:
+                raise ValueError(
+                    "Azure OpenAI API key is required (azure-identity not installed for Entra ID). "
+                    "Set via parameters, config file, or AZURE_OPENAI_API_KEY env var."
+                )
+            auth_kwargs["api_key"] = self.api_key
+            logger.info("Azure OpenAI client: using API key (azure-identity not installed)")
         
         # Initialize clients
         self.client = AzureOpenAI(
@@ -209,6 +229,10 @@ class AzureOpenAIClient:
             **auth_kwargs,
         )
         
+        # Track whether we already attempted an auth fallback
+        self._auth_fallback_attempted = False
+        self._auth_fallback_lock = threading.Lock()
+
         # Model configurations
         self.models: Dict[str, ModelConfig] = {}
         
@@ -217,6 +241,73 @@ class AzureOpenAIClient:
         
         # Cache setup
         self._cache: Optional[diskcache.Cache] = None
+
+    # ------------------------------------------------------------------
+    # Runtime auth fallback: Entra ID 401 → API key
+    # ------------------------------------------------------------------
+    def _fallback_to_api_key(self) -> bool:
+        """Recreate both SDK clients using the API key.
+
+        Called automatically when an Entra ID token is accepted by Azure AD
+        but the service principal lacks the RBAC data-plane role on the
+        Azure OpenAI resource (HTTP 401 PermissionDenied).
+
+        Thread-safe: uses a lock so concurrent async tasks don't race to
+        recreate the clients simultaneously.
+
+        Returns True if the caller should retry (either because we just
+        switched, or because another concurrent task already switched).
+        """
+        with self._auth_fallback_lock:
+            # If we already fell back AND we're now on API key, tell the caller
+            # to just retry — the clients are already using the good auth.
+            if self._auth_fallback_attempted:
+                return self._auth_method == "api_key"
+            self._auth_fallback_attempted = True
+
+            if not self.api_key:
+                logger.error(
+                    "Entra ID auth returned 401 and no API key is available for fallback. "
+                    "Assign 'Cognitive Services OpenAI User' to the principal or set AZURE_OPENAI_API_KEY."
+                )
+                return False
+
+            logger.warning(
+                "Entra ID token lacks required RBAC data-action on Azure OpenAI. "
+                "Falling back to API key authentication."
+            )
+
+            auth_kwargs: Dict[str, Any] = {"api_key": self.api_key}
+            self._auth_method = "api_key"
+
+            self.client = AzureOpenAI(
+                azure_endpoint=self.endpoint,
+                api_version=self.api_version,
+                timeout=300.0,
+                max_retries=3,
+                http_client=httpx.Client(
+                    limits=httpx.Limits(
+                        max_connections=10,
+                        max_keepalive_connections=0,
+                    ),
+                ),
+                **auth_kwargs,
+            )
+            self.async_client = AsyncAzureOpenAI(
+                azure_endpoint=self.endpoint,
+                api_version=self.api_version,
+                timeout=300.0,
+                max_retries=3,
+                http_client=httpx.AsyncClient(
+                    limits=httpx.Limits(
+                        max_connections=20,
+                        max_keepalive_connections=10,
+                    ),
+                ),
+                **auth_kwargs,
+            )
+            logger.info("Azure OpenAI client: recreated with API key (fallback from Entra ID)")
+            return True
         
     def _resolve_env_var(self, value: str) -> str:
         """Resolve environment variable references like ${VAR_NAME}"""
@@ -241,6 +332,46 @@ class AzureOpenAIClient:
     def enable_caching(self, cache_dir: str = ".cache/prompts"):
         """Enable response caching for repeated queries"""
         self._cache = diskcache.Cache(cache_dir)
+
+    @staticmethod
+    def build_json_schema_format(name: str, schema: Dict[str, Any], strict: bool = True) -> Dict[str, Any]:
+        """Build a response_format dict for Structured Outputs (json_schema).
+
+        This guarantees the model output conforms to the given JSON Schema,
+        which is more reliable than json_object mode.
+
+        Args:
+            name: A descriptive name for the schema (e.g. "classification_result")
+            schema: A valid JSON Schema dict (type, properties, required, etc.)
+            strict: If True, the model MUST follow the schema exactly.
+
+        Returns:
+            Dict suitable for the ``response_format`` parameter.
+
+        Example::
+
+            fmt = AzureOpenAIClient.build_json_schema_format(
+                "classification",
+                {
+                    "type": "object",
+                    "properties": {
+                        "category": {"type": "string"},
+                        "confidence": {"type": "number"},
+                    },
+                    "required": ["category", "confidence"],
+                    "additionalProperties": False,
+                },
+            )
+            result = client.complete(messages, model_name="gpt5", response_format=fmt)
+        """
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": name,
+                "strict": strict,
+                "schema": schema,
+            },
+        }
         
     def _get_cache_key(self, model: str, messages: List[Dict], **kwargs) -> str:
         """Generate cache key from request parameters"""
@@ -252,17 +383,41 @@ class AzureOpenAIClient:
         cache_str = json.dumps(cache_data, sort_keys=True)
         return hashlib.sha256(cache_str.encode()).hexdigest()
     
+    def _is_new_generation_model(self, config: ModelConfig) -> bool:
+        """Check if this is a GPT-5.x, o-series, or model-router deployment.
+        
+        These models use:
+        - max_completion_tokens instead of max_tokens
+        - 'developer' role instead of 'system' role
+        - reasoning_effort parameter (where applicable)
+        """
+        if config.use_max_completion_tokens is not None:
+            return config.use_max_completion_tokens
+        name = config.deployment_name.lower()
+        return (
+            any(prefix in name for prefix in ('gpt-5', 'gpt5', 'o1', 'o3', 'o4', 'model-router'))
+            or config.reasoning_effort is not None
+        )
+
     def _needs_max_completion_tokens(self, config: ModelConfig) -> bool:
         """Determine if the model requires max_completion_tokens instead of max_tokens.
         
         GPT-5.x, o-series, and reasoning models use max_completion_tokens.
         """
-        if config.use_max_completion_tokens is not None:
-            return config.use_max_completion_tokens
+        return self._is_new_generation_model(config)
+
+    @staticmethod
+    def _apply_developer_role(messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """Replace 'system' role with 'developer' for GPT-5/o-series models.
         
-        name = config.deployment_name.lower()
-        # GPT-5.x, o1, o3, o4 series and reasoning models need max_completion_tokens
-        return any(prefix in name for prefix in ('gpt-5', 'gpt5', 'o1', 'o3', 'o4')) or config.reasoning_effort is not None
+        Per Azure OpenAI migration best practices, GPT-5 and o-series models
+        use the 'developer' role instead of 'system'. This method performs
+        the auto-replacement transparently.
+        """
+        return [
+            {**m, 'role': 'developer'} if m.get('role') == 'system' else m
+            for m in messages
+        ]
     
     def _build_request_params(
         self,
@@ -274,6 +429,10 @@ class AzureOpenAIClient:
         **kwargs
     ) -> Dict[str, Any]:
         """Build request parameters dict, handling model-specific differences."""
+        # Auto-replace 'system' → 'developer' for GPT-5/o-series models
+        if self._is_new_generation_model(config):
+            messages = self._apply_developer_role(messages)
+
         request_params = {
             'model': config.deployment_name,
             'messages': messages,
@@ -286,11 +445,15 @@ class AzureOpenAIClient:
         else:
             request_params['max_tokens'] = token_limit
         
-        # Temperature (some reasoning models ignore it, but we send it anyway)
-        request_params['temperature'] = kwargs.get('temperature', config.temperature)
-        request_params['top_p'] = kwargs.get('top_p', config.top_p)
-        request_params['frequency_penalty'] = kwargs.get('frequency_penalty', config.frequency_penalty)
-        request_params['presence_penalty'] = kwargs.get('presence_penalty', config.presence_penalty)
+        # Sampling parameters — reasoning models (those with reasoning_effort)
+        # only accept the default temperature=1 and reject top_p /
+        # frequency_penalty / presence_penalty, so we omit them entirely.
+        reasoning_effort = kwargs.get('reasoning_effort', config.reasoning_effort)
+        if not reasoning_effort:
+            request_params['temperature'] = kwargs.get('temperature', config.temperature)
+            request_params['top_p'] = kwargs.get('top_p', config.top_p)
+            request_params['frequency_penalty'] = kwargs.get('frequency_penalty', config.frequency_penalty)
+            request_params['presence_penalty'] = kwargs.get('presence_penalty', config.presence_penalty)
         
         # Optional parameters
         seed = kwargs.get('seed', config.seed)
@@ -307,7 +470,6 @@ class AzureOpenAIClient:
             request_params['stream'] = True
             
         # GPT-5/o-series specific: reasoning_effort
-        reasoning_effort = kwargs.get('reasoning_effort', config.reasoning_effort)
         if reasoning_effort:
             request_params['reasoning_effort'] = reasoning_effort
         
@@ -395,8 +557,33 @@ class AzureOpenAIClient:
             self.metrics_history.append(metrics)
             
             return result
-            
+
         except Exception as e:
+            # --- Runtime auth fallback: 401 → API key ---
+            from openai import AuthenticationError
+            if isinstance(e, AuthenticationError) and self._fallback_to_api_key():
+                logger.info("Retrying request with API key after Entra ID 401…")
+                # Reset metrics for the retry
+                metrics = RequestMetrics(
+                    request_id=metrics.request_id + "_retry",
+                    model=config.deployment_name,
+                    start_time=time.time(),
+                )
+                request_params["model"] = config.deployment_name
+                response = self.client.chat.completions.create(**request_params)
+                raw_content = response.choices[0].message.content if response.choices else ""
+                if isinstance(raw_content, dict):
+                    content = json.dumps(raw_content, ensure_ascii=False)
+                elif raw_content is None:
+                    content = ""
+                else:
+                    content = raw_content
+                metrics.finalize(completion=response)
+                self.metrics_history.append(metrics)
+                result = CompletionResult(content=content, metrics=metrics, raw_response=response)
+                if use_cache and self._cache:
+                    self._cache.set(cache_key, result)
+                return result
             metrics.finalize(error=str(e))
             self.metrics_history.append(metrics)
             raise
@@ -446,6 +633,27 @@ class AzureOpenAIClient:
                 raw_response=response
             )
         except Exception as e:
+            # --- Runtime auth fallback: 401 → API key ---
+            from openai import AuthenticationError
+            if isinstance(e, AuthenticationError) and self._fallback_to_api_key():
+                logger.info("Retrying async request with API key after Entra ID 401…")
+                metrics = RequestMetrics(
+                    request_id=metrics.request_id + "_retry",
+                    model=config.deployment_name,
+                    start_time=time.time(),
+                )
+                request_params["model"] = config.deployment_name
+                response = await self.async_client.chat.completions.create(**request_params)
+                raw_content = response.choices[0].message.content if response.choices else ""
+                if isinstance(raw_content, dict):
+                    content = json.dumps(raw_content, ensure_ascii=False)
+                elif raw_content is None:
+                    content = ""
+                else:
+                    content = raw_content
+                metrics.finalize(completion=response)
+                self.metrics_history.append(metrics)
+                return CompletionResult(content=content, metrics=metrics, raw_response=response)
             metrics.finalize(error=str(e))
             self.metrics_history.append(metrics)
             raise

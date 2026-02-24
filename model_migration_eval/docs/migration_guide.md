@@ -1,7 +1,7 @@
 # Azure OpenAI Model Migration Guide
-## GPT-4o to GPT-5.x Migration Best Practices
+## GPT-4.1 to GPT-5.x Migration Best Practices
 
-This comprehensive guide covers all aspects of migrating live systems from GPT-4o to GPT-5.x on Azure AI Foundry.
+This comprehensive guide covers all aspects of migrating live systems from GPT-4.1 to GPT-5.x on Azure AI Foundry.
 
 ---
 
@@ -12,10 +12,12 @@ This comprehensive guide covers all aspects of migrating live systems from GPT-4
 3. [Dialog & Follow-up Questions](#3-dialog--follow-up-questions)
 4. [Prompt Design Best Practices](#4-prompt-design-best-practices)
 5. [Latency Optimization](#5-latency-optimization)
-6. [Security & Azure Tools](#6-security--azure-tools)
-7. [Conversational & Voice AI](#7-conversational--voice-ai)
-8. [Strategic Perspective](#8-strategic-perspective)
-9. [UI/UX Evaluation Experience](#9-uiux-evaluation-experience)
+6. [RAG (Retrieval-Augmented Generation)](#6-rag-retrieval-augmented-generation)
+7. [Tool Calling & Function Calling](#7-tool-calling--function-calling)
+8. [Security & Azure Tools](#8-security--azure-tools)
+9. [Conversational & Voice AI](#9-conversational--voice-ai)
+10. [Strategic Perspective](#10-strategic-perspective)
+11. [UI/UX Evaluation Experience](#11-uiux-evaluation-experience)
 
 ---
 
@@ -274,9 +276,150 @@ for chunk in stream:
 
 ---
 
-## 6. Security & Azure Tools
+## 6. RAG (Retrieval-Augmented Generation)
 
-### 6.1 Azure Sandbox Tools
+### 6.1 RAG Architecture for Migration
+
+When migrating RAG pipelines from GPT-4.1 to GPT-5.x, the core challenge is ensuring the model stays **grounded** in the provided context while leveraging improved reasoning capabilities.
+
+```
+User Query → Retriever → Context Documents → GPT Model → Grounded Response
+                                                ↓
+                                     Groundedness Check
+                                     Relevance Check
+```
+
+### 6.2 GPT-4 vs GPT-5 RAG Differences
+
+| Aspect | GPT-4.1 | GPT-5.x | Migration Impact |
+|--------|---------|---------|------------------|
+| Context window | 128K tokens | 1M+ tokens | More documents per query |
+| Groundedness | Good with explicit instructions | Better native grounding | Simpler prompts |
+| Hallucination risk | Moderate | Lower | Still requires validation |
+| Long-context recall | Degrades >64K | Better sustained attention | Larger context batches |
+| Reasoning over context | Explicit CoT needed | Native reasoning | Remove CoT instructions |
+
+### 6.3 RAG Prompt Design for GPT-5
+
+```markdown
+# RAG AGENT
+
+## Task
+Answer the user's question using ONLY the provided context documents.
+
+## Rules
+1. Base your answer exclusively on the provided context
+2. If the context doesn't contain the answer, say so explicitly
+3. Cite the relevant document(s) in your response
+4. Never fabricate information not in the context
+
+## Context Documents
+{context}
+
+## User Question
+{query}
+```
+
+### 6.4 RAG Evaluation Metrics
+
+The framework evaluates RAG scenarios with these metrics:
+
+| Metric | Description | Threshold |
+|--------|-------------|-----------|
+| **Groundedness** | Context keyword overlap in model response | ≥ 0.85 |
+| **Relevance** | Ground truth keyword overlap in response | ≥ 0.80 |
+| **Format compliance** | Correct output structure | — |
+| **Completeness** | All required elements present | — |
+
+### 6.5 RAG Test Data Format
+
+```json
+{
+  "query": "What is the cancellation policy for premium plans?",
+  "context": "Premium plan subscribers can cancel within 30 days for a full refund...",
+  "ground_truth": "Premium plans can be cancelled within 30 days for a full refund.",
+  "expected_format": "text",
+  "difficulty": "medium",
+  "metadata": {"topic": "billing", "source": "policy_docs"}
+}
+```
+
+---
+
+## 7. Tool Calling & Function Calling
+
+### 7.1 Migration from GPT-4 to GPT-5 Tool Calling
+
+GPT-5 brings significant improvements to tool calling: better parameter extraction, more reliable tool selection, and native support for complex multi-tool workflows.
+
+### 7.2 GPT-4 vs GPT-5 Tool Calling Differences
+
+| Aspect | GPT-4.1 | GPT-5.x | Migration Impact |
+|--------|---------|---------|------------------|
+| Tool selection | Good | Excellent | More reliable |
+| Parameter extraction | Requires explicit schemas | Better inference from descriptions | Simpler schemas possible |
+| Multi-tool chains | Manual orchestration needed | Native multi-step | Simplify orchestration code |
+| Parallel tool calls | Supported | Enhanced | Better throughput |
+| Error recovery | Limited | Better self-correction | Fewer retries needed |
+
+### 7.3 Tool Definition Best Practices
+
+```python
+# GPT-5 optimised tool definitions
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_account_balance",
+            "description": "Get current balance for a customer account",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "customer_id": {
+                        "type": "string",
+                        "description": "Customer ID (format: CUS-XXXXXX)"
+                    },
+                    "include_pending": {
+                        "type": "boolean",
+                        "description": "Include pending transactions",
+                        "default": False
+                    }
+                },
+                "required": ["customer_id"]
+            }
+        }
+    }
+]
+```
+
+### 7.4 Tool Calling Evaluation Metrics
+
+| Metric | Description | Threshold |
+|--------|-------------|-----------|
+| **Tool selection accuracy** | Correct tool(s) selected | ≥ 0.90 |
+| **Parameter extraction accuracy** | Correct parameter values | ≥ 0.85 |
+| **Format compliance** | Valid tool call format | — |
+| **Latency** | Response time | ≤ 4000ms |
+
+### 7.5 Tool Calling Test Data Format
+
+```json
+{
+  "user_message": "Check my account balance for CUS-123456",
+  "available_tools": ["get_account_balance", "get_billing_history", "update_profile"],
+  "expected_tool_calls": ["get_account_balance"],
+  "expected_parameters": {"customer_id": "CUS-123456"},
+  "expected_format": "json",
+  "difficulty": "easy",
+  "metadata": {"category": "account_inquiry"}
+}
+```
+
+---
+
+## 8. Security & Azure Tools
+
+### 8.1 Azure Sandbox Tools
 
 **Code Interpreter for Exact String Matching:**
 
@@ -303,7 +446,7 @@ Use code interpreter to:
 - Files are ephemeral
 - Enable only when needed
 
-### 6.2 Content Filtering
+### 8.2 Content Filtering
 
 ```python
 # Azure content filter categories
@@ -315,7 +458,7 @@ content_filter_config = {
 }
 ```
 
-### 6.3 Data Protection
+### 8.3 Data Protection
 
 | Data Type | Protection Method |
 |-----------|-------------------|
@@ -326,9 +469,9 @@ content_filter_config = {
 
 ---
 
-## 7. Conversational & Voice AI
+## 9. Conversational & Voice AI
 
-### 7.1 GPT Realtime API
+### 9.1 GPT Realtime API
 
 **Voice Agent Architecture:**
 ```
@@ -337,7 +480,7 @@ Customer Call → Speech-to-Text → GPT-5 → Text-to-Speech → Customer
               Context Manager ←→ Tool Execution
 ```
 
-### 7.2 Custom Voice Considerations
+### 9.2 Custom Voice Considerations
 
 **Securing Exclusive Voice:**
 - Work with Azure/OpenAI account team
@@ -345,7 +488,7 @@ Customer Call → Speech-to-Text → GPT-5 → Text-to-Speech → Customer
 - Custom voice training possible
 - Latency considerations for real-time
 
-### 7.3 Customer Identification Methods
+### 9.3 Customer Identification Methods
 
 | Method | Security | User Experience | Recommendation |
 |--------|----------|-----------------|----------------|
@@ -355,7 +498,7 @@ Customer Call → Speech-to-Text → GPT-5 → Text-to-Speech → Customer
 | SMS OTP | Medium | Medium | Backup method |
 | Knowledge-based | Low | Poor | Avoid |
 
-### 7.4 MCP Server Security
+### 9.4 MCP Server Security
 
 ```python
 # MCP Server access control
@@ -373,9 +516,9 @@ mcp_config = {
 
 ---
 
-## 8. Strategic Perspective
+## 10. Strategic Perspective
 
-### 8.1 Manual vs. Automated Prompting (Next 9 Months)
+### 10.1 Manual vs. Automated Prompting (Next 9 Months)
 
 | Aspect | Current (2025) | Near Future (9 months) |
 |--------|----------------|------------------------|
@@ -386,7 +529,7 @@ mcp_config = {
 
 **Recommendation:** Focus on building robust evaluation frameworks that can assess both manually-crafted and auto-generated prompts.
 
-### 8.2 Key Technologies for Telephone Service Agents (12-24 Months)
+### 10.2 Key Technologies for Telephone Service Agents (12-24 Months)
 
 1. **Multimodal Real-time Processing**
    - Simultaneous voice + screen sharing
@@ -408,7 +551,7 @@ mcp_config = {
    - Privacy preservation
    - Offline capability
 
-### 8.3 Evaluation Framework Importance
+### 10.3 Evaluation Framework Importance
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -432,9 +575,9 @@ mcp_config = {
 
 ---
 
-## 9. UI/UX Evaluation Experience
+## 11. UI/UX Evaluation Experience
 
-### 9.1 Copilot Studio Fluent 2 Design
+### 11.1 Copilot Studio Fluent 2 Design
 
 The evaluation framework's web interface follows the **Microsoft Copilot Studio** visual language — a **Fluent 2** design system that provides:
 
@@ -447,7 +590,7 @@ The evaluation framework's web interface follows the **Microsoft Copilot Studio*
 | **Icons** | Fluent UI System Icons via CDN |
 | **Design tokens** | CSS custom properties (`--brand-primary`, `--surface-bg`, `--border-default`, etc.) |
 
-### 9.2 Template Architecture
+### 11.2 Template Architecture
 
 All pages share two partials that centralise the design system:
 
@@ -458,10 +601,10 @@ All pages share two partials that centralise the design system:
 
 Design changes are made in the partials and automatically propagate to all five pages.
 
-### 9.3 Evaluation Dashboard
+### 11.3 Evaluation Dashboard
 
 The dashboard and evaluation pages display:
-- **12 metric cards** per evaluation type inside Fluent cards with info tooltips
+- **Dynamic metric cards** per evaluation type (12 for classification, 12 for dialog, 4 for general, 8 for RAG, 8 for tool calling) inside Fluent cards with info tooltips
 - **Chart.js** bar/radar charts for model comparison dimensions
 - **Verbose narrative feed** with colour-coded entries (step/ok/warn/err/detail/head)
 - **Fluent badges** for status indicators (success, warning, error, info, neutral)
@@ -481,6 +624,9 @@ The dashboard and evaluation pages display:
 - [ ] Measure latency differences
 - [ ] Test consistency/reproducibility
 - [ ] Validate edge cases
+- [ ] Run RAG groundedness and relevance tests
+- [ ] Run tool calling selection and parameter accuracy tests
+- [ ] Submit to Foundry LLM-as-judge for semantic quality evaluation
 
 ### Prompt Updates
 - [ ] Remove explicit CoT instructions (if using reasoning models)
@@ -510,4 +656,4 @@ The dashboard and evaluation pages display:
 
 ---
 
-*Last Updated: June 2025*
+*Last Updated: February 2026*

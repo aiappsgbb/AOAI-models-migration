@@ -15,15 +15,20 @@ Topic management:
   - Generating a new topic automatically archives the current one first.
 """
 
+import asyncio
 import json
 import re
 import shutil
+import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Maximum number of concurrent LLM calls to avoid API rate-limit errors.
+_MAX_CONCURRENT_LLM = 5
 
 
 def _slugify(text: str) -> str:
@@ -334,6 +339,8 @@ class PromptManager:
         "classification": "classification_scenarios.json",
         "dialog":         "follow_up_scenarios.json",
         "general":        "capability_tests.json",
+        "rag":            "rag_scenarios.json",
+        "tool_calling":   "tool_calling_scenarios.json",
     }
 
     def __init__(self, prompts_dir: str = "prompts", data_dir: str = "data/synthetic"):
@@ -675,14 +682,15 @@ class PromptManager:
     ) -> Dict[str, Any]:
         """Regenerate only the synthetic test data for the current (or given) topic.
 
-        This is called automatically when prompts are updated for a new topic,
-        or can be triggered manually from the UI.
+        Uses **parallel async calls** — all 5 data types are generated
+        concurrently for maximum speed.
         """
         if topic is None:
             topic = self.get_topic_metadata().get("topic", "")
         if not topic:
             return {"error": "No topic set. Generate or save prompts with a topic first."}
 
+        overall_t0 = time.time()
         data_path = Path(data_dir)
         result: Dict[str, Any] = {}
 
@@ -706,8 +714,6 @@ class PromptManager:
                 canonical_categories = common
                 logger.info(f"regenerate_test_data: using INTERSECTION ({len(common)} categories): {common}")
             else:
-                # No overlap — use GPT-4 as the source of truth (its
-                # taxonomy is the canonical one that GPT-5 should copy).
                 canonical_categories = _cats_by_model["gpt4"]
                 logger.warning(
                     f"regenerate_test_data: no category overlap — "
@@ -720,169 +726,39 @@ class PromptManager:
             ("classification", self._build_classification_data_prompt, 20),
             ("dialog",         self._build_dialog_data_prompt,         15),
             ("general",        self._build_general_data_prompt,        15),
+            ("rag",            self._build_rag_data_prompt,            10),
+            ("tool_calling",   self._build_tool_calling_data_prompt,   10),
         ]
 
-        MAX_REGEN_RETRIES = 2  # total attempts = 1 + MAX_REGEN_RETRIES
+        MAX_REGEN_RETRIES = 2
 
-        for data_type, prompt_builder, target_count in data_generators:
-            last_error: Optional[Exception] = None
-            for attempt in range(1, MAX_REGEN_RETRIES + 2):
-                try:
-                    data_prompt = prompt_builder(topic, target_count, categories=canonical_categories)
+        logger.info("Regenerating all 5 data types in parallel...")
 
-                    system_msg = (
-                        "You are a synthetic-data generator for AI evaluation frameworks. "
-                        "You produce realistic, diverse test scenarios in valid JSON. "
-                        "Return a JSON object with a single key \"scenarios\" whose value is "
-                        "the array of test items.  No markdown fences, no explanation."
-                    )
-                    if attempt > 1:
-                        system_msg += (
-                            "\n\nIMPORTANT: Your previous response was rejected. "
-                            "Possible issues: invalid JSON, or too few scenarios. "
-                            "Double-check that every object uses double-quoted keys, "
-                            "there are NO trailing commas before } or ], no // comments, "
-                            f"and you MUST return EXACTLY {target_count} scenarios in the array."
-                        )
+        async def _regen_all():
+            sem = asyncio.Semaphore(_MAX_CONCURRENT_LLM)
+            tasks = [
+                self._async_generate_one_data(
+                    client, generator_model, topic,
+                    dt, builder, count, canonical_categories,
+                    data_path, MAX_REGEN_RETRIES, sem,
+                )
+                for dt, builder, count in data_generators
+            ]
+            return await asyncio.gather(*tasks, return_exceptions=True)
 
-                    res = client.complete(
-                        messages=[
-                            {"role": "system", "content": system_msg},
-                            {"role": "user", "content": data_prompt},
-                        ],
-                        model_name=generator_model,
-                        response_format={"type": "json_object"},
-                    )
+        regen_results = self._run_async(_regen_all())
 
-                    raw = res.content.strip()
-                    if raw.startswith("```"):
-                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                    if raw.endswith("```"):
-                        raw = raw[:-3]
-                    raw = raw.strip()
-
-                    # Parse with sanitiser fallback
-                    try:
-                        parsed = json.loads(raw)
-                    except json.JSONDecodeError:
-                        parsed = json.loads(_sanitise_json(raw))
-                        logger.info(f"JSON sanitisation fixed {data_type} data (regenerate)")
-
-                    # Extract array from wrapper object or use directly
-                    if isinstance(parsed, dict):
-                        scenarios = (
-                            parsed.get("scenarios")
-                            or next(
-                                (v for v in parsed.values() if isinstance(v, list)),
-                                None,
-                            )
-                        )
-                        if scenarios is None:
-                            raise ValueError(
-                                f"JSON object has no array value — keys: {list(parsed.keys())}"
-                            )
-                    elif isinstance(parsed, list):
-                        scenarios = parsed
-                    else:
-                        raise ValueError("Expected a JSON object or array")
-
-                    if not isinstance(scenarios, list):
-                        raise ValueError("Expected a JSON array of scenarios")
-
-                    # ── Validate minimum scenario count ──────────────
-                    min_acceptable = max(1, int(target_count * 0.5))
-                    if len(scenarios) < min_acceptable and attempt <= MAX_REGEN_RETRIES:
-                        logger.warning(
-                            f"regenerate {data_type}: model returned only "
-                            f"{len(scenarios)}/{target_count} scenarios "
-                            f"(min {min_acceptable}) — retrying "
-                            f"({MAX_REGEN_RETRIES - attempt + 1} left)"
-                        )
-                        raise ValueError(
-                            f"Too few scenarios: got {len(scenarios)}, "
-                            f"expected at least {min_acceptable}"
-                        )
-
-                    if len(scenarios) < target_count:
-                        logger.info(
-                            f"regenerate {data_type}: got {len(scenarios)}/{target_count} "
-                            f"scenarios — accepting (above min threshold)"
-                        )
-
-                    # ── Validate classification expected_category vs canonical ──
-                    if data_type == "classification" and canonical_categories:
-                        canonical_set = {c.lower().strip() for c in canonical_categories}
-                        invalid_count = 0
-                        for sc in scenarios:
-                            ec = sc.get("expected_category", "")
-                            if isinstance(ec, str) and ec.lower().strip() not in canonical_set:
-                                ec_lower = ec.lower().strip()
-                                match = next(
-                                    (c for c in canonical_categories
-                                     if c.lower() in ec_lower or ec_lower in c.lower()),
-                                    None,
-                                )
-                                if match:
-                                    logger.info(
-                                        f"regenerate data validation: mapped '{ec}' -> '{match}'"
-                                    )
-                                    sc["expected_category"] = match
-                                else:
-                                    invalid_count += 1
-                                    logger.warning(
-                                        f"regenerate data validation: '{ec}' not in canonical"
-                                    )
-                        if invalid_count:
-                            logger.warning(
-                                f"⚠ {invalid_count}/{len(scenarios)} classification "
-                                f"scenarios have invalid expected_category values"
-                            )
-                        else:
-                            logger.info(
-                                "✓ All regenerated classification expected_category "
-                                "values match canonical categories."
-                            )
-
-                    out_dir = data_path / data_type
-                    out_dir.mkdir(parents=True, exist_ok=True)
-                    filenames = {
-                        "classification": "classification_scenarios.json",
-                        "dialog":         "follow_up_scenarios.json",
-                        "general":        "capability_tests.json",
-                    }
-                    out_file = out_dir / filenames[data_type]
-                    with open(out_file, "w", encoding="utf-8") as f:
-                        json.dump(scenarios, f, indent=2, ensure_ascii=False)
-
-                    result[data_type] = {"count": len(scenarios), "file": str(out_file)}
-                    logger.info(
-                        f"Regenerated {len(scenarios)} {data_type} scenarios "
-                        f"-> {out_file} (attempt {attempt})"
-                    )
-                    last_error = None
-                    break  # success — exit retry loop
-
-                except Exception as e:
-                    last_error = e
-                    if attempt <= MAX_REGEN_RETRIES:
-                        logger.warning(
-                            f"regenerate {data_type} attempt {attempt} failed: {e}  "
-                            f"— retrying ({MAX_REGEN_RETRIES - attempt + 1} left)"
-                        )
-                    else:
-                        logger.error(
-                            f"Failed regenerating {data_type} data after "
-                            f"{attempt} attempts: {e}"
-                        )
-
-            if last_error is not None:
-                result[data_type] = {"count": 0, "error": str(last_error)}
+        for item in regen_results:
+            if isinstance(item, Exception):
+                logger.error(f"[parallel] Data regeneration exception: {item}")
+                continue
+            data_type, data_result = item
+            result[data_type] = data_result
 
         # Update metadata AFTER data is on disk to avoid slug desync
         self._save_topic_metadata(topic, data_generated=True)
 
-        # Update the topic archive with fresh data — but only if the
-        # metadata slug matches what we expect (avoid poisoning archives).
+        # Update the topic archive with fresh data
         meta_now = self.get_topic_metadata()
         meta_slug = _slugify(meta_now.get("topic", "")) if meta_now.get("topic") else ""
         if meta_slug == _slugify(topic):
@@ -892,6 +768,9 @@ class PromptManager:
                 f"Metadata slug '{meta_slug}' doesn't match expected '{_slugify(topic)}' "
                 f"— skipping archive to avoid overwriting wrong topic"
             )
+
+        elapsed = time.time() - overall_t0
+        logger.info(f"Data regeneration complete in {elapsed:.1f}s (parallel)")
         return result
 
     # ── Index management ──────────────────────────────────────────────
@@ -1106,6 +985,219 @@ class PromptManager:
 
     # ── AI Generation ─────────────────────────────────────────────────
 
+    @staticmethod
+    def _run_async(coro):
+        """Run an async coroutine from sync code, handling event-loop reuse."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # We're inside a running loop (e.g. Jupyter, nested call).
+            # Create a new loop in a thread to avoid "cannot run nested".
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                return pool.submit(asyncio.run, coro).result()
+        else:
+            return asyncio.run(coro)
+
+    # ── Async helpers for parallel LLM calls ──────────────────────────
+
+    async def _async_generate_one_prompt(
+        self,
+        client,
+        generator_model: str,
+        topic: str,
+        target_model: str,
+        task: str,
+        reference_snippet: str,
+        shared_categories: Optional[List[str]],
+        semaphore: asyncio.Semaphore,
+    ) -> Tuple[str, str, str]:
+        """Generate a single prompt asynchronously.
+
+        Returns (target_model, prompt_type, generated_content).
+        """
+        prompt_type = f"{task}_agent_system"
+        meta_prompt = self._build_generation_prompt(
+            topic=topic,
+            target_model=target_model,
+            task=task,
+            reference_snippet=reference_snippet,
+            shared_categories=shared_categories if task == "classification" else None,
+        )
+
+        async with semaphore:
+            logger.info(f"[parallel] Generating {target_model}/{task} prompt...")
+            t0 = time.time()
+            try:
+                res = await client.complete_async(
+                    messages=[
+                        {"role": "system", "content": (
+                            "You are an expert prompt engineer specialising in Azure OpenAI models. "
+                            "You create high-quality system prompts that follow each model family's best practices. "
+                            "Return ONLY the system prompt content, no explanations, no markdown fences."
+                        )},
+                        {"role": "user", "content": meta_prompt},
+                    ],
+                    model_name=generator_model,
+                )
+                generated = res.content.strip()
+                logger.info(
+                    f"[parallel] {target_model}/{task} prompt done "
+                    f"in {time.time() - t0:.1f}s ({len(generated)} chars)"
+                )
+                return (target_model, prompt_type, generated)
+            except Exception as e:
+                logger.error(f"[parallel] Failed {target_model}/{prompt_type}: {e}")
+                return (target_model, prompt_type, f"[Error: {e}]")
+
+    async def _async_generate_one_data(
+        self,
+        client,
+        generator_model: str,
+        topic: str,
+        data_type: str,
+        prompt_builder,
+        target_count: int,
+        canonical_categories: List[str],
+        data_path: Path,
+        max_retries: int,
+        semaphore: asyncio.Semaphore,
+    ) -> Tuple[str, Dict[str, Any]]:
+        """Generate a single data type asynchronously with retries.
+
+        Returns (data_type, result_dict).
+        """
+        filenames = {
+            "classification": "classification_scenarios.json",
+            "dialog":         "follow_up_scenarios.json",
+            "general":        "capability_tests.json",
+            "rag":            "rag_scenarios.json",
+            "tool_calling":   "tool_calling_scenarios.json",
+        }
+
+        last_error: Optional[Exception] = None
+        for attempt in range(1, max_retries + 2):
+            async with semaphore:
+                try:
+                    data_prompt = prompt_builder(topic, target_count, categories=canonical_categories)
+
+                    system_msg = (
+                        "You are a synthetic-data generator for AI evaluation frameworks. "
+                        "You produce realistic, diverse test scenarios in valid JSON. "
+                        "Return a JSON object with a single key \"scenarios\" whose value is "
+                        "the array of test items.  No markdown fences, no trailing "
+                        "commas, no comments, no explanation."
+                    )
+                    if attempt > 1:
+                        system_msg += (
+                            "\n\nIMPORTANT: Your previous response was rejected. "
+                            "Possible issues: invalid JSON, or too few scenarios. "
+                            "Double-check that every object uses double-quoted keys, "
+                            "there are NO trailing commas before } or ], no // comments, "
+                            f"and you MUST return EXACTLY {target_count} scenarios in the array."
+                        )
+
+                    logger.info(f"[parallel] Generating {data_type} data (attempt {attempt})...")
+                    t0 = time.time()
+                    res = await client.complete_async(
+                        messages=[
+                            {"role": "system", "content": system_msg},
+                            {"role": "user", "content": data_prompt},
+                        ],
+                        model_name=generator_model,
+                        response_format={"type": "json_object"},
+                    )
+
+                    raw = res.content.strip()
+                    if raw.startswith("```"):
+                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+                    if raw.endswith("```"):
+                        raw = raw[:-3]
+                    raw = raw.strip()
+
+                    try:
+                        parsed = json.loads(raw)
+                    except json.JSONDecodeError:
+                        sanitised = _sanitise_json(raw)
+                        parsed = json.loads(sanitised)
+                        logger.info(f"JSON sanitisation fixed {data_type} data (attempt {attempt})")
+
+                    if isinstance(parsed, dict):
+                        scenarios = (
+                            parsed.get("scenarios")
+                            or next((v for v in parsed.values() if isinstance(v, list)), None)
+                        )
+                        if scenarios is None:
+                            raise ValueError(f"JSON object has no array value — keys: {list(parsed.keys())}")
+                    elif isinstance(parsed, list):
+                        scenarios = parsed
+                    else:
+                        raise ValueError("Expected a JSON object or array")
+
+                    if not isinstance(scenarios, list):
+                        raise ValueError("Expected a JSON array of scenarios")
+
+                    # Validate classification expected_category
+                    if data_type == "classification" and canonical_categories:
+                        canonical_set = {c.lower().strip() for c in canonical_categories}
+                        invalid_count = 0
+                        for sc in scenarios:
+                            ec = sc.get("expected_category", "")
+                            if isinstance(ec, str) and ec.lower().strip() not in canonical_set:
+                                ec_lower = ec.lower().strip()
+                                match = next(
+                                    (c for c in canonical_categories
+                                     if c.lower() in ec_lower or ec_lower in c.lower()),
+                                    None,
+                                )
+                                if match:
+                                    sc["expected_category"] = match
+                                else:
+                                    invalid_count += 1
+                        if invalid_count:
+                            logger.warning(
+                                f"[!] {invalid_count}/{len(scenarios)} {data_type} "
+                                f"scenarios have invalid expected_category values"
+                            )
+                        else:
+                            logger.info(f"[OK] All {data_type} expected_category values match canonical categories.")
+
+                    # Validate minimum count
+                    min_acceptable = max(1, int(target_count * 0.5))
+                    if len(scenarios) < min_acceptable and attempt <= max_retries:
+                        raise ValueError(
+                            f"Too few scenarios: got {len(scenarios)}, expected >= {min_acceptable}"
+                        )
+
+                    if len(scenarios) < target_count:
+                        logger.info(f"{data_type}: got {len(scenarios)}/{target_count} — accepting")
+
+                    # Write file
+                    out_dir = data_path / data_type
+                    out_dir.mkdir(parents=True, exist_ok=True)
+                    out_file = out_dir / filenames[data_type]
+                    with open(out_file, "w", encoding="utf-8") as f:
+                        json.dump(scenarios, f, indent=2, ensure_ascii=False)
+
+                    elapsed = time.time() - t0
+                    logger.info(
+                        f"[parallel] Generated {len(scenarios)} {data_type} scenarios "
+                        f"-> {out_file} in {elapsed:.1f}s (attempt {attempt})"
+                    )
+                    return (data_type, {"count": len(scenarios), "file": str(out_file)})
+
+                except Exception as e:
+                    last_error = e
+                    if attempt <= max_retries:
+                        logger.warning(f"{data_type} attempt {attempt} failed: {e} — retrying")
+                    else:
+                        logger.error(f"Failed {data_type} data after {attempt} attempts: {e}")
+
+        return (data_type, {"count": 0, "error": str(last_error)})
+
     def generate_prompts(
         self,
         topic: str,
@@ -1117,12 +1209,11 @@ class PromptManager:
         Use an AI model to generate optimised prompts **and** matching
         synthetic test data for a given topic.
 
-        Before generating, the current active topic (if any) is archived
-        so no content is lost.
-
-        Generates:
-          - 4 prompts  (gpt4 & gpt5 × classification & dialog)
-          - 3 data sets (classification scenarios, dialog scenarios, general tests)
+        Uses **parallel async calls** to speed up generation:
+          - Step 1: gpt4/classification (must go first for category extraction)
+          - Step 2: gpt5/classification + 6 other prompts (all in parallel)
+          - Step 3: category alignment & auto-fix (if needed)
+          - Step 4: all 5 data types in parallel
 
         Returns dict like:
             {
@@ -1134,7 +1225,8 @@ class PromptManager:
               }
             }
         """
-        result: Dict[str, Any] = {"prompts": {}, "data": {}}
+        overall_t0 = time.time()
+        result: Dict[str, Any] = {"prompts": {"gpt4": {}, "gpt5": {}}, "data": {}}
 
         # ── 0. Archive current topic before overwriting ───────────────
         current = self.get_topic_metadata().get("topic", "")
@@ -1142,91 +1234,91 @@ class PromptManager:
             self.archive_current_topic()
             logger.info(f"Archived previous topic '{current}' before generating '{topic}'")
 
-        # NOTE: metadata update is DEFERRED until after prompts are
-        # successfully written (see below).  Writing it here would poison
-        # the slug so that a later archive_current_topic() would overwrite
-        # the wrong archive if generation fails partway through.
+        # ── 1. Generate GPT-4 classification FIRST (needed for categories) ──
+        logger.info("== Step 1/4: Generating gpt4/classification prompt (blocking) ==")
+        reference = self.get_active_prompt("gpt4", "classification_agent_system") or ""
+        reference_snippet = reference[:2000] if reference else "(no existing prompt)"
 
-        # ── 1. Generate prompts ───────────────────────────────────────
-        # IMPORTANT: Generate GPT-4 classification FIRST so we can extract
-        # its categories and force GPT-5 to use the SAME taxonomy.
-        # This prevents the AI from inventing different categories per model.
+        gpt4_cls_result = self._run_async(
+            self._async_generate_one_prompt(
+                client, generator_model, topic,
+                "gpt4", "classification", reference_snippet, None,
+                asyncio.Semaphore(_MAX_CONCURRENT_LLM),
+            )
+        )
+        _, _, gpt4_cls_content = gpt4_cls_result
+        if not gpt4_cls_content.startswith("[Error"):
+            self.save_prompt(
+                model="gpt4", prompt_type="classification_agent_system",
+                content=gpt4_cls_content, topic=topic,
+                source="ai-generated", author=f"generator:{generator_model}",
+            )
+        result["prompts"]["gpt4"]["classification_agent_system"] = gpt4_cls_content
+
+        # Extract categories from GPT-4 classification
         shared_categories: Optional[List[str]] = None
-
-        for target_model in ("gpt4", "gpt5"):
-            result["prompts"][target_model] = {}
-            for task in ("classification", "dialog"):
-                prompt_type = f"{task}_agent_system"
-
-                # For GPT-5 classification: use the just-generated GPT-4
-                # prompt as reference so the model sees the SAME taxonomy
-                # in both the reference and the mandatory-categories block.
-                if (target_model == "gpt5" and task == "classification"
-                        and shared_categories):
-                    gpt4_cls = result["prompts"].get("gpt4", {}).get(
-                        "classification_agent_system", "")
-                    if gpt4_cls and not gpt4_cls.startswith("[Error"):
-                        reference_snippet = gpt4_cls
-                    else:
-                        reference = self.get_active_prompt(target_model, prompt_type) or ""
-                        reference_snippet = reference[:2000] if reference else "(no existing prompt)"
-                else:
-                    reference = self.get_active_prompt(target_model, prompt_type) or ""
-                    reference_snippet = reference[:2000] if reference else "(no existing prompt)"
-
-                meta_prompt = self._build_generation_prompt(
-                    topic=topic,
-                    target_model=target_model,
-                    task=task,
-                    reference_snippet=reference_snippet,
-                    shared_categories=shared_categories if task == "classification" else None,
+        if not gpt4_cls_content.startswith("[Error"):
+            extracted = _extract_categories_from_prompt(gpt4_cls_content)
+            if extracted:
+                shared_categories = extracted
+                logger.info(
+                    f"Extracted {len(extracted)} categories from GPT-4 "
+                    f"classification prompt: {extracted}"
                 )
 
-                try:
-                    res = client.complete(
-                        messages=[
-                            {"role": "system", "content": (
-                                "You are an expert prompt engineer specialising in Azure OpenAI models. "
-                                "You create high-quality system prompts that follow each model family's best practices. "
-                                "Return ONLY the system prompt content, no explanations, no markdown fences."
-                            )},
-                            {"role": "user", "content": meta_prompt},
-                        ],
-                        model_name=generator_model,
-                    )
-                    generated = res.content.strip()
+        # ── 2. Generate remaining 7 prompts in PARALLEL ───────────────
+        logger.info("== Step 2/4: Generating 7 remaining prompts in parallel ==")
+        parallel_tasks_step2 = []
 
-                    self.save_prompt(
-                        model=target_model,
-                        prompt_type=prompt_type,
-                        content=generated,
-                        topic=topic,
-                        source="ai-generated",
-                        author=f"generator:{generator_model}",
-                    )
-                    result["prompts"][target_model][prompt_type] = generated
-
-                    # After generating GPT-4 classification, extract categories
-                    # so GPT-5 classification reuses the SAME taxonomy.
+        async def _step2():
+            sem = asyncio.Semaphore(_MAX_CONCURRENT_LLM)
+            tasks = []
+            for target_model in ("gpt4", "gpt5"):
+                for task in ("classification", "dialog", "rag", "tool_calling"):
+                    # Skip gpt4/classification — already done
                     if target_model == "gpt4" and task == "classification":
-                        extracted = _extract_categories_from_prompt(generated)
-                        if extracted:
-                            shared_categories = extracted
-                            logger.info(
-                                f"Extracted {len(extracted)} categories from GPT-4 "
-                                f"classification prompt — GPT-5 will reuse: {extracted}"
-                            )
+                        continue
 
-                except Exception as e:
-                    logger.error(f"Failed generating {target_model}/{prompt_type}: {e}")
-                    result["prompts"][target_model][prompt_type] = f"[Error: {e}]"
+                    prompt_type = f"{task}_agent_system"
+
+                    # For gpt5/classification, use gpt4 cls as reference
+                    if target_model == "gpt5" and task == "classification" and shared_categories:
+                        ref_snippet = gpt4_cls_content if not gpt4_cls_content.startswith("[Error") else "(no reference)"
+                    else:
+                        ref = self.get_active_prompt(target_model, prompt_type) or ""
+                        ref_snippet = ref[:2000] if ref else "(no existing prompt)"
+
+                    cats = shared_categories if task == "classification" else None
+                    tasks.append(
+                        self._async_generate_one_prompt(
+                            client, generator_model, topic,
+                            target_model, task, ref_snippet, cats, sem,
+                        )
+                    )
+            return await asyncio.gather(*tasks, return_exceptions=True)
+
+        step2_results = self._run_async(_step2())
+
+        # Process step 2 results — save prompts to disk
+        for item in step2_results:
+            if isinstance(item, Exception):
+                logger.error(f"[parallel] Prompt generation exception: {item}")
+                continue
+            target_model, prompt_type, generated = item
+            if not generated.startswith("[Error"):
+                self.save_prompt(
+                    model=target_model, prompt_type=prompt_type,
+                    content=generated, topic=topic,
+                    source="ai-generated", author=f"generator:{generator_model}",
+                )
+            result["prompts"][target_model][prompt_type] = generated
 
         # ── 1a. NOW update metadata (prompts are on disk) ─────────
         self._save_topic_metadata(topic, prompts_updated=True)
 
-        # ── 1b. Extract canonical categories from generated prompts ──
-        # Prefer gpt5 classification; fall back to gpt4.
-        _categories: Dict[str, List[str]] = {}  # model -> list of codes
+        # ── 3. Category alignment & auto-fix ──────────────────────────
+        logger.info("== Step 3/4: Category alignment ==")
+        _categories: Dict[str, List[str]] = {}
         for m in ("gpt5", "gpt4"):
             cls_prompt = result["prompts"].get(m, {}).get("classification_agent_system", "")
             if cls_prompt and not cls_prompt.startswith("[Error"):
@@ -1235,33 +1327,25 @@ class PromptManager:
                     _categories[m] = cats
                     logger.info(f"Extracted {len(cats)} categories from {m} classification prompt: {cats}")
 
-        # Pick the best available category list for data generation.
-        # Use the INTERSECTION of categories from both prompts so that
-        # the test data is evaluable by both models.  If only one
-        # prompt has categories, use those as a fallback.
+        canonical_categories: List[str] = []
         if "gpt5" in _categories and "gpt4" in _categories:
             set5 = set(_categories["gpt5"])
             set4 = set(_categories["gpt4"])
             common = [c for c in _categories["gpt4"] if c in set5]
             if len(common) >= len(set4) * 0.5:
-                # Good overlap — use the intersection (preserving gpt4 order)
                 canonical_categories = common
                 logger.info(
                     f"Using INTERSECTION of GPT-4 and GPT-5 categories "
                     f"({len(common)}/{len(set5 | set4)}): {common}"
                 )
             else:
-                # Poor overlap means the MANDATORY CATEGORY TAXONOMY
-                # instruction didn't fully work.  Use GPT-4's categories
-                # (the "source of truth" since GPT-5 was asked to copy them).
                 canonical_categories = _categories["gpt4"]
                 logger.warning(
                     f"Low category overlap ({len(common)}) between GPT-4 "
                     f"({list(set4)}) and GPT-5 ({list(set5)}) — "
                     f"using GPT-4 categories as source of truth"
                 )
-                # Auto-fix: regenerate GPT-5 classification with stronger
-                # enforcement of GPT-4's taxonomy.
+                # Auto-fix GPT-5 classification (single sync call)
                 try:
                     logger.info("Auto-regenerating GPT-5 classification prompt to align taxonomy...")
                     gpt5_cls = result["prompts"].get("gpt5", {}).get("classification_agent_system", "")
@@ -1300,219 +1384,71 @@ class PromptManager:
                 except Exception as e:
                     logger.error(f"Failed to auto-fix GPT-5 taxonomy: {e}")
 
-            # ── Deterministic validation: verify GPT-5 prompt contains ALL
-            #    GPT-4 category codes in its text (safety net for LLM failures) ──
+            # Deterministic validation
             gpt5_final = result["prompts"].get("gpt5", {}).get("classification_agent_system", "")
             if gpt5_final and not gpt5_final.startswith("[Error") and "gpt4" in _categories:
                 gpt5_lower = gpt5_final.lower()
                 missing = [c for c in _categories["gpt4"] if c.lower() not in gpt5_lower]
                 if missing:
                     logger.warning(
-                        f"⚠ DETERMINISTIC CHECK: {len(missing)} GPT-4 categories "
+                        f"[!] DETERMINISTIC CHECK: {len(missing)} GPT-4 categories "
                         f"NOT found in GPT-5 prompt text: {missing}. "
                         f"Classification evaluation for GPT-5 may show mismatches."
                     )
                 else:
                     logger.info(
-                        "✓ Deterministic check passed: ALL GPT-4 category codes "
+                        "[OK] Deterministic check passed: ALL GPT-4 category codes "
                         "appear in GPT-5 classification prompt."
                     )
         else:
-            # Prefer GPT-4 categories (source of truth) over GPT-5
             canonical_categories = _categories.get("gpt4") or _categories.get("gpt5") or []
+
         if canonical_categories:
             logger.info(f"Canonical categories for data generation: {canonical_categories}")
         else:
             logger.warning("Could not extract categories from classification prompts — data generator will invent its own")
 
-        # ── 2. Generate synthetic test data ───────────────────────────
+        # ── 4. Generate ALL synthetic test data in PARALLEL ───────────
+        logger.info("== Step 4/4: Generating 5 data types in parallel ==")
         data_path = Path(data_dir)
         data_generators = [
             ("classification", self._build_classification_data_prompt, 20),
             ("dialog",         self._build_dialog_data_prompt,         15),
             ("general",        self._build_general_data_prompt,        15),
+            ("rag",            self._build_rag_data_prompt,            10),
+            ("tool_calling",   self._build_tool_calling_data_prompt,   10),
         ]
+        MAX_DATA_RETRIES = 2
 
-        MAX_DATA_RETRIES = 2  # total attempts = 1 + MAX_DATA_RETRIES
+        async def _step4():
+            sem = asyncio.Semaphore(_MAX_CONCURRENT_LLM)
+            tasks = [
+                self._async_generate_one_data(
+                    client, generator_model, topic,
+                    dt, builder, count, canonical_categories,
+                    data_path, MAX_DATA_RETRIES, sem,
+                )
+                for dt, builder, count in data_generators
+            ]
+            return await asyncio.gather(*tasks, return_exceptions=True)
 
-        for data_type, prompt_builder, target_count in data_generators:
-            last_error: Optional[Exception] = None
-            for attempt in range(1, MAX_DATA_RETRIES + 2):
-                try:
-                    data_prompt = prompt_builder(topic, target_count, categories=canonical_categories)
+        step4_results = self._run_async(_step4())
 
-                    system_msg = (
-                        "You are a synthetic-data generator for AI evaluation frameworks. "
-                        "You produce realistic, diverse test scenarios in valid JSON. "
-                        "Return a JSON object with a single key \"scenarios\" whose value is "
-                        "the array of test items.  No markdown fences, no trailing "
-                        "commas, no comments, no explanation."
-                    )
-                    if attempt > 1:
-                        system_msg += (
-                            "\n\nIMPORTANT: Your previous response was rejected. "
-                            "Possible issues: invalid JSON, or too few scenarios. "
-                            "Double-check that every object uses double-quoted keys, "
-                            "there are NO trailing commas before } or ], no // comments, "
-                            f"and you MUST return EXACTLY {target_count} scenarios in the array."
-                        )
-
-                    res = client.complete(
-                        messages=[
-                            {"role": "system", "content": system_msg},
-                            {"role": "user", "content": data_prompt},
-                        ],
-                        model_name=generator_model,
-                        response_format={"type": "json_object"},
-                    )
-
-                    raw = res.content.strip()
-                    # Strip possible markdown fences
-                    if raw.startswith("```"):
-                        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-                    if raw.endswith("```"):
-                        raw = raw[:-3]
-                    raw = raw.strip()
-
-                    # Try strict parse first; fall back to sanitised parse
-                    try:
-                        parsed = json.loads(raw)
-                    except json.JSONDecodeError:
-                        sanitised = _sanitise_json(raw)
-                        parsed = json.loads(sanitised)
-                        logger.info(
-                            f"JSON sanitisation fixed {data_type} data "
-                            f"(attempt {attempt})"
-                        )
-
-                    # Extract array from wrapper object or use directly
-                    if isinstance(parsed, dict):
-                        scenarios = (
-                            parsed.get("scenarios")
-                            or next(
-                                (v for v in parsed.values() if isinstance(v, list)),
-                                None,
-                            )
-                        )
-                        if scenarios is None:
-                            raise ValueError(
-                                "JSON object has no array value — "
-                                f"keys: {list(parsed.keys())}"
-                            )
-                    elif isinstance(parsed, list):
-                        scenarios = parsed
-                    else:
-                        raise ValueError("Expected a JSON object or array")
-
-                    if not isinstance(scenarios, list):
-                        raise ValueError("Expected a JSON array of scenarios")
-
-                    # ── Validate classification expected_category vs canonical ──
-                    if data_type == "classification" and canonical_categories:
-                        canonical_set = {c.lower().strip() for c in canonical_categories}
-                        invalid_count = 0
-                        for sc in scenarios:
-                            ec = sc.get("expected_category", "")
-                            if isinstance(ec, str) and ec.lower().strip() not in canonical_set:
-                                # Try to find closest match by substring
-                                ec_lower = ec.lower().strip()
-                                match = next(
-                                    (c for c in canonical_categories
-                                     if c.lower() in ec_lower or ec_lower in c.lower()),
-                                    None,
-                                )
-                                if match:
-                                    logger.info(
-                                        f"Data validation: mapped '{ec}' -> '{match}' "
-                                        f"(substring match)"
-                                    )
-                                    sc["expected_category"] = match
-                                else:
-                                    invalid_count += 1
-                                    logger.warning(
-                                        f"Data validation: '{ec}' is NOT in "
-                                        f"canonical categories"
-                                    )
-                        if invalid_count:
-                            logger.warning(
-                                f"⚠ {invalid_count}/{len(scenarios)} classification "
-                                f"scenarios have expected_category values that don't "
-                                f"match canonical categories: {canonical_categories}"
-                            )
-                        else:
-                            logger.info(
-                                "✓ All classification expected_category values "
-                                "match canonical categories."
-                            )
-
-                    # ── Validate minimum scenario count ──────────────
-                    min_acceptable = max(1, int(target_count * 0.5))
-                    if len(scenarios) < min_acceptable and attempt <= MAX_DATA_RETRIES:
-                        logger.warning(
-                            f"{data_type}: model returned only {len(scenarios)}/{target_count} "
-                            f"scenarios (min {min_acceptable}) — retrying "
-                            f"({MAX_DATA_RETRIES - attempt + 1} left)"
-                        )
-                        raise ValueError(
-                            f"Too few scenarios: got {len(scenarios)}, "
-                            f"expected at least {min_acceptable}"
-                        )
-
-                    if len(scenarios) < target_count:
-                        logger.info(
-                            f"{data_type}: got {len(scenarios)}/{target_count} "
-                            f"scenarios — accepting (above min threshold)"
-                        )
-
-                    # Write to the appropriate directory
-                    out_dir = data_path / data_type
-                    out_dir.mkdir(parents=True, exist_ok=True)
-
-                    filenames = {
-                        "classification": "classification_scenarios.json",
-                        "dialog":         "follow_up_scenarios.json",
-                        "general":        "capability_tests.json",
-                    }
-                    out_file = out_dir / filenames[data_type]
-
-                    with open(out_file, "w", encoding="utf-8") as f:
-                        json.dump(scenarios, f, indent=2, ensure_ascii=False)
-
-                    result["data"][data_type] = {
-                        "count": len(scenarios),
-                        "file": str(out_file),
-                    }
-                    logger.info(
-                        f"Generated {len(scenarios)} {data_type} scenarios "
-                        f"-> {out_file} (attempt {attempt})"
-                    )
-                    last_error = None
-                    break  # success — exit retry loop
-
-                except Exception as e:
-                    last_error = e
-                    if attempt <= MAX_DATA_RETRIES:
-                        logger.warning(
-                            f"{data_type} data attempt {attempt} failed: {e}  "
-                            f"— retrying ({MAX_DATA_RETRIES - attempt + 1} left)"
-                        )
-                    else:
-                        logger.error(
-                            f"Failed generating {data_type} data after "
-                            f"{attempt} attempts: {e}"
-                        )
-
-            if last_error is not None:
-                result["data"][data_type] = {
-                    "count": 0,
-                    "error": str(last_error),
-                }
+        for item in step4_results:
+            if isinstance(item, Exception):
+                logger.error(f"[parallel] Data generation exception: {item}")
+                continue
+            data_type, data_result = item
+            result["data"][data_type] = data_result
 
         # Mark data as freshly generated
         self._save_topic_metadata(topic, data_generated=True)
 
         # Archive the newly generated topic so it's recoverable
         self.archive_current_topic()
+
+        elapsed = time.time() - overall_t0
+        logger.info(f"== Generation complete in {elapsed:.1f}s (parallel pipeline) ==")
 
         return result
 
@@ -1562,6 +1498,22 @@ class PromptManager:
                 "- Maintains professional tone appropriate to the topic\n"
                 "- Handles escalation and resolution flows\n"
                 "- Adapts conversation style and knowledge to the given TOPIC"
+            ),
+            "rag": (
+                "a RAG (Retrieval-Augmented Generation) system prompt that:\n"
+                "- Instructs the model to answer ONLY from provided context passages\n"
+                "- Enforces strict grounding — no hallucination or external knowledge\n"
+                "- Handles contradictions and insufficient context gracefully\n"
+                "- Structures responses with direct answer + supporting details + caveats\n"
+                "- Adapts domain knowledge and examples to the given TOPIC"
+            ),
+            "tool_calling": (
+                "a TOOL CALLING / FUNCTION CALLING system prompt that:\n"
+                "- Guides the model to select the right tool(s) from available functions\n"
+                "- Extracts correct parameters from natural language queries\n"
+                "- Handles cases where no tool is needed or params are missing\n"
+                "- Supports sequential multi-tool workflows\n"
+                "- Adapts tool definitions and examples to the given TOPIC"
             ),
         }
 
@@ -1794,4 +1746,89 @@ IMPORTANT RULES:
 8. Include at least 1 calculation_accuracy test with "expected_calculation" object
 9. All prompts should be realistic and testable
 10. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON
+"""
+
+    def _build_rag_data_prompt(self, topic: str, count: int, *, categories: Optional[List[str]] = None) -> str:
+        """Build the meta-prompt for generating RAG test scenarios."""
+        # RAG tests don't use the category taxonomy, but we accept
+        # the kwarg for a uniform call signature.
+        return f"""Generate exactly {count} RAG (Retrieval-Augmented Generation) test scenarios for the topic: "{topic}".
+
+Return a JSON object with a single key "scenarios" containing an array.
+Each element MUST have this exact schema:
+{{
+  "scenarios": [
+    {{
+      "id": "RAG_001",
+      "scenario": "short_snake_case_name",
+      "query": "A realistic user question about the topic",
+      "context": "One or more paragraphs of retrieved context that contain relevant information. This should be 2-5 sentences of realistic domain text.",
+      "ground_truth": "The correct answer that can be fully derived from the context.",
+      "expected_behavior": "Description of how the model should use the context to answer.",
+      "complexity": "low|medium|high"
+    }}
+  ]
+}}
+
+IMPORTANT RULES:
+1. ALL scenarios must be domain-specific to "{topic}"
+2. Context passages must be realistic and contain enough detail to answer the query
+3. Ground truth must be FULLY derivable from the context (no external knowledge needed)
+4. Include at least 1 scenario where context is INSUFFICIENT to fully answer the query
+5. Include at least 1 scenario with CONTRADICTORY information in the context
+6. Distribute complexity: ~30% low, ~40% medium, ~30% high
+7. Queries should be natural and varied
+8. Context should simulate real retrieved documents (policies, manuals, FAQs, articles)
+9. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation
+"""
+
+    def _build_tool_calling_data_prompt(self, topic: str, count: int, *, categories: Optional[List[str]] = None) -> str:
+        """Build the meta-prompt for generating tool-calling test scenarios."""
+        # Tool calling tests don't use the category taxonomy.
+        return f"""Generate exactly {count} tool-calling/function-calling test scenarios for the topic: "{topic}".
+
+Return a JSON object with a single key "scenarios" containing an array.
+Each element MUST have this exact schema:
+{{
+  "scenarios": [
+    {{
+      "id": "TC_001",
+      "scenario": "short_snake_case_name",
+      "query": "A natural user request that may or may not require tool usage",
+      "available_tools": [
+        {{
+          "type": "function",
+          "function": {{
+            "name": "tool_name",
+            "description": "What the tool does",
+            "parameters": {{
+              "type": "object",
+              "properties": {{
+                "param1": {{"type": "string", "description": "Param description"}}
+              }},
+              "required": ["param1"]
+            }}
+          }}
+        }}
+      ],
+      "expected_tool_calls": ["tool_name"],
+      "expected_parameters": {{
+        "tool_name": {{"param1": "expected_value"}}
+      }},
+      "complexity": "low|medium|high"
+    }}
+  ]
+}}
+
+IMPORTANT RULES:
+1. ALL scenarios, tools, and queries must be domain-specific to "{topic}"
+2. Include 2-4 available tools per scenario (realistic for the domain)
+3. Include at least 1 scenario where NO tool is needed (expected_tool_calls: [])
+4. Include at least 1 scenario requiring MULTIPLE sequential tool calls
+5. Include at least 1 scenario where required parameters are MISSING from the query
+6. Include at least 1 scenario with AMBIGUOUS tool selection
+7. Tool definitions should be realistic and well-structured
+8. Parameter types should vary (string, number, boolean, array)
+9. Distribute complexity: ~25% low, ~50% medium, ~25% high
+10. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation
 """

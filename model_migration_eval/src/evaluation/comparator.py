@@ -15,6 +15,8 @@ from pathlib import Path
 import logging
 import numpy as np
 
+import yaml
+
 from .evaluator import ModelEvaluator, EvaluationResult, _run_in_loop
 from .metrics import (
     ClassificationMetrics,
@@ -67,6 +69,7 @@ class ComparisonReport:
     foundry_scores_a: Optional[Dict[str, Any]] = None
     foundry_scores_b: Optional[Dict[str, Any]] = None
     foundry_meta: Optional[Dict[str, Any]] = None
+    migration_readiness: Optional[Dict[str, Any]] = None
     
     @staticmethod
     def _sanitize(obj):
@@ -98,6 +101,7 @@ class ComparisonReport:
             'foundry_scores_a': self.foundry_scores_a,
             'foundry_scores_b': self.foundry_scores_b,
             'foundry_meta': self.foundry_meta,
+            'migration_readiness': self.migration_readiness,
         }
         return self._sanitize(raw)
         
@@ -152,6 +156,7 @@ class ModelComparator:
         evaluator: Optional[ModelEvaluator] = None,
         foundry_evaluator: Optional[Any] = None,
         parallel_models: bool = True,
+        config_path: str = "config/settings.yaml",
     ):
         """
         Initialize the comparator.
@@ -161,6 +166,7 @@ class ModelComparator:
             evaluator: Optional ModelEvaluator instance
             foundry_evaluator: Optional FoundryEvaluator instance
             parallel_models: If True, evaluate both models simultaneously
+            config_path: Path to settings.yaml for acceptance thresholds
         """
         self.client = client
         self.evaluator = evaluator or ModelEvaluator(client)
@@ -173,6 +179,18 @@ class ModelComparator:
             'medium': 0.05,   # 5% difference
             'low': 0.02       # 2% difference
         }
+
+        # Acceptance thresholds for migration readiness
+        self.acceptance_thresholds: Dict[str, Dict[str, float]] = {}
+        try:
+            if config_path and Path(config_path).exists():
+                with open(config_path, 'r') as f:
+                    cfg = yaml.safe_load(f)
+                self.acceptance_thresholds = (
+                    cfg.get('evaluation', {}).get('acceptance_thresholds', {})
+                )
+        except Exception:
+            pass
         
     def compare_models(
         self,
@@ -262,6 +280,11 @@ class ModelComparator:
         recommendations = self._generate_recommendations(
             dimensions, result_a, result_b, model_a, model_b
         )
+
+        # Evaluate migration readiness against acceptance thresholds
+        migration_readiness = self._evaluate_migration_readiness(
+            result_b, evaluation_type, model_b
+        )
         
         # Statistical significance tests
         statistical_significance = None
@@ -287,6 +310,7 @@ class ModelComparator:
             foundry_scores_a=foundry_scores_a,
             foundry_scores_b=foundry_scores_b,
             foundry_meta=foundry_meta,
+            migration_readiness=migration_readiness,
         )
         
     def compare_full(
@@ -306,7 +330,7 @@ class ModelComparator:
         """
         reports = {}
         
-        for eval_type in ['classification', 'dialog', 'general']:
+        for eval_type in ['classification', 'dialog', 'general', 'rag', 'tool_calling']:
             reports[eval_type] = self.compare_models(
                 model_a, model_b, eval_type
             )
@@ -335,6 +359,10 @@ class ModelComparator:
                 return self.evaluator.evaluate_classification_async(model)
             elif evaluation_type == "dialog":
                 return self.evaluator.evaluate_dialog_async(model)
+            elif evaluation_type == "rag":
+                return self.evaluator.evaluate_rag_async(model)
+            elif evaluation_type == "tool_calling":
+                return self.evaluator.evaluate_tool_calling_async(model)
             else:
                 return self.evaluator.evaluate_general_async(model)
 
@@ -376,7 +404,6 @@ class ModelComparator:
                     evaluation_type=evaluation_type,
                     model_name=model_name,
                     poll=True,
-                    timeout=300,
                 )
                 foundry_meta[meta_key] = {
                     'eval_id': res.get('eval_id'),
@@ -493,6 +520,10 @@ class ModelComparator:
                 self._create_dimension("Completeness", qm_a.completeness, qm_b.completeness, higher_better=True),
             ])
             
+            if qm_a.groundedness > 0 or qm_b.groundedness > 0:
+                dimensions.append(
+                    self._create_dimension("Groundedness", qm_a.groundedness, qm_b.groundedness, higher_better=True)
+                )
             if qm_a.follow_up_quality > 0 or qm_b.follow_up_quality > 0:
                 dimensions.append(
                     self._create_dimension("Follow-up Quality", qm_a.follow_up_quality, qm_b.follow_up_quality, higher_better=True)
@@ -530,6 +561,9 @@ class ModelComparator:
                 ('task_adherence', 'Task Adherence (Foundry)'),
                 ('intent_resolution', 'Intent Resolution (Foundry)'),
                 ('response_completeness', 'Response Completeness (Foundry)'),
+                ('groundedness', 'Groundedness (Foundry)'),
+                ('safety_violence', 'Safety: Violence (Foundry)'),
+                ('safety_hate_unfairness', 'Safety: Hate/Unfairness (Foundry)'),
             ]
             for key, label in foundry_metrics:
                 va = agg_a.get(key)
@@ -611,6 +645,76 @@ class ModelComparator:
             'overall_winner': model_a if wins_a > wins_b else model_b if wins_b > wins_a else 'tie'
         }
         
+    def _evaluate_migration_readiness(
+        self,
+        result_b: EvaluationResult,
+        evaluation_type: str,
+        model_b: str,
+    ) -> Dict[str, Any]:
+        """Evaluate model_b against acceptance thresholds for migration readiness.
+
+        Returns a dict with:
+          - verdict: 'PASS' | 'FAIL' | 'NOT_CONFIGURED'
+          - checks: list of per-metric check results
+          - thresholds_used: the raw threshold dict
+        """
+        thresholds = self.acceptance_thresholds.get(evaluation_type)
+        if not thresholds:
+            return {'verdict': 'NOT_CONFIGURED', 'checks': [], 'thresholds_used': {}}
+
+        checks: List[Dict[str, Any]] = []
+        all_pass = True
+
+        # Map threshold keys to actual metric values from EvaluationResult
+        metric_extractors = {
+            'accuracy': lambda r: getattr(r.classification_metrics, 'accuracy', None) if r.classification_metrics else None,
+            'consistency': lambda r: getattr(r.consistency_metrics, 'reproducibility_score', None) if r.consistency_metrics else None,
+            'quality_score': lambda r: getattr(r.quality_metrics, 'instruction_following', None) if r.quality_metrics else None,
+            'groundedness': lambda r: getattr(r.quality_metrics, 'groundedness', None) if r.quality_metrics else None,
+            'relevance': lambda r: getattr(r.quality_metrics, 'relevance', None) if r.quality_metrics else None,
+            'tool_selection_accuracy': lambda r: getattr(r.classification_metrics, 'f1_score', None) if r.classification_metrics else None,
+            'parameter_accuracy': lambda r: getattr(r.classification_metrics, 'precision', None) if r.classification_metrics else None,
+            'max_latency_ms': lambda r: (getattr(r.latency_metrics, 'mean_latency', None) or 0) * 1000 if r.latency_metrics else None,
+        }
+
+        for metric_key, threshold_val in thresholds.items():
+            extractor = metric_extractors.get(metric_key)
+            actual = extractor(result_b) if extractor else None
+
+            if actual is None:
+                checks.append({
+                    'metric': metric_key,
+                    'threshold': threshold_val,
+                    'actual': None,
+                    'passed': None,
+                    'reason': 'metric not available',
+                })
+                continue
+
+            # For latency, lower is better
+            if 'latency' in metric_key:
+                passed = actual <= threshold_val
+            else:
+                passed = actual >= threshold_val
+
+            if not passed:
+                all_pass = False
+
+            checks.append({
+                'metric': metric_key,
+                'threshold': threshold_val,
+                'actual': round(actual, 4),
+                'passed': passed,
+            })
+
+        return {
+            'verdict': 'PASS' if all_pass else 'FAIL',
+            'model': model_b,
+            'evaluation_type': evaluation_type,
+            'checks': checks,
+            'thresholds_used': thresholds,
+        }
+
     def _generate_recommendations(
         self,
         dimensions: List[ComparisonDimension],
@@ -666,6 +770,42 @@ class ModelComparator:
             recommendations.append(
                 f"Foundry judges rate {better} higher on {metric_name} ({d.percent_change:+.1f}%)."
             )
+
+        # ── Migration best practices ──────────────────────────────────
+        recommendations.append("")  # separator
+        recommendations.append("📋 MIGRATION BEST PRACTICES:")
+        recommendations.append(
+            "Use 'developer' role instead of 'system' for GPT-5/o-series models "
+            "(auto-applied by this framework)."
+        )
+        recommendations.append(
+            "Use 'max_completion_tokens' instead of 'max_tokens' for new-generation models "
+            "(GPT-5, o-series, model-router)."
+        )
+        recommendations.append(
+            "Set 'reasoning_effort' (low/medium/high) on reasoning models to control "
+            "latency vs quality trade-off."
+        )
+        recommendations.append(
+            "Consider using 'model-router' deployment for automatic model selection "
+            "based on query complexity."
+        )
+        recommendations.append(
+            "Use Structured Outputs (response_format: json_schema) instead of json_object "
+            "for guaranteed schema compliance."
+        )
+        recommendations.append(
+            "Migrate authentication from API keys to Microsoft Entra ID (DefaultAzureCredential) "
+            "for production deployments."
+        )
+        recommendations.append(
+            "Evaluate RAG groundedness and tool-calling accuracy as part of migration testing "
+            "to cover agentic patterns."
+        )
+        recommendations.append(
+            "Define acceptance thresholds (e.g., accuracy ≥ 0.85, latency ≤ 5s) for automated "
+            "PASS/FAIL migration decisions."
+        )
             
         return recommendations
         

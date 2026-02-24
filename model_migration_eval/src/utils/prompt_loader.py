@@ -4,9 +4,10 @@ Loads and manages prompt templates for different models and use cases
 """
 
 import os
+import json
 import re
 from pathlib import Path
-from typing import Dict, Optional, Any
+from typing import Dict, List, Optional, Any
 import yaml
 
 
@@ -51,6 +52,13 @@ class PromptLoader:
         # Construct file path
         file_path = self.prompts_dir / model / f"{prompt_type}.md"
         
+        if not file_path.exists():
+            # Reasoning variant → fall back to the base model's prompts
+            # e.g. gpt5_reasoning → gpt5
+            base_model = re.sub(r'_reasoning$', '', model)
+            if base_model != model:
+                file_path = self.prompts_dir / base_model / f"{prompt_type}.md"
+
         if not file_path.exists():
             # Try without model prefix (shared template)
             file_path = self.prompts_dir / "templates" / f"{prompt_type}.md"
@@ -157,6 +165,69 @@ class PromptLoader:
             
         return messages
         
+    def load_rag_prompt(
+        self,
+        model: str,
+        query: str,
+        context: str,
+    ) -> list:
+        """
+        Load RAG prompt with query and context passages.
+        
+        Args:
+            model: Model name
+            query: The user query to answer
+            context: Retrieved context passage(s)
+            
+        Returns:
+            List of message dicts ready for API call
+        """
+        system_prompt = self.load_prompt(model, "rag_agent_system")
+        
+        user_content = (
+            f"## Retrieved Context\n{context}\n\n"
+            f"## Question\n{query}"
+        )
+
+        return [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content}
+        ]
+
+    def load_tool_calling_prompt(
+        self,
+        model: str,
+        query: str,
+        available_tools: Optional[List[Dict]] = None,
+    ) -> list:
+        """
+        Load tool-calling prompt with query and available tools.
+        
+        Args:
+            model: Model name
+            query: The user query
+            available_tools: List of tool definitions (OpenAI function schema)
+            
+        Returns:
+            List of message dicts ready for API call
+        """
+        system_prompt = self.load_prompt(model, "tool_calling_agent_system")
+
+        tools_desc = ""
+        if available_tools:
+            tools_desc = (
+                "## Available Tools\n"
+                + json.dumps(available_tools, indent=2, ensure_ascii=False)
+                + "\n\n"
+            )
+
+        user_content = f"{tools_desc}## User Request\n{query}"
+
+        return [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content}
+        ]
+
     def list_available_prompts(self) -> Dict[str, list]:
         """
         List all available prompts organized by model.

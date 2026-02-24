@@ -1,5 +1,445 @@
 [
   {
+    "id": "20260224_172504_799895",
+    "model": "gpt5",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.803227",
+    "filename": "gpt5__tool_calling_agent_system__20260224_172504_799895_new.md"
+  },
+  {
+    "id": "20260224_172504_788244",
+    "model": "gpt5",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.797617",
+    "filename": "gpt5__tool_calling_agent_system__20260224_172504_788244.md"
+  },
+  {
+    "id": "20260224_172504_730569",
+    "model": "gpt5",
+    "prompt_type": "rag_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.733968",
+    "filename": "gpt5__rag_agent_system__20260224_172504_730569_new.md"
+  },
+  {
+    "id": "20260224_172504_720821",
+    "model": "gpt5",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.728097",
+    "filename": "gpt5__rag_agent_system__20260224_172504_720821.md"
+  },
+  {
+    "id": "20260224_172504_656430",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.660970",
+    "filename": "gpt5__dialog_agent_system__20260224_172504_656430_new.md"
+  },
+  {
+    "id": "20260224_172504_643237",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.653235",
+    "filename": "gpt5__dialog_agent_system__20260224_172504_643237.md"
+  },
+  {
+    "id": "20260224_172504_557330",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.565058",
+    "filename": "gpt5__classification_agent_system__20260224_172504_557330_new.md"
+  },
+  {
+    "id": "20260224_172504_474411",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.551795",
+    "filename": "gpt5__classification_agent_system__20260224_172504_474411.md"
+  },
+  {
+    "id": "20260224_172504_395334",
+    "model": "gpt4",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.403605",
+    "filename": "gpt4__tool_calling_agent_system__20260224_172504_395334_new.md"
+  },
+  {
+    "id": "20260224_172504_384141",
+    "model": "gpt4",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.391391",
+    "filename": "gpt4__tool_calling_agent_system__20260224_172504_384141.md"
+  },
+  {
+    "id": "20260224_172504_331807",
+    "model": "gpt4",
+    "prompt_type": "rag_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.334730",
+    "filename": "gpt4__rag_agent_system__20260224_172504_331807_new.md"
+  },
+  {
+    "id": "20260224_172504_320413",
+    "model": "gpt4",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.328787",
+    "filename": "gpt4__rag_agent_system__20260224_172504_320413.md"
+  },
+  {
+    "id": "20260224_172504_254573",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.257766",
+    "filename": "gpt4__dialog_agent_system__20260224_172504_254573_new.md"
+  },
+  {
+    "id": "20260224_172504_240448",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:25:04.251448",
+    "filename": "gpt4__dialog_agent_system__20260224_172504_240448.md"
+  },
+  {
+    "id": "20260224_172256_333138",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:22:56.343920",
+    "filename": "gpt4__classification_agent_system__20260224_172256_333138_new.md"
+  },
+  {
+    "id": "20260224_172256_194669",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T17:22:56.327217",
+    "filename": "gpt4__classification_agent_system__20260224_172256_194669.md"
+  },
+  {
+    "id": "20260224_164251_611431",
+    "model": "gpt5",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:42:51.616718",
+    "filename": "gpt5__tool_calling_agent_system__20260224_164251_611431_new.md"
+  },
+  {
+    "id": "20260224_164251_601304",
+    "model": "gpt5",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:42:51.608309",
+    "filename": "gpt5__tool_calling_agent_system__20260224_164251_601304.md"
+  },
+  {
+    "id": "20260224_164131_734590",
+    "model": "gpt5",
+    "prompt_type": "rag_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:41:31.737496",
+    "filename": "gpt5__rag_agent_system__20260224_164131_734590_new.md"
+  },
+  {
+    "id": "20260224_164131_723337",
+    "model": "gpt5",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:41:31.731681",
+    "filename": "gpt5__rag_agent_system__20260224_164131_723337.md"
+  },
+  {
+    "id": "20260224_164058_043032",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:40:58.047201",
+    "filename": "gpt5__dialog_agent_system__20260224_164058_043032_new.md"
+  },
+  {
+    "id": "20260224_164058_030138",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:40:58.039963",
+    "filename": "gpt5__dialog_agent_system__20260224_164058_030138.md"
+  },
+  {
+    "id": "20260224_163946_920127",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:39:46.924227",
+    "filename": "gpt5__classification_agent_system__20260224_163946_920127_new.md"
+  },
+  {
+    "id": "20260224_163946_809707",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:39:46.915373",
+    "filename": "gpt5__classification_agent_system__20260224_163946_809707.md"
+  },
+  {
+    "id": "20260224_163740_329870",
+    "model": "gpt4",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:37:40.336477",
+    "filename": "gpt4__tool_calling_agent_system__20260224_163740_329870_new.md"
+  },
+  {
+    "id": "20260224_163740_207199",
+    "model": "gpt4",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:37:40.325055",
+    "filename": "gpt4__tool_calling_agent_system__20260224_163740_207199.md"
+  },
+  {
+    "id": "20260224_163526_412612",
+    "model": "gpt4",
+    "prompt_type": "rag_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:35:26.415030",
+    "filename": "gpt4__rag_agent_system__20260224_163526_412612_new.md"
+  },
+  {
+    "id": "20260224_163526_400747",
+    "model": "gpt4",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:35:26.410452",
+    "filename": "gpt4__rag_agent_system__20260224_163526_400747.md"
+  },
+  {
+    "id": "20260224_163344_277338",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:33:44.281774",
+    "filename": "gpt4__dialog_agent_system__20260224_163344_277338_new.md"
+  },
+  {
+    "id": "20260224_163344_261600",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:33:44.271508",
+    "filename": "gpt4__dialog_agent_system__20260224_163344_261600.md"
+  },
+  {
+    "id": "20260224_163115_202668",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "AI Agent to answer questions about AI",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:31:15.207411",
+    "filename": "gpt4__classification_agent_system__20260224_163115_202668_new.md"
+  },
+  {
+    "id": "20260224_163115_182068",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-24T16:31:15.196420",
+    "filename": "gpt4__classification_agent_system__20260224_163115_182068.md"
+  },
+  {
+    "id": "20260223_205613_046130",
+    "model": "gpt5",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Istanbul travel agent that solves tourists’ questions.",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-23T20:56:13.049710",
+    "filename": "gpt5__tool_calling_agent_system__20260223_205613_046130_new.md"
+  },
+  {
+    "id": "20260223_205515_569751",
+    "model": "gpt5",
+    "prompt_type": "rag_agent_system",
+    "topic": "Istanbul travel agent that solves tourists’ questions.",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-23T20:55:15.573003",
+    "filename": "gpt5__rag_agent_system__20260223_205515_569751_new.md"
+  },
+  {
+    "id": "20260223_205447_458776",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Istanbul travel agent that solves tourists’ questions.",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-23T20:54:47.463138",
+    "filename": "gpt5__dialog_agent_system__20260223_205447_458776_new.md"
+  },
+  {
+    "id": "20260223_205447_350029",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-23T20:54:47.455438",
+    "filename": "gpt5__dialog_agent_system__20260223_205447_350029.md"
+  },
+  {
+    "id": "20260223_205359_895623",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Istanbul travel agent that solves tourists’ questions.",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-23T20:53:59.898687",
+    "filename": "gpt5__classification_agent_system__20260223_205359_895623_new.md"
+  },
+  {
+    "id": "20260223_205359_883701",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-23T20:53:59.892975",
+    "filename": "gpt5__classification_agent_system__20260223_205359_883701.md"
+  },
+  {
+    "id": "20260223_205302_755740",
+    "model": "gpt4",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Istanbul travel agent that solves tourists’ questions.",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-23T20:53:02.759558",
+    "filename": "gpt4__tool_calling_agent_system__20260223_205302_755740_new.md"
+  },
+  {
+    "id": "20260223_205208_946553",
+    "model": "gpt4",
+    "prompt_type": "rag_agent_system",
+    "topic": "Istanbul travel agent that solves tourists’ questions.",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-23T20:52:08.951097",
+    "filename": "gpt4__rag_agent_system__20260223_205208_946553_new.md"
+  },
+  {
+    "id": "20260223_205107_179419",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Istanbul travel agent that solves tourists’ questions.",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-23T20:51:07.183871",
+    "filename": "gpt4__dialog_agent_system__20260223_205107_179419_new.md"
+  },
+  {
+    "id": "20260223_205107_165396",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-23T20:51:07.175779",
+    "filename": "gpt4__dialog_agent_system__20260223_205107_165396.md"
+  },
+  {
+    "id": "20260223_204936_254680",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Istanbul travel agent that solves tourists’ questions.",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-23T20:49:36.260225",
+    "filename": "gpt4__classification_agent_system__20260223_204936_254680_new.md"
+  },
+  {
+    "id": "20260223_204936_245889",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-23T20:49:36.252621",
+    "filename": "gpt4__classification_agent_system__20260223_204936_245889.md"
+  },
+  {
     "id": "20260217_174409_843278",
     "model": "gpt5",
     "prompt_type": "dialog_agent_system",

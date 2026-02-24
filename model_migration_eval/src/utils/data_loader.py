@@ -49,6 +49,30 @@ class GeneralTestCase:
     run_count: int = 1
 
 
+@dataclass
+class RAGScenario:
+    """Represents a RAG (Retrieval-Augmented Generation) test scenario"""
+    id: str
+    scenario: str
+    query: str
+    context: str
+    ground_truth: str
+    expected_behavior: str
+    complexity: str
+
+
+@dataclass
+class ToolCallingScenario:
+    """Represents a tool-calling test scenario"""
+    id: str
+    scenario: str
+    query: str
+    available_tools: List[Dict[str, Any]]
+    expected_tool_calls: List[str]
+    expected_parameters: Dict[str, Any]
+    complexity: str
+
+
 class DataLoader:
     """
     Utility class for loading evaluation data.
@@ -150,6 +174,52 @@ class DataLoader:
             for item in raw_data
         ]
         
+    def load_rag_scenarios(self) -> List[RAGScenario]:
+        """
+        Load RAG (Retrieval-Augmented Generation) test scenarios.
+        
+        Returns:
+            List of RAGScenario objects
+        """
+        file_path = self.data_dir / "rag" / "rag_scenarios.json"
+        raw_data = self._load_json(file_path)
+        
+        return [
+            RAGScenario(
+                id=item['id'],
+                scenario=item['scenario'],
+                query=item['query'],
+                context=item['context'],
+                ground_truth=item['ground_truth'],
+                expected_behavior=item.get('expected_behavior', ''),
+                complexity=item.get('complexity', 'medium'),
+            )
+            for item in raw_data
+        ]
+
+    def load_tool_calling_scenarios(self) -> List[ToolCallingScenario]:
+        """
+        Load tool-calling test scenarios.
+        
+        Returns:
+            List of ToolCallingScenario objects
+        """
+        file_path = self.data_dir / "tool_calling" / "tool_calling_scenarios.json"
+        raw_data = self._load_json(file_path)
+        
+        return [
+            ToolCallingScenario(
+                id=item['id'],
+                scenario=item['scenario'],
+                query=item['query'],
+                available_tools=item.get('available_tools', []),
+                expected_tool_calls=item.get('expected_tool_calls', []),
+                expected_parameters=item.get('expected_parameters', {}),
+                complexity=item.get('complexity', 'medium'),
+            )
+            for item in raw_data
+        ]
+
     def get_classification_by_category(self, category: str) -> List[ClassificationScenario]:
         """Get classification scenarios filtered by expected category"""
         all_scenarios = self.load_classification_scenarios()
@@ -190,6 +260,12 @@ class DataLoader:
             
         for test in self.load_general_tests():
             yield ('general', test)
+
+        for scenario in self.load_rag_scenarios():
+            yield ('rag', scenario)
+
+        for scenario in self.load_tool_calling_scenarios():
+            yield ('tool_calling', scenario)
             
     def get_summary(self) -> Dict[str, Any]:
         """
@@ -201,9 +277,21 @@ class DataLoader:
         classification = self.load_classification_scenarios()
         dialog = self.load_dialog_scenarios()
         general = self.load_general_tests()
+
+        # RAG and tool_calling are optional — gracefully handle missing files
+        try:
+            rag = self.load_rag_scenarios()
+        except (FileNotFoundError, KeyError):
+            rag = []
+        try:
+            tool_calling = self.load_tool_calling_scenarios()
+        except (FileNotFoundError, KeyError):
+            tool_calling = []
+
+        total = len(classification) + len(dialog) + len(general) + len(rag) + len(tool_calling)
         
-        return {
-            'total_scenarios': len(classification) + len(dialog) + len(general),
+        summary: Dict[str, Any] = {
+            'total_scenarios': total,
             'classification': {
                 'count': len(classification),
                 'categories': list(set(s.expected_category for s in classification)),
@@ -217,8 +305,19 @@ class DataLoader:
                 'count': len(general),
                 'test_types': list(set(t.test_type for t in general)),
                 'complexity_levels': list(set(t.complexity for t in general))
-            }
+            },
         }
+        if rag:
+            summary['rag'] = {
+                'count': len(rag),
+                'complexity_levels': list(set(s.complexity for s in rag)),
+            }
+        if tool_calling:
+            summary['tool_calling'] = {
+                'count': len(tool_calling),
+                'complexity_levels': list(set(s.complexity for s in tool_calling)),
+            }
+        return summary
 
 
 # Example usage

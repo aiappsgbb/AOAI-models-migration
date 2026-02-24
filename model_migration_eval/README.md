@@ -1,6 +1,6 @@
 # Azure OpenAI Model Migration Evaluation Framework
 
-A comprehensive evaluation framework for migrating production systems between Azure OpenAI model generations (e.g. GPT-4.1 → GPT-5.2).  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across classification/dialog/general scenarios, side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion. 
+A comprehensive evaluation framework for migrating production systems between Azure OpenAI model generations (e.g. GPT-4.1 → GPT-5.2).  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **5 scenario types** (classification, dialog, general, RAG, and tool calling), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
 
 ---
 
@@ -11,11 +11,13 @@ When you upgrade a model deployment in Azure AI Foundry — from GPT-4.1 to GPT-
 - *"Does the new model still classify tickets correctly?"*
 - *"Is latency better or worse?"*
 - *"Do my prompts need to be rewritten?"*
+- *"Does the model stay grounded against my RAG context?"*
+- *"Can the new model select the right tools and extract parameters accurately?"*
 
 This framework automates that process end-to-end:
 
 1. **Generate** domain-specific prompts + synthetic test data for any topic via AI.
-2. **Evaluate** each model independently against classification, dialog, and general scenarios.
+2. **Evaluate** each model independently against 5 scenario types: classification, dialog, general, RAG, and tool calling.
 3. **Compare** two models head-to-head with quantified metrics and significance levels.
 4. **Browse** saved results, filter by type, inspect details, and delete old runs.
 5. **Manage** multiple topics — archive, switch, restore, or **import** your own prompt + data sets.
@@ -26,11 +28,13 @@ This framework automates that process end-to-end:
 |------|------------|
 | **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4.1, GPT-5.2, GPT-5, o-series, etc.) |
 | **Multi-Topic** | Switch between self-contained topic archives (prompts + data) without losing anything |
-| **AI Generation** | One-click generation of 4 optimised prompts + 3 test datasets tailored to any domain, with dynamic category taxonomy and JSON retry logic |
+| **AI Generation** | One-click generation of 8 optimised prompts (4 task types × 2 models) + 5 test datasets (70 scenarios) tailored to any domain, with dynamic category taxonomy and JSON retry logic |
 | **Topic Import** | Import your own GPT-4 prompts + test data from disk (web UI or CLI) — GPT-5 prompts are auto-generated and the topic is archived ready to activate |
 | **Classification** | Accuracy, F1, precision, recall, subcategory/priority/sentiment accuracy, confidence calibration, confusion matrix |
 | **Dialog** | Follow-up quality, context coverage, rule compliance, empathy score, optimal similarity, resolution efficiency, consistency |
 | **General** | Format compliance, completeness, reasoning, safety, structured output |
+| **RAG** | Groundedness, relevance, context keyword overlap, response completeness, latency & cost analytics |
+| **Tool Calling** | Tool selection accuracy, parameter extraction accuracy, response correctness, latency & cost analytics |
 | **Token & Cost** | Per-request token breakdown (prompt/completion/cached/reasoning), cost estimation, cache hit rate, throughput (tok/s) |
 | **Consistency** | Multi-run reproducibility scoring, response variance, format consistency |
 | **Model Comparison** | Dimension-by-dimension comparison with statistical significance (Welch's t-test) and actionable recommendations |
@@ -49,22 +53,16 @@ This framework automates that process end-to-end:
 ```
 model_migration_eval/
 ├── app.py                          # Main entry point (CLI + web server)
-├── azure.yaml                      # Azure Developer CLI service manifest
+├── start.bat                       # Quick-launch script (Windows)
 ├── requirements.txt                # Python dependencies
 ├── .env.example                    # Environment variables template
 ├── .gitignore                      # Git ignore rules
 ├── Dockerfile                      # Container image (Python 3.13-slim + Flask)
 ├── .dockerignore                   # Files excluded from Docker build context
-│
-├── infra/                          # Bicep infrastructure-as-code (azd)
-│   ├── main.bicep                  # Subscription-scoped entry point (AVM modules)
-│   ├── main.parameters.json        # azd parameter mapping
-│   └── modules/
-│       ├── acr-access.bicep        # AcrPull role assignment for MI
-│       └── role-assignments.bicep  # Cognitive Services OpenAI User + AI Developer roles
+├── deploy.ps1                      # One-script deployment (Docker Desktop or Azure)
 │
 ├── config/
-│   ├── settings.yaml               # Azure endpoint & model definitions
+│   ├── settings.yaml               # Azure credentials & model definitions
 │   └── model_params.yaml           # Model parameter reference table
 │
 ├── data/
@@ -72,6 +70,8 @@ model_migration_eval/
 │   │   ├── classification/         #   Classification scenarios (20)
 │   │   ├── dialog/                 #   Follow-up dialog samples (15)
 │   │   ├── general/               #   General capability tests (15)
+│   │   ├── rag/                   #   RAG grounding & retrieval tests (10)
+│   │   ├── tool_calling/          #   Tool selection & parameter tests (10)
 │   │   └── topics/                #   ⬅ Archived topic datasets
 │   │       ├── red_sea_diving_travel/
 │   │       ├── specialized_agent_.../  # aeronautics
@@ -97,7 +97,7 @@ model_migration_eval/
 │   │   └── azure_openai.py         # Azure OpenAI client (sync/async/streaming)
 │   ├── evaluation/
 │   │   ├── metrics.py              # MetricsCalculator — classification, dialog quality, latency, cost, consistency
-│   │   ├── evaluator.py            # ModelEvaluator + EvaluationResult (classification/dialog/general)
+│   │   ├── evaluator.py            # ModelEvaluator + EvaluationResult (classification/dialog/general/RAG/tool_calling)
 │   │   ├── comparator.py           # ModelComparator + ComparisonReport with statistical significance
 │   │   └── foundry_evaluator.py    # Microsoft Foundry Control Plane integration (optional)
 │   ├── utils/
@@ -105,7 +105,7 @@ model_migration_eval/
 │   │   ├── prompt_manager.py       # PromptManager — editing, versioning, AI gen, topics
 │   │   └── data_loader.py          # DataLoader — synthetic scenario loading
 │   └── web/
-│       ├── routes.py               # Flask API routes (1500+ lines, 46 routes)
+│       ├── routes.py               # Flask API routes (1500+ lines, 50+ routes)
 │       └── templates/
 │           ├── _fluent_head.html    # Fluent 2 design system (CSS tokens, Tailwind config, component classes)
 │           ├── _sidebar.html        # Top header bar + collapsible left sidebar navigation
@@ -154,30 +154,22 @@ copy .env.example .env        # Windows
 # cp .env.example .env        # Linux/macOS
 ```
 
-Edit `.env` and set your Azure OpenAI endpoint:
+Edit `.env` and set your Azure OpenAI credentials:
 
 ```dotenv
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=your-api-key-here
 FOUNDRY_PROJECT_ENDPOINT=https://your-hub.services.ai.azure.com/api/projects/your-project  # Optional
 ```
 
-#### Authentication
-
-The app uses **Entra ID / `DefaultAzureCredential`** by default — no API key needed.
-
-| Environment | How it works |
-|-------------|--------------|
-| **Local dev** | Run `az login` — `AzureCliCredential` is picked up automatically |
-| **Azure Container Apps** | User-Assigned Managed Identity + `AZURE_CLIENT_ID` set by Bicep |
-| **API key fallback** | Set `AZURE_OPENAI_API_KEY` in `.env` if you prefer key-based auth |
-
 ### 2. Configure Models
 
-Edit `config/settings.yaml`.  The `endpoint` field uses `${VAR}` syntax to read from `.env` automatically.  Authentication defaults to Entra ID (`DefaultAzureCredential`):
+Edit `config/settings.yaml`.  The `endpoint` and `api_key` fields use `${VAR}` syntax to read from `.env` automatically:
 
 ```yaml
 azure:
   endpoint: "${AZURE_OPENAI_ENDPOINT}"
+  api_key:  "${AZURE_OPENAI_API_KEY}"
   api_version: "2025-04-01-preview"
 
   models:
@@ -245,7 +237,7 @@ Every processing button (evaluate, compare, generate) has an optional **☑ Verb
 | **detail** | Gray | Per-scenario narrative with metrics breakdown |
 | **head** | Brand blue | Summary blocks with aggregated headline metrics |
 
-Each entry is timestamped.  For **classification**, each scenario shows expected vs. predicted category, confidence, latency, token breakdown (prompt/completion/cached), and subcategory/priority/sentiment match status.  For **dialog**, each scenario shows category, context gaps, question count vs. expected turns (on-target ✓ / off-target ⚠), response excerpt, latency, and full token detail.  A final summary block aggregates quality, consistency, latency, cost, and throughput.
+Each entry is timestamped.  For **classification**, each scenario shows expected vs. predicted category, confidence, latency, token breakdown (prompt/completion/cached), and subcategory/priority/sentiment match status.  For **dialog**, each scenario shows category, context gaps, question count vs. expected turns (on-target ✓ / off-target ⚠), response excerpt, latency, and full token detail.  For **RAG**, each scenario shows groundedness and relevance scores with context keyword matching.  For **tool calling**, each scenario shows tool selection accuracy and parameter extraction results.  A final summary block aggregates quality, consistency, latency, cost, and throughput.
 
 ### Dashboard (`/`)
 
@@ -256,17 +248,21 @@ Each entry is timestamped.  For **classification**, each scenario shows expected
 
 ### Evaluate (`/evaluate`)
 
-1. Select a **model** and **evaluation type** (classification, dialog, or general).
+1. Select a **model** and **evaluation type** (classification, dialog, general, RAG, or tool calling).
 2. Optionally enable **☑ Verbose** for detailed narrative logging and/or **☑ Include Foundry LLM-as-judge** for LLM-quality evaluation via Microsoft Foundry.
 3. Click **▶ Run Evaluation**.
 4. The system sends every test scenario through the model and computes metrics.
-5. Results are displayed with **12 summary metric cards** per type and **auto-saved** to `data/results/`.
+5. Results are displayed with **dynamic summary metric cards** per type and **auto-saved** to `data/results/`.
 
 **Classification metric cards (12):** Accuracy, F1 Score, Avg Latency, Consistency, Subcategory Accuracy, Priority Accuracy, Sentiment Accuracy, Cost/Request, Cache Hit Rate, Reasoning Token %, Avg Confidence, Tokens/sec.
 
 **Dialog metric cards (12):** Follow-up Quality, Context Coverage, Rule Compliance, Empathy Score, Optimal Similarity, Resolution Efficiency, Consistency, Avg Latency, P95 Latency, Cost/Request, Cache Hit Rate, Tokens/sec.
 
 **General metric cards (4):** Format Compliance, Completeness, Avg Latency, P95 Latency.
+
+**RAG metric cards (8):** Groundedness, Relevance, Format Compliance, Completeness, Avg Latency, P95 Latency, Cost/Request, Tokens/sec.
+
+**Tool Calling metric cards (8):** Tool Selection Accuracy, Parameter Accuracy, Format Compliance, Completeness, Avg Latency, P95 Latency, Cost/Request, Tokens/sec.
 
 Each metric card has an **ⓘ info tooltip** button explaining what the metric measures and how it's calculated.
 
@@ -297,9 +293,9 @@ The Prompts page has four sub-tabs:
 | Sub-Tab | Purpose |
 |---------|---------|
 | **View / Edit** | Read and edit the active prompt template for any model/type combination |
-| **✨ AI Generate** | Generate all 4 prompts + 3 test datasets for a new topic in one click |
+| **✨ AI Generate** | Generate all 8 prompts (4 types × 2 models) + 5 test datasets for a new topic in one click |
 | **Version History** | Filter, preview, restore, or delete (single/bulk) any past prompt version |
-| **Test Data** | Browse and edit raw test scenarios (classification/dialog/general) with inline JSON editor |
+| **Test Data** | Browse and edit raw test scenarios (classification/dialog/general/RAG/tool calling) with inline JSON editor |
 
 Additionally, the left sidebar includes an **📥 Import Topic** panel (see [Importing External Topics](#importing-external-topics) below).
 
@@ -376,11 +372,17 @@ This generates in one go:
 |--------|-------------|
 | `gpt4/classification_agent_system.md` | Classification prompt optimised for GPT-4 (explicit CoT, verbose rules) |
 | `gpt4/dialog_agent_system.md` | Dialog prompt optimised for GPT-4 |
+| `gpt4/rag_agent_system.md` | RAG prompt optimised for GPT-4 |
+| `gpt4/tool_calling_agent_system.md` | Tool calling prompt optimised for GPT-4 |
 | `gpt5/classification_agent_system.md` | Classification prompt optimised for GPT-5 (native reasoning, concise) |
 | `gpt5/dialog_agent_system.md` | Dialog prompt optimised for GPT-5 |
+| `gpt5/rag_agent_system.md` | RAG prompt optimised for GPT-5 |
+| `gpt5/tool_calling_agent_system.md` | Tool calling prompt optimised for GPT-5 |
 | `data/synthetic/classification/*.json` | 20 classification scenarios with categories, sentiments, priorities |
 | `data/synthetic/dialog/*.json` | 15 multi-turn dialog scenarios |
 | `data/synthetic/general/*.json` | 15 general capability tests |
+| `data/synthetic/rag/*.json` | 10 RAG scenarios with context documents and ground truth |
+| `data/synthetic/tool_calling/*.json` | 10 tool calling scenarios with expected tools and parameters |
 
 All content is domain-adapted and coherent — the test data exercises the exact categories defined in the prompts.
 
@@ -499,6 +501,7 @@ Edit the `models` section in `config/settings.yaml`.  Each key becomes a model n
 ```yaml
 azure:
   endpoint: "${AZURE_OPENAI_ENDPOINT}"
+  api_key:  "${AZURE_OPENAI_API_KEY}"
   api_version: "2025-04-01-preview"
 
   models:
@@ -549,6 +552,34 @@ The key names are arbitrary.  Add as many as you need:
       temperature: 0.1
 ```
 
+### Acceptance Thresholds & Migration Readiness
+
+The comparison report includes a **migration readiness** verdict (`PASS` / `FAIL` / `NOT_CONFIGURED`) based on configurable acceptance thresholds in `settings.yaml`:
+
+```yaml
+evaluation:
+  acceptance_thresholds:
+    classification:
+      accuracy: 0.90
+      consistency: 0.85
+      max_latency_ms: 3000
+    dialog:
+      quality_score: 0.80
+      consistency: 0.80
+      max_latency_ms: 5000
+    rag:
+      groundedness: 0.85
+      relevance: 0.80
+      max_latency_ms: 5000
+    tool_calling:
+      tool_selection_accuracy: 0.90
+      parameter_accuracy: 0.85
+      max_latency_ms: 4000
+    general:
+      quality_score: 0.75
+      max_latency_ms: 5000
+```
+
 ---
 ## ☁️ Microsoft Foundry Control Plane Evaluation
 
@@ -583,8 +614,31 @@ The framework optionally integrates with [Microsoft Foundry](https://ai.azure.co
 | **Python package** | `pip install 'azure-ai-projects>=2.0.0b2'` (already in `requirements.txt`) |
 | **Foundry Project** | Create a project in [Azure AI Foundry](https://ai.azure.com/) |
 | **Judge model deployment** | Deploy a model (e.g. `gpt-4.1`) in the Foundry project — this model runs the LLM-as-judge evaluations |
-| **Azure credentials** | `DefaultAzureCredential` — locally via `az login`, in Azure via Managed Identity |
-| **RBAC** | The managed identity (or your `az login` identity) needs **Azure AI Developer** role on the Foundry project |
+| **Azure credentials** | `DefaultAzureCredential` — works with Azure CLI (`az login`), Managed Identity, or Service Principal (auto-created by `deploy.ps1`) |
+| **RBAC roles** | Your identity (or the Service Principal) needs the roles listed below on the **AI Services resource** (or its resource group) that backs the Foundry project |
+
+#### Required RBAC Roles for Foundry Evaluations
+
+| Role | Why it's needed |
+|------|-----------------|
+| **Azure AI Developer** | Create evaluations, create runs, upload datasets to the Foundry project |
+| **Cognitive Services OpenAI User** | Call the judge/grader model deployments used by the LLM-as-judge evaluators |
+| **Storage Blob Data Contributor** | Upload evaluation datasets (JSONL files) to the project's backing storage |
+
+> **Assign roles with Azure CLI:**
+>
+> ```bash
+> # Replace <SP_OR_USER_OBJECT_ID> with the Service Principal appId or user objectId
+> # Replace <SCOPE> with the AI Services resource ID or resource group ID
+> az role assignment create --assignee <SP_OR_USER_OBJECT_ID> \
+>     --role "Azure AI Developer" --scope <SCOPE>
+> az role assignment create --assignee <SP_OR_USER_OBJECT_ID> \
+>     --role "Cognitive Services OpenAI User" --scope <SCOPE>
+> az role assignment create --assignee <SP_OR_USER_OBJECT_ID> \
+>     --role "Storage Blob Data Contributor" --scope <SCOPE>
+> ```
+>
+> **Tip:** `deploy.ps1` assigns these roles automatically when creating or verifying the Service Principal.
 
 ### Setup
 
@@ -609,13 +663,17 @@ The framework optionally integrates with [Microsoft Foundry](https://ai.azure.co
    FOUNDRY_PROJECT_ENDPOINT=https://<your-hub>.services.ai.azure.com/api/projects/<your-project>
    ```
 
+   > **Where to find the endpoint:**  
+   > Azure AI Foundry portal → your project → **Overview** → **Project endpoint**
+
 3. **Authenticate with Azure:**
 
    ```bash
    az login
    ```
 
-   In Azure Container Apps the User-Assigned Managed Identity handles authentication automatically — no manual setup needed.
+   Or set `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` / `AZURE_TENANT_ID` for service-principal auth.  
+   > **Tip:** The `deploy.ps1` script **automatically creates** a Service Principal (`sp-model-migration-eval`) and writes these variables to `.env` — no manual setup needed for containerised deployments.
 
 ### Usage from the Web UI
 
@@ -646,9 +704,13 @@ curl -X POST http://127.0.0.1:5000/api/foundry/submit \
 
 | Evaluation Type | Built-in Evaluators Used |
 |-----------------|--------------------------|
-| **Classification** | `coherence`, `fluency`, `relevance`, `task_adherence`, `similarity` |
-| **Dialog** | `coherence`, `fluency`, `relevance`, `intent_resolution`, `task_adherence` |
-| **General** | `coherence`, `fluency`, `relevance`, `response_completeness` |
+| **Classification** | `coherence`, `fluency`, `relevance`, `task_adherence`, `similarity`, `safety_violence`*, `safety_hate_unfairness`* |
+| **Dialog** | `coherence`, `fluency`, `relevance`, `intent_resolution`, `task_adherence`, `safety_violence`*, `safety_hate_unfairness`* |
+| **General** | `coherence`, `fluency`, `relevance`, `response_completeness`, `safety_violence`*, `safety_hate_unfairness`* |
+| **RAG** | `coherence`, `fluency`, `relevance`, `groundedness`, `similarity`, `response_completeness`, `safety_violence`*, `safety_hate_unfairness`* |
+| **Tool Calling** | `coherence`, `fluency`, `relevance`, `task_adherence`, `response_completeness`, `safety_violence`*, `safety_hate_unfairness`* |
+
+> \* Safety evaluators are optional — controlled by `include_safety_evaluators` in `settings.yaml`. If a Foundry run fails with safety evaluators, the system automatically retries without them.
 
 ### Viewing Results in the Control Plane
 
@@ -667,72 +729,91 @@ Each LLM-as-judge evaluator makes one API call per test scenario.  Approximate t
 | Item | Tokens |
 |------|--------|
 | Per evaluator per row | ~500–1,500 input + ~100–300 output |
-| Classification (10 scenarios, 5 evaluators) | ~50 calls ≈ 75K tokens |
-| Dialog (15 scenarios, 5 evaluators) | ~75 calls ≈ 112K tokens |
+| Classification (20 scenarios, 7 evaluators) | ~140 calls ≈ 210K tokens |
+| Dialog (15 scenarios, 7 evaluators) | ~105 calls ≈ 157K tokens |
+| RAG (10 scenarios, 8 evaluators) | ~80 calls ≈ 120K tokens |
+| Tool Calling (10 scenarios, 7 evaluators) | ~70 calls ≈ 105K tokens |
 
-Cost depends on the judge model pricing.  With `gpt-4.1` at $2.50/M input + $10/M output, a full classification run costs approximately **$0.20–0.40 USD**.
+Cost depends on the judge model pricing.  With `gpt-4.1` at $2.50/M input + $10/M output, a full classification run costs approximately **$0.50–0.80 USD**.  A full 5-type evaluation costs approximately **$1.50–2.50 USD**.
 
 ### Graceful Degradation
 
 If the Foundry SDK is not installed or the configuration is missing, the feature is **silently disabled** — all local evaluations continue to work normally without any error.  The **Include Foundry LLM-as-judge** toggle simply doesn't appear in the UI.
 
 ---
-## 🚀 Deployment
+## � Deployment
 
-The project uses **Azure Developer CLI (`azd`)** for one-command provisioning and deployment to **Azure Container Apps**.
+The project includes a single PowerShell script that handles both local Docker and Azure Container Apps deployment.
 
 ### Prerequisites
 
-| Tool | Required |
-|------|:--------:|
-| [Azure Developer CLI](https://aka.ms/azd-install) | ✅ |
-| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | ✅ |
-| [Azure CLI](https://aka.ms/installazurecliwindows) | Optional (for `az login` during local dev) |
+| Tool | Local Docker | Azure |
+|------|:---:|:---:|
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | ✅ | ✅ |
+| [Azure CLI](https://aka.ms/installazurecliwindows) | — | ✅ |
+| `.env` file with credentials | ✅ | ✅ |
 
-### Deploy to Azure
+### Run the Deployment Script
 
-```bash
-# Authenticate
-azd auth login
-
-# Provision infrastructure + build & deploy the container
-azd up
+```powershell
+.\deploy.ps1
 ```
 
-`azd up` will:
+The script presents an interactive menu:
 
-| Step | What happens |
-|------|-------------|
-| 1 | Create a Resource Group (`rg-<env>`) |
-| 2 | Deploy **Log Analytics + Application Insights** (AVM monitoring pattern) |
-| 3 | Deploy **ACR + Container Apps Environment** (AVM container-apps-stack pattern) |
-| 4 | Create a **User-Assigned Managed Identity** with AcrPull + Cognitive Services OpenAI User + Azure AI Developer roles |
-| 5 | Build the Docker image and push to ACR |
-| 6 | Deploy the **Container App** with probes, scale rules, and the MI identity |
+```
+  1. Local Docker Desktop  (for development / testing)
+  2. Azure Container Apps  (for production / demos)
+```
 
-### Infrastructure (Bicep / AVM)
+### Option 1: Local Docker Desktop
 
-All infrastructure is defined in `infra/main.bicep` using [Azure Verified Modules](https://aka.ms/avm):
+- Builds a **timestamped image** from the `Dockerfile` (Python 3.13-slim + Flask + Azure CLI).
+- Auto-creates a **Service Principal** for Foundry authentication inside the container (if not already configured).
+- Validates `.env` has all required variables (Azure OpenAI + Foundry SP credentials).
+- Injects credentials from `.env` via `--env-file`.
+- Exposes the web UI at **http://localhost:5000**.
+- Runs an automatic health check against `/api/health`.
 
-| Module | Purpose |
-|--------|---------|
-| `avm/ptn/azd/monitoring:0.1.0` | Log Analytics + App Insights + Dashboard |
-| `avm/ptn/azd/container-apps-stack:0.1.0` | ACR (Basic) + Container Apps Environment |
-| `avm/res/managed-identity/user-assigned-identity:0.4.0` | User-Assigned Managed Identity |
-| `avm/res/app/container-app:0.10.0` | Container App (full resource module) |
-| `modules/acr-access.bicep` | AcrPull role assignment for the MI |
-| `modules/role-assignments.bicep` | Cognitive Services OpenAI User + Azure AI Developer roles |
+```powershell
+# After deployment, useful commands:
+docker logs -f model-migration-eval    # Stream logs
+docker stop model-migration-eval       # Stop
+docker rm -f model-migration-eval      # Remove
+```
 
-### Authentication Model
+### Option 2: Azure Container Apps
 
-The deployed container uses **Entra ID / Managed Identity** — fully keyless:
+Before the deployment steps, the script auto-creates a **Service Principal** (`sp-model-migration-eval`) for Foundry authentication inside the container and writes `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET` to `.env`.
 
-- No API keys, no Service Principal credentials, no secrets in the container.
-- `AZURE_CLIENT_ID` is set by Bicep to the MI's client ID.
-- `DefaultAzureCredential` in the Python SDK picks up the MI automatically.
-- RBAC roles are assigned via Bicep to the MI on the Azure OpenAI account and AI Foundry project.
+Deploys the full stack to Azure in 7 automated steps:
 
-### Container Resources
+| Step | Action |
+|------|--------|
+| 1 | Create / verify Resource Group |
+| 2 | Create Azure Container Registry (ACR) |
+| 3 | Build Docker image & push to ACR |
+| 4 | Create Container Apps Environment |
+| 5 | Prepare secrets & environment variables |
+| 6 | Create / update Container App (with liveness & readiness probes) |
+| 7 | Retrieve the public HTTPS URL |
+
+The script supports **skipping completed steps** — useful when re-deploying after a code change (skip to step 3 to just rebuild & push).
+
+#### Configuration
+
+Edit the variables at the top of `deploy.ps1`:
+
+```powershell
+$RESOURCE_GROUP     = "rg-model-migration"
+$LOCATION           = "swedencentral"
+$ACR_NAME           = "acrmodelmigration"      # globally unique, lowercase
+$CONTAINER_APP_NAME = "model-migration-eval"
+```
+
+Secrets (like `AZURE_OPENAI_API_KEY`) are automatically stored as Container Apps secrets and injected via `secretRef` — they are never exposed in plain text in the YAML configuration.
+
+#### Container Resources
 
 | Setting | Value |
 |---------|-------|
@@ -741,20 +822,21 @@ The deployed container uses **Entra ID / Managed Identity** — fully keyless:
 | Min replicas | 0 (scales to zero when idle) |
 | Max replicas | 3 |
 | Scale rule | HTTP concurrent requests > 20 |
-| Liveness probe | `/api/health` (10s initial delay, 30s period) |
-| Readiness probe | `/api/health` (5s initial delay, 10s period) |
 
-### Post-Deployment Commands
+#### Post-Deployment Commands
 
-```bash
+```powershell
 # View live logs
-az containerapp logs show -n <app-name> -g <rg-name> --follow
+az containerapp logs show -n model-migration-eval -g rg-model-migration --follow
 
 # Check status
-az containerapp show -n <app-name> -g <rg-name> --query properties.runningStatus
+az containerapp show -n model-migration-eval -g rg-model-migration --query properties.runningStatus
+
+# List revisions
+az containerapp revision list -n model-migration-eval -g rg-model-migration -o table
 
 # Tear down everything
-azd down --purge --force
+az group delete -n rg-model-migration --yes --no-wait
 ```
 
 ---
@@ -781,6 +863,8 @@ python app.py compare --model-a gpt4 --model-b gpt5 --type all
 python tools/import_topic.py --topic "My Topic" --gpt4-class-prompt prompt.txt --class-test-data data.json
 ```
 
+> **Note:** The CLI `evaluate` and `compare` subcommands currently support `classification`, `dialog`, `general`, and `all`.  RAG and tool calling evaluations are available via the **web UI** and **REST API** only.
+
 Results are automatically saved to `data/results/` as JSON files.
 
 ---
@@ -802,6 +886,11 @@ All endpoints are available at `http://127.0.0.1:<port>/api/`.
 |--------|----------|-------------|
 | `GET` | `/api/data/summary` | Summary counts of test data per type |
 | `GET` | `/api/data/overview` | Counts per data type for active topic + all archives |
+| `GET` | `/api/data/classification` | Classification scenarios |
+| `GET` | `/api/data/dialog` | Dialog scenarios |
+| `GET` | `/api/data/general` | General scenarios |
+| `GET` | `/api/data/rag` | RAG scenarios |
+| `GET` | `/api/data/tool_calling` | Tool calling scenarios |
 | `GET` | `/api/data/raw/<type>` | Get raw JSON for a data type (`?topic=` reads from archive) |
 | `PUT` | `/api/data/raw/<type>` | Save/overwrite raw JSON for a data type (`?topic=` writes to archive) |
 | `GET` | `/api/data/sync-status` | Check if test data matches the current topic |
@@ -826,6 +915,7 @@ All endpoints are available at `http://127.0.0.1:<port>/api/`.
 | `PUT` | `/api/prompts/<model>/<type>` | Save/update a prompt (creates version snapshot) |
 | `POST` | `/api/prompts/generate` | AI-generate all prompts + matching test data — returns HTTP 202, runs asynchronously in background |
 | `GET` | `/api/prompts/generate/<run_id>/status` | Poll generation job progress — returns result payload when complete |
+| `GET` | `/api/prompts/health` | Prompt health analysis — checks consistency and completeness |
 
 ### Version History
 
@@ -851,6 +941,7 @@ All endpoints are available at `http://127.0.0.1:<port>/api/`.
 |--------|----------|-------------|
 | `GET` | `/api/foundry/status` | Check if Foundry evaluation SDK is installed and configured |
 | `POST` | `/api/foundry/submit` | Submit a saved evaluation result to Foundry for LLM-as-judge evaluation |
+| `POST` | `/api/foundry/scores` | Retrieve Foundry LLM-as-judge scores for an evaluation run |
 
 ### Topic Management
 
@@ -861,6 +952,12 @@ All endpoints are available at `http://127.0.0.1:<port>/api/`.
 | `POST` | `/api/topics/activate` | Switch to an archived topic (restores prompts + data) |
 | `POST` | `/api/topics/archive` | Archive the current active topic |
 | `DELETE` | `/api/topics/<name>` | Delete an archived topic |
+
+### Log Streaming
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/logs` | Fetch backend logs with offset pagination |
 
 ---
 
@@ -909,6 +1006,25 @@ All endpoints are available at `http://127.0.0.1:<port>/api/`.
 | Safety | Content filter and PII handling |
 | Consistency | Response variance across repeated calls |
 
+### RAG Evaluation
+
+| Metric | Description | How it's calculated |
+|--------|-------------|---------------------|
+| Groundedness | Whether the response is grounded in provided context | Context keyword overlap in model response |
+| Relevance | How well the response addresses the ground truth | Ground truth keyword overlap in model response |
+| Format compliance | Correct output format | Structural validation |
+| Completeness | All required response elements present | Content coverage check |
+| Context utilisation | How effectively the model uses the provided documents | Keyword extraction and matching |
+
+### Tool Calling Evaluation
+
+| Metric | Description | How it's calculated |
+|--------|-------------|---------------------|
+| Tool selection accuracy | Whether the correct tool(s) are selected | Expected tool names found in response |
+| Parameter extraction accuracy | Whether parameters are correctly extracted | Expected parameter values found in response |
+| Format compliance | Correct output format | Structural validation |
+| Completeness | All required tool call elements present | Content coverage check |
+
 ### Latency & Cost Metrics (all types)
 
 | Metric | Description |
@@ -949,9 +1065,15 @@ When comparing two models, each dimension shows:
 
 **Dialog dimensions:** Follow-up Quality, Context Coverage, Rule Compliance, Empathy Score, Optimal Similarity, Resolution Efficiency.
 
+**RAG dimensions:** Groundedness, Relevance, Format Compliance, Completeness.
+
+**Tool Calling dimensions:** Tool Selection Accuracy, Parameter Accuracy, Format Compliance, Completeness.
+
 **Latency dimensions:** Mean Latency, P95, Std Dev, Cost/Request, Cache Hit Rate, Reasoning Token %, Tokens/sec.
 
 **Consistency dimensions:** Reproducibility, Format Consistency.
+
+**Foundry LLM-as-judge dimensions (1–5 scale):** Coherence, Fluency, Relevance, Similarity, Task Adherence, Intent Resolution, Response Completeness, Groundedness, Safety: Violence, Safety: Hate/Unfairness.
 
 ---
 
@@ -990,13 +1112,13 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 | Class | Module | Purpose |
 |-------|--------|---------|
 | `AzureOpenAIClient` | `src.clients.azure_openai` | Wraps the OpenAI SDK — connection management, chat completions, streaming |
-| `ModelEvaluator` | `src.evaluation.evaluator` | Runs classification/dialog/general evaluations against a single model |
+| `ModelEvaluator` | `src.evaluation.evaluator` | Runs classification/dialog/general/RAG/tool_calling evaluations against a single model |
 | `EvaluationResult` | `src.evaluation.evaluator` | Dataclass container for evaluation output — serialises to/from JSON |
 | `ModelComparator` | `src.evaluation.comparator` | Compares evaluation results between two models with significance analysis |
 | `ComparisonReport` | `src.evaluation.comparator` | Dataclass for comparison output — dimensions, winner, recommendations |
-| `MetricsCalculator` | `src.evaluation.metrics` | Computes classification metrics (accuracy, F1, kappa, confusion matrix, calibration), dialog quality metrics (rule compliance, empathy, optimal similarity, resolution efficiency), latency & cost analytics, and consistency scoring.  Includes case-insensitive category normalisation with alias support |
-| `FoundryEvaluator` | `src.evaluation.foundry_evaluator` | Submits evaluation data to Microsoft Foundry Control Plane for LLM-as-judge quality evaluation.  Handles JSONL export, dataset upload, evaluation creation, and run polling |
-| `PromptManager` | `src.utils.prompt_manager` | Prompt editing, versioning, AI generation (with JSON sanitisation & retry), topic archival, data sync |
+| `MetricsCalculator` | `src.evaluation.metrics` | Computes classification metrics (accuracy, F1, kappa, confusion matrix, calibration), dialog quality metrics (rule compliance, empathy, optimal similarity, resolution efficiency), RAG metrics (groundedness, relevance), tool calling metrics (tool selection accuracy, parameter accuracy), latency & cost analytics, and consistency scoring.  Includes case-insensitive category normalisation with alias support |
+| `FoundryEvaluator` | `src.evaluation.foundry_evaluator` | Submits evaluation data to Microsoft Foundry Control Plane for LLM-as-judge quality evaluation.  Handles JSONL export (with type-specific converters for all 5 eval types), dataset upload, evaluation creation, run polling, and automatic retry with safety evaluator fallback |
+| `PromptManager` | `src.utils.prompt_manager` | Prompt editing, versioning, AI generation (8 prompts + 5 datasets with JSON sanitisation & retry), topic archival, data sync, synthetic data regeneration |
 | `PromptLoader` | `src.utils.prompt_loader` | Template loading from disk with in-memory caching |
 | `DataLoader` | `src.utils.data_loader` | Loads synthetic test scenarios from JSON files |
 
@@ -1026,3 +1148,7 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 ## 📄 License
 
 MIT License
+
+---
+
+*Last Updated: February 2026*

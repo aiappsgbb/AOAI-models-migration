@@ -25,7 +25,9 @@ from ..utils.data_loader import (
     DataLoader, 
     ClassificationScenario, 
     DialogScenario,
-    GeneralTestCase
+    GeneralTestCase,
+    RAGScenario,
+    ToolCallingScenario,
 )
 from .metrics import (
     MetricsCalculator,
@@ -616,6 +618,380 @@ class ModelEvaluator:
             
         result.raw_results = raw_results
         return result
+
+    # ── RAG evaluation ────────────────────────────────────────────────
+
+    def evaluate_rag(
+        self,
+        model_name: str,
+        scenarios: Optional[List[RAGScenario]] = None,
+        measure_consistency: bool = True,
+    ) -> EvaluationResult:
+        """Evaluate RAG (Retrieval-Augmented Generation) performance.
+        Delegates to the async implementation."""
+        return _run_in_loop(self.evaluate_rag_async(
+            model_name, scenarios, measure_consistency
+        ))
+
+    async def evaluate_rag_async(
+        self,
+        model_name: str,
+        scenarios: Optional[List[RAGScenario]] = None,
+        measure_consistency: bool = True,
+    ) -> EvaluationResult:
+        """Async/parallel RAG evaluation.
+
+        Metrics measured:
+        - Groundedness (does the response stick to the context?)
+        - Relevance (does it answer the query?)
+        - Completeness (does it cover all context-supported facts?)
+        - Latency analytics
+        - Consistency / reproducibility
+        """
+        scenarios = scenarios or self.data_loader.load_rag_scenarios()
+
+        logger.info(
+            f"=== RAG evaluation: model={model_name}, scenarios={len(scenarios)}, "
+            f"concurrency={self.max_concurrent} ==="
+        )
+
+        result = EvaluationResult(
+            model_name=model_name,
+            evaluation_type="rag",
+            timestamp=datetime.now().isoformat(),
+            scenarios_tested=len(scenarios),
+        )
+
+        sem = asyncio.Semaphore(self.max_concurrent)
+
+        async def _process_one(scenario: RAGScenario) -> Optional[Dict]:
+            try:
+                async with sem:
+                    messages = self.prompt_loader.load_rag_prompt(
+                        model=model_name,
+                        query=scenario.query,
+                        context=scenario.context,
+                    )
+                    completion = await self.client.complete_async(
+                        messages=messages,
+                        model_name=model_name,
+                    )
+
+                response_text = completion.content
+
+                # Simple groundedness heuristic: overlap of context keywords in response
+                context_words = set(scenario.context.lower().split())
+                response_words = set(response_text.lower().split())
+                common = context_words & response_words
+                groundedness = len(common) / max(len(context_words), 1)
+
+                # Simple relevance heuristic: overlap with ground_truth
+                gt_words = set(scenario.ground_truth.lower().split())
+                resp_gt_common = gt_words & response_words
+                relevance = len(resp_gt_common) / max(len(gt_words), 1)
+
+                logger.info(
+                    f"  {scenario.id}: groundedness={groundedness:.2f} "
+                    f"relevance={relevance:.2f} "
+                    f"latency={completion.metrics.total_time:.2f}s"
+                )
+
+                # Consistency runs
+                consistency_responses: Optional[List[str]] = None
+                if measure_consistency:
+                    consistency_responses = [response_text]
+
+                    async def _one_repeat():
+                        async with sem:
+                            r = await self.client.complete_async(
+                                messages=messages, model_name=model_name,
+                            )
+                            return r.content
+
+                    repeats = await asyncio.gather(
+                        *[_one_repeat() for _ in range(self.consistency_runs - 1)]
+                    )
+                    consistency_responses.extend(repeats)
+
+                return {
+                    'groundedness': groundedness,
+                    'relevance': relevance,
+                    'latency': completion.metrics.total_time,
+                    'token_data': {
+                        'prompt_tokens': completion.metrics.prompt_tokens,
+                        'completion_tokens': completion.metrics.completion_tokens,
+                        'cached_tokens': completion.metrics.cached_tokens,
+                        'reasoning_tokens': completion.metrics.reasoning_tokens,
+                    },
+                    'raw': {
+                        'scenario_id': scenario.id,
+                        'query': scenario.query,
+                        'context': scenario.context,
+                        'ground_truth': scenario.ground_truth,
+                        'response': response_text,
+                        'groundedness': groundedness,
+                        'relevance': relevance,
+                        'latency': completion.metrics.total_time,
+                        'tokens': completion.metrics.total_tokens,
+                        'token_detail': {
+                            'prompt': completion.metrics.prompt_tokens,
+                            'completion': completion.metrics.completion_tokens,
+                            'cached': completion.metrics.cached_tokens,
+                            'reasoning': completion.metrics.reasoning_tokens,
+                        },
+                    },
+                    'consistency_responses': consistency_responses,
+                }
+            except Exception as e:
+                logger.error(f"Error evaluating RAG scenario {scenario.id}: {e}\n{traceback.format_exc()}")
+                result.errors.append(f"{scenario.id}: {str(e)}")
+                return None
+
+        outcomes = await asyncio.gather(*[_process_one(s) for s in scenarios])
+
+        latencies = []
+        groundedness_scores = []
+        relevance_scores = []
+        token_data = []
+        raw_results = []
+        responses_for_consistency = []
+
+        for out in outcomes:
+            if out is None:
+                continue
+            latencies.append(out['latency'])
+            groundedness_scores.append(out['groundedness'])
+            relevance_scores.append(out['relevance'])
+            token_data.append(out['token_data'])
+            raw_results.append(out['raw'])
+            if out.get('consistency_responses'):
+                responses_for_consistency.append(out['consistency_responses'])
+
+        if latencies:
+            result.latency_metrics = self.metrics_calc.calculate_latency_metrics(
+                latencies, token_data=token_data, model_name=model_name,
+            )
+        if groundedness_scores:
+            import numpy as _np
+            avg_groundedness = float(_np.mean(groundedness_scores))
+            avg_relevance = float(_np.mean(relevance_scores))
+            result.quality_metrics = QualityMetrics(
+                relevance=avg_relevance,
+                groundedness=avg_groundedness,
+            )
+        if responses_for_consistency:
+            result.consistency_metrics = self.metrics_calc.calculate_consistency_metrics(
+                responses_for_consistency,
+            )
+
+        result.scenarios_tested = len(raw_results)
+        result.raw_results = raw_results
+        return result
+
+    # ── Tool Calling evaluation ───────────────────────────────────────
+
+    def evaluate_tool_calling(
+        self,
+        model_name: str,
+        scenarios: Optional[List[ToolCallingScenario]] = None,
+        measure_consistency: bool = True,
+    ) -> EvaluationResult:
+        """Evaluate tool-calling accuracy.
+        Delegates to the async implementation."""
+        return _run_in_loop(self.evaluate_tool_calling_async(
+            model_name, scenarios, measure_consistency
+        ))
+
+    async def evaluate_tool_calling_async(
+        self,
+        model_name: str,
+        scenarios: Optional[List[ToolCallingScenario]] = None,
+        measure_consistency: bool = True,
+    ) -> EvaluationResult:
+        """Async/parallel tool-calling evaluation.
+
+        Metrics measured:
+        - Tool selection accuracy (did it choose the right tool(s)?)
+        - Parameter extraction accuracy
+        - Latency analytics
+        - Consistency / reproducibility
+        """
+        scenarios = scenarios or self.data_loader.load_tool_calling_scenarios()
+
+        logger.info(
+            f"=== Tool Calling evaluation: model={model_name}, scenarios={len(scenarios)}, "
+            f"concurrency={self.max_concurrent} ==="
+        )
+
+        result = EvaluationResult(
+            model_name=model_name,
+            evaluation_type="tool_calling",
+            timestamp=datetime.now().isoformat(),
+            scenarios_tested=len(scenarios),
+        )
+
+        sem = asyncio.Semaphore(self.max_concurrent)
+
+        async def _process_one(scenario: ToolCallingScenario) -> Optional[Dict]:
+            try:
+                async with sem:
+                    messages = self.prompt_loader.load_tool_calling_prompt(
+                        model=model_name,
+                        query=scenario.query,
+                        available_tools=scenario.available_tools,
+                    )
+                    completion = await self.client.complete_async(
+                        messages=messages,
+                        model_name=model_name,
+                    )
+
+                response_text = completion.content
+                response_lower = response_text.lower()
+
+                # Evaluate tool selection accuracy
+                expected_calls = scenario.expected_tool_calls
+                if not expected_calls:
+                    # Expected: no tool call — check model didn't force one
+                    tool_accuracy = 1.0 if not any(
+                        t.get('function', {}).get('name', '').lower() in response_lower
+                        for t in scenario.available_tools
+                        if isinstance(t, dict) and 'function' in t
+                    ) else 0.0
+                else:
+                    matched = sum(
+                        1 for tc in expected_calls if tc.lower() in response_lower
+                    )
+                    tool_accuracy = matched / len(expected_calls)
+
+                # Evaluate parameter extraction (check if expected param values appear in response)
+                param_accuracy = 0.0
+                expected_params = scenario.expected_parameters
+                if expected_params:
+                    total_params = 0
+                    matched_params = 0
+                    for key, val in expected_params.items():
+                        if isinstance(val, dict):
+                            for pk, pv in val.items():
+                                total_params += 1
+                                if str(pv).lower() in response_lower:
+                                    matched_params += 1
+                        else:
+                            total_params += 1
+                            if str(val).lower() in response_lower:
+                                matched_params += 1
+                    param_accuracy = matched_params / max(total_params, 1)
+                else:
+                    param_accuracy = 1.0  # no params expected
+
+                logger.info(
+                    f"  {scenario.id}: tool_acc={tool_accuracy:.2f} "
+                    f"param_acc={param_accuracy:.2f} "
+                    f"latency={completion.metrics.total_time:.2f}s"
+                )
+
+                # Consistency runs
+                consistency_responses: Optional[List[str]] = None
+                if measure_consistency:
+                    consistency_responses = [response_text]
+
+                    async def _one_repeat():
+                        async with sem:
+                            r = await self.client.complete_async(
+                                messages=messages, model_name=model_name,
+                            )
+                            return r.content
+
+                    repeats = await asyncio.gather(
+                        *[_one_repeat() for _ in range(self.consistency_runs - 1)]
+                    )
+                    consistency_responses.extend(repeats)
+
+                return {
+                    'tool_accuracy': tool_accuracy,
+                    'param_accuracy': param_accuracy,
+                    'latency': completion.metrics.total_time,
+                    'token_data': {
+                        'prompt_tokens': completion.metrics.prompt_tokens,
+                        'completion_tokens': completion.metrics.completion_tokens,
+                        'cached_tokens': completion.metrics.cached_tokens,
+                        'reasoning_tokens': completion.metrics.reasoning_tokens,
+                    },
+                    'raw': {
+                        'scenario_id': scenario.id,
+                        'query': scenario.query,
+                        'available_tools': [
+                            t.get('function', {}).get('name', '') for t in scenario.available_tools
+                            if isinstance(t, dict)
+                        ],
+                        'expected_tool_calls': scenario.expected_tool_calls,
+                        'response': response_text,
+                        'tool_accuracy': tool_accuracy,
+                        'param_accuracy': param_accuracy,
+                        'latency': completion.metrics.total_time,
+                        'tokens': completion.metrics.total_tokens,
+                        'token_detail': {
+                            'prompt': completion.metrics.prompt_tokens,
+                            'completion': completion.metrics.completion_tokens,
+                            'cached': completion.metrics.cached_tokens,
+                            'reasoning': completion.metrics.reasoning_tokens,
+                        },
+                    },
+                    'consistency_responses': consistency_responses,
+                }
+            except Exception as e:
+                logger.error(f"Error evaluating tool calling scenario {scenario.id}: {e}\n{traceback.format_exc()}")
+                result.errors.append(f"{scenario.id}: {str(e)}")
+                return None
+
+        outcomes = await asyncio.gather(*[_process_one(s) for s in scenarios])
+
+        latencies = []
+        tool_accuracies = []
+        param_accuracies = []
+        token_data = []
+        raw_results = []
+        responses_for_consistency = []
+
+        for out in outcomes:
+            if out is None:
+                continue
+            latencies.append(out['latency'])
+            tool_accuracies.append(out['tool_accuracy'])
+            param_accuracies.append(out['param_accuracy'])
+            token_data.append(out['token_data'])
+            raw_results.append(out['raw'])
+            if out.get('consistency_responses'):
+                responses_for_consistency.append(out['consistency_responses'])
+
+        if latencies:
+            result.latency_metrics = self.metrics_calc.calculate_latency_metrics(
+                latencies, token_data=token_data, model_name=model_name,
+            )
+        if tool_accuracies:
+            import numpy as _np
+            avg_tool_acc = float(_np.mean(tool_accuracies))
+            avg_param_acc = float(_np.mean(param_accuracies))
+            combined_accuracy = (avg_tool_acc + avg_param_acc) / 2
+            result.classification_metrics = ClassificationMetrics(
+                accuracy=combined_accuracy,
+                f1_score=avg_tool_acc,
+                precision=avg_param_acc,
+                recall=avg_tool_acc,
+            )
+            result.quality_metrics = QualityMetrics(
+                format_compliance=avg_tool_acc,
+                completeness=avg_param_acc,
+            )
+        if responses_for_consistency:
+            result.consistency_metrics = self.metrics_calc.calculate_consistency_metrics(
+                responses_for_consistency,
+            )
+
+        result.scenarios_tested = len(raw_results)
+        result.raw_results = raw_results
+        return result
+
+    # ── Full evaluation suite ─────────────────────────────────────────
         
     def run_full_evaluation(
         self,
@@ -647,6 +1023,20 @@ class ModelEvaluator:
         # General evaluation
         logger.info("Running general capability evaluation...")
         results['general'] = self.evaluate_general(model_name)
+
+        # RAG evaluation
+        try:
+            logger.info("Running RAG evaluation...")
+            results['rag'] = self.evaluate_rag(model_name)
+        except FileNotFoundError:
+            logger.info("RAG test data not found — skipping")
+
+        # Tool Calling evaluation
+        try:
+            logger.info("Running tool calling evaluation...")
+            results['tool_calling'] = self.evaluate_tool_calling(model_name)
+        except FileNotFoundError:
+            logger.info("Tool calling test data not found — skipping")
         
         # Save results if requested
         if save_results:

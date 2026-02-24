@@ -56,6 +56,8 @@
                         <option value="classification">Classification</option>
                         <option value="dialog">Dialog</option>
                         <option value="general">General</option>
+                        <option value="rag">RAG</option>
+                        <option value="tool_calling">Tool Calling</option>
                     </select>
                 </div>
                 <div class="flex items-end">
@@ -129,7 +131,7 @@
             </div>
 
             <!-- Foundry Comparison -->
-            <div id="foundry-compare-section" class="hidden fluent-card p-5 mb-8 border-2 border-brand-200">
+            <div id="foundry-compare-section" class="hidden fluent-card p-5 mb-8">
                 <h3 class="text-xl font-bold text-brand-700 mb-2">☁️ Foundry LLM-as-Judge Comparison <span class="info-tooltip ml-1 align-middle"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-100 hover:bg-brand-200 text-brand-600 text-[11px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Semantic quality comparison from Microsoft Foundry Control Plane. Both models are evaluated by a GPT-4.1 grader on a 1–5 scale across dimensions like coherence, fluency, relevance and task adherence. The table shows per-dimension averages for each model with percentage change and significance level.</span></span></h3>
                 <p id="foundry-compare-meta" class="text-sm text-gray-500 mb-4"></p>
                 <div id="foundry-report-links" class="hidden mb-4 flex flex-wrap gap-2">
@@ -225,6 +227,9 @@
             'task_adherence': 'Task Adherence',
             'intent_resolution': 'Intent Resolution',
             'response_completeness': 'Response Completeness',
+            'groundedness': 'Groundedness',
+            'safety_violence': 'Safety: Violence',
+            'safety_hate_unfairness': 'Safety: Hate/Unfairness',
         };
 
         // Dimension descriptions for info tooltips
@@ -254,6 +259,12 @@
             'Empathy Score': 'Detection of empathetic/professional tone in the opening of the response.',
             'Optimal Similarity': 'Word-level similarity between the response and the gold-standard optimal follow-up.',
             'Resolution Efficiency': 'Whether the number of questions asked matches the expected resolution turns.',
+            // RAG metrics
+            'Groundedness': 'How well the model response is grounded in the provided context (keyword overlap).',
+            'RAG Relevance': 'How relevant the response is to the ground-truth answer (keyword overlap).',
+            // Tool Calling metrics
+            'Tool Selection Accuracy': 'Percentage of expected tool calls correctly identified in the model response.',
+            'Parameter Accuracy': 'Percentage of expected parameters correctly included in the model response.',
             'Coherence (Foundry)': 'LLM-as-judge score (1-5) for logical flow and internal consistency.',
             'Fluency (Foundry)': 'LLM-as-judge score (1-5) for grammar and readability.',
             'Relevance (Foundry)': 'LLM-as-judge score (1-5) for how well the response addresses the query.',
@@ -261,6 +272,9 @@
             'Task Adherence (Foundry)': 'LLM-as-judge score (1-5) for following task requirements and format.',
             'Intent Resolution (Foundry)': 'LLM-as-judge score (1-5) for resolving the user intent.',
             'Response Completeness (Foundry)': 'LLM-as-judge score (1-5) for coverage of required response aspects.',
+            'Groundedness (Foundry)': 'LLM-as-judge score (1-5) for whether the response is strictly grounded in the provided context.',
+            'Safety: Violence (Foundry)': 'LLM-as-judge score (1-5). Rates violent, threatening, or harmful content. 5 = completely safe.',
+            'Safety: Hate/Unfairness (Foundry)': 'LLM-as-judge score (1-5). Rates hateful, biased, or unfair content. 5 = completely fair.',
         };
 
         async function checkFoundryStatus() {
@@ -385,9 +399,10 @@
                 selA.innerHTML = '';
                 selB.innerHTML = '';
                 models.forEach((m, i) => {
-                    modelNames[m.name] = m.deployment;
-                    const optA = new Option(m.deployment, m.name);
-                    const optB = new Option(m.deployment, m.name);
+                    const label = m.display_name || m.deployment;
+                    modelNames[m.name] = label;
+                    const optA = new Option(label, m.name);
+                    const optB = new Option(label, m.name);
                     selA.appendChild(optA);
                     selB.appendChild(optB);
                 });
@@ -572,12 +587,23 @@
             for (const rec of data.recommendations) {
                 const li = document.createElement('li');
                 li.className = 'flex items-start';
-                li.innerHTML = `
-                    <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <span class="text-gray-700">${rec}</span>
-                `;
+                const trimmed = rec.trim();
+                // Empty line → separator without icon
+                if (!trimmed) {
+                    li.innerHTML = '<span>&nbsp;</span>';
+                // Section headers (e.g. "📋 MIGRATION BEST PRACTICES:") → no icon
+                } else if (trimmed.startsWith('📋')) {
+                    li.innerHTML = `<span class="text-gray-700 font-semibold">${trimmed}</span>`;
+                } else {
+                    // Strip leading bullet "• " if present (best practices)
+                    const clean = trimmed.replace(/^•\s*/, '');
+                    li.innerHTML = `
+                        <svg class="h-5 w-5 text-green-500 mr-2 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span class="text-gray-700">${clean}</span>
+                    `;
+                }
                 recList.appendChild(li);
             }
 
@@ -672,10 +698,16 @@
                 ? `Completed with warnings: ${errors.join(' | ')}`
                 : 'Foundry scores computed successfully for both models.';
 
-            const order = [
+            const PREFERRED_ORDER = [
                 'coherence', 'fluency', 'relevance', 'similarity',
-                'task_adherence', 'intent_resolution', 'response_completeness'
+                'task_adherence', 'intent_resolution', 'response_completeness',
+                'groundedness', 'safety_violence', 'safety_hate_unfairness',
             ];
+            // Build dynamic order: preferred first, then any extras present in data
+            const allKeys = new Set([...Object.keys(fa), ...Object.keys(fb)]);
+            const order = PREFERRED_ORDER.filter(k => allKeys.has(k));
+            allKeys.forEach(k => { if (!order.includes(k)) order.push(k); });
+
             const rows = [];
             for (const key of order) {
                 if (fa[key] == null || fb[key] == null) continue;

@@ -50,6 +50,8 @@
                         <option value="classification">Classification</option>
                         <option value="dialog">Dialog</option>
                         <option value="general">General</option>
+                        <option value="rag">RAG</option>
+                        <option value="tool_calling">Tool Calling</option>
                     </select>
                 </div>
                 <div>
@@ -75,7 +77,7 @@
         </div>
 
         <!-- Data Preview -->
-        <div class="fluent-card p-5 mb-8">
+        <div id="data-preview-section" class="fluent-card p-5 mb-8">
             <h2 class="fluent-section-title text-[16px] mb-4">Test Data Preview</h2>
             <div id="data-preview" class="overflow-x-auto">
                 <p class="text-gray-500">Select an evaluation type to preview test scenarios...</p>
@@ -259,6 +261,12 @@
             'Empathy Score': 'Detection of empathetic, professional tone in the response opener (sorry, understand, help).',
             'Optimal Similarity': 'Word-level similarity between the actual response and the gold-standard optimal follow-up.',
             'Resolution Eff.': 'Whether the number of follow-up questions matches the expected resolution turns for the scenario.',
+            // RAG metrics
+            'Groundedness': 'How well the model response is grounded in the provided context (keyword overlap with context passages).',
+            'Relevance': 'How relevant the response is to the ground-truth answer (keyword overlap with expected answer).',
+            // Tool Calling metrics
+            'Tool Selection Acc': 'Percentage of expected tool calls correctly identified in the model response.',
+            'Param Accuracy': 'Percentage of expected parameters correctly included in the model response.',
             // Foundry LLM-as-judge evaluators
             'Coherence': 'Foundry LLM-as-judge (1-5). Evaluates logical flow, organization and consistency of the response.',
             'Fluency': 'Foundry LLM-as-judge (1-5). Evaluates grammatical correctness and natural language quality.',
@@ -267,6 +275,8 @@
             'Similarity': 'Foundry LLM-as-judge (1-5). Evaluates semantic similarity between response and ground truth.',
             'Intent Resolution': 'Foundry LLM-as-judge (1-5). Evaluates whether the user\'s intent was properly identified and addressed.',
             'Response Completeness': 'Foundry LLM-as-judge (1-5). Evaluates whether all aspects of the query were addressed.',
+            'Safety: Violence': 'Foundry LLM-as-judge (1-5). Rates whether the response contains violent, threatening, or harmful content. 5 = completely safe.',
+            'Safety: Hate/Unfairness': 'Foundry LLM-as-judge (1-5). Rates whether the response contains hateful, biased, or unfair content. 5 = completely fair.',
         };
 
         // Verbose logging helpers — narrative style
@@ -373,10 +383,10 @@
                 const sel = document.getElementById('model');
                 sel.innerHTML = '';
                 models.forEach(m => {
-                    modelNames[m.name] = m.deployment;
+                    modelNames[m.name] = m.display_name || m.deployment;
                     const opt = document.createElement('option');
                     opt.value = m.name;
-                    opt.textContent = m.deployment;
+                    opt.textContent = m.display_name || m.deployment;
                     sel.appendChild(opt);
                 });
             } catch (e) { console.error('Failed to load models', e); }
@@ -507,6 +517,9 @@
             'similarity': 'Similarity',
             'intent_resolution': 'Intent Resolution',
             'response_completeness': 'Response Completeness',
+            'groundedness': 'Groundedness',
+            'safety_violence': 'Safety: Violence',
+            'safety_hate_unfairness': 'Safety: Hate/Unfairness',
         };
 
         function displayFoundryResults(foundryScores) {
@@ -581,10 +594,19 @@
 
             // --- 3. Evaluator Insights Table ---
             const reasonsEl = document.getElementById('foundry-reasons');
-            const ORDERED_METRICS = ['coherence', 'fluency', 'relevance', 'similarity', 'task_adherence',
-                                     'intent_resolution', 'response_completeness'];
-            // Only show columns that exist in this run
+            // Preferred display order — includes ALL known Foundry metrics.
+            // Metrics not present in this run are automatically filtered out.
+            const ORDERED_METRICS = [
+                'coherence', 'fluency', 'relevance', 'similarity',
+                'groundedness', 'task_adherence', 'intent_resolution',
+                'response_completeness',
+                'safety_violence', 'safety_hate_unfairness',
+            ];
+            // Show ordered metrics first, then any unexpected ones the backend returned
             const activeCols = ORDERED_METRICS.filter(m => metricNames.includes(m));
+            for (const m of metricNames) {
+                if (!activeCols.includes(m)) activeCols.push(m);
+            }
 
             if (perRow.length === 0 || activeCols.length === 0) {
                 reasonsEl.innerHTML = '<p class="text-gray-400">No evaluator reasoning available for this run.</p>';
@@ -609,9 +631,9 @@
                 for (const row of perRow) {
                     const idx = row.row_index;
                     const scores = row.scores || {};
-                    // Get input text from raw results
+                    // Get input text from raw results (varies by eval type)
                     const rawRow = lastRawResults[idx];
-                    const inputText = rawRow?.input || rawRow?.customer_input || `Row ${idx + 1}`;
+                    const inputText = rawRow?.input || rawRow?.query || rawRow?.customer_input || `Row ${idx + 1}`;
                     const inputTrunc = inputText.length > 80 ? inputText.substring(0, 80) + '…' : inputText;
                     const hasAnyReason = activeCols.some(m => scores[m]?.reason);
                     const rowId = `foundry-detail-${idx}`;
@@ -694,8 +716,14 @@
 
         async function loadDataPreview() {
             const evalType = document.getElementById('eval-type').value;
-            const endpoint = evalType === 'classification' ? '/api/data/classification' : 
-                            evalType === 'dialog' ? '/api/data/dialog' : '/api/data/general';
+            const endpointMap = {
+                classification: '/api/data/classification',
+                dialog: '/api/data/dialog',
+                general: '/api/data/general',
+                rag: '/api/data/rag',
+                tool_calling: '/api/data/tool_calling',
+            };
+            const endpoint = endpointMap[evalType] || `/api/data/${evalType}`;
 
             try {
                 const response = await fetch(endpoint);
@@ -706,18 +734,33 @@
                 let html = `<p class="text-sm text-[var(--text-secondary)] mb-4">Total scenarios: ${data.count}</p>`;
                 html += '<table class="min-w-full divide-y divide-gray-200">';
                 html += '<thead class="bg-gray-50"><tr>';
-                html += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID</th>';
-                html += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Scenario</th>';
-                html += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>';
+
+                const th = (t) => `<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">${t}</th>`;
+                if (evalType === 'rag') {
+                    html += th('ID') + th('Query') + th('Complexity');
+                } else if (evalType === 'tool_calling') {
+                    html += th('ID') + th('Query') + th('Expected Tools');
+                } else {
+                    html += th('ID') + th('Scenario') + th('Category');
+                }
                 html += '</tr></thead><tbody class="divide-y divide-gray-200">';
                 
                 const scenarios = data.scenarios.slice(0, 5);
                 for (const s of scenarios) {
-                    html += `<tr>
-                        <td class="px-4 py-2 text-sm text-gray-900">${s.id}</td>
-                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${s.scenario || s.customer_input?.substring(0, 50) || '-'}...</td>
-                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${s.expected_category || s.category || '-'}</td>
-                    </tr>`;
+                    html += '<tr>';
+                    html += `<td class="px-4 py-2 text-sm text-gray-900">${s.id}</td>`;
+                    if (evalType === 'rag') {
+                        html += `<td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${(s.query || '-').substring(0, 60)}...</td>`;
+                        html += `<td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${s.complexity || '-'}</td>`;
+                    } else if (evalType === 'tool_calling') {
+                        html += `<td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${(s.query || '-').substring(0, 60)}...</td>`;
+                        const tools = Array.isArray(s.expected_tool_calls) ? s.expected_tool_calls.join(', ') : (s.expected_tool_calls || '-');
+                        html += `<td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${tools}</td>`;
+                    } else {
+                        html += `<td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${s.scenario || s.customer_input?.substring(0, 50) || '-'}...</td>`;
+                        html += `<td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${s.expected_category || s.category || '-'}</td>`;
+                    }
+                    html += '</tr>';
                 }
                 
                 html += '</tbody></table>';
@@ -738,6 +781,7 @@
             document.getElementById('foundry-scores-section').classList.add('hidden');
             document.getElementById('foundry-banner').classList.add('hidden');
             document.getElementById('foundry-send-btn-container').classList.add('hidden');
+            document.getElementById('data-preview-section').classList.add('hidden');
             lastSavedFilename = null;
             document.getElementById('loading-state').classList.remove('hidden');
             verboseClear();
@@ -831,6 +875,50 @@
                                 if (tokDetail.reasoning_tokens) detail += ` (${tokDetail.reasoning_tokens} reasoning)`;
                             }
                             verboseLog(detail, 'detail');
+                        } else if (evalType === 'rag') {
+                            const query = (r.query || r.input || '').substring(0, 120);
+                            const resp = (r.response || '').substring(0, 150);
+                            const lat = r.latency != null ? r.latency.toFixed(3) + 's' : '?';
+                            const ground = r.groundedness != null ? (r.groundedness * 100).toFixed(1) + '%' : '?';
+                            const relev = r.relevance != null ? (r.relevance * 100).toFixed(1) + '%' : '?';
+                            const groundOk = r.groundedness != null && r.groundedness >= 0.7;
+                            let detail = `<strong>Scenario ${n} — ${r.scenario_id || '?'}</strong>`;
+                            if (r.complexity) detail += ` <span class="text-gray-500">(${r.complexity})</span>`;
+                            detail += `<br>`;
+                            detail += `🔍 Query: <em>"${query}${r.query && r.query.length > 120 ? '…' : ''}"</em><br>`;
+                            detail += `📐 Groundedness: <strong>${ground}</strong> `;
+                            detail += groundOk ? '— <span class="text-green-700 font-semibold">Good ✓</span>' : '— <span class="text-yellow-700 font-semibold">Low ⚠</span>';
+                            detail += ` &nbsp;|&nbsp; Relevance: <strong>${relev}</strong><br>`;
+                            detail += `💬 Response: <em>"${resp}${r.response && r.response.length > 150 ? '…' : ''}"</em><br>`;
+                            detail += `⏱ Latency: ${lat}`;
+                            if (r.token_detail) {
+                                const td = r.token_detail;
+                                detail += ` &nbsp;|&nbsp; Tokens: ${td.prompt_tokens || td.prompt || 0}↑ ${td.completion_tokens || td.completion || 0}↓`;
+                            }
+                            verboseLog(detail, groundOk ? 'ok' : 'warn');
+                        } else if (evalType === 'tool_calling') {
+                            const query = (r.query || r.input || '').substring(0, 120);
+                            const resp = (r.response || '').substring(0, 150);
+                            const lat = r.latency != null ? r.latency.toFixed(3) + 's' : '?';
+                            const toolAcc = r.tool_selection_accuracy != null ? (r.tool_selection_accuracy * 100).toFixed(1) + '%' : '?';
+                            const paramAcc = r.param_accuracy != null ? (r.param_accuracy * 100).toFixed(1) + '%' : '?';
+                            const toolOk = r.tool_selection_accuracy != null && r.tool_selection_accuracy >= 0.8;
+                            const expected = Array.isArray(r.expected_tool_calls) ? r.expected_tool_calls.join(', ') : (r.expected_tool_calls || '-');
+                            let detail = `<strong>Scenario ${n} — ${r.scenario_id || '?'}</strong>`;
+                            if (r.complexity) detail += ` <span class="text-gray-500">(${r.complexity})</span>`;
+                            detail += `<br>`;
+                            detail += `🔍 Query: <em>"${query}${r.query && r.query.length > 120 ? '…' : ''}"</em><br>`;
+                            detail += `🛠️ Expected tools: <em>${expected}</em><br>`;
+                            detail += `🎯 Tool Selection: <strong>${toolAcc}</strong> `;
+                            detail += toolOk ? '— <span class="text-green-700 font-semibold">Good ✓</span>' : '— <span class="text-red-700 font-semibold">Low ✗</span>';
+                            detail += ` &nbsp;|&nbsp; Param Accuracy: <strong>${paramAcc}</strong><br>`;
+                            detail += `💬 Response: <em>"${resp}${r.response && r.response.length > 150 ? '…' : ''}"</em><br>`;
+                            detail += `⏱ Latency: ${lat}`;
+                            if (r.token_detail) {
+                                const td = r.token_detail;
+                                detail += ` &nbsp;|&nbsp; Tokens: ${td.prompt_tokens || td.prompt || 0}↑ ${td.completion_tokens || td.completion || 0}↓`;
+                            }
+                            verboseLog(detail, toolOk ? 'ok' : 'warn');
                         } else {
                             const prompt = (r.prompt || '').substring(0, 120);
                             const resp = Array.isArray(r.responses) && r.responses.length > 0 ? r.responses[0].substring(0, 120) : '?';
@@ -942,6 +1030,28 @@
                     { label: 'Empathy Score', value: qm && qm.empathy_score != null ? (qm.empathy_score * 100).toFixed(1) + '%' : '-', color: 'green' },
                     { label: 'Optimal Similarity', value: qm && qm.optimal_similarity != null ? (qm.optimal_similarity * 100).toFixed(1) + '%' : '-', color: 'purple' },
                     { label: 'Resolution Eff.', value: qm && qm.resolution_efficiency != null ? (qm.resolution_efficiency * 100).toFixed(1) + '%' : '-', color: 'blue' },
+                    { label: 'Consistency', value: cons ? (cons.reproducibility_score * 100).toFixed(1) + '%' : '-', color: 'purple' },
+                    { label: 'Avg Latency', value: lm ? lm.mean_latency.toFixed(3) + 's' : '-', color: 'yellow' },
+                    { label: 'P95 Latency', value: lm ? lm.p95_latency.toFixed(3) + 's' : '-', color: 'yellow' },
+                    { label: 'Cost / Req', value: lm && lm.cost_per_request ? '$' + lm.cost_per_request.toFixed(4) : '-', color: 'yellow' },
+                    { label: 'Cache Hit Rate', value: lm && lm.cache_hit_rate != null ? lm.cache_hit_rate.toFixed(1) + '%' : '-', color: 'green' },
+                    { label: 'Tokens/sec', value: lm && lm.tokens_per_second ? lm.tokens_per_second.toFixed(0) : '-', color: 'purple' },
+                ];
+            } else if (evalType === 'rag') {
+                cards = [
+                    { label: 'Groundedness', value: cm ? (cm.accuracy * 100).toFixed(1) + '%' : (qm && qm.groundedness != null ? (qm.groundedness * 100).toFixed(1) + '%' : '-'), color: 'blue' },
+                    { label: 'Relevance', value: qm && qm.relevance != null ? (qm.relevance * 100).toFixed(1) + '%' : '-', color: 'green' },
+                    { label: 'Consistency', value: cons ? (cons.reproducibility_score * 100).toFixed(1) + '%' : '-', color: 'purple' },
+                    { label: 'Avg Latency', value: lm ? lm.mean_latency.toFixed(3) + 's' : '-', color: 'yellow' },
+                    { label: 'P95 Latency', value: lm ? lm.p95_latency.toFixed(3) + 's' : '-', color: 'yellow' },
+                    { label: 'Cost / Req', value: lm && lm.cost_per_request ? '$' + lm.cost_per_request.toFixed(4) : '-', color: 'yellow' },
+                    { label: 'Cache Hit Rate', value: lm && lm.cache_hit_rate != null ? lm.cache_hit_rate.toFixed(1) + '%' : '-', color: 'green' },
+                    { label: 'Tokens/sec', value: lm && lm.tokens_per_second ? lm.tokens_per_second.toFixed(0) : '-', color: 'purple' },
+                ];
+            } else if (evalType === 'tool_calling') {
+                cards = [
+                    { label: 'Tool Selection Acc', value: cm ? (cm.accuracy * 100).toFixed(1) + '%' : '-', color: 'blue' },
+                    { label: 'Param Accuracy', value: cm && cm.f1_score != null ? (cm.f1_score * 100).toFixed(1) + '%' : '-', color: 'green' },
                     { label: 'Consistency', value: cons ? (cons.reproducibility_score * 100).toFixed(1) + '%' : '-', color: 'purple' },
                     { label: 'Avg Latency', value: lm ? lm.mean_latency.toFixed(3) + 's' : '-', color: 'yellow' },
                     { label: 'P95 Latency', value: lm ? lm.p95_latency.toFixed(3) + 's' : '-', color: 'yellow' },
@@ -1138,6 +1248,47 @@
                         <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${(r.response || '').substring(0, 70)}...</td>
                         <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${r.latency?.toFixed(3) || '-'}s</td>
                         <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${tokStr}</td>
+                    `;
+                    tableBody.appendChild(row);
+                }
+            } else if (evalType === 'rag') {
+                headerRow.innerHTML = th('ID') + th('Query (truncated)') + th('Groundedness') + th('Relevance') + th('Response (truncated)') + th('Latency');
+
+                for (const r of results) {
+                    const row = document.createElement('tr');
+                    const ground = r.groundedness != null ? (r.groundedness * 100).toFixed(1) + '%' : '-';
+                    const relev = r.relevance != null ? (r.relevance * 100).toFixed(1) + '%' : '-';
+                    const groundOk = r.groundedness != null && r.groundedness >= 0.7;
+                    row.innerHTML = `
+                        <td class="px-4 py-2 text-sm text-gray-900">${r.scenario_id || '-'}</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${(r.query || r.input || '').substring(0, 60)}...</td>
+                        <td class="px-4 py-2 text-sm">
+                            <span class="px-2 py-1 text-xs rounded-full ${groundOk ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">${ground}</span>
+                        </td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${relev}</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${(r.response || '').substring(0, 70)}...</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${r.latency?.toFixed(3) || '-'}s</td>
+                    `;
+                    tableBody.appendChild(row);
+                }
+            } else if (evalType === 'tool_calling') {
+                headerRow.innerHTML = th('ID') + th('Query (truncated)') + th('Expected Tools') + th('Tool Sel. Acc') + th('Param Acc') + th('Latency');
+
+                for (const r of results) {
+                    const row = document.createElement('tr');
+                    const toolAcc = r.tool_selection_accuracy != null ? (r.tool_selection_accuracy * 100).toFixed(1) + '%' : '-';
+                    const paramAcc = r.param_accuracy != null ? (r.param_accuracy * 100).toFixed(1) + '%' : '-';
+                    const toolOk = r.tool_selection_accuracy != null && r.tool_selection_accuracy >= 0.8;
+                    const expected = Array.isArray(r.expected_tool_calls) ? r.expected_tool_calls.join(', ') : (r.expected_tool_calls || '-');
+                    row.innerHTML = `
+                        <td class="px-4 py-2 text-sm text-gray-900">${r.scenario_id || '-'}</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${(r.query || r.input || '').substring(0, 60)}...</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]" title="${expected}">${expected.substring(0, 40)}${expected.length > 40 ? '...' : ''}</td>
+                        <td class="px-4 py-2 text-sm">
+                            <span class="px-2 py-1 text-xs rounded-full ${toolOk ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${toolAcc}</span>
+                        </td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${paramAcc}</td>
+                        <td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${r.latency?.toFixed(3) || '-'}s</td>
                     `;
                     tableBody.appendChild(row);
                 }

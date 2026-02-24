@@ -124,6 +124,7 @@ class QualityMetrics:
     instruction_following: float = 0.0   # Follows all instructions
     completeness: float = 0.0           # All required elements present
     relevance: float = 0.0              # Response relevant to query
+    groundedness: float = 0.0           # Response grounded in provided context (RAG)
     entity_extraction_accuracy: float = 0.0
     follow_up_quality: float = 0.0      # Quality of follow-up questions
     # Dialog-specific metrics
@@ -139,6 +140,7 @@ class QualityMetrics:
             'instruction_following': self.instruction_following,
             'completeness': self.completeness,
             'relevance': self.relevance,
+            'groundedness': self.groundedness,
             'entity_extraction_accuracy': self.entity_extraction_accuracy,
             'follow_up_quality': self.follow_up_quality,
             'rule_compliance': self.rule_compliance,
