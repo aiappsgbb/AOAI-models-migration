@@ -267,7 +267,18 @@ class MetricsCalculator:
         sentiment_accuracy = sent_matches / sent_total if sent_total > 0 else 0.0
         
         # --- NEW: Confidence calibration ---
-        confidences = [float(p.get('confidence', 0.0)) for p in predictions]
+        def _safe_float(v, default=0.0):
+            """Convert to float safely — handles dicts, None, and non-numeric strings."""
+            if isinstance(v, (int, float)):
+                return float(v)
+            if isinstance(v, dict):
+                v = v.get('score') or v.get('value') or v.get('confidence') or default
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                return default
+
+        confidences = [_safe_float(p.get('confidence', 0.0)) for p in predictions]
         avg_confidence = np.mean(confidences) if confidences else 0.0
         
         calibration_bins = self._calculate_calibration(
@@ -842,6 +853,10 @@ class MetricsCalculator:
                 or parsed.get('subcategory')
                 or ''
             )
+            # Unwrap nested dicts — some models return {"subcategory": {"name": "..."}}
+            if isinstance(raw_sub, dict):
+                raw_sub = (raw_sub.get('name') or raw_sub.get('code')
+                           or raw_sub.get('subcategory') or str(raw_sub))
 
             # --- Priority (some prompts use "priority_level") ---------------
             raw_pri = (
@@ -851,6 +866,9 @@ class MetricsCalculator:
                 or parsed.get('priority')
                 or 'medium'
             )
+            if isinstance(raw_pri, dict):
+                raw_pri = (raw_pri.get('level') or raw_pri.get('name')
+                           or raw_pri.get('priority') or str(raw_pri))
 
             # --- Sentiment --------------------------------------------------
             raw_sent = (
@@ -860,6 +878,9 @@ class MetricsCalculator:
                 or parsed.get('sentiment')
                 or 'neutral'
             )
+            if isinstance(raw_sent, dict):
+                raw_sent = (raw_sent.get('label') or raw_sent.get('sentiment')
+                            or raw_sent.get('name') or str(raw_sent))
 
             # --- Confidence (some prompts use "confidence_score") -----------
             raw_conf = (
@@ -869,6 +890,10 @@ class MetricsCalculator:
                 or parsed.get('confidence_score')
                 or 0.0
             )
+            # Unwrap nested dicts — some models return {"confidence": {"score": 0.95}}
+            if isinstance(raw_conf, dict):
+                raw_conf = (raw_conf.get('score') or raw_conf.get('value')
+                            or raw_conf.get('confidence') or 0.0)
 
             normalised_cat = self._normalise_category(raw_cat)
             logger.debug(

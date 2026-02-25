@@ -59,7 +59,16 @@ model_migration_eval/
 ├── .gitignore                      # Git ignore rules
 ├── Dockerfile                      # Container image (Python 3.13-slim + Flask)
 ├── .dockerignore                   # Files excluded from Docker build context
-├── deploy.ps1                      # One-script deployment (Docker Desktop or Azure)
+├── azure.yaml                      # Azure Developer CLI (azd) project definition
+├── deploy.ps1                      # Alternative deployment script (Docker Desktop or Azure)
+│
+├── infra/                          # ⬅ Bicep infrastructure-as-code (used by azd)
+│   ├── main.bicep                  #   Entry point — AVM pattern modules
+│   ├── main.parameters.json        #   Parameters populated by azd environment
+│   └── modules/
+│       ├── acr-access.bicep        #   AcrPull role assignment
+│       ├── openai-access.bicep     #   Cognitive Services OpenAI User role
+│       └── foundry-access.bicep    #   Azure AI Developer role (Foundry)
 │
 ├── config/
 │   ├── settings.yaml               # Azure credentials & model definitions
@@ -741,102 +750,207 @@ Cost depends on the judge model pricing.  With `gpt-4.1` at $2.50/M input + $10/
 If the Foundry SDK is not installed or the configuration is missing, the feature is **silently disabled** — all local evaluations continue to work normally without any error.  The **Include Foundry LLM-as-judge** toggle simply doesn't appear in the UI.
 
 ---
-## � Deployment
+## ☁️ Deployment to Azure
 
-The project includes a single PowerShell script that handles both local Docker and Azure Container Apps deployment.
+The project uses **[Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/)** together with **Bicep** infrastructure-as-code templates to provision and deploy all Azure resources in a single command.
+
+### Infrastructure Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Resource Group  (rg-<environmentName>)                             │
+│                                                                     │
+│  ┌──────────────┐  ┌──────────────────────┐  ┌───────────────────┐ │
+│  │  Log         │  │  Application         │  │  Container Apps   │ │
+│  │  Analytics   │  │  Insights            │  │  Environment      │ │
+│  │  Workspace   │  │  + Dashboard         │  │  (cae-…)          │ │
+│  └──────┬───────┘  └──────────┬───────────┘  └────────┬──────────┘ │
+│         │                     │                       │            │
+│         └─────────────────────┼───────────────────────┘            │
+│                               │                                    │
+│  ┌──────────────┐  ┌──────────┴───────────┐  ┌───────────────────┐ │
+│  │  Azure       │  │  Container App       │  │  User-Assigned    │ │
+│  │  Container   │  │  (web service)       │  │  Managed Identity │ │
+│  │  Registry    │  │  Flask on port 5000  │  │  (id-web-…)       │ │
+│  └──────────────┘  └──────────────────────┘  └───────────────────┘ │
+│                                                                     │
+│  RBAC role assignments (optional, if resource IDs provided):        │
+│  • Cognitive Services OpenAI User → Azure OpenAI account            │
+│  • Azure AI Developer → AI Foundry project                          │
+│  • AcrPull → Container Registry                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+The Bicep templates are located in the `infra/` folder:
+
+| File | Purpose |
+|------|---------|
+| `infra/main.bicep` | Entry point — orchestrates all resources using [Azure Verified Modules (AVM)](https://azure.github.io/Azure-Verified-Modules/) |
+| `infra/main.parameters.json` | Parameter file — values are populated from `azd` environment variables |
+| `infra/modules/acr-access.bicep` | Assigns the **AcrPull** role to the managed identity on the Container Registry |
+| `infra/modules/openai-access.bicep` | Assigns **Cognitive Services OpenAI User** role on the Azure OpenAI account |
+| `infra/modules/foundry-access.bicep` | Assigns **Azure AI Developer** role on the AI Foundry project |
+
+### What Gets Deployed
+
+| Resource | Details |
+|----------|---------|
+| **Resource Group** | `rg-<environmentName>` |
+| **Log Analytics Workspace** | Centralized logging |
+| **Application Insights + Dashboard** | Monitoring, telemetry, and pre-built dashboard |
+| **Azure Container Registry (Basic)** | Hosts the Docker image |
+| **Container Apps Environment** | Serverless container host |
+| **User-Assigned Managed Identity** | Keyless authentication — no API keys needed |
+| **Container App** | Flask web service (1 vCPU, 2 Gi memory, scale 0–3 replicas) |
+| **RBAC Role Assignments** | Automatic role binding for Azure OpenAI and AI Foundry (if resource IDs provided) |
+
+### Authentication Model
+
+The deployment uses a **User-Assigned Managed Identity** instead of API keys or Service Principal credentials:
+
+- The identity's `AZURE_CLIENT_ID` is injected as an environment variable into the Container App.
+- `DefaultAzureCredential` in the SDK automatically picks it up.
+- Bicep assigns the required RBAC roles (`Cognitive Services OpenAI User`, `Azure AI Developer`, `AcrPull`) to the identity.
+- **No secrets are stored** in environment variables or Container Apps secrets.
 
 ### Prerequisites
 
-| Tool | Local Docker | Azure |
-|------|:---:|:---:|
-| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | ✅ | ✅ |
-| [Azure CLI](https://aka.ms/installazurecliwindows) | — | ✅ |
-| `.env` file with credentials | ✅ | ✅ |
+| Tool | Required | Install |
+|------|:--------:|---------|
+| [Azure Developer CLI (`azd`)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) | ✅ | `winget install Microsoft.Azd` |
+| [Azure CLI (`az`)](https://aka.ms/installazurecliwindows) | ✅ | `winget install Microsoft.AzureCLI` |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | ✅ | Required to build the container image |
+| Azure subscription with **Contributor** role | ✅ | — |
+| Azure OpenAI resource with model deployments | ✅ | GPT-4.1, GPT-5.2, etc. |
 
-### Run the Deployment Script
-
-```powershell
-.\deploy.ps1
-```
-
-The script presents an interactive menu:
-
-```
-  1. Local Docker Desktop  (for development / testing)
-  2. Azure Container Apps  (for production / demos)
-```
-
-### Option 1: Local Docker Desktop
-
-- Builds a **timestamped image** from the `Dockerfile` (Python 3.13-slim + Flask + Azure CLI).
-- Auto-creates a **Service Principal** for Foundry authentication inside the container (if not already configured).
-- Validates `.env` has all required variables (Azure OpenAI + Foundry SP credentials).
-- Injects credentials from `.env` via `--env-file`.
-- Exposes the web UI at **http://localhost:5000**.
-- Runs an automatic health check against `/api/health`.
+### Step 1 — Authenticate
 
 ```powershell
-# After deployment, useful commands:
-docker logs -f model-migration-eval    # Stream logs
-docker stop model-migration-eval       # Stop
-docker rm -f model-migration-eval      # Remove
+# Log in to Azure Developer CLI (opens browser)
+azd auth login
+
+# Log in to Azure CLI (needed for RBAC operations)
+az login
 ```
 
-### Option 2: Azure Container Apps
-
-Before the deployment steps, the script auto-creates a **Service Principal** (`sp-model-migration-eval`) for Foundry authentication inside the container and writes `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET` to `.env`.
-
-Deploys the full stack to Azure in 7 automated steps:
-
-| Step | Action |
-|------|--------|
-| 1 | Create / verify Resource Group |
-| 2 | Create Azure Container Registry (ACR) |
-| 3 | Build Docker image & push to ACR |
-| 4 | Create Container Apps Environment |
-| 5 | Prepare secrets & environment variables |
-| 6 | Create / update Container App (with liveness & readiness probes) |
-| 7 | Retrieve the public HTTPS URL |
-
-The script supports **skipping completed steps** — useful when re-deploying after a code change (skip to step 3 to just rebuild & push).
-
-#### Configuration
-
-Edit the variables at the top of `deploy.ps1`:
+### Step 2 — Initialize the Environment
 
 ```powershell
-$RESOURCE_GROUP     = "rg-model-migration"
-$LOCATION           = "swedencentral"
-$ACR_NAME           = "acrmodelmigration"      # globally unique, lowercase
-$CONTAINER_APP_NAME = "model-migration-eval"
+# Create a new azd environment (choose a unique name)
+azd env new my-migration-eval
 ```
 
-Secrets (like `AZURE_OPENAI_API_KEY`) are automatically stored as Container Apps secrets and injected via `secretRef` — they are never exposed in plain text in the YAML configuration.
+### Step 3 — Configure Environment Variables
 
-#### Container Resources
+Set the required and optional parameters that the Bicep templates consume:
+
+```powershell
+# Required — Azure OpenAI endpoint
+azd env set AZURE_OPENAI_ENDPOINT "https://<your-openai-resource>.openai.azure.com"
+
+# Optional — AI Foundry project endpoint (for LLM-as-judge evaluation)
+azd env set FOUNDRY_PROJECT_ENDPOINT "https://<your-hub>.services.ai.azure.com/api/projects/<your-project>"
+
+# Optional — Automatic RBAC assignment for Azure OpenAI
+# Provide the full resource ID so Bicep assigns "Cognitive Services OpenAI User" automatically
+azd env set AZURE_OPENAI_ACCOUNT_RESOURCE_ID "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<account-name>"
+
+# Optional — Automatic RBAC assignment for AI Foundry project
+# Provide the full resource ID so Bicep assigns "Azure AI Developer" automatically
+azd env set AI_FOUNDRY_PROJECT_RESOURCE_ID "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<account>/projects/<project>"
+```
+
+> **Tip:** If you omit the resource ID parameters, everything still works — you just need to assign the RBAC roles manually in the Azure Portal.
+
+### Step 4 — Provision & Deploy
+
+```powershell
+# Provision infrastructure AND deploy the application in one command
+azd up
+```
+
+`azd up` performs the following steps automatically:
+
+1. **Provision** — Deploys all Bicep templates (`infra/main.bicep`) to create the Azure resources.
+2. **Build** — Builds the Docker image from the `Dockerfile`.
+3. **Push** — Pushes the image to the Azure Container Registry.
+4. **Deploy** — Updates the Container App with the new image.
+
+You will be prompted to select:
+- **Azure subscription** — the subscription to deploy into.
+- **Azure location** — the region for all resources (e.g. `swedencentral`, `eastus2`).
+
+The deployment takes approximately 5–8 minutes on the first run.
+
+### Step 5 — Access the Application
+
+Once deployment completes, `azd` outputs the public URL:
+
+```
+SERVICE_WEB_ENDPOINT_URL = https://ca-mymigrationeval-xxxxxx.niceocean-xxxxxxxx.swedencentral.azurecontainerapps.io
+```
+
+Open this URL in your browser to access the web interface.
+
+### Environment Variables Reference
+
+| Variable | Required | Description |
+|----------|:--------:|-------------|
+| `AZURE_OPENAI_ENDPOINT` | ✅ | Azure OpenAI endpoint URL |
+| `FOUNDRY_PROJECT_ENDPOINT` | — | AI Foundry project endpoint (enables LLM-as-judge) |
+| `AZURE_OPENAI_ACCOUNT_RESOURCE_ID` | — | Full resource ID of the OpenAI account (enables automatic RBAC) |
+| `AI_FOUNDRY_PROJECT_RESOURCE_ID` | — | Full resource ID of the AI Foundry project (enables automatic RBAC) |
+
+### Subsequent Deployments
+
+```powershell
+# Redeploy code only (after changing app code, no infra changes)
+azd deploy
+
+# Re-provision infrastructure + redeploy code
+azd up
+
+# Preview what infrastructure changes would be applied
+azd provision --preview
+```
+
+### Container App Configuration
 
 | Setting | Value |
 |---------|-------|
 | CPU | 1.0 vCPU |
 | Memory | 2 Gi |
-| Min replicas | 0 (scales to zero when idle) |
+| Min replicas | 0 (scale-to-zero when idle — cost savings) |
 | Max replicas | 3 |
 | Scale rule | HTTP concurrent requests > 20 |
+| Ingress | External HTTPS (port 5000), HTTP→HTTPS redirect |
+| Health probes | Liveness (`/api/health`, every 30 s) + Readiness (`/api/health`, every 10 s) |
 
-#### Post-Deployment Commands
+### Monitoring
+
+The deployment includes **Application Insights** and a pre-built **dashboard** automatically:
 
 ```powershell
-# View live logs
-az containerapp logs show -n model-migration-eval -g rg-model-migration --follow
+# View live Container App logs
+az containerapp logs show -n <container-app-name> -g rg-<environment-name> --follow
 
-# Check status
-az containerapp show -n model-migration-eval -g rg-model-migration --query properties.runningStatus
+# Check running status
+az containerapp show -n <container-app-name> -g rg-<environment-name> --query properties.runningStatus
 
 # List revisions
-az containerapp revision list -n model-migration-eval -g rg-model-migration -o table
+az containerapp revision list -n <container-app-name> -g rg-<environment-name> -o table
+```
 
-# Tear down everything
-az group delete -n rg-model-migration --yes --no-wait
+You can also view telemetry in the Azure Portal → Application Insights resource created in the resource group.
+
+### Tear Down
+
+```powershell
+# Remove ALL Azure resources created by azd (Resource Group + everything inside)
+azd down
+
+# Or with force (no confirmation prompt)
+azd down --force --purge
 ```
 
 ---
