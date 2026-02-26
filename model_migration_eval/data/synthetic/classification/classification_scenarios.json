@@ -1,417 +1,399 @@
 [
   {
     "id": "CLASS_001",
-    "scenario": "explain_transformers_to_non_engineers",
-    "customer_input": "I’m building an AI agent that answers internal questions about AI, but our non-technical teams keep asking what a transformer actually is. Can you give a simple explanation that’s still accurate, and include a short analogy? Also, what are the key parts I should mention without going into math?",
-    "expected_category": "ai_concepts_and_learning",
-    "expected_subcategory": "foundational_explanations",
+    "scenario": "request_invoice_pdf_email",
+    "customer_input": "Hi, I can’t find my Movistar invoice for January in the app. Could you send me a PDF copy to my email? I need it today for my records.",
+    "expected_category": "invoice_copy_and_delivery",
+    "expected_subcategory": "resend_invoice_pdf_email",
     "expected_priority": "medium",
-    "expected_sentiment": "curious",
+    "expected_sentiment": "concerned",
     "context": {
-      "audience": "non_technical",
-      "channel": "slack",
-      "agent_role": "ai_education_assistant",
-      "org_size": "mid_market"
+      "customer_type": "consumer",
+      "channel": "chat",
+      "invoice_month": "2026-01",
+      "delivery_preference": "email",
+      "app_issue_reported": true
     },
     "follow_up_questions_expected": [
-      "Who is the target audience (execs, product, sales, or engineers), and how deep should the explanation go?",
-      "Do you want the explanation framed around LLMs specifically or transformers in general (vision, speech, etc.)?"
+      "Can you confirm the email address where you want the PDF sent?",
+      "Which line number or DNI/NIE is the invoice associated with?"
     ]
   },
   {
     "id": "CLASS_002",
-    "scenario": "clarify_overfitting_vs_hallucination",
-    "customer_input": "Our AI Q&A agent keeps mixing up “overfitting” and “hallucination” when users ask about model failures. I need a crisp distinction and a couple of examples that apply to LLM-based agents. Can you also suggest how the agent should respond when it’s unsure?",
-    "expected_category": "ai_concepts_and_learning",
-    "expected_subcategory": "terminology_clarification",
+    "scenario": "invoice_not_received_postal_address",
+    "customer_input": "I usually receive my bill by post, but nothing arrived this month. I’m worried I’ll miss the due date. Can you check if it was sent and confirm my address?",
+    "expected_category": "invoice_copy_and_delivery",
+    "expected_subcategory": "missing_postal_invoice_delivery",
     "expected_priority": "high",
-    "expected_sentiment": "professional",
+    "expected_sentiment": "worried",
     "context": {
-      "agent_type": "llm_chat_agent",
-      "knowledge_domain": "ai_ml_glossary",
-      "failure_mode": "incorrect_definitions",
-      "response_style": "concise"
+      "customer_type": "consumer",
+      "channel": "web",
+      "delivery_preference": "postal_mail",
+      "invoice_month": "2026-02",
+      "due_date_known": false
     },
     "follow_up_questions_expected": [
-      "Is the agent allowed to cite sources or link to internal docs when defining terms?",
-      "Do you want examples tailored to your use case (RAG agent, fine-tuned model, or base model)?"
+      "Can you share your full name and DNI/NIE so I can locate the account?",
+      "Do you want me to switch you to email/SMS delivery to avoid delays?"
     ]
   },
   {
     "id": "CLASS_003",
-    "scenario": "choose_model_for_ai_qna_agent",
-    "customer_input": "We’re deciding between a smaller open-source model and a larger hosted model for an AI agent that answers questions about AI concepts and best practices. Latency matters, but accuracy matters more. What architecture and model size tradeoffs should we consider for this kind of Q&A agent?",
-    "expected_category": "model_selection_and_architecture",
-    "expected_subcategory": "model_tradeoff_analysis",
-    "expected_priority": "high",
-    "expected_sentiment": "professional",
+    "scenario": "understand_invoice_sections_and_totals",
+    "customer_input": "I’m looking at my Movistar invoice and I don’t understand the difference between 'Cuota mensual' and 'Servicios adicionales'. The total doesn’t match what I expected. Can you explain what each section means?",
+    "expected_category": "invoice_breakdown_and_understanding",
+    "expected_subcategory": "explain_invoice_sections_and_totals",
+    "expected_priority": "low",
+    "expected_sentiment": "curious",
     "context": {
-      "deployment_preference": "hybrid",
-      "latency_budget_ms": 1200,
-      "accuracy_priority": "high",
-      "traffic_qps": 5
+      "customer_type": "consumer",
+      "channel": "app",
+      "invoice_month": "2026-02",
+      "invoice_format": "digital"
     },
     "follow_up_questions_expected": [
-      "What is your expected question mix (definitions, code help, policy guidance, or research summaries)?",
-      "Do you require on-prem deployment or can data be sent to a hosted API?"
+      "Which invoice date or number are you viewing so I explain the exact lines?",
+      "Do you want a breakdown by each service (fiber, mobile lines, TV) or just the total?"
     ]
   },
   {
     "id": "CLASS_004",
-    "scenario": "design_agent_with_router_and_specialists",
-    "customer_input": "I want our AI Q&A agent to route questions: basic AI definitions to a cheap model, and deep architecture questions to a stronger model. How would you design the routing logic and what signals should it use? We also need to avoid inconsistent answers across models.",
-    "expected_category": "model_selection_and_architecture",
-    "expected_subcategory": "multi_model_routing",
+    "scenario": "vat_and_tax_lines_explanation",
+    "customer_input": "My bill shows IVA and some other tax lines and I’m not sure how they’re calculated. The base amount looks different from last month. Can you clarify what taxes are applied and why it changed?",
+    "expected_category": "invoice_breakdown_and_understanding",
+    "expected_subcategory": "taxes_vat_calculation_explanation",
     "expected_priority": "medium",
-    "expected_sentiment": "curious",
+    "expected_sentiment": "cautious",
     "context": {
-      "architecture_pattern": "router_specialists",
-      "cost_constraint": "moderate",
-      "consistency_requirement": "high",
-      "models_considered": [
-        "small_open_source",
-        "hosted_large_model"
-      ]
+      "customer_type": "consumer",
+      "channel": "chat",
+      "invoice_month": "2026-01",
+      "region": "ES"
     },
     "follow_up_questions_expected": [
-      "Do you have labeled examples of “basic” vs “advanced” questions to train or tune a router?",
-      "Should the agent provide a single unified answer style regardless of which model handled it?"
+      "Can you tell me the invoice number or the exact tax lines you see?",
+      "Did you change your plan or add/remove any services since last month?"
     ]
   },
   {
     "id": "CLASS_005",
-    "scenario": "prompt_template_for_ai_qna_with_citations",
-    "customer_input": "Our AI agent answers questions about AI, but responses are too verbose and sometimes miss citations. Can you propose a prompt template that enforces short answers, includes a confidence note, and cites sources when available? We’re using RAG with internal docs and a few external references.",
-    "expected_category": "prompt_engineering_and_interaction",
-    "expected_subcategory": "structured_response_templates",
-    "expected_priority": "medium",
-    "expected_sentiment": "professional",
+    "scenario": "bill_spike_after_new_service",
+    "customer_input": "My Movistar bill jumped from around 55€ to 92€ this month and I didn’t expect that. I recently added a second mobile line, but this seems too high. Can you check what caused the increase?",
+    "expected_category": "unexpected_charge_or_high_bill",
+    "expected_subcategory": "bill_increase_after_service_change",
+    "expected_priority": "high",
+    "expected_sentiment": "frustrated",
     "context": {
-      "rag_enabled": true,
-      "citation_required": true,
-      "tone": "concise",
-      "output_format": "markdown"
+      "customer_type": "consumer",
+      "channel": "chat",
+      "invoice_month": "2026-02",
+      "recent_change": "added_mobile_line",
+      "previous_bill_amount_eur": 55,
+      "current_bill_amount_eur": 92
     },
     "follow_up_questions_expected": [
-      "What citation format do you want (inline links, footnotes, or doc IDs)?",
-      "Should the agent refuse to answer when no sources are retrieved, or answer with a disclaimer?"
+      "What date did you add the second line so I can check proration and one-time fees?",
+      "Can you confirm the last 4 digits of the bank account or the billing account holder name?"
     ]
   },
   {
     "id": "CLASS_006",
-    "scenario": "handle_followups_and_memory_in_ai_tutor_agent",
-    "customer_input": "Users ask a sequence of questions like “what is RLHF” then “how is it different from DPO” and the agent loses context halfway through. How should we structure the conversation memory so it stays on topic without bloating the prompt? Also, how do we prevent it from assuming details the user never said?",
-    "expected_category": "prompt_engineering_and_interaction",
-    "expected_subcategory": "conversation_memory_management",
+    "scenario": "unknown_charge_on_invoice",
+    "customer_input": "There’s a charge on my invoice called 'Servicio X' for 9,99€ and I have no idea what it is. I didn’t authorize anything. Please tell me what it is and remove it if possible.",
+    "expected_category": "unexpected_charge_or_high_bill",
+    "expected_subcategory": "unrecognized_service_charge",
     "expected_priority": "high",
-    "expected_sentiment": "frustrated",
+    "expected_sentiment": "angry",
     "context": {
-      "conversation_length_turns": 18,
-      "memory_strategy_current": "full_transcript",
-      "token_limit": 16000,
-      "user_persona": "mixed_skill_levels"
+      "customer_type": "consumer",
+      "channel": "web",
+      "invoice_month": "2026-01",
+      "charge_amount_eur": 9.99,
+      "charge_label": "Servicio X"
     },
     "follow_up_questions_expected": [
-      "Are you using a summarization memory, a key-value memory, or just truncation today?",
-      "Do you have examples where the agent assumed incorrect details so we can design guardrails?"
+      "Can you share the invoice number and the exact line item description as it appears?",
+      "Is the charge linked to a specific mobile line number on your account?"
     ]
   },
   {
     "id": "CLASS_007",
-    "scenario": "build_dataset_of_ai_questions_and_answers",
-    "customer_input": "We want to create a dataset of high-quality Q&A pairs about AI to improve our agent. What fields should we store beyond question and answer, and how do we ensure coverage across topics like evaluation, RAG, and safety? We also need a plan for keeping it up to date.",
-    "expected_category": "data_and_datasets",
-    "expected_subcategory": "dataset_schema_and_labeling",
+    "scenario": "confirm_payment_received",
+    "customer_input": "I paid my Movistar bill yesterday by bank transfer and I want to make sure it was received. The app still shows 'pending'. Can you confirm the payment status?",
+    "expected_category": "payment_status_and_confirmation",
+    "expected_subcategory": "confirm_payment_received_pending_status",
     "expected_priority": "medium",
-    "expected_sentiment": "professional",
+    "expected_sentiment": "concerned",
     "context": {
-      "dataset_goal": "agent_quality_improvement",
-      "domains": [
-        "evaluation",
-        "rag",
-        "safety",
-        "mlops"
-      ],
-      "update_frequency": "monthly",
-      "data_sources": [
-        "internal_docs",
-        "expert_written"
-      ]
+      "customer_type": "consumer",
+      "channel": "app",
+      "payment_method": "bank_transfer",
+      "payment_date": "2026-02-25",
+      "status_shown": "pending"
     },
     "follow_up_questions_expected": [
-      "Will the dataset be used for fine-tuning, RAG evaluation, or both?",
-      "Do you need labels like difficulty, topic taxonomy, and required citations?"
+      "What is the amount paid and the reference/concept used in the transfer?",
+      "Which invoice month or invoice number was the transfer intended to cover?"
     ]
   },
   {
     "id": "CLASS_008",
-    "scenario": "remove_sensitive_info_from_training_corpus",
-    "customer_input": "We discovered some internal incident notes got mixed into the corpus used by our AI Q&A agent. I’m worried it could leak details if someone asks the right question. How do we audit what’s in the dataset and scrub sensitive content without breaking the rest of the pipeline?",
-    "expected_category": "data_and_datasets",
-    "expected_subcategory": "data_quality_and_sanitization",
-    "expected_priority": "critical",
+    "scenario": "duplicate_payment_check",
+    "customer_input": "I think I may have paid the same invoice twice because I used the app and then my bank also processed a direct debit. Can you check if there’s a duplicate payment? If so, what happens next?",
+    "expected_category": "payment_status_and_confirmation",
+    "expected_subcategory": "duplicate_payment_verification",
+    "expected_priority": "high",
     "expected_sentiment": "worried",
     "context": {
-      "data_risk": "sensitive_internal_incidents",
-      "storage": "object_store",
-      "pipeline_stage": "preprocessing",
-      "compliance": [
-        "soc2"
-      ]
+      "customer_type": "consumer",
+      "channel": "chat",
+      "payment_methods_involved": [
+        "card_in_app",
+        "direct_debit"
+      ],
+      "invoice_month": "2026-02"
     },
     "follow_up_questions_expected": [
-      "Do you know which data sources and time ranges contributed the incident notes?",
-      "Is the agent using the corpus for RAG only, or was it also used for fine-tuning?"
+      "Can you confirm the dates and amounts of both payments as shown in your bank/app?",
+      "Do you want the extra amount refunded or applied as a credit to the next invoice?"
     ]
   },
   {
     "id": "CLASS_009",
-    "scenario": "fine_tune_for_consistent_ai_definitions",
-    "customer_input": "Our agent answers AI terminology questions, but the definitions vary between sessions and sometimes contradict our internal style guide. Would fine-tuning help, or should we rely on RAG and prompting? If fine-tuning is recommended, what training setup would you use?",
-    "expected_category": "training_and_fine_tuning",
-    "expected_subcategory": "supervised_fine_tuning_strategy",
+    "scenario": "change_direct_debit_iban",
+    "customer_input": "I need to change the bank account for my Movistar direct debit because I closed my old one. I don’t want my next invoice to fail. Can you tell me how to update the IBAN?",
+    "expected_category": "payment_method_management",
+    "expected_subcategory": "update_direct_debit_iban",
     "expected_priority": "medium",
-    "expected_sentiment": "cautious",
+    "expected_sentiment": "neutral",
     "context": {
-      "consistency_issue": true,
-      "style_guide_exists": true,
-      "rag_enabled": true,
-      "model_type": "instruction_tuned_llm"
+      "customer_type": "consumer",
+      "channel": "web",
+      "payment_method": "direct_debit",
+      "next_due_date_known": true
     },
     "follow_up_questions_expected": [
-      "How large is your style guide and do you have approved example answers to train on?",
-      "Are contradictions happening even when the correct document is retrieved?"
+      "Is the account holder name the same as the Movistar contract holder?",
+      "When is your next billing due date so we ensure the change applies in time?"
     ]
   },
   {
     "id": "CLASS_010",
-    "scenario": "rlhf_for_refusal_and_uncertainty",
-    "customer_input": "We need the AI agent to refuse unsafe requests and to say “I don’t know” when it lacks sources, but right now it confidently guesses. Can you outline an RLHF or preference-tuning approach to improve refusals and calibrated uncertainty? We have a small team and limited labeling budget.",
-    "expected_category": "training_and_fine_tuning",
-    "expected_subcategory": "preference_tuning_and_alignment",
-    "expected_priority": "high",
-    "expected_sentiment": "concerned",
+    "scenario": "add_card_for_one_time_payment",
+    "customer_input": "My direct debit is fine, but I want to pay this month’s invoice with a card just once. Is that possible without changing my default payment method? Please guide me.",
+    "expected_category": "payment_method_management",
+    "expected_subcategory": "one_time_card_payment_without_changing_default",
+    "expected_priority": "low",
+    "expected_sentiment": "curious",
     "context": {
-      "labeling_budget_usd": 8000,
-      "safety_requirement": "high",
-      "current_behavior": "overconfident",
-      "team_size": 3
+      "customer_type": "consumer",
+      "channel": "app",
+      "default_payment_method": "direct_debit",
+      "requested_payment_method": "card"
     },
     "follow_up_questions_expected": [
-      "What refusal policy do you want the agent to follow (categories, wording, escalation)?",
-      "Do you have logs of problematic conversations to bootstrap preference data?"
+      "Which invoice month or amount do you want to pay with the card?",
+      "Do you want the card saved for future payments or used only this time?"
     ]
   },
   {
     "id": "CLASS_011",
-    "scenario": "evaluate_ai_agent_answer_quality",
-    "customer_input": "We’re struggling to measure whether our AI Q&A agent is actually improving. What metrics would you recommend for correctness, citation quality, and user satisfaction? We need something we can track weekly and compare across model versions.",
-    "expected_category": "evaluation_and_metrics",
-    "expected_subcategory": "offline_and_online_metrics",
+    "scenario": "direct_debit_returned_bank",
+    "customer_input": "My bank returned the Movistar direct debit and now I see a 'devolución' note. I’m worried about extra fees and service cuts. What do I need to do to pay it and avoid problems?",
+    "expected_category": "failed_payment_and_bank_return",
+    "expected_subcategory": "direct_debit_return_and_repayment_options",
     "expected_priority": "high",
-    "expected_sentiment": "professional",
+    "expected_sentiment": "worried",
     "context": {
-      "release_cadence": "weekly",
-      "evaluation_assets": [
-        "conversation_logs",
-        "golden_set_in_progress"
-      ],
-      "kpi_focus": [
-        "correctness",
-        "citations",
-        "csat"
-      ]
+      "customer_type": "consumer",
+      "channel": "chat",
+      "payment_method": "direct_debit",
+      "bank_returned": true,
+      "service_status_known": false
     },
     "follow_up_questions_expected": [
-      "Do you already have a labeled golden set of AI questions with reference answers and sources?",
-      "Can you instrument user feedback (thumbs up/down, reason codes) in the UI?"
+      "Do you see any return fee on the invoice or in the payment details?",
+      "Would you like to pay now by card/transfer, and which invoice number is affected?"
     ]
   },
   {
     "id": "CLASS_012",
-    "scenario": "detect_hallucinations_in_rag_answers",
-    "customer_input": "Even with RAG, the agent sometimes invents details about papers or benchmarks when users ask about recent AI research. How can we evaluate hallucination rate and enforce grounding to retrieved passages? I’d like a practical test plan, not just theory.",
-    "expected_category": "evaluation_and_metrics",
-    "expected_subcategory": "hallucination_and_grounding_tests",
+    "scenario": "card_payment_failed_retry",
+    "customer_input": "I tried paying my invoice with my card in the app and it failed twice. The invoice is due today and I don’t want late charges. Can you tell me why it might be failing and what alternatives I have?",
+    "expected_category": "failed_payment_and_bank_return",
+    "expected_subcategory": "card_payment_failure_troubleshooting_and_alternatives",
     "expected_priority": "critical",
     "expected_sentiment": "frustrated",
     "context": {
-      "rag_enabled": true,
-      "domain": "ai_research_summaries",
-      "retrieval_top_k": 5,
-      "observed_issue": "fabricated_citations"
+      "customer_type": "consumer",
+      "channel": "app",
+      "payment_method": "card",
+      "due_today": true,
+      "attempts": 2
     },
     "follow_up_questions_expected": [
-      "Do you store retrieved passages alongside the final answer for auditing?",
-      "Are hallucinations happening when retrieval fails, or even when relevant passages are present?"
+      "What error message do you see in the app after the payment attempt?",
+      "Do you want to try another method (Bizum/transfer/direct debit) and which invoice number is due?"
     ]
   },
   {
     "id": "CLASS_013",
-    "scenario": "deploy_ai_agent_with_versioning_and_rollbacks",
-    "customer_input": "We’re about to deploy an AI agent that answers AI questions to the whole company, but I’m worried about breaking changes. What’s a good MLOps setup for versioning prompts, models, and retrieval indexes with safe rollbacks? We also need an approval workflow for updates.",
-    "expected_category": "deployment_and_mlop",
-    "expected_subcategory": "release_management_and_versioning",
+    "scenario": "refund_for_overpayment",
+    "customer_input": "I overpaid my Movistar invoice by mistake and now my balance looks negative. Can you refund the extra amount to my bank account? If not, can it be applied to next month?",
+    "expected_category": "refunds_and_credits",
+    "expected_subcategory": "overpayment_refund_or_credit_request",
     "expected_priority": "medium",
-    "expected_sentiment": "cautious",
+    "expected_sentiment": "concerned",
     "context": {
-      "deployment_scope": "company_wide",
-      "change_control": "required",
-      "stack": [
-        "kubernetes",
-        "vector_db",
-        "llm_api"
-      ],
-      "rollback_requirement": true
+      "customer_type": "consumer",
+      "channel": "web",
+      "issue_type": "overpayment",
+      "preferred_resolution": "refund_or_credit"
     },
     "follow_up_questions_expected": [
-      "Which components change most often for you: prompts, documents, embeddings, or the base model?",
-      "Do you need staged rollouts (canary) and A/B testing between versions?"
+      "Can you confirm the invoice number and the amount you believe was overpaid?",
+      "Do you prefer a refund to the original payment method or a credit on the next invoice?"
     ]
   },
   {
     "id": "CLASS_014",
-    "scenario": "production_latency_spikes_in_ai_qna_agent",
-    "customer_input": "Our AI Q&A agent is timing out during peak hours, and users are complaining it’s unusable. We see p95 latency jump from 2s to 12s when the vector search and LLM call happen together. How should we debug and stabilize performance in production?",
-    "expected_category": "deployment_and_mlop",
-    "expected_subcategory": "performance_and_scaling",
-    "expected_priority": "critical",
+    "scenario": "credit_note_not_applied",
+    "customer_input": "Support told me I would get a credit for last month’s outage, but this invoice still shows the full amount. I’m getting tired of chasing this. Can you check where the credit is and when it will be applied?",
+    "expected_category": "refunds_and_credits",
+    "expected_subcategory": "promised_credit_not_applied",
+    "expected_priority": "high",
     "expected_sentiment": "angry",
     "context": {
-      "p95_latency_seconds": 12,
-      "baseline_p95_seconds": 2,
-      "components": [
-        "retrieval",
-        "llm_inference"
-      ],
-      "traffic_pattern": "weekday_peaks"
+      "customer_type": "consumer",
+      "channel": "chat",
+      "issue_type": "service_outage_credit",
+      "previous_case_reference_provided": false
     },
     "follow_up_questions_expected": [
-      "Do you have separate latency breakdowns for retrieval, reranking, and LLM generation?",
-      "Are you using streaming responses and request batching/caching anywhere in the pipeline?"
+      "Do you have a case/reference number or the date you were promised the credit?",
+      "Which invoice month should the credit have been applied to?"
     ]
   },
   {
     "id": "CLASS_015",
-    "scenario": "rag_chunking_for_ai_documentation",
-    "customer_input": "We’re indexing AI documentation and research notes for our agent, but retrieval often returns irrelevant chunks. How should we chunk and embed content like long tutorials, code snippets, and glossary pages? I’m looking for concrete chunk sizes and metadata strategies.",
-    "expected_category": "retrieval_and_rag",
-    "expected_subcategory": "chunking_and_index_design",
+    "scenario": "discount_expired_unexpectedly",
+    "customer_input": "My bill went up because the 'promo' discount disappeared, but I thought it was for 12 months and it’s only been 6. Can you verify my contract conditions and why the discount ended? I want it corrected if it’s a mistake.",
+    "expected_category": "discounts_promotions_and_contract_billing",
+    "expected_subcategory": "discount_missing_or_expired_verification",
     "expected_priority": "high",
-    "expected_sentiment": "professional",
+    "expected_sentiment": "frustrated",
     "context": {
-      "content_types": [
-        "tutorials",
-        "code_snippets",
-        "glossary",
-        "research_notes"
-      ],
-      "vector_db": "managed",
-      "embedding_model": "text_embedding",
-      "current_chunk_size_tokens": 1200
+      "customer_type": "consumer",
+      "channel": "web",
+      "promotion_type": "monthly_discount",
+      "claimed_promo_duration_months": 12,
+      "months_elapsed": 6
     },
     "follow_up_questions_expected": [
-      "Do users ask more conceptual questions or do they search for specific API/code details?",
-      "Are you storing metadata like section headers, doc version, and topic tags for filtering?"
+      "Can you confirm the plan name and the date you activated the promotion?",
+      "Do you have the promo confirmation email/SMS or the contract summary available?"
     ]
   },
   {
     "id": "CLASS_016",
-    "scenario": "rag_with_reranker_and_query_rewrite",
-    "customer_input": "When users ask vague questions like “best way to evaluate an agent,” our RAG system retrieves random pages. Should we add query rewriting, a reranker, or both? Please suggest an approach that improves relevance without adding too much latency.",
-    "expected_category": "retrieval_and_rag",
-    "expected_subcategory": "reranking_and_query_rewriting",
-    "expected_priority": "low",
-    "expected_sentiment": "curious",
+    "scenario": "plan_change_proration_confusion",
+    "customer_input": "I changed my Movistar plan mid-month and now the invoice shows two different monthly fees and a partial charge. I’m not sure if I’m being billed twice. Can you explain the proration and confirm it’s correct?",
+    "expected_category": "plan_change_proration_and_one_time_fees",
+    "expected_subcategory": "mid_cycle_plan_change_proration_explanation",
+    "expected_priority": "medium",
+    "expected_sentiment": "cautious",
     "context": {
-      "query_type": "vague_open_ended",
-      "latency_budget_ms": 1500,
-      "retrieval_top_k": 20,
-      "reranker_in_place": false
+      "customer_type": "consumer",
+      "channel": "app",
+      "change_type": "plan_upgrade",
+      "change_mid_cycle": true,
+      "invoice_month": "2026-02"
     },
     "follow_up_questions_expected": [
-      "Do you have click/feedback signals to measure retrieval relevance today?",
-      "What is your current retrieval method (BM25, dense, hybrid) and top-k settings?"
+      "What date did the plan change take effect according to your confirmation?",
+      "Which two plan names appear on the invoice line items?"
     ]
   },
   {
     "id": "CLASS_017",
-    "scenario": "tool_use_for_live_ai_paper_lookup",
-    "customer_input": "We want the agent to answer questions about AI papers and benchmarks, and to fetch up-to-date info instead of relying on stale training data. What tools should we give it (search, arXiv API, citation lookup), and how do we keep it from fabricating references? A simple tool-calling design would help.",
-    "expected_category": "agents_and_tooling",
-    "expected_subcategory": "tool_calling_and_orchestration",
-    "expected_priority": "medium",
-    "expected_sentiment": "professional",
+    "scenario": "roaming_data_charges_dispute",
+    "customer_input": "I just got a huge charge for roaming data from my trip to Morocco, but I barely used my phone. This is shocking and I need it reviewed urgently. Can you tell me what sessions were billed and if there’s any cap or adjustment possible?",
+    "expected_category": "roaming_international_and_premium_charges",
+    "expected_subcategory": "roaming_data_charges_review_and_dispute",
+    "expected_priority": "critical",
+    "expected_sentiment": "very_angry",
     "context": {
-      "tools_considered": [
-        "web_search",
-        "arxiv_api",
-        "semantic_scholar_api"
-      ],
-      "freshness_requirement": "high",
-      "risk": "fabricated_citations",
-      "agent_framework": "function_calling"
+      "customer_type": "consumer",
+      "channel": "chat",
+      "travel_country": "MA",
+      "charge_type": "roaming_data",
+      "invoice_month": "2026-02"
     },
     "follow_up_questions_expected": [
-      "Which sources are allowed (public web, specific APIs, or curated internal lists)?",
-      "Should the agent always show the retrieved paper metadata (title, authors, year, URL) before summarizing?"
+      "Which mobile line traveled and what dates were you in Morocco?",
+      "Do you have roaming enabled/disabled settings or any roaming pack activated during the trip?"
     ]
   },
   {
     "id": "CLASS_018",
-    "scenario": "agent_planning_loops_and_cost_control",
-    "customer_input": "Our AI agent sometimes goes into long tool-use loops when answering multi-part AI questions, and costs spike. How can we set stopping criteria, budgets, and a planning strategy that still answers thoroughly? We need guardrails that don’t make it feel dumb.",
-    "expected_category": "agents_and_tooling",
-    "expected_subcategory": "planning_and_budgeting_controls",
-    "expected_priority": "high",
-    "expected_sentiment": "frustrated",
+    "scenario": "device_installment_amount_mismatch",
+    "customer_input": "My invoice shows a device installment that’s higher than what I signed for when I financed my phone. I’m worried the financing terms changed without notice. Can you check the installment plan and explain the difference?",
+    "expected_category": "device_financing_and_installments",
+    "expected_subcategory": "installment_amount_mismatch_check",
+    "expected_priority": "medium",
+    "expected_sentiment": "concerned",
     "context": {
-      "observed_issue": "tool_looping",
-      "cost_spike_percent": 65,
-      "tool_calls_per_session_avg": 14,
-      "billing_model": "per_token_plus_tools"
+      "customer_type": "consumer",
+      "channel": "web",
+      "device_financing": true,
+      "issue_type": "installment_mismatch",
+      "invoice_month": "2026-01"
     },
     "follow_up_questions_expected": [
-      "What tools are being called repeatedly, and do you log tool inputs/outputs for analysis?",
-      "Do you have a maximum acceptable cost per conversation or per user session?"
+      "Which device model and financing start date are on your contract?",
+      "What installment amount appears on the invoice and what amount were you expecting?"
     ]
   },
   {
     "id": "CLASS_019",
-    "scenario": "prompt_injection_via_ai_docs_in_rag",
-    "customer_input": "We suspect someone added a malicious snippet into an internal AI doc that says to ignore instructions and reveal system prompts. Now our agent occasionally outputs internal configuration details when asked about AI safety. How do we defend against prompt injection in RAG and audit the index quickly?",
-    "expected_category": "security_privacy_and_compliance",
-    "expected_subcategory": "prompt_injection_and_data_exfiltration",
+    "scenario": "service_restricted_due_to_debt",
+    "customer_input": "My line was restricted today and the message says it’s due to unpaid invoices, but I thought everything was paid. I need my service back because I use it for work. Please check the debt status and tell me how to restore service immediately.",
+    "expected_category": "collections_debt_and_service_restriction",
+    "expected_subcategory": "service_restriction_due_to_alleged_debt",
     "expected_priority": "critical",
-    "expected_sentiment": "very_angry",
+    "expected_sentiment": "worried",
     "context": {
-      "attack_vector": "rag_document_injection",
-      "data_exposed": "system_prompt_and_config",
-      "index_scope": "internal_wiki",
-      "incident_status": "active"
+      "customer_type": "consumer",
+      "channel": "chat",
+      "service_status": "restricted",
+      "use_case": "work_critical",
+      "payment_dispute": true
     },
     "follow_up_questions_expected": [
-      "Can you identify which retrieved documents were used in the conversations where leakage occurred?",
-      "Do you have a content ingestion pipeline where we can add scanning/quarantine for suspicious instructions?"
+      "Which line number is restricted and what message or code did you receive?",
+      "Can you confirm the last payment date/method so I can match it to the outstanding invoice?"
     ]
   },
   {
     "id": "CLASS_020",
-    "scenario": "policy_for_answering_dual_use_ai_questions",
-    "customer_input": "Our AI Q&A agent gets questions like “how do I bypass model safeguards” or “how to generate phishing with LLMs,” mixed in with legitimate AI research questions. We need a clear policy for what to refuse, what to redirect, and how to respond safely without being overly restrictive. Can you propose a refusal and safe-completion approach?",
-    "expected_category": "safety_policy_and_ethics",
-    "expected_subcategory": "dual_use_request_handling",
-    "expected_priority": "high",
-    "expected_sentiment": "concerned",
+    "scenario": "formal_complaint_and_regulatory_threat",
+    "customer_input": "I’ve contacted Movistar three times about incorrect billing and nothing gets fixed. If this isn’t resolved, I will file a complaint with the consumer office and request a formal claim number. Tell me how to escalate and what documentation you need.",
+    "expected_category": "complaint_escalation_and_regulatory",
+    "expected_subcategory": "formal_complaint_escalation_request",
+    "expected_priority": "critical",
+    "expected_sentiment": "angry",
     "context": {
-      "user_base": "internal_and_external",
-      "risk_profile": "dual_use",
-      "current_policy": "ad_hoc",
-      "escalation_path": "security_team"
+      "customer_type": "consumer",
+      "channel": "web",
+      "prior_contacts_count": 3,
+      "wants_claim_number": true,
+      "billing_issue_ongoing": true
     },
     "follow_up_questions_expected": [
-      "Is the agent intended for external users, and do you need different policies for internal vs external access?",
-      "What categories of disallowed content do you want to enforce (malware, phishing, evasion, weaponization, etc.)?"
+      "Do you have any previous case/reference numbers from your earlier contacts?",
+      "Which invoice numbers and specific charges are you disputing so we include them in the formal complaint?"
     ]
   }
 ]

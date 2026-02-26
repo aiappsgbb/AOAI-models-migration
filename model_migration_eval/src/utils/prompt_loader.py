@@ -100,6 +100,25 @@ class PromptLoader:
                 
         return content
         
+    def has_prompt(self, model: str, prompt_type: str) -> bool:
+        """Check whether a prompt template exists for the given model and type.
+
+        Uses the same fallback logic as ``load_prompt`` (reasoning-variant
+        fallback then shared templates) but never raises.
+        """
+        file_path = self.prompts_dir / model / f"{prompt_type}.md"
+        if file_path.exists():
+            return True
+        # Reasoning variant fallback
+        base_model = re.sub(r'_reasoning$', '', model)
+        if base_model != model:
+            if (self.prompts_dir / base_model / f"{prompt_type}.md").exists():
+                return True
+        # Shared template fallback
+        if (self.prompts_dir / "templates" / f"{prompt_type}.md").exists():
+            return True
+        return False
+
     def load_classification_prompt(
         self, 
         model: str,
@@ -256,13 +275,15 @@ class PromptLoader:
         
         Args:
             prompt_type: Type of prompt to compare
-            models: List of models to compare (default: ['gpt4', 'gpt5'])
+            models: List of models to compare (default: all available models)
             
         Returns:
             Dictionary mapping model names to prompt content
         """
         if models is None:
-            models = ['gpt4', 'gpt5']
+            # Default: all model directories that contain prompts
+            available = self.list_available_prompts()
+            models = list(available.keys())
             
         result = {}
         for model in models:

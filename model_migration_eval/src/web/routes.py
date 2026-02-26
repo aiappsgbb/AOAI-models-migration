@@ -19,7 +19,7 @@ from ..utils.prompt_loader import PromptLoader
 from ..utils.prompt_manager import PromptManager
 from ..utils.data_loader import DataLoader
 from ..evaluation.metrics import MetricsCalculator
-from ..evaluation.evaluator import ModelEvaluator
+from ..evaluation.evaluator import ModelEvaluator, MissingPromptsError
 from ..evaluation.comparator import ModelComparator
 from ..evaluation.foundry_evaluator import (
     is_foundry_available,
@@ -49,6 +49,14 @@ def create_app(config_path: str = None) -> Flask:
     app.config['CONFIG_PATH'] = config_path or 'config/settings.yaml'
     app.config['DATA_DIR'] = 'data/synthetic'
     app.config['RESULTS_DIR'] = 'data/results'
+
+    # Load full settings.yaml for model lookups
+    try:
+        import yaml as _yaml_init
+        with open(app.config['CONFIG_PATH'], 'r') as _f_init:
+            app.config['SETTINGS'] = _yaml_init.safe_load(_f_init) or {}
+    except Exception:
+        app.config['SETTINGS'] = {}
     
     # Lazy-loaded client
     _client = None
@@ -168,7 +176,10 @@ def create_app(config_path: str = None) -> Flask:
     def get_prompt_manager():
         nonlocal _prompt_manager
         if _prompt_manager is None:
-            _prompt_manager = PromptManager(data_dir=app.config['DATA_DIR'])
+            _prompt_manager = PromptManager(
+                data_dir=app.config['DATA_DIR'],
+                config=app.config.get('SETTINGS', {}),
+            )
         return _prompt_manager
     
     def get_metrics_calc():
@@ -331,7 +342,8 @@ def create_app(config_path: str = None) -> Flask:
                 'deployment': config.deployment_name,
                 'display_name': display,
                 'version': config.model_version,
-                'max_tokens': config.max_tokens
+                'max_tokens': config.max_tokens,
+                'model_family': config.model_family or 'gpt4',
             })
         return jsonify({'models': models})
         
@@ -606,7 +618,16 @@ def create_app(config_path: str = None) -> Flask:
             result_dict['saved_filename'] = f"{model_name}_{evaluation_type}_{ts}.json"
             result_dict['run_id'] = run_id
             return jsonify(result_dict)
-            
+
+        except MissingPromptsError as e:
+            app.logger.warning(f"Missing prompts for {model_name}/{evaluation_type}: {e}")
+            return jsonify({
+                'error': str(e),
+                'error_type': 'missing_prompts',
+                'model': model_name,
+                'evaluation_type': evaluation_type,
+                'run_id': run_id,
+            }), 400
         except Exception as e:
             return jsonify({'error': str(e), 'run_id': run_id}), 500
         finally:
@@ -844,6 +865,7 @@ def create_app(config_path: str = None) -> Flask:
         _cleanup_run_logs()
         topic = data.get('topic', '')
         generator_model = data.get('generator_model', 'gpt5')
+        target_models = data.get('target_models')  # Optional list of model keys
         if not topic:
             return jsonify({'error': 'topic is required'}), 400
 
@@ -870,6 +892,7 @@ def create_app(config_path: str = None) -> Flask:
                     client=client,
                     generator_model=generator_model,
                     data_dir=app.config['DATA_DIR'],
+                    target_models=target_models,
                 )
                 # Invalidate caches so new content is picked up
                 loader = get_prompt_loader()
@@ -1203,30 +1226,33 @@ def create_app(config_path: str = None) -> Flask:
             return jsonify({'error': str(e)}), 500
 
     # =========================================================================
-    # Import External Topic (file upload → archived topic with GPT-5 generation)
+    # Import External Topic (file upload → archived topic with target model prompt generation)
     # =========================================================================
 
     @app.route('/api/topics/import', methods=['POST'])
     def import_topic():
-        """Import an external topic from uploaded GPT-4 prompt(s) + test data
-        files.  Generates GPT-5 prompt(s) automatically and writes everything
+        """Import an external topic from uploaded source prompt(s) + test data.
+
+        Generates target-model prompts automatically and writes everything
         as an archived topic, ready to be activated from the UI.
 
         Multipart form fields:
-            topic           (str, required) — Human-readable topic name.
-            generator_model (str, optional) — Model key for GPT-5 generation (default: gpt5).
-            force           (str, optional) — 'true' to overwrite existing.
-            gpt4_class_prompt  (file, optional) — Classification system prompt (.txt/.md).
-            gpt4_dialog_prompt (file, optional) — Dialog system prompt (.txt/.md).
-            gpt4_rag_prompt    (file, optional) — RAG system prompt (.txt/.md).
-            gpt4_tool_prompt   (file, optional) — Tool Calling system prompt (.txt/.md).
-            class_test_data    (file, optional) — Classification scenarios JSON.
-            dialog_test_data   (file, optional) — Dialog scenarios JSON.
-            general_test_data  (file, optional) — General capability tests JSON.
-            rag_test_data      (file, optional) — RAG scenarios JSON.
-            tool_calling_test_data (file, optional) — Tool Calling scenarios JSON.
+            topic           (str, required)  — Human-readable topic name.
+            source_model    (str, optional)  — Model key for the source prompts (default: gpt4).
+            target_models   (str, optional)  — Comma-separated model keys to generate for.
+                                               Default: all configured models except source.
+            generator_model (str, optional)  — Model key for AI generation (default: gpt5).
+            force           (str, optional)  — 'true' to overwrite existing.
 
-        At least one prompt file and one test data file are required.
+            Source prompt files (at least one required):
+            source_class_prompt  / gpt4_class_prompt   (file) — Classification system prompt.
+            source_dialog_prompt / gpt4_dialog_prompt   (file) — Dialog system prompt.
+            source_rag_prompt    / gpt4_rag_prompt      (file) — RAG system prompt.
+            source_tool_prompt   / gpt4_tool_prompt     (file) — Tool-calling system prompt.
+
+            Test data files (at least one required):
+            class_test_data, dialog_test_data, general_test_data,
+            rag_test_data, tool_calling_test_data  (file).
         """
         import re as _re
         import time as _time
@@ -1237,7 +1263,8 @@ def create_app(config_path: str = None) -> Flask:
             sys.path.insert(0, str(_tools_dir))
         from import_topic import (
             _ensure_output_format,
-            generate_gpt5_prompt,
+            generate_target_prompt,
+            _resolve_model_family,
             validate_and_fix_test_data,
             write_archived_topic,
             TASK_PROMPT_MAP,
@@ -1249,22 +1276,44 @@ def create_app(config_path: str = None) -> Flask:
         if not topic_name:
             return jsonify({'error': 'topic is required'}), 400
 
+        source_model = request.form.get('source_model', 'gpt4')
         generator_model = request.form.get('generator_model', 'gpt5')
         force = request.form.get('force', 'false').lower() == 'true'
         slug = _slugify(topic_name)
 
-        # ── Collect uploaded prompt files ──
+        # Resolve target models
+        target_models_raw = request.form.get('target_models', '').strip()
+        if target_models_raw:
+            target_models = [m.strip() for m in target_models_raw.split(',') if m.strip()]
+        else:
+            # Default: all configured models except the source
+            all_models = list(app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys())
+            target_models = [m for m in all_models if m != source_model]
+            if not target_models:
+                target_models = ['gpt5']  # fallback
+
+        # Build model_family lookup from config
+        model_families = {}
+        for mk, mp in app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).items():
+            if isinstance(mp, dict):
+                model_families[mk] = mp.get('model_family', _resolve_model_family(mk))
+
+        # ── Collect uploaded prompt files (support both source_* and gpt4_* names) ──
         prompt_files = {}
-        for task_key, field_name in (('classification', 'gpt4_class_prompt'),
-                                      ('dialog', 'gpt4_dialog_prompt'),
-                                      ('rag', 'gpt4_rag_prompt'),
-                                      ('tool_calling', 'gpt4_tool_prompt')):
-            f = request.files.get(field_name)
-            if f and f.filename:
-                prompt_files[task_key] = f.read().decode('utf-8')
+        for task_key, field_names in (
+            ('classification', ('source_class_prompt', 'gpt4_class_prompt')),
+            ('dialog',         ('source_dialog_prompt', 'gpt4_dialog_prompt')),
+            ('rag',            ('source_rag_prompt', 'gpt4_rag_prompt')),
+            ('tool_calling',   ('source_tool_prompt', 'gpt4_tool_prompt')),
+        ):
+            for fn in field_names:
+                f = request.files.get(fn)
+                if f and f.filename:
+                    prompt_files[task_key] = f.read().decode('utf-8')
+                    break
 
         if not prompt_files:
-            return jsonify({'error': 'At least one GPT-4 prompt file is required.'}), 400
+            return jsonify({'error': 'At least one source prompt file is required.'}), 400
 
         # ── Collect uploaded test data files ──
         data_files = {}
@@ -1281,7 +1330,7 @@ def create_app(config_path: str = None) -> Flask:
                 data_files[data_key] = raw
 
         if not data_files:
-            return jsonify({'error': 'At least one test data file is required (class_test_data, dialog_test_data, general_test_data).'}), 400
+            return jsonify({'error': 'At least one test data file is required.'}), 400
 
         # ── Check existing ──
         topics_dir = Path('prompts') / 'topics' / slug
@@ -1302,47 +1351,55 @@ def create_app(config_path: str = None) -> Flask:
         if not client:
             return jsonify({'error': 'Azure OpenAI client not configured'}), 500
 
-        # ── Validate all prompts first (fast, no LLM) ──
+        # ── Validate all source prompts first (fast, no LLM) ──
         validated_prompts: dict[str, str] = {}
-        for task, gpt4_raw in prompt_files.items():
-            app.logger.info(f'Import topic: validating {task} prompt ({len(gpt4_raw)} chars)')
-            validated_prompts[task] = _ensure_output_format(gpt4_raw, task)
+        for task, raw_content in prompt_files.items():
+            app.logger.info(f'Import topic: validating {task} prompt ({len(raw_content)} chars)')
+            validated_prompts[task] = _ensure_output_format(raw_content, task)
 
-        # ── Generate GPT-5 prompts in parallel ──
+        # ── Generate target-model prompts in parallel ──
         import asyncio
         from concurrent.futures import ThreadPoolExecutor
 
-        def _gen_one(task: str, gpt4_content: str):
-            """Generate a single GPT-5 prompt (runs in thread pool)."""
-            app.logger.info(f'Import topic: [parallel] generating GPT-5 {task} prompt...')
+        def _gen_one(task: str, src_content: str, tgt_model: str):
+            """Generate a single target-model prompt (runs in thread pool)."""
+            family = model_families.get(tgt_model, _resolve_model_family(tgt_model))
+            app.logger.info(f'Import topic: [parallel] generating {tgt_model} {task} prompt...')
             t0 = _time.time()
-            gpt5 = generate_gpt5_prompt(
-                client, topic_name, task, gpt4_content, generator_model,
+            generated = generate_target_prompt(
+                client, topic_name, task, src_content, generator_model,
+                target_model=tgt_model, model_family=family,
             )
             elapsed = round(_time.time() - t0, 1)
-            app.logger.info(f'Import topic: [parallel] GPT-5 {task} prompt generated in {elapsed}s')
-            return task, gpt4_content, gpt5, elapsed
+            app.logger.info(f'Import topic: [parallel] {tgt_model} {task} prompt generated in {elapsed}s')
+            return task, tgt_model, generated, elapsed
 
         async def _gen_all():
             loop = asyncio.get_running_loop()
-            with ThreadPoolExecutor(max_workers=len(validated_prompts)) as pool:
+            n_workers = len(validated_prompts) * len(target_models)
+            with ThreadPoolExecutor(max_workers=max(n_workers, 1)) as pool:
                 futures = [
-                    loop.run_in_executor(pool, _gen_one, task, content)
+                    loop.run_in_executor(pool, _gen_one, task, content, tgt)
                     for task, content in validated_prompts.items()
+                    for tgt in target_models
                 ]
                 return await asyncio.gather(*futures)
 
         t_total = _time.time()
         results = asyncio.run(_gen_all())
         app.logger.info(
-            f'Import topic: all GPT-5 prompts generated in {round(_time.time() - t_total, 1)}s (parallel)'
+            f'Import topic: all target prompts generated in {round(_time.time() - t_total, 1)}s (parallel)'
         )
 
-        prompts_map = {}
-        gen_times = {}
-        for task, gpt4_content, gpt5_content, elapsed in results:
-            prompts_map[task] = (gpt4_content, gpt5_content)
-            gen_times[task] = elapsed
+        # Build prompts_map: {task: {model: content}}
+        prompts_map: dict[str, dict[str, str]] = {}
+        gen_times: dict[str, float] = {}
+        for task, tgt_model, tgt_content, elapsed in results:
+            prompts_map.setdefault(task, {})[tgt_model] = tgt_content
+            gen_times[f'{task}:{tgt_model}'] = elapsed
+        # Include source model content
+        for task, content in validated_prompts.items():
+            prompts_map.setdefault(task, {})[source_model] = content
 
         # ── Write archived topic ──
         app.logger.info(f'Import topic: writing archived topic "{slug}"…')
@@ -1361,13 +1418,15 @@ def create_app(config_path: str = None) -> Flask:
 
         # ── Build response summary ──
         prompt_summary = {}
-        for task, (g4, g5) in prompts_map.items():
+        for task, models_content in prompts_map.items():
             prompt_type = TASK_PROMPT_MAP.get(task, task)
             prompt_summary[task] = {
                 'prompt_type': prompt_type,
-                'gpt4_chars': len(g4),
-                'gpt5_chars': len(g5),
-                'generation_time': gen_times.get(task, 0),
+                'models': {m: len(c) for m, c in models_content.items()},
+                'generation_times': {
+                    m: gen_times.get(f'{task}:{m}', 0)
+                    for m in models_content if m != source_model
+                },
             }
 
         data_summary = {}
@@ -1381,6 +1440,8 @@ def create_app(config_path: str = None) -> Flask:
             'status': 'imported',
             'topic': topic_name,
             'slug': slug,
+            'source_model': source_model,
+            'target_models': target_models,
             'prompts': prompt_summary,
             'data': data_summary,
         })
@@ -1587,11 +1648,15 @@ def create_app(config_path: str = None) -> Flask:
 
     def _estimate_cost(model_name: str, metrics) -> dict:
         """Return cost estimate in USD for a single request."""
+        # Per-1K-token rates (USD).  Models not listed fall back to default rates.
         rates = {
-            'gpt4': {'input': 0.0025, 'output': 0.01, 'cached_input': 0.00125},
-            'gpt5': {'input': 0.005, 'output': 0.02, 'cached_input': 0.0025, 'reasoning': 0.015},
+            'gpt4':     {'input': 0.0025, 'output': 0.01,  'cached_input': 0.00125},
+            'gpt4o':    {'input': 0.0025, 'output': 0.01,  'cached_input': 0.00125},
+            'gpt41_mini': {'input': 0.0004, 'output': 0.0016, 'cached_input': 0.0001},
+            'gpt5':     {'input': 0.005,  'output': 0.02,  'cached_input': 0.0025, 'reasoning': 0.015},
+            'gpt5_reasoning': {'input': 0.005, 'output': 0.02, 'cached_input': 0.0025, 'reasoning': 0.015},
         }
-        r = rates.get(model_name, rates.get('gpt4', {}))
+        r = rates.get(model_name, next(iter(rates.values()), {}))
         pt = getattr(metrics, 'prompt_tokens', 0) or 0
         ct = getattr(metrics, 'cached_tokens', 0) or 0
         comp = getattr(metrics, 'completion_tokens', 0) or 0

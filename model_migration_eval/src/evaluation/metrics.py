@@ -363,7 +363,7 @@ class MetricsCalculator:
             ttft_values: Optional list of time-to-first-token values
             token_data: Optional per-request token data [{prompt_tokens, completion_tokens,
                         cached_tokens, reasoning_tokens}]
-            model_name: Model name for cost estimation ('gpt4' or 'gpt5')
+            model_name: Model name for cost estimation (e.g. 'gpt4', 'gpt4o', 'gpt5')
             
         Returns:
             LatencyMetrics object
@@ -401,7 +401,7 @@ class MetricsCalculator:
                 'gpt4': {'input': 0.0025, 'output': 0.01, 'cached_input': 0.00125},
                 'gpt5': {'input': 0.005, 'output': 0.02, 'cached_input': 0.0025, 'reasoning': 0.015},
             }
-            rates = cost_rates.get(model_name, cost_rates.get('gpt4', {}))
+            rates = cost_rates.get(model_name, next(iter(cost_rates.values()), {}))
             for d in token_data:
                 pt = d.get('prompt_tokens', 0)
                 ct = d.get('cached_tokens', 0)
@@ -805,9 +805,9 @@ class MetricsCalculator:
         Extract classification data from model response.
 
         Handles multiple JSON layouts produced by different prompts:
-        - GPT-5 style:  {"classification": {"category": "…", …}, …}
-        - GPT-4 style:  {"primary_category": "…", "subcategory": "…", …}
-        - Flat style:   {"category": "…", "subcategory": "…", …}
+        - Nested style:  {"classification": {"category": "…", …}, …}
+        - Flat style:    {"primary_category": "…", "subcategory": "…", …}
+        - Simple style:  {"category": "…", "subcategory": "…", …}
 
         Args:
             response: Raw model response (str or dict)
@@ -823,14 +823,14 @@ class MetricsCalculator:
             is_valid, parsed = self._is_valid_json(response, return_parsed=True)
 
         if is_valid and parsed:
-            # --- Resolve the nested "classification" block (GPT-5) -----------
+            # --- Resolve the nested "classification" block ----------------
             classification = parsed.get('classification', {})
 
             # --- Category: try every known key name -------------------------
-            # GPT-5 nested:  classification.primary_category
-            # GPT-5 flat:    primary_category
-            # GPT-4 Telco:   primary_category_code
-            # GPT-4 flat:    category
+            # Nested:       classification.primary_category
+            # Flat (alt):   primary_category
+            # Telco style:  primary_category_code
+            # Simple flat:  category
             raw_cat = (
                 classification.get('primary_category')
                 or classification.get('category')
@@ -890,10 +890,21 @@ class MetricsCalculator:
                 or parsed.get('confidence_score')
                 or 0.0
             )
-            # Unwrap nested dicts — some models return {"confidence": {"score": 0.95}}
+            # Unwrap nested dicts — models may return e.g.
+            # {"confidence": {"score": 0.95}} or
+            # {"confidence": {"primary_category": 0.95, "overall": 0.90}}
             if isinstance(raw_conf, dict):
-                raw_conf = (raw_conf.get('score') or raw_conf.get('value')
-                            or raw_conf.get('confidence') or 0.0)
+                raw_conf = (raw_conf.get('overall')
+                            or raw_conf.get('score')
+                            or raw_conf.get('value')
+                            or raw_conf.get('confidence')
+                            or raw_conf.get('primary_category')
+                            or 0.0)
+            # Ensure numeric — some models may return strings like "0.95"
+            try:
+                raw_conf = float(raw_conf)
+            except (TypeError, ValueError):
+                raw_conf = 0.0
 
             normalised_cat = self._normalise_category(raw_cat)
             logger.debug(

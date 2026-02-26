@@ -3,7 +3,7 @@ Azure OpenAI Model Migration Evaluation - Main Application
 ==========================================================
 
 This application provides a comprehensive framework for evaluating
-and comparing GPT-4 and GPT-5 models on Azure AI Foundry.
+and comparing Azure OpenAI models across generations.
 
 Usage:
     # Run the web interface
@@ -55,7 +55,7 @@ def run_web_server(host: str = "127.0.0.1", port: int = 5000, debug: bool = Fals
 ║  Endpoints:                                               ║
 ║    /           - Dashboard                                ║
 ║    /evaluate   - Run batch evaluations                    ║
-║    /compare    - Compare GPT-4 vs GPT-5                   ║
+║    /compare    - Compare any two models                  ║
 ║    /results    - Browse saved results                     ║
 ║    /prompts    - View prompt templates                    ║
 ║                                                           ║

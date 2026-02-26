@@ -11,7 +11,7 @@ Topic management:
   - Each topic is archived as a self-contained snapshot under
     prompts/topics/{slug}/ and data/synthetic/topics/{slug}/.
   - Switching topics restores prompts + data from the archive into
-    the active locations (prompts/gpt4, gpt5, data/synthetic/*).
+    the active locations (prompts/<model>/, data/synthetic/*).
   - Generating a new topic automatically archives the current one first.
 """
 
@@ -24,6 +24,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 import logging
+
+from src.utils.model_guidance import get_guidance as _get_model_guidance
 
 logger = logging.getLogger(__name__)
 
@@ -309,16 +311,16 @@ class PromptManager:
 
     Directory structure:
         prompts/
-        ├── gpt4/                                (active prompts)
+        ├── <model_a>/                           (active prompts)
         │   ├── classification_agent_system.md
         │   └── dialog_agent_system.md
-        ├── gpt5/
+        ├── <model_b>/
         │   ├── classification_agent_system.md
         │   └── dialog_agent_system.md
         ├── topics/                              (archived topic snapshots)
         │   ├── telco_customer_service/
-        │   │   ├── gpt4/ ...
-        │   │   ├── gpt5/ ...
+        │   │   ├── <model_a>/ ...
+        │   │   ├── <model_b>/ ...
         │   │   └── topic.json                   (metadata)
         │   └── red_sea_diving/
         │       └── ...
@@ -343,9 +345,10 @@ class PromptManager:
         "tool_calling":   "tool_calling_scenarios.json",
     }
 
-    def __init__(self, prompts_dir: str = "prompts", data_dir: str = "data/synthetic"):
+    def __init__(self, prompts_dir: str = "prompts", data_dir: str = "data/synthetic", config: Optional[Dict] = None):
         self.prompts_dir = Path(prompts_dir)
         self.data_dir = Path(data_dir)
+        self._config = config or {}
         self.history_dir = self.prompts_dir / "history"
         self.topics_dir = self.prompts_dir / "topics"
         self.data_topics_dir = self.data_dir / "topics"
@@ -355,6 +358,32 @@ class PromptManager:
         self.index_path = self.history_dir / "versions.json"
         self._topic_path = self.history_dir / "topic_metadata.json"
         self._index = self._load_index()
+
+        # Ensure all configured models have a prompt directory
+        cfg_models = self._config.get("azure", {}).get("models", {})
+        for model_key in cfg_models:
+            model_dir = self.prompts_dir / model_key
+            if not model_dir.exists():
+                model_dir.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Created missing prompt directory for configured model: {model_key}")
+
+    def _get_model_dirs(self) -> List[str]:
+        """Return active model directory names under the prompts directory."""
+        excluded = {'history', 'topics', 'templates', '__pycache__'}
+        return sorted(
+            d.name for d in self.prompts_dir.iterdir()
+            if d.is_dir() and d.name not in excluded
+        )
+
+    @staticmethod
+    def _get_archive_model_dirs(archive_path: Path) -> List[str]:
+        """Return model directory names inside a topic archive."""
+        if not archive_path.exists():
+            return []
+        return sorted(
+            d.name for d in archive_path.iterdir()
+            if d.is_dir()
+        )
 
     # ── Topic tracking ────────────────────────────────────────────────
 
@@ -426,14 +455,16 @@ class PromptManager:
         prompt_snapshot = self.topics_dir / slug
         data_snapshot = self.data_topics_dir / slug
 
-        # Archive prompt files
-        for model_dir in ("gpt4", "gpt5"):
+        # Archive prompt files (all model directories found)
+        archived_models = []
+        for model_dir in self._get_model_dirs():
             src = self.prompts_dir / model_dir
             dst = prompt_snapshot / model_dir
             if src.exists():
                 dst.mkdir(parents=True, exist_ok=True)
                 for f in src.glob("*.md"):
                     shutil.copy2(f, dst / f.name)
+                archived_models.append(model_dir)
 
         # Archive data files
         for data_type, filename in self._DATA_FILES.items():
@@ -447,6 +478,7 @@ class PromptManager:
         snapshot_meta = {
             "topic": topic,
             "slug": slug,
+            "models": archived_models,
             "archived_at": datetime.now().isoformat(),
             "prompts_updated_at": meta.get("prompts_updated_at", ""),
             "data_generated_at": meta.get("data_generated_at", ""),
@@ -495,16 +527,18 @@ class PromptManager:
             )
 
         # Restore prompt files – clean active dirs first, then copy from archive
-        for model_dir in ("gpt4", "gpt5"):
+        # Clean ALL current model dirs to avoid stale prompts from other topics
+        for model_dir in self._get_model_dirs():
+            dst = self.prompts_dir / model_dir
+            for old_file in dst.glob("*.md"):
+                old_file.unlink()
+        # Copy model dirs from the archive
+        for model_dir in self._get_archive_model_dirs(prompt_snapshot):
             src = prompt_snapshot / model_dir
             dst = self.prompts_dir / model_dir
-            if src.exists():
-                dst.mkdir(parents=True, exist_ok=True)
-                # Remove existing prompt files to avoid stale leftovers
-                for old_file in dst.glob("*.md"):
-                    old_file.unlink()
-                for f in src.glob("*.md"):
-                    shutil.copy2(f, dst / f.name)
+            dst.mkdir(parents=True, exist_ok=True)
+            for f in src.glob("*.md"):
+                shutil.copy2(f, dst / f.name)
 
         # Restore data files – clean active data dirs first, then copy from archive
         for data_type, filename in self._DATA_FILES.items():
@@ -535,7 +569,7 @@ class PromptManager:
                 json.dump(meta, f, indent=2, ensure_ascii=False)
 
         # Log verification of what was restored
-        for model_dir in ("gpt4", "gpt5"):
+        for model_dir in self._get_model_dirs():
             cls_path = self.prompts_dir / model_dir / "classification_agent_system.md"
             if cls_path.exists():
                 first_line = cls_path.read_text(encoding="utf-8").splitlines()[0] if cls_path.stat().st_size > 0 else "(empty)"
@@ -611,7 +645,7 @@ class PromptManager:
         archive_dir = self.topics_dir / slug
         orphan_detected = False
         if archive_dir.exists():
-            for model_dir in ("gpt4", "gpt5"):
+            for model_dir in self._get_archive_model_dirs(archive_dir):
                 for prompt_name in ("classification_agent_system", "dialog_agent_system"):
                     active_path = self.prompts_dir / model_dir / f"{prompt_name}.md"
                     archive_path = archive_dir / model_dir / f"{prompt_name}.md"
@@ -633,7 +667,7 @@ class PromptManager:
             # Restore the CORRECT topic's prompts + data from its own archive
             correct_archive = self.topics_dir / current_slug
             if correct_archive.exists():
-                for model_dir in ("gpt4", "gpt5"):
+                for model_dir in self._get_archive_model_dirs(correct_archive):
                     src = correct_archive / model_dir
                     dst = self.prompts_dir / model_dir
                     if src.exists():
@@ -694,10 +728,10 @@ class PromptManager:
         data_path = Path(data_dir)
         result: Dict[str, Any] = {}
 
-        # Extract categories from BOTH active classification prompts and
-        # use the intersection so that test data works for both models.
+        # Extract categories from ALL active classification prompts and
+        # use the intersection so that test data works for all models.
         _cats_by_model: Dict[str, List[str]] = {}
-        for m in ("gpt5", "gpt4"):
+        for m in self._get_model_dirs():
             cls_prompt = self.get_active_prompt(m, "classification_agent_system") or ""
             if cls_prompt:
                 cats = _extract_categories_from_prompt(cls_prompt)
@@ -706,18 +740,23 @@ class PromptManager:
                     logger.info(f"regenerate_test_data: extracted {len(cats)} categories from active {m} prompt")
 
         canonical_categories: List[str] = []
-        if "gpt5" in _cats_by_model and "gpt4" in _cats_by_model:
-            set5 = set(_cats_by_model["gpt5"])
-            set4 = set(_cats_by_model["gpt4"])
-            common = [c for c in _cats_by_model["gpt4"] if c in set5]
+        if len(_cats_by_model) >= 2:
+            # Use intersection of all models' categories
+            all_sets = [set(c) for c in _cats_by_model.values()]
+            common_set = all_sets[0]
+            for s in all_sets[1:]:
+                common_set &= s
+            # Preserve order from first model that has categories
+            first_cats = list(_cats_by_model.values())[0]
+            common = [c for c in first_cats if c in common_set]
             if common:
                 canonical_categories = common
                 logger.info(f"regenerate_test_data: using INTERSECTION ({len(common)} categories): {common}")
             else:
-                canonical_categories = _cats_by_model["gpt4"]
+                canonical_categories = list(_cats_by_model.values())[0]
                 logger.warning(
                     f"regenerate_test_data: no category overlap — "
-                    f"using GPT-4 categories as source of truth"
+                    f"using first model's categories as source of truth"
                 )
         elif _cats_by_model:
             canonical_categories = list(_cats_by_model.values())[0]
@@ -1014,6 +1053,8 @@ class PromptManager:
         reference_snippet: str,
         shared_categories: Optional[List[str]],
         semaphore: asyncio.Semaphore,
+        model_family: Optional[str] = None,
+        deployment_name: Optional[str] = None,
     ) -> Tuple[str, str, str]:
         """Generate a single prompt asynchronously.
 
@@ -1026,6 +1067,8 @@ class PromptManager:
             task=task,
             reference_snippet=reference_snippet,
             shared_categories=shared_categories if task == "classification" else None,
+            model_family=model_family,
+            deployment_name=deployment_name,
         )
 
         async with semaphore:
@@ -1036,7 +1079,10 @@ class PromptManager:
                     messages=[
                         {"role": "system", "content": (
                             "You are an expert prompt engineer specialising in Azure OpenAI models. "
-                            "You create high-quality system prompts that follow each model family's best practices. "
+                            "You create high-quality system prompts that follow each specific model's "
+                            "best practices (not just the model family — consider the concrete "
+                            "deployment such as GPT-4.1 vs GPT-4o vs GPT-4.1-mini, or GPT-5.2 vs "
+                            "GPT-5.1 reasoning). "
                             "Return ONLY the system prompt content, no explanations, no markdown fences."
                         )},
                         {"role": "user", "content": meta_prompt},
@@ -1204,29 +1250,54 @@ class PromptManager:
         client,
         generator_model: str = "gpt5",
         data_dir: str = "data/synthetic",
+        target_models: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Use an AI model to generate optimised prompts **and** matching
         synthetic test data for a given topic.
 
+        Args:
+            target_models: Optional list of model keys to generate prompts
+                for.  When *None*, uses all model directories currently
+                present under ``prompts/``.
+
         Uses **parallel async calls** to speed up generation:
-          - Step 1: gpt4/classification (must go first for category extraction)
-          - Step 2: gpt5/classification + 6 other prompts (all in parallel)
-          - Step 3: category alignment & auto-fix (if needed)
+          - Step 1: canonical model / classification (for category extraction)
+          - Step 2: all remaining model × task prompts in parallel
+          - Step 3: category alignment & auto-fix
           - Step 4: all 5 data types in parallel
 
-        Returns dict like:
+        Returns dict like::
+
             {
-              "prompts": { "gpt4": { … }, "gpt5": { … } },
-              "data": {
-                "classification": { "count": 20, "file": "…" },
-                "dialog":         { "count": 15, "file": "…" },
-                "general":        { "count": 15, "file": "…" }
-              }
+              "prompts": { "<model>": { "<prompt_type>": "…" }, … },
+              "data": { "classification": { … }, … }
             }
         """
         overall_t0 = time.time()
-        result: Dict[str, Any] = {"prompts": {"gpt4": {}, "gpt5": {}}, "data": {}}
+
+        # Resolve which models to generate for
+        if target_models:
+            models = list(target_models)
+        else:
+            models = self._get_model_dirs()
+            if not models:
+                models = list(self._get_model_dirs()) or ["gpt4", "gpt5"]  # fallback to defaults
+
+        # Build model_family lookup from config
+        model_families: Dict[str, str] = {}
+        model_deployments: Dict[str, str] = {}
+        cfg_models = self._config.get("azure", {}).get("models", {})
+        for mk, mp in cfg_models.items():
+            if isinstance(mp, dict):
+                model_families[mk] = mp.get("model_family", "gpt4")
+                model_deployments[mk] = mp.get("deployment_name", mk)
+
+        # Pick a "canonical" model (first in list) whose classification
+        # prompt is generated first to extract shared categories.
+        canonical = models[0]
+
+        result: Dict[str, Any] = {"prompts": {m: {} for m in models}, "data": {}}
 
         # ── 0. Archive current topic before overwriting ───────────────
         current = self.get_topic_metadata().get("topic", "")
@@ -1234,65 +1305,73 @@ class PromptManager:
             self.archive_current_topic()
             logger.info(f"Archived previous topic '{current}' before generating '{topic}'")
 
-        # ── 1. Generate GPT-4 classification FIRST (needed for categories) ──
-        logger.info("== Step 1/4: Generating gpt4/classification prompt (blocking) ==")
-        reference = self.get_active_prompt("gpt4", "classification_agent_system") or ""
+        # ── 1. Generate canonical/classification FIRST (needed for categories) ──
+        logger.info(f"== Step 1/4: Generating {canonical}/classification prompt (blocking) ==")
+        reference = self.get_active_prompt(canonical, "classification_agent_system") or ""
         reference_snippet = reference[:2000] if reference else "(no existing prompt)"
 
-        gpt4_cls_result = self._run_async(
+        canonical_family = model_families.get(canonical, "gpt4")
+        canonical_deployment = model_deployments.get(canonical)
+        canonical_cls_result = self._run_async(
             self._async_generate_one_prompt(
                 client, generator_model, topic,
-                "gpt4", "classification", reference_snippet, None,
+                canonical, "classification", reference_snippet, None,
                 asyncio.Semaphore(_MAX_CONCURRENT_LLM),
+                model_family=canonical_family,
+                deployment_name=canonical_deployment,
             )
         )
-        _, _, gpt4_cls_content = gpt4_cls_result
-        if not gpt4_cls_content.startswith("[Error"):
+        _, _, canonical_cls_content = canonical_cls_result
+        if not canonical_cls_content.startswith("[Error"):
             self.save_prompt(
-                model="gpt4", prompt_type="classification_agent_system",
-                content=gpt4_cls_content, topic=topic,
+                model=canonical, prompt_type="classification_agent_system",
+                content=canonical_cls_content, topic=topic,
                 source="ai-generated", author=f"generator:{generator_model}",
             )
-        result["prompts"]["gpt4"]["classification_agent_system"] = gpt4_cls_content
+        result["prompts"][canonical]["classification_agent_system"] = canonical_cls_content
 
-        # Extract categories from GPT-4 classification
+        # Extract categories from canonical classification
         shared_categories: Optional[List[str]] = None
-        if not gpt4_cls_content.startswith("[Error"):
-            extracted = _extract_categories_from_prompt(gpt4_cls_content)
+        if not canonical_cls_content.startswith("[Error"):
+            extracted = _extract_categories_from_prompt(canonical_cls_content)
             if extracted:
                 shared_categories = extracted
                 logger.info(
-                    f"Extracted {len(extracted)} categories from GPT-4 "
+                    f"Extracted {len(extracted)} categories from {canonical} "
                     f"classification prompt: {extracted}"
                 )
 
-        # ── 2. Generate remaining 7 prompts in PARALLEL ───────────────
-        logger.info("== Step 2/4: Generating 7 remaining prompts in parallel ==")
-        parallel_tasks_step2 = []
+        # ── 2. Generate remaining prompts in PARALLEL ─────────────────
+        n_remaining = len(models) * 4 - 1  # total minus the one already done
+        logger.info(f"== Step 2/4: Generating {n_remaining} remaining prompts in parallel ==")
 
         async def _step2():
             sem = asyncio.Semaphore(_MAX_CONCURRENT_LLM)
             tasks = []
-            for target_model in ("gpt4", "gpt5"):
+            for tgt_model in models:
+                family = model_families.get(tgt_model, "gpt4")
+                deployment = model_deployments.get(tgt_model)
                 for task in ("classification", "dialog", "rag", "tool_calling"):
-                    # Skip gpt4/classification — already done
-                    if target_model == "gpt4" and task == "classification":
+                    # Skip canonical/classification — already done
+                    if tgt_model == canonical and task == "classification":
                         continue
 
                     prompt_type = f"{task}_agent_system"
 
-                    # For gpt5/classification, use gpt4 cls as reference
-                    if target_model == "gpt5" and task == "classification" and shared_categories:
-                        ref_snippet = gpt4_cls_content if not gpt4_cls_content.startswith("[Error") else "(no reference)"
+                    # For classification tasks, use canonical cls as reference
+                    if task == "classification" and shared_categories:
+                        ref_snippet = canonical_cls_content if not canonical_cls_content.startswith("[Error") else "(no reference)"
                     else:
-                        ref = self.get_active_prompt(target_model, prompt_type) or ""
+                        ref = self.get_active_prompt(tgt_model, prompt_type) or ""
                         ref_snippet = ref[:2000] if ref else "(no existing prompt)"
 
                     cats = shared_categories if task == "classification" else None
                     tasks.append(
                         self._async_generate_one_prompt(
                             client, generator_model, topic,
-                            target_model, task, ref_snippet, cats, sem,
+                            tgt_model, task, ref_snippet, cats, sem,
+                            model_family=family,
+                            deployment_name=deployment,
                         )
                     )
             return await asyncio.gather(*tasks, return_exceptions=True)
@@ -1304,14 +1383,16 @@ class PromptManager:
             if isinstance(item, Exception):
                 logger.error(f"[parallel] Prompt generation exception: {item}")
                 continue
-            target_model, prompt_type, generated = item
+            tgt_model, prompt_type, generated = item
             if not generated.startswith("[Error"):
                 self.save_prompt(
-                    model=target_model, prompt_type=prompt_type,
+                    model=tgt_model, prompt_type=prompt_type,
                     content=generated, topic=topic,
                     source="ai-generated", author=f"generator:{generator_model}",
                 )
-            result["prompts"][target_model][prompt_type] = generated
+            if tgt_model not in result["prompts"]:
+                result["prompts"][tgt_model] = {}
+            result["prompts"][tgt_model][prompt_type] = generated
 
         # ── 1a. NOW update metadata (prompts are on disk) ─────────
         self._save_topic_metadata(topic, prompts_updated=True)
@@ -1319,7 +1400,7 @@ class PromptManager:
         # ── 3. Category alignment & auto-fix ──────────────────────────
         logger.info("== Step 3/4: Category alignment ==")
         _categories: Dict[str, List[str]] = {}
-        for m in ("gpt5", "gpt4"):
+        for m in models:
             cls_prompt = result["prompts"].get(m, {}).get("classification_agent_system", "")
             if cls_prompt and not cls_prompt.startswith("[Error"):
                 cats = _extract_categories_from_prompt(cls_prompt)
@@ -1327,81 +1408,72 @@ class PromptManager:
                     _categories[m] = cats
                     logger.info(f"Extracted {len(cats)} categories from {m} classification prompt: {cats}")
 
+        # Build canonical category set via N-way intersection
         canonical_categories: List[str] = []
-        if "gpt5" in _categories and "gpt4" in _categories:
-            set5 = set(_categories["gpt5"])
-            set4 = set(_categories["gpt4"])
-            common = [c for c in _categories["gpt4"] if c in set5]
-            if len(common) >= len(set4) * 0.5:
+        if len(_categories) >= 2:
+            # Use intersection of all models' categories
+            sets = [set(v) for v in _categories.values()]
+            common_set = sets[0]
+            for s in sets[1:]:
+                common_set &= s
+            # Preserve order from canonical model
+            ref_cats = _categories.get(canonical, list(_categories.values())[0])
+            common = [c for c in ref_cats if c in common_set]
+
+            if len(common) >= len(ref_cats) * 0.5:
                 canonical_categories = common
                 logger.info(
-                    f"Using INTERSECTION of GPT-4 and GPT-5 categories "
-                    f"({len(common)}/{len(set5 | set4)}): {common}"
+                    f"Using INTERSECTION of {len(_categories)} models' categories "
+                    f"({len(common)}): {common}"
                 )
             else:
-                canonical_categories = _categories["gpt4"]
+                canonical_categories = ref_cats
                 logger.warning(
-                    f"Low category overlap ({len(common)}) between GPT-4 "
-                    f"({list(set4)}) and GPT-5 ({list(set5)}) — "
-                    f"using GPT-4 categories as source of truth"
+                    f"Low category overlap ({len(common)}) across models — "
+                    f"using {canonical} categories as source of truth"
                 )
-                # Auto-fix GPT-5 classification (single sync call)
-                try:
-                    logger.info("Auto-regenerating GPT-5 classification prompt to align taxonomy...")
-                    gpt5_cls = result["prompts"].get("gpt5", {}).get("classification_agent_system", "")
-                    fix_prompt = (
-                        "The following system prompt was generated for a GPT-5 classification agent, "
-                        "but it uses WRONG category codes. Rewrite it so that the EXACT primary "
-                        "category codes listed below are used AS-IS (copy verbatim, do NOT rename).\n\n"
-                        "MANDATORY PRIMARY CATEGORY CODES (use these EXACTLY):\n"
-                        + '\n'.join(f'  - {c}' for c in _categories["gpt4"])
-                        + "\n\nOriginal prompt to fix:\n" + gpt5_cls[:6000]
-                        + "\n\nReturn ONLY the corrected system prompt. Keep the same structure, "
-                        "descriptions, and subcategory style — just replace ALL primary category "
-                        "codes with the mandatory ones above."
-                    )
-                    fix_res = client.complete(
-                        messages=[
-                            {"role": "system", "content": "You are an expert prompt engineer. Fix the category codes as instructed. Output ONLY the corrected prompt."},
-                            {"role": "user", "content": fix_prompt},
-                        ],
-                        model_name=generator_model,
-                    )
-                    fixed_gpt5 = fix_res.content.strip()
-                    fixed_cats = _extract_categories_from_prompt(fixed_gpt5)
-                    fixed_overlap = len(set(fixed_cats) & set4)
-                    if fixed_overlap >= len(set4) * 0.5:
-                        self.save_prompt(
-                            model="gpt5", prompt_type="classification_agent_system",
-                            content=fixed_gpt5, topic=topic,
-                            source="ai-generated-fixed", author=f"generator:{generator_model}",
-                        )
-                        result["prompts"]["gpt5"]["classification_agent_system"] = fixed_gpt5
-                        _categories["gpt5"] = fixed_cats
-                        logger.info(f"Successfully realigned GPT-5 categories ({fixed_overlap}/{len(set4)} overlap)")
-                    else:
-                        logger.warning(f"GPT-5 taxonomy fix attempt still has low overlap ({fixed_overlap}) — keeping GPT-4 categories for data")
-                except Exception as e:
-                    logger.error(f"Failed to auto-fix GPT-5 taxonomy: {e}")
-
-            # Deterministic validation
-            gpt5_final = result["prompts"].get("gpt5", {}).get("classification_agent_system", "")
-            if gpt5_final and not gpt5_final.startswith("[Error") and "gpt4" in _categories:
-                gpt5_lower = gpt5_final.lower()
-                missing = [c for c in _categories["gpt4"] if c.lower() not in gpt5_lower]
-                if missing:
-                    logger.warning(
-                        f"[!] DETERMINISTIC CHECK: {len(missing)} GPT-4 categories "
-                        f"NOT found in GPT-5 prompt text: {missing}. "
-                        f"Classification evaluation for GPT-5 may show mismatches."
-                    )
-                else:
-                    logger.info(
-                        "[OK] Deterministic check passed: ALL GPT-4 category codes "
-                        "appear in GPT-5 classification prompt."
-                    )
+                # Auto-fix models that deviate
+                for m in models:
+                    if m == canonical:
+                        continue
+                    m_cats = set(_categories.get(m, []))
+                    if len(m_cats & set(ref_cats)) < len(ref_cats) * 0.5:
+                        try:
+                            logger.info(f"Auto-regenerating {m} classification prompt to align taxonomy...")
+                            m_cls = result["prompts"].get(m, {}).get("classification_agent_system", "")
+                            fix_prompt = (
+                                f"The following system prompt was generated for a {m.upper()} classification agent, "
+                                "but it uses WRONG category codes. Rewrite it so that the EXACT primary "
+                                "category codes listed below are used AS-IS (copy verbatim, do NOT rename).\n\n"
+                                "MANDATORY PRIMARY CATEGORY CODES (use these EXACTLY):\n"
+                                + '\n'.join(f'  - {c}' for c in ref_cats)
+                                + "\n\nOriginal prompt to fix:\n" + m_cls[:6000]
+                                + "\n\nReturn ONLY the corrected system prompt."
+                            )
+                            fix_res = client.complete(
+                                messages=[
+                                    {"role": "system", "content": "You are an expert prompt engineer. Fix the category codes as instructed. Output ONLY the corrected prompt."},
+                                    {"role": "user", "content": fix_prompt},
+                                ],
+                                model_name=generator_model,
+                            )
+                            fixed = fix_res.content.strip()
+                            fixed_cats = _extract_categories_from_prompt(fixed)
+                            if len(set(fixed_cats) & set(ref_cats)) >= len(ref_cats) * 0.5:
+                                self.save_prompt(
+                                    model=m, prompt_type="classification_agent_system",
+                                    content=fixed, topic=topic,
+                                    source="ai-generated-fixed", author=f"generator:{generator_model}",
+                                )
+                                result["prompts"][m]["classification_agent_system"] = fixed
+                                _categories[m] = fixed_cats
+                                logger.info(f"Successfully realigned {m} categories")
+                            else:
+                                logger.warning(f"{m} taxonomy fix attempt still has low overlap — keeping as-is")
+                        except Exception as e:
+                            logger.error(f"Failed to auto-fix {m} taxonomy: {e}")
         else:
-            canonical_categories = _categories.get("gpt4") or _categories.get("gpt5") or []
+            canonical_categories = list(_categories.values())[0] if _categories else []
 
         if canonical_categories:
             logger.info(f"Canonical categories for data generation: {canonical_categories}")
@@ -1457,30 +1529,22 @@ class PromptManager:
     def _build_generation_prompt(
         self, topic: str, target_model: str, task: str, reference_snippet: str,
         shared_categories: Optional[List[str]] = None,
+        model_family: Optional[str] = None,
+        deployment_name: Optional[str] = None,
     ) -> str:
-        """Build the meta-prompt that instructs the AI to generate a system prompt."""
+        """Build the meta-prompt that instructs the AI to generate a system prompt.
 
-        model_guidance = {
-            "gpt4": (
-                "GPT-4.x best practices:\n"
-                "- Use explicit Chain-of-Thought instructions\n"
-                "- Provide detailed formatting rules and examples\n"
-                "- Use Markdown tables for taxonomies\n"
-                "- Be verbose with edge-case handling\n"
-                "- Include concrete JSON output examples\n"
-                "- Specify temperature=0.1 and seed for reproducibility"
-            ),
-            "gpt5": (
-                "GPT-5.x best practices:\n"
-                "- Leverage native reasoning (no explicit CoT needed)\n"
-                "- Use YAML-based schema definitions for structure\n"
-                "- Streamlined, concise instructions\n"
-                "- Use <system_configuration> blocks for model params\n"
-                "- Specify reasoning_effort level\n"
-                "- Focus on WHAT not HOW — the model figures out the approach\n"
-                "- Use max_completion_tokens instead of max_tokens"
-            ),
-        }
+        Uses :func:`src.utils.model_guidance.get_guidance` to produce
+        two-tier guidance: family-level base + deployment-specific addendum.
+        """
+
+        guidance = _get_model_guidance(target_model, deployment_name=deployment_name, model_family=model_family)
+
+        # Descriptive model label for the meta-prompt so the generator LLM
+        # knows exactly which model it is targeting.
+        model_label = target_model.upper()
+        if deployment_name:
+            model_label = f"{target_model.upper()} (deployment: {deployment_name})"
 
         task_description = {
             "classification": (
@@ -1531,7 +1595,7 @@ class PromptManager:
                 "2. Keep EXACTLY the same primary category codes as the reference — "
                 "do NOT rename, merge, split, or invent new categories\n"
                 "3. Adapt subcategories, descriptions, examples, and formatting "
-                f"to the {target_model.upper()} style guidelines above\n"
+                f"to the {model_label} style guidelines above\n"
                 "4. Keep the same structural quality as the reference\n"
                 "5. Output ONLY the system prompt content — no wrapper, no explanation"
             )
@@ -1557,8 +1621,8 @@ class PromptManager:
 {topic}
 
 ## TARGET MODEL
-{target_model.upper()} — follow these guidelines:
-{model_guidance.get(target_model, '')}
+{model_label} — follow these guidelines:
+{guidance}
 
 ## TASK TYPE
 Create {task_description.get(task, task)}

@@ -1,7 +1,7 @@
 # Security & Governance Guide
 ## Azure OpenAI Model Migration Security Best Practices
 
-This guide covers security considerations for migrating live systems from GPT-4.1 to GPT-5.x on Azure AI Foundry.
+This guide covers security considerations for migrating live systems between Azure OpenAI model generations (e.g., GPT-4o → GPT-4.1, GPT-4o → GPT-5.x) on Azure AI Foundry.
 
 ---
 

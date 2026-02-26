@@ -1,365 +1,387 @@
 [
   {
     "id": "DLG_001",
-    "scenario": "explain_transformer_attention",
+    "scenario": "request_invoice_pdf_email",
     "conversation": [
       {
         "role": "customer",
-        "message": "Can you explain how attention works in transformers like I'm technical but not a researcher?"
+        "message": "Hola, necesito que me enviéis la factura de enero en PDF por email. No la encuentro en Mi Movistar."
       }
     ],
     "context_gaps": [
-      "Customer's baseline knowledge (linear algebra depth, NLP familiarity)",
-      "Preferred format (intuition vs math vs code)"
+      "línea o NIF asociado a la factura",
+      "mes/año exacto y si es móvil, fibra o convergente",
+      "email de envío y si está actualizado en la cuenta"
     ],
-    "optimal_follow_up": "Happy to. Two quick questions so I pitch it right: (1) Do you want an intuition-first explanation, the Q/K/V math, or a small code-level walkthrough? (2) Are you thinking about text LLMs, vision transformers, or both?\n\nHigh-level (technical, not researchy): each token builds a new representation by mixing information from other tokens.\n- For each token, the model computes Query (what it seeks), Key (what it offers), and Value (the content).\n- It scores how well the token’s Query matches every other token’s Key (scaled dot product), then softmax turns scores into weights.\n- The output is a weighted sum of the Values, so the token can “pull in” relevant context from anywhere in the sequence.\n- Multi-head attention runs several attention computations in parallel so different heads can capture different relationships (e.g., syntax vs long-range references).\nIf you answer the two questions, I’ll tailor with either a small numeric example or a minimal PyTorch snippet.",
+    "optimal_follow_up": "Claro, te ayudo. Para localizar y enviarte la factura en PDF necesito: 1) el NIF/NIE del titular o los 4 últimos dígitos de la cuenta bancaria (si la tienes domiciliada), 2) qué servicio es (móvil/fibra/miMovistar) y el periodo exacto (enero 2026 o enero 2025), y 3) el correo al que quieres que la enviemos (o confirmo el que figura en tu ficha). En cuanto me lo confirmes, te indico también cómo descargarla desde Mi Movistar por si prefieres hacerlo al momento.",
     "follow_up_rules": [
-      "Ask clarifying questions about depth and domain",
-      "Provide a concise, accurate explanation with optional next steps (example/code)"
+      "Solicitar datos mínimos para identificar la cuenta sin pedir información sensible completa",
+      "Confirmar el periodo y el tipo de servicio antes de tramitar el envío",
+      "Ofrecer alternativa de descarga en Mi Movistar y confirmar el email registrado"
     ],
     "expected_resolution_turns": 2,
-    "category": "ai_concepts_and_learning"
+    "category": "invoice_copy_and_delivery"
   },
   {
     "id": "DLG_002",
-    "scenario": "choose_model_for_internal_ai_qa",
+    "scenario": "invoice_not_received_postal",
     "conversation": [
       {
         "role": "customer",
-        "message": "We want an AI agent that answers employee questions about AI. Should we use GPT-4o, Claude, or an open-source model?"
+        "message": "Antes me llegaba la factura en papel y este mes no me ha llegado. ¿Me la podéis mandar?"
       },
       {
         "role": "agent",
-        "message": "It depends on your requirements like cost, latency, and privacy. Can you share more details?"
+        "message": "Puedo ayudarte. ¿Me confirmas el titular y el servicio?"
       },
       {
         "role": "customer",
-        "message": "We have 2k employees, mostly Slack usage, and we need accurate answers with citations."
+        "message": "Soy Marta López, es la fibra de casa. No he cambiado nada."
       }
     ],
     "context_gaps": [
-      "Data sensitivity/compliance requirements (PII, SOC2, HIPAA, etc.)",
-      "Budget/latency constraints and whether on-prem is required"
+      "dirección postal actual y si hubo cambio reciente",
+      "si la facturación en papel está activa o se pasó a digital",
+      "mes de la factura que falta"
     ],
-    "optimal_follow_up": "Got it—Slack-based internal AI Q&A with citations. To recommend a model/vendor, I need two details: (1) do you require data residency/on-prem or is a hosted API acceptable? (2) what’s your target cost/latency (e.g., <2s responses, <$X per month)?\n\nGiven what you shared, the bigger driver of “accurate with citations” is usually architecture (RAG + grounding) more than the base model choice:\n- Use a strong general model for synthesis + a retrieval layer over vetted AI documentation (your internal playbooks, approved external sources).\n- Enforce citation-only answers: require the agent to quote/point to retrieved passages and refuse when retrieval is empty.\n\nModel selection guidance:\n- Hosted frontier models (e.g., GPT-4o/Claude) typically win on reasoning quality and instruction-following, which helps reduce hallucinations when paired with RAG.\n- Open-source can be great if you need strict data control or predictable cost, but you’ll invest more in evaluation, hosting, and prompt/guardrail tuning.\n\nIf you tell me compliance + budget/latency, I can propose 2–3 concrete stacks (vendor + embedding + vector DB + citation policy) and a rollout plan.",
+    "optimal_follow_up": "Gracias, Marta. Para revisarlo: ¿me confirmas el mes de la factura que no te llegó y la dirección postal completa donde debería recibirse? También comprobaré si tu cuenta pasó a factura digital (a veces se activa por configuración o por alta en Mi Movistar). Si prefieres, puedo enviarte ahora mismo la factura por email/SMS con enlace de descarga y, si procede, reactivar el envío en papel o actualizar la dirección para que no vuelva a ocurrir.",
     "follow_up_rules": [
-      "Ask for missing constraints that determine model choice (privacy, cost, latency)",
-      "Recommend an architecture emphasizing RAG/citations rather than only the base model"
+      "Verificar periodo de factura y dirección antes de solicitar reenvío postal",
+      "Comprobar preferencia/canal de entrega (papel vs digital) y cambios de configuración",
+      "Ofrecer envío inmediato digital como solución rápida"
     ],
     "expected_resolution_turns": 2,
-    "category": "model_selection_and_architecture"
+    "category": "invoice_copy_and_delivery"
   },
   {
     "id": "DLG_003",
-    "scenario": "prompt_for_citation_only_answers",
+    "scenario": "understand_invoice_sections",
     "conversation": [
       {
         "role": "customer",
-        "message": "My AI agent keeps answering confidently without sources. How do I prompt it to only answer with citations?"
+        "message": "Estoy mirando la factura y no entiendo qué significa 'Cuota mensual', 'Consumos' y 'Otros conceptos'. ¿Me lo explicas?"
       }
     ],
     "context_gaps": [
-      "Whether the system uses RAG/retrieval and how citations are generated",
-      "What failure mode is happening (no retrieval results vs model ignoring instructions)"
+      "tipo de producto (móvil/fibra/miMovistar) y tarifa",
+      "importe o líneas a las que se refiere cada apartado",
+      "periodo de facturación y si hay prorrateos"
     ],
-    "optimal_follow_up": "To make “citation-only” reliable, I need to know: (1) are you using retrieval (RAG) and passing the retrieved passages into the model? (2) how are you formatting citations today (URLs, doc IDs, quotes)?\n\nIn general, you’ll get better results by combining prompt + structure + enforcement:\n1) System instruction (hard rule): “Answer ONLY using the provided sources. If the sources do not contain the answer, say ‘I don’t know based on the provided sources.’ Do not use prior knowledge.”\n2) Provide sources in a clearly delimited block (e.g., <sources>…</sources>) with stable IDs.\n3) Require a fixed output schema, e.g.:\n- Answer: …\n- Citations: [S1, S3]\n- Evidence: short quoted snippets per citation\n4) Add a post-check: if Citations is empty or evidence doesn’t match sources, reject and re-ask with stricter instruction or return “insufficient sources.”\n\nIf you share your current prompt and an example of a bad response + the retrieved context, I can rewrite it and suggest a simple validator.",
+    "optimal_follow_up": "Claro. En general: 1) **Cuota mensual** es el precio fijo de tu tarifa/paquete (fibra, móvil, TV, etc.) por el periodo facturado; si hubo alta/cambio a mitad de mes puede aparecer prorrateada. 2) **Consumos** son cargos variables (llamadas fuera de bono, SMS, datos extra, roaming, números especiales, etc.). 3) **Otros conceptos** suele incluir ajustes (regularizaciones), cuotas de servicios adicionales, compras/servicios de terceros si están activados, o cargos puntuales (instalación, envío, cambio de equipo). Si me dices el **mes**, el **tipo de servicio** y me copias los **importes** que ves en cada apartado (o una foto/captura), te lo desgloso línea por línea y te indico exactamente de dónde sale cada cargo.",
     "follow_up_rules": [
-      "Clarify whether retrieval exists and how sources are provided",
-      "Offer a concrete prompt pattern plus an enforcement/validation step"
+      "Dar explicación general y pedir datos concretos para un desglose exacto",
+      "Invitar a compartir importes/captura sin solicitar datos sensibles",
+      "Mencionar prorrateos y cargos variables como causas comunes"
     ],
     "expected_resolution_turns": 2,
-    "category": "prompt_engineering_and_interaction"
+    "category": "invoice_breakdown_and_understanding"
   },
   {
     "id": "DLG_004",
-    "scenario": "build_curated_ai_knowledge_base",
+    "scenario": "tax_vat_breakdown_request",
     "conversation": [
       {
         "role": "customer",
-        "message": "We want our AI Q&A agent to answer questions about AI using only vetted materials. What should we include in the dataset?"
+        "message": "Necesito saber cuánto IVA estoy pagando en la factura y la base imponible. ¿Dónde lo veo?"
       },
       {
         "role": "agent",
-        "message": "You should include high-quality documents and keep them updated. What kinds of questions do employees ask?"
+        "message": "Te lo indico. ¿Es una factura de particular o empresa?"
       },
       {
         "role": "customer",
-        "message": "Mostly: definitions, model selection, prompt tips, and policy/compliance questions."
+        "message": "Particular, es miMovistar."
       }
     ],
     "context_gaps": [
-      "Source types available (internal docs, wikis, PDFs, external standards) and ownership",
-      "Update cadence and governance (who approves changes, versioning)"
+      "periodo/mes de la factura",
+      "si hay varios tipos impositivos o conceptos exentos",
+      "si necesita el dato para un justificante específico"
     ],
-    "optimal_follow_up": "Great—those question types map well to a curated knowledge base. Two things to confirm: (1) what are your authoritative sources today (internal wiki, security policy docs, engineering playbooks, vendor docs)? (2) who will own approvals/updates (AI council, security, platform team)?\n\nRecommended content set for an “AI answers about AI” agent:\n- Internal policy: acceptable use, data handling, PII rules, vendor approvals, red-teaming guidance.\n- Technical playbooks: RAG patterns, evaluation checklists, prompt templates, incident runbooks.\n- Glossary: consistent definitions (LLM, embeddings, RAG, fine-tuning, hallucination, etc.).\n- Decision guides: model selection matrix (cost/latency/privacy), when to use tools/agents, when not to use AI.\n- Compliance references: SOC2 controls mapping, DPIA templates, retention rules.\n- Approved external references: NIST AI RMF, OWASP LLM Top 10, vendor security docs—snapshotted/versioned.\n\nOperationally: store documents with metadata (owner, version, effective date), chunk with stable IDs for citations, and set an update workflow so the agent can cite the current policy version.",
+    "optimal_follow_up": "Perfecto. En las facturas de particular, la **base imponible**, el **IVA** y el **total** suelen aparecer en el apartado final de “Resumen/Impuestos” (normalmente en la última página). Si me confirmas el **mes** de la factura, te digo exactamente en qué sección aparece en tu PDF y, si me indicas el **total** o me compartes una captura del resumen (tapando datos personales), puedo ayudarte a identificar la base y el IVA que corresponden a cada concepto si hubiera varios.",
     "follow_up_rules": [
-      "Ask about authoritative sources and governance",
-      "Provide a structured dataset blueprint aligned to the user’s question categories"
+      "Indicar ubicación típica del desglose fiscal en la factura",
+      "Pedir mes/periodo para guiar con precisión",
+      "Solicitar capturas con datos personales ocultos si hace falta"
     ],
     "expected_resolution_turns": 2,
-    "category": "data_and_datasets"
+    "category": "invoice_breakdown_and_understanding"
   },
   {
     "id": "DLG_005",
-    "scenario": "fine_tune_vs_rag_for_ai_helpdesk",
+    "scenario": "bill_higher_than_usual_data_overage",
     "conversation": [
       {
         "role": "customer",
-        "message": "Should we fine-tune a model to answer AI questions, or just use RAG?"
+        "message": "Este mes me han cobrado 30€ más y no sé por qué. Siempre pago lo mismo."
       }
     ],
     "context_gaps": [
-      "Whether answers must reflect frequently changing policies and docs",
-      "Availability of high-quality Q/A pairs and target tone/format requirements"
+      "mes de la factura y total cobrado",
+      "si hubo cambios de tarifa/servicios o alta de extras",
+      "si hay consumos fuera de bono (roaming, premium, datos extra)"
     ],
-    "optimal_follow_up": "It depends on what you’re optimizing for. Two quick questions: (1) do your AI policies/playbooks change often (weekly/monthly), and do you need answers to always reflect the latest version? (2) do you already have a large set of high-quality Q/A examples (with approved answers) to train on?\n\nRule of thumb for an internal “AI questions about AI” agent:\n- Prefer RAG when correctness must track changing documents and you need citations. RAG grounds answers in current sources and is easier to govern.\n- Consider fine-tuning when you need consistent style/format, domain-specific phrasing, or tool-use behavior—and you have enough curated examples. Fine-tuning won’t automatically inject new facts; you’d still use RAG for up-to-date policy.\n\nCommon hybrid: RAG for facts + light fine-tuning (or prompt templates) for tone, structure, and refusal behavior. If you share your top 20 question types and constraints (citations required, latency, privacy), I can recommend a concrete approach.",
+    "optimal_follow_up": "Entiendo la preocupación; vamos a localizar el motivo. ¿Me confirmas el **mes** de la factura y el **importe total** (y, si puedes, el importe habitual)? También dime si en ese periodo hubo algún **cambio** (tarifa, TV, líneas añadidas, instalación) o si recibiste avisos de **datos extra/roaming/números especiales**. Con esos datos te indico qué apartado subió (cuota, consumos u otros conceptos) y qué cargo concreto explica esos 30€; si detectamos algo no reconocido, te explico cómo bloquearlo y cómo reclamarlo.",
     "follow_up_rules": [
-      "Clarify update frequency and availability of training data",
-      "Explain tradeoffs and propose a hybrid when appropriate"
+      "Mostrar empatía y orientar a identificar el apartado que subió",
+      "Solicitar mes e importes para comparar",
+      "Proponer medidas preventivas (bloqueos) y vía de reclamación si procede"
     ],
-    "expected_resolution_turns": 2,
-    "category": "training_and_fine_tuning"
+    "expected_resolution_turns": 3,
+    "category": "unexpected_charge_or_high_bill"
   },
   {
     "id": "DLG_006",
-    "scenario": "evaluate_ai_agent_answer_quality",
+    "scenario": "unknown_third_party_charge",
     "conversation": [
       {
         "role": "customer",
-        "message": "How do we evaluate whether our AI agent answers AI questions correctly and safely?"
+        "message": "En la factura aparece un cargo de 'Pagos Movistar' o algo así de 9,99€ y yo no he comprado nada."
       },
       {
         "role": "agent",
-        "message": "You can use metrics like accuracy and human review. What does your agent do?"
+        "message": "Lo revisamos. ¿Recuerdas si alguien usó tu móvil para suscribirse a algún servicio?"
       },
       {
         "role": "customer",
-        "message": "It answers internal questions about AI policy and best practices, with citations."
+        "message": "No, y además es la línea de mi hijo."
       }
     ],
     "context_gaps": [
-      "Definition of success (precision vs coverage vs speed) and risk tolerance",
-      "Whether there is a labeled test set and how citations are validated"
+      "nombre exacto del concepto y fecha del cargo",
+      "línea afectada y si tiene activados pagos a terceros",
+      "si se recibió SMS de alta/confirmación del servicio"
     ],
-    "optimal_follow_up": "For an internal AI-policy/best-practices agent with citations, evaluation should cover both answer quality and grounding. Two clarifiers: (1) do you have an approved “gold” set of Q/A with expected citations? (2) what’s your risk tolerance—are wrong answers acceptable if flagged, or must it refuse when uncertain?\n\nA practical evaluation plan:\n- Test set: collect representative questions (definitions, model selection, prompt tips, policy edge cases). Include adversarial prompts (jailbreaks, policy conflicts).\n- Grounding metrics: citation precision (do cited passages actually support the claim), citation coverage (are key claims cited), and “no-source refusal rate” when retrieval is empty.\n- Answer metrics: correctness vs gold answers, completeness, and policy compliance (e.g., does it avoid recommending disallowed tools).\n- Safety checks: PII leakage tests, prompt-injection resilience (malicious doc content), and refusal behavior.\n- Process: automated regression suite on every KB/model change + periodic human audit for high-risk categories.\nIf you share 10 sample questions and your current output format, I can propose a scoring rubric and an automated citation validator.",
+    "optimal_follow_up": "Gracias por aclararlo. Para identificarlo con precisión, ¿me copias el **nombre exacto del concepto** tal como aparece y la **fecha**? También confirma los **últimos 3-4 dígitos** de la línea afectada (sin compartir el número completo). Con eso te digo si es un **servicio de terceros/suscripción** y, si no lo reconocéis, te guío para: 1) **bloquear Pagos a terceros/Pagos Movistar** en esa línea para evitar nuevos cargos, 2) **dar de baja** la suscripción si sigue activa, y 3) **tramitar la reclamación** del importe indicando el motivo (cargo no autorizado) y el periodo de factura.",
     "follow_up_rules": [
-      "Ask for gold set availability and risk tolerance",
-      "Recommend metrics that explicitly test grounding/citations and safety"
+      "Pedir el texto exacto del cargo y fecha para clasificarlo",
+      "Proponer bloqueo preventivo y baja del servicio",
+      "Ofrecer proceso de reclamación sin prometer reembolso automático"
     ],
-    "expected_resolution_turns": 2,
-    "category": "evaluation_and_metrics"
+    "expected_resolution_turns": 3,
+    "category": "unexpected_charge_or_high_bill"
   },
   {
     "id": "DLG_007",
-    "scenario": "deploy_slack_ai_agent_with_guardrails",
+    "scenario": "payment_confirmed_but_service_suspended",
     "conversation": [
       {
         "role": "customer",
-        "message": "We’re deploying an AI agent in Slack to answer AI questions. What guardrails should we add before launch?"
+        "message": "Pagué la factura ayer por transferencia y hoy me sale como impagada y me han cortado datos. ¿Qué pasa?"
       }
     ],
     "context_gaps": [
-      "Whether the agent can access internal documents/tools and what permissions model exists",
-      "Incident response requirements and logging/retention constraints"
+      "importe y referencia/fecha de la transferencia",
+      "número de factura o periodo",
+      "tiempos de conciliación y si el pago fue a la cuenta correcta"
     ],
-    "optimal_follow_up": "Before recommending guardrails, two key questions: (1) what data can the agent access (public AI docs only vs internal policies vs code repos), and how is access scoped per user/channel? (2) do you have logging/retention requirements (e.g., security audit, GDPR deletion)?\n\nBaseline guardrails for a Slack AI Q&A agent about AI:\n- Access control: enforce user-based permissions for retrieval sources; avoid cross-team leakage.\n- Grounding: require citations for policy/best-practice claims; refuse when sources are missing.\n- Safety/policy: block disallowed content (e.g., instructions to bypass security controls), and add a “policy escalation” path to humans.\n- Prompt-injection defenses: treat retrieved docs as untrusted; strip/ignore instructions inside documents.\n- Observability: log question, retrieved doc IDs, model version, and refusal reasons; add feedback buttons.\n- Rollout: start in a pilot channel, rate-limit, and run a regression eval suite on every KB update.\nIf you tell me your data sources and compliance constraints, I can suggest a concrete launch checklist and monitoring dashboard metrics.",
+    "optimal_follow_up": "Lo siento, entiendo la urgencia. Las transferencias pueden tardar 24–72 h laborables en reflejarse. Para revisarlo y ayudarte a regularizarlo cuanto antes, dime: 1) **fecha y hora** del pago, 2) **importe**, 3) **concepto/referencia** que pusiste y, si lo tienes, el **justificante** (sin datos bancarios completos). También confirma el **número de factura** o el mes. Con eso verifico si está en proceso de conciliación y te indico la opción más rápida para reactivar el servicio (por ejemplo, pago con tarjeta/Bizum si está disponible) o cómo enviar el justificante para acelerar la actualización.",
     "follow_up_rules": [
-      "Clarify access scope and compliance/logging constraints",
-      "Provide actionable guardrails across access, grounding, safety, and observability"
+      "Explicar plazos de reflejo de transferencias y pedir datos verificables",
+      "Priorizar restablecimiento del servicio con alternativas de pago rápidas",
+      "Solicitar justificante minimizando exposición de datos bancarios"
     ],
-    "expected_resolution_turns": 2,
-    "category": "deployment_and_mlop"
+    "expected_resolution_turns": 3,
+    "category": "payment_status_and_confirmation"
   },
   {
     "id": "DLG_008",
-    "scenario": "rag_chunking_for_ai_policy_docs",
+    "scenario": "duplicate_payment_check",
     "conversation": [
       {
         "role": "customer",
-        "message": "Our RAG agent answers AI policy questions but citations are messy and sometimes irrelevant. How should we chunk and index the docs?"
-      },
-      {
-        "role": "agent",
-        "message": "Chunking strategy matters. What kind of documents are you using?"
-      },
-      {
-        "role": "customer",
-        "message": "Mostly long policy PDFs and a wiki with headings. Some sections reference other sections."
+        "message": "Creo que he pagado dos veces la misma factura: una por la app y otra por el banco. ¿Cómo lo compruebo?"
       }
     ],
     "context_gaps": [
-      "Current chunk size/overlap and whether structure (headings) is preserved",
-      "Embedding model choice and retrieval method (BM25, vector, hybrid, reranker)"
+      "número de factura/periodo",
+      "fechas e importes de ambos pagos",
+      "si uno de los pagos está pendiente o retenido"
     ],
-    "optimal_follow_up": "Thanks—policy PDFs + structured wiki is a classic case where structure-aware chunking helps. Two quick questions: (1) what chunk size/overlap are you using now, and do you keep headings/section numbers in the chunk text? (2) are you using vector-only retrieval or hybrid + reranking?\n\nRecommendations to improve citation relevance:\n- Structure-aware chunks: split by headings/sections first (e.g., 1–3 paragraphs per chunk), and prepend a breadcrumb like “Policy > Data Handling > PII > Retention”. This makes citations readable and improves retrieval.\n- Stable IDs: store doc_id + section_id + version/date so citations point to an exact policy section.\n- Handle cross-references: add lightweight “see also” metadata or include referenced section titles in the chunk metadata.\n- Hybrid retrieval: combine BM25 (good for exact policy terms) with embeddings, then rerank top N with a cross-encoder/LLM reranker.\n- Citation formatting: cite section IDs and include a short quoted snippet as evidence.\nIf you share an example question, the retrieved chunks, and your current chunking parameters, I can suggest concrete sizes (e.g., 300–800 tokens) and a retrieval/rerank configuration.",
+    "optimal_follow_up": "Te ayudo a comprobarlo. Necesito el **mes o número de factura** y los **dos movimientos** (fecha e importe) tal como aparecen en tu banco/app. Con eso revisamos si: a) uno es solo una **preautorización**/pendiente, b) son dos pagos reales, o c) uno corresponde a otra factura. Si confirmamos doble pago, te indico cómo se gestiona normalmente: se aplica como **saldo a favor** en la siguiente factura o se puede **solicitar devolución** según el caso, y te digo los plazos estimados.",
     "follow_up_rules": [
-      "Ask about current chunking and retrieval stack",
-      "Recommend structure-aware chunking, stable citations, and hybrid retrieval/reranking"
+      "Pedir identificadores de factura y detalles de movimientos",
+      "Distinguir entre pendiente/preautorización y cargo definitivo",
+      "Explicar opciones: saldo a favor o devolución, sin asegurar plazos exactos"
     ],
     "expected_resolution_turns": 2,
-    "category": "retrieval_and_rag"
+    "category": "payment_status_and_confirmation"
   },
   {
     "id": "DLG_009",
-    "scenario": "tool_using_agent_for_ai_calculations",
+    "scenario": "change_direct_debit_iban",
     "conversation": [
       {
         "role": "customer",
-        "message": "I want the agent to answer AI questions and also calculate token costs and context limits automatically. How do I design that?"
+        "message": "Quiero cambiar la cuenta bancaria donde se domicilia la factura. ¿Me lo haces?"
+      },
+      {
+        "role": "agent",
+        "message": "Sí. ¿Es para una línea móvil o para un paquete miMovistar?"
+      },
+      {
+        "role": "customer",
+        "message": "Para miMovistar, y que sea efectivo ya para la próxima factura."
       }
     ],
     "context_gaps": [
-      "Which model providers/pricing tables must be supported and how often they change",
-      "Whether the agent can call external tools/APIs and what environment it runs in"
+      "identificación del titular (NIF/NIE) y método de verificación",
+      "nuevo IBAN completo",
+      "fecha de cierre de ciclo para saber si entra en la próxima factura"
     ],
-    "optimal_follow_up": "To design this well: (1) which providers/models do you need to support (OpenAI, Anthropic, Azure, open-source), and do you want live pricing updates or a curated internal table? (2) where will the agent run (Slack/web), and can it call tools (HTTP, database) securely?\n\nA solid pattern is a tool-using agent with two capabilities:\n- RAG for “AI knowledge” answers (definitions, best practices, policy) with citations.\n- Deterministic tools for calculations: a pricing lookup tool + a token estimator tool.\n\nImplementation sketch:\n- Define tools: get_model_pricing(model_id), estimate_tokens(text, model_id), compute_cost(tokens_in, tokens_out, pricing).\n- Route: if the user asks “how much will this cost / what’s the max context,” the agent calls tools and returns a computed result with assumptions.\n- Guardrails: require the agent to show inputs/assumptions (model, region, cached pricing date) and refuse if pricing is unknown.\nIf you tell me your target providers and whether pricing must be real-time, I can propose the tool schemas and a routing prompt.",
+    "optimal_follow_up": "Perfecto. Para tramitar el cambio de domiciliación de tu miMovistar necesito verificar al titular: **NIF/NIE** y un dato de contraste (por ejemplo, **código postal** de la instalación o los **4 últimos dígitos** del IBAN actual). Después me indicas el **nuevo IBAN**. Ten en cuenta que, según la fecha de cierre de tu ciclo, el cambio puede aplicarse a la **próxima** factura o a la **siguiente**; si me dices cuándo sueles recibir la factura, te confirmo si llega a tiempo. Cuando lo tenga, te confirmo que queda actualizado y desde qué factura se cobrará en la nueva cuenta.",
     "follow_up_rules": [
-      "Clarify providers and tool execution constraints",
-      "Recommend separating factual Q&A (RAG) from deterministic computations (tools)"
+      "Verificar identidad antes de modificar método de pago",
+      "Explicar posible ventana de aplicación según ciclo de facturación",
+      "Confirmar por escrito el IBAN destino y la factura a la que aplica"
     ],
-    "expected_resolution_turns": 2,
-    "category": "agents_and_tooling"
+    "expected_resolution_turns": 3,
+    "category": "payment_method_management"
   },
   {
     "id": "DLG_010",
-    "scenario": "privacy_for_internal_ai_questions",
+    "scenario": "update_payment_card_expired",
     "conversation": [
       {
         "role": "customer",
-        "message": "Employees will ask the AI agent questions about AI projects, sometimes including customer names. How do we handle privacy?"
-      },
-      {
-        "role": "agent",
-        "message": "You should avoid sending sensitive data to third parties and implement controls."
-      },
-      {
-        "role": "customer",
-        "message": "We’re using a hosted LLM API and want to keep logs for debugging."
+        "message": "Me ha llegado aviso de que mi tarjeta caducó y no se pudo cobrar la factura. ¿Cómo actualizo la tarjeta?"
       }
     ],
     "context_gaps": [
-      "Applicable regulations and internal policies (GDPR, HIPAA, contractual constraints)",
-      "Whether the vendor offers zero-retention, encryption, and regional processing"
+      "si el cliente paga por tarjeta recurrente o domiciliación",
+      "importe y fecha de vencimiento de la factura",
+      "si hay recargo o estado de suspensión"
     ],
-    "optimal_follow_up": "Understood—hosted LLM + debugging logs is workable, but you’ll want explicit privacy controls. Two clarifiers: (1) what regulations/contracts apply (e.g., GDPR, customer DPAs), and (2) does your LLM vendor support zero data retention / no-training guarantees and regional processing?\n\nPractical controls for your AI Q&A agent:\n- Data minimization: instruct users not to include customer identifiers; add UI hints and examples.\n- Redaction: run a PII detector before sending prompts to the LLM; mask names/emails/account numbers and keep a secure mapping only if needed.\n- Logging policy: store only what you need—prefer hashed user IDs, truncated prompts, retrieved doc IDs, and model outputs; separate “debug mode” with time-limited access.\n- Vendor settings: enable zero-retention/no-training, encryption in transit, and region pinning if required.\n- Access controls: restrict who can view logs; add audit trails and retention/deletion schedules.\nIf you share your compliance requirements and vendor, I can suggest a concrete logging/redaction design and retention defaults.",
+    "optimal_follow_up": "Te indico cómo hacerlo y evitamos más incidencias. Primero, ¿tu pago está configurado como **tarjeta** (pago recurrente) o es **domiciliación bancaria** y solo usaste tarjeta puntualmente? Dime también el **mes/importe** de la factura y si el aviso indica **fecha límite**. Con esa info te guío paso a paso en Mi Movistar para **actualizar la tarjeta** y, si el cobro ya falló, te indico cómo **pagarla ahora** y comprobar que queda como “pagada” para evitar restricciones del servicio.",
     "follow_up_rules": [
-      "Ask about regulatory constraints and vendor capabilities",
-      "Provide actionable privacy controls (redaction, logging minimization, retention, access control)"
+      "Aclarar el método de pago real antes de dar instrucciones",
+      "Priorizar pago de la factura vencida y luego actualizar el método",
+      "Comprobar estado del servicio y fechas límite"
     ],
     "expected_resolution_turns": 2,
-    "category": "security_privacy_and_compliance"
+    "category": "payment_method_management"
   },
   {
     "id": "DLG_011",
-    "scenario": "handle_requests_for_harmful_ai_guidance",
+    "scenario": "bank_returned_direct_debit",
     "conversation": [
       {
         "role": "customer",
-        "message": "Can your AI agent tell me how to bypass our company's AI usage policy so I can use unapproved models?"
+        "message": "El banco me ha devuelto el recibo de Movistar y ahora me pone 'deuda pendiente'. Yo tenía saldo, no entiendo."
       }
     ],
     "context_gaps": [
-      "Whether the user is asking for policy clarification vs explicit evasion instructions",
-      "What the company’s approved alternatives and escalation paths are"
+      "motivo de devolución (orden del cliente, cuenta cancelada, datos incorrectos, falta de fondos, etc.)",
+      "fecha de devolución y número de factura",
+      "si hay comisiones por devolución y estado del servicio"
     ],
-    "optimal_follow_up": "I can’t help with bypassing or evading company policy or security controls. If your goal is to get work done, I can help in safe ways:\n- Explain what the policy allows and why certain models/tools are restricted.\n- Suggest approved options that meet your needs (e.g., an approved hosted model, an internal sandbox, or a request process).\n- Help you draft a request for an exception/approval, including the business justification, data classification, and risk mitigations.\n\nIf you tell me what task you’re trying to accomplish (and what data you need to use), I’ll recommend a compliant approach and the fastest path to approval.",
+    "optimal_follow_up": "Entiendo, y es bastante común que el banco devuelva un recibo por motivos distintos a “falta de saldo” (por ejemplo, cambio de cuenta, límites, recibo no autorizado, datos del mandato SEPA, etc.). Para revisarlo: ¿me confirmas el **mes/número de factura**, la **fecha** en que el banco lo devolvió y si el banco te indica algún **código/motivo**? Con eso te digo cómo regularizarlo: opciones de **pago inmediato** (tarjeta/transferencia) y, si procede, **actualizar la cuenta** o reintentar la domiciliación. También te indico si aparece algún **cargo por devolución** en la siguiente factura y cómo evitarlo.",
     "follow_up_rules": [
-      "Refuse assistance that enables policy evasion",
-      "Offer compliant alternatives and an escalation/approval pathway"
+      "Explicar que hay múltiples causas de devolución bancaria",
+      "Solicitar motivo/código y datos de factura para actuar",
+      "Ofrecer vías de pago y prevención (actualizar cuenta/mandato)"
     ],
-    "expected_resolution_turns": 2,
-    "category": "safety_policy_and_ethics"
+    "expected_resolution_turns": 3,
+    "category": "failed_payment_and_bank_return"
   },
   {
     "id": "DLG_012",
-    "scenario": "debug_hallucinations_in_ai_agent",
+    "scenario": "refund_for_overpayment_credit_balance",
     "conversation": [
       {
         "role": "customer",
-        "message": "Our AI agent answers AI questions but sometimes invents policy details. We already use RAG. What should we check?"
+        "message": "Me sale un saldo a favor de 18,50€ en la factura. ¿Me lo devolvéis o se descuenta?"
       }
     ],
     "context_gaps": [
-      "Whether retrieval is returning relevant passages and how many are provided to the model",
-      "Prompting/decoding settings and whether there is a citation enforcement step"
+      "origen del saldo (regularización, devolución de servicio, doble pago)",
+      "si el cliente prefiere abono en próxima factura o devolución",
+      "método de pago (domiciliación/tarjeta) para gestionar devolución"
     ],
-    "optimal_follow_up": "If you already have RAG and still see invented policy details, the issue is usually (a) retrieval quality, (b) context packaging, or (c) lack of enforcement. A couple questions to narrow it down: (1) when it hallucinates, do the retrieved chunks actually contain the correct policy text? (2) are you requiring citations per claim and rejecting answers when citations are missing/weak?\n\nChecklist to debug:\n- Retrieval: inspect top-k results for failing queries; try hybrid search + reranking; ensure policy terms (section numbers, acronyms) are indexed.\n- Chunking: keep section headings and version/date; avoid chunks that mix multiple unrelated rules.\n- Context window: ensure the model sees the relevant chunk (not truncated); reduce noise by limiting to top 3–8 high-quality chunks.\n- Prompt: explicitly forbid using prior knowledge for policy; require “I don’t know based on sources” when evidence is absent.\n- Post-validation: verify that cited passages support each key claim; if not, re-run retrieval or refuse.\nIf you can paste one failing example (question + retrieved chunks + model answer), I can pinpoint whether it’s retrieval, chunking, or instruction-following.",
+    "optimal_follow_up": "Te lo aclaro. Normalmente un **saldo a favor** se **descuenta automáticamente** en la siguiente factura, pero en algunos casos se puede **solicitar devolución**. Para confirmarte qué aplica en tu caso, dime: 1) el **mes** de la factura donde aparece el saldo, 2) si ves algún concepto tipo “abono/regularización”, y 3) tu **método de pago** (domiciliación o tarjeta). Con eso te indico si se compensará en la próxima factura o cómo tramitar la devolución y los plazos orientativos.",
     "follow_up_rules": [
-      "Ask for a concrete failing example and whether retrieval contains the answer",
-      "Provide a systematic debugging checklist including enforcement/validation"
+      "Explicar comportamiento habitual (compensación) y alternativa (devolución)",
+      "Pedir datos para identificar el origen del crédito",
+      "No prometer devolución sin validar condiciones"
     ],
     "expected_resolution_turns": 2,
-    "category": "troubleshooting_and_debugging"
+    "category": "refunds_and_credits"
   },
   {
     "id": "DLG_013",
-    "scenario": "roi_case_for_ai_qa_agent",
+    "scenario": "promo_discount_missing",
     "conversation": [
       {
         "role": "customer",
-        "message": "Leadership wants an ROI estimate for an internal AI agent that answers questions about AI. How do we justify it?"
+        "message": "Contraté una promo de 50% durante 3 meses y en la factura me han cobrado el precio completo. Quiero que lo arreglen."
       },
       {
         "role": "agent",
-        "message": "You can estimate time saved and reduced support tickets. What’s your current process?"
+        "message": "Lo reviso. ¿Cuándo contrataste la promo y por qué canal?"
       },
       {
         "role": "customer",
-        "message": "We have a small AI enablement team answering questions in Slack and doing office hours."
+        "message": "La contraté el 5 de este mes por teléfono, me dijeron que entraba ya."
       }
     ],
     "context_gaps": [
-      "Current volume of questions and time per response (baseline cost)",
-      "Target adoption and acceptable error/risk costs (misguidance impact)"
+      "nombre exacto de la promoción y condiciones (fecha de inicio, duración, servicios incluidos)",
+      "periodo de facturación (si la factura incluye días previos a la promo)",
+      "si hay permanencia o requisitos (alta nueva, portabilidad, etc.)"
     ],
-    "optimal_follow_up": "To build a credible ROI, I need two baseline numbers: (1) how many AI-related questions per week (Slack + tickets) and average time to answer (including follow-ups)? (2) what’s the cost of a wrong answer (e.g., policy violation risk) and how will you mitigate it (citations, escalation)?\n\nA practical ROI model for an “AI questions about AI” agent:\n- Time saved: (questions/week) × (minutes saved/question) × (loaded hourly rate). Include both the enablement team and engineers/security who get pulled in.\n- Deflection rate: estimate % answered without human follow-up; pilot to measure.\n- Quality/risk adjustment: subtract expected cost of errors; reduce via citation-only policy, refusal when uncertain, and human escalation for high-risk topics.\n- Secondary benefits: faster onboarding, consistent policy messaging, fewer repeated explanations.\n\nIf you share your weekly volume and team costs, I can help you draft a one-page business case with assumptions and a pilot measurement plan.",
+    "optimal_follow_up": "Gracias por los detalles. Puede pasar que la factura incluya días **anteriores** a la activación o que el descuento se aplique como **abono** en la siguiente, pero lo confirmamos. Para revisarlo bien, dime: 1) el **mes/periodo** que cubre esa factura (fechas de inicio/fin si aparecen), 2) el **nombre de la promo** o el texto que figure en el contrato/SMS, y 3) el **importe** que esperabas vs. el cobrado. Con eso verifico si el descuento debía aplicarse ya; si falta, te indico cómo **abrir reclamación** para que se aplique el descuento y se **regularice** el importe (abono) en la factura correspondiente.",
     "follow_up_rules": [
-      "Ask for baseline volume/time and risk costs",
-      "Provide an ROI framework with measurable pilot metrics and risk adjustment"
+      "Considerar prorrateos y aplicación diferida de descuentos",
+      "Solicitar evidencias/identificadores de la promo (texto, fechas, importes)",
+      "Ofrecer reclamación y regularización sin asegurar resultado"
     ],
-    "expected_resolution_turns": 2,
-    "category": "product_strategy_and_roi"
+    "expected_resolution_turns": 3,
+    "category": "discounts_promotions_and_contract_billing"
   },
   {
     "id": "DLG_014",
-    "scenario": "compare_vendor_pricing_for_ai_agent",
+    "scenario": "plan_change_proration_confusion",
     "conversation": [
       {
         "role": "customer",
-        "message": "We’re budgeting for an AI Q&A agent about AI. How do we compare vendor pricing fairly across models?"
+        "message": "Cambié de tarifa a mitad de mes y ahora me cobran dos cuotas. ¿Me están cobrando doble?"
       }
     ],
     "context_gaps": [
-      "Expected traffic (requests/day), average prompt/response token sizes, and peak concurrency",
-      "Whether they need additional components (embeddings, vector DB, reranker, monitoring)"
+      "fecha exacta del cambio de tarifa",
+      "periodo de facturación y fecha de cierre",
+      "si hubo cuota de alta/cambio o servicios adicionales"
     ],
-    "optimal_follow_up": "To compare pricing apples-to-apples, I need: (1) expected usage (requests/day or month) and typical prompt/response sizes, and (2) whether you’re doing RAG (embeddings + vector DB) and requiring citations.\n\nA fair comparison method:\n- Compute total cost per answered question: LLM input tokens + output tokens + embedding cost (for indexing + per-query) + reranker cost (if used) + infra (vector DB, hosting) + observability.\n- Use the same workload: pick a representative set of questions and measure average tokens and latency per vendor/model.\n- Include hidden multipliers: retries, tool calls, longer contexts for citations, and safety filters.\n- Consider contract terms: data retention, regional processing, and volume discounts.\n\nIf you share rough traffic and average message length, I can provide a simple spreadsheet-style formula and example numbers to plug in.",
+    "optimal_follow_up": "Entiendo la duda. En un cambio de tarifa a mitad de ciclo es normal ver **dos cuotas prorrateadas**: una por los días con la tarifa anterior y otra por los días con la nueva, pero no debería ser un doble cobro por el mismo periodo. Para confirmarlo, dime: 1) **fecha del cambio**, 2) **periodo** que indica la factura (fechas), y 3) los **importes** de esas dos cuotas. Con eso te calculo si el prorrateo es correcto y, si detectamos solape o un cargo de cambio no informado, te indico cómo solicitar la regularización.",
     "follow_up_rules": [
-      "Ask for usage assumptions and whether RAG components are included",
-      "Provide a total-cost-per-question framework including embeddings and infra"
+      "Explicar prorrateo de forma clara y tranquilizadora",
+      "Pedir fechas e importes para validar solapes",
+      "Ofrecer vía de regularización si hay error"
     ],
     "expected_resolution_turns": 2,
-    "category": "vendor_platform_and_pricing"
+    "category": "plan_change_proration_and_one_time_fees"
   },
   {
     "id": "DLG_015",
-    "scenario": "track_research_trends_for_ai_agent_content",
+    "scenario": "non_billing_technical_issue_out_of_scope",
     "conversation": [
       {
         "role": "customer",
-        "message": "Our AI agent answers questions about AI, but the field changes fast. How do we keep it current without spreading hype?"
+        "message": "No me funciona el router desde ayer y quiero que me descuenten el día en la factura. ¿Me lo arreglas ya?"
       }
     ],
     "context_gaps": [
-      "Which topics matter most to the organization (LLM safety, agents, evals, etc.)",
-      "Governance model for updating content and defining “approved” sources"
+      "si hay incidencia técnica abierta y número de avería",
+      "duración exacta de la interrupción y servicios afectados",
+      "condiciones de compensación aplicables según contrato/SLAs"
     ],
-    "optimal_follow_up": "To keep it current and grounded, two questions: (1) which AI topics are most relevant to your teams (e.g., RAG, fine-tuning, safety, vendor updates)? (2) who should approve updates—AI enablement, security, or a cross-functional review group?\n\nA low-hype update process:\n- Source policy: maintain an allowlist of reputable sources (peer-reviewed papers, major vendor release notes, NIST/OWASP guidance) and label each item by evidence level.\n- Versioned knowledge base: snapshot updates with dates; the agent cites the version so answers are time-stamped.\n- “What changed” summaries: add short internal notes translating new research into practical guidance and explicitly stating limitations.\n- Evaluation gate: run regression tests before publishing updates (especially for policy and safety guidance).\n- Uncertainty handling: require the agent to distinguish established practice vs emerging research and to avoid definitive claims when evidence is weak.\nIf you tell me your priority topics and current sources, I can propose an update cadence and a template for research-to-guidance writeups.",
+    "optimal_follow_up": "Puedo ayudarte con la parte de **facturación/compensación**, y para la reparación del router lo ideal es abrir o revisar una **incidencia técnica**. Para avanzar: ¿tienes ya un **número de avería** o prefieres que te indique cómo abrirla desde Mi Movistar/soporte? En paralelo, dime la **fecha y hora** aproximadas desde que no funciona y si afecta a **fibra/TV/teléfono**. Con esos datos te explico cómo se solicita la **compensación por interrupción del servicio** (si aplica) y qué información suele pedir Movistar para calcular el ajuste en factura.",
     "follow_up_rules": [
-      "Clarify priority topics and approval governance",
-      "Recommend a versioned, source-allowlisted process with evaluation gates to avoid hype"
+      "Delimitar alcance: facturación/compensación vs soporte técnico",
+      "Recopilar datos de interrupción y existencia de incidencia",
+      "Guiar al canal correcto sin abandonar la solicitud de ajuste en factura"
     ],
-    "expected_resolution_turns": 2,
-    "category": "research_and_trends"
+    "expected_resolution_turns": 3,
+    "category": "out_of_scope_or_unknown"
   }
 ]

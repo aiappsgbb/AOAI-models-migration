@@ -1,6 +1,6 @@
 """
 Regenerate ALL prompts + test data for the 3 archived topics.
-Uses gpt5 (GPT-5.1) as the generator model so it is at least as
+Uses the most capable configured model as the generator so it is at least as
 capable as the most advanced target model.
 
 This script:
@@ -9,7 +9,7 @@ This script:
   2. The last topic processed becomes the active one.
 
 NOTE: Topics are processed sequentially because they share the same
-active file space (prompts/gpt4, gpt5, data/synthetic/*).  However,
+active file space (prompts/<model>/, data/synthetic/*).  However,
 each topic now benefits from **internal parallelism** in
 generate_prompts() — LLM calls for prompts and data are batched
 concurrently, giving ~3-4x speedup per topic.
@@ -36,7 +36,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-GENERATOR_MODEL = "gpt5"            # GPT-5.1  — must be >= target models
+GENERATOR_MODEL = "gpt5"            # must be >= target models in capability
 CONFIG_PATH     = "config/settings.yaml"
 PROMPTS_DIR     = "prompts"
 DATA_DIR        = "data/synthetic"
@@ -96,8 +96,7 @@ def main():
         # Report
         log.info(f"Completed in {elapsed:.1f}s")
 
-        for model in ("gpt4", "gpt5"):
-            prompts = result.get("prompts", {}).get(model, {})
+        for model, prompts in result.get("prompts", {}).items():
             for ptype, content in prompts.items():
                 status = "OK" if not content.startswith("[Error") else "FAILED"
                 if status == "FAILED":

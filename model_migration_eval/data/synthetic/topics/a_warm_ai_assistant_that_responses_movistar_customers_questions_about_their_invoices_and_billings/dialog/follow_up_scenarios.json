@@ -1,437 +1,387 @@
 [
   {
     "id": "DLG_001",
-    "scenario": "cant_find_latest_invoice_in_app",
+    "scenario": "request_invoice_pdf_email",
     "conversation": [
       {
         "role": "customer",
-        "message": "Hola, no encuentro mi última factura de Movistar en la app, solo me sale la de diciembre y ya estamos en febrero."
-      },
-      {
-        "role": "agent",
-        "message": "Entiendo, vamos a revisar por qué no te aparece la factura más reciente. A veces puede tardar un poco en actualizarse o estar asociada a otro producto o línea."
-      },
-      {
-        "role": "customer",
-        "message": "Vale, ¿me la podéis enviar por correo o decirme dónde verla exactamente?"
+        "message": "Hola, necesito que me enviéis la factura de enero en PDF por email. No la encuentro en Mi Movistar."
       }
     ],
     "context_gaps": [
-      "No indica país o tipo de servicio (móvil, fibra, TV, combo)",
-      "No indica si tiene acceso a Mi Movistar con usuario y contraseña o solo ve la factura por email"
+      "línea o NIF asociado a la factura",
+      "mes/año exacto y si es móvil, fibra o convergente",
+      "email de envío y si está actualizado en la cuenta"
     ],
-    "optimal_follow_up": "Gracias por la información. Para ayudarte mejor, primero necesito localizar tu contrato. ¿Me confirmas desde qué país nos escribes y si la factura que no ves es de tu línea móvil, de fibra/Internet en casa o de un paquete combinado? Además, dime si sueles entrar a Mi Movistar con usuario y contraseña o si normalmente recibes las facturas solo por correo electrónico. Con esos datos podré indicarte el camino exacto en la app y, si lo prefieres, revisar si puedo reenviarte la factura por email en formato PDF.",
+    "optimal_follow_up": "Claro, te ayudo. Para localizar y enviarte la factura en PDF necesito: 1) el NIF/NIE del titular o los 4 últimos dígitos de la cuenta bancaria (si la tienes domiciliada), 2) qué servicio es (móvil/fibra/miMovistar) y el periodo exacto (enero 2026 o enero 2025), y 3) el correo al que quieres que la enviemos (o confirmo el que figura en tu ficha). En cuanto me lo confirmes, te indico también cómo descargarla desde Mi Movistar por si prefieres hacerlo al momento.",
     "follow_up_rules": [
-      "Pedir datos mínimos para localizar el tipo de servicio antes de dar instrucciones específicas",
-      "Ofrecer siempre una alternativa de acceso a la factura (app, web, envío por email) de forma clara y ordenada"
+      "Solicitar datos mínimos para identificar la cuenta sin pedir información sensible completa",
+      "Confirmar el periodo y el tipo de servicio antes de tramitar el envío",
+      "Ofrecer alternativa de descarga en Mi Movistar y confirmar el email registrado"
     ],
     "expected_resolution_turns": 2,
-    "category": "invoice_access_and_delivery"
+    "category": "invoice_copy_and_delivery"
   },
   {
     "id": "DLG_002",
-    "scenario": "unexpected_high_mobile_bill_roaming",
+    "scenario": "invoice_not_received_postal",
     "conversation": [
       {
         "role": "customer",
-        "message": "Me ha llegado una factura de 132€ y normalmente pago unos 40€. No entiendo por qué ha subido tanto."
+        "message": "Antes me llegaba la factura en papel y este mes no me ha llegado. ¿Me la podéis mandar?"
       },
       {
         "role": "agent",
-        "message": "Lamento la sorpresa con el importe, vamos a revisar qué ha podido causar esa diferencia en tu factura."
+        "message": "Puedo ayudarte. ¿Me confirmas el titular y el servicio?"
       },
       {
         "role": "customer",
-        "message": "Solo estuve unos días fuera de España por trabajo, pero pensé que tenía roaming incluido."
+        "message": "Soy Marta López, es la fibra de casa. No he cambiado nada."
       }
     ],
     "context_gaps": [
-      "No se sabe a qué país viajó ni en qué fechas exactas",
-      "No se conoce el plan o tarifa contratada ni si tiene bono de roaming activo"
+      "dirección postal actual y si hubo cambio reciente",
+      "si la facturación en papel está activa o se pasó a digital",
+      "mes de la factura que falta"
     ],
-    "optimal_follow_up": "Entiendo tu preocupación, una subida así desconcierta. Para revisar el detalle, necesito algunos datos más: ¿a qué país viajaste y en qué fechas aproximadas estuviste fuera de España? Además, ¿recuerdas el nombre de tu tarifa o si tienes algún bono de roaming contratado? Con esa información podré explicarte si los cargos corresponden a datos, llamadas o SMS en roaming y, si procede, revisar opciones para evitar que vuelva a ocurrir y valorar si hay alguna regularización posible según las condiciones de tu tarifa.",
+    "optimal_follow_up": "Gracias, Marta. Para revisarlo: ¿me confirmas el mes de la factura que no te llegó y la dirección postal completa donde debería recibirse? También comprobaré si tu cuenta pasó a factura digital (a veces se activa por configuración o por alta en Mi Movistar). Si prefieres, puedo enviarte ahora mismo la factura por email/SMS con enlace de descarga y, si procede, reactivar el envío en papel o actualizar la dirección para que no vuelva a ocurrir.",
     "follow_up_rules": [
-      "Solicitar información sobre destino y fechas de viaje para analizar cargos de roaming",
-      "Explicar con claridad el origen de los cargos y ofrecer recomendaciones para futuras estancias en el extranjero"
+      "Verificar periodo de factura y dirección antes de solicitar reenvío postal",
+      "Comprobar preferencia/canal de entrega (papel vs digital) y cambios de configuración",
+      "Ofrecer envío inmediato digital como solución rápida"
     ],
     "expected_resolution_turns": 2,
-    "category": "invoice_amount_and_breakdown"
+    "category": "invoice_copy_and_delivery"
   },
   {
     "id": "DLG_003",
-    "scenario": "missing_discount_on_convergent_package",
+    "scenario": "understand_invoice_sections",
     "conversation": [
       {
         "role": "customer",
-        "message": "Tenía un descuento del 50% en mi Fusión durante 6 meses y en esta factura me lo han cobrado completo, sin descuento."
-      },
-      {
-        "role": "agent",
-        "message": "Gracias por avisar, vamos a comprobar el estado de tu promoción y por qué no se ha aplicado en esta factura."
-      },
-      {
-        "role": "customer",
-        "message": "La oferta me la hicieron por teléfono en noviembre, creo que era hasta mayo."
+        "message": "Estoy mirando la factura y no entiendo qué significa 'Cuota mensual', 'Consumos' y 'Otros conceptos'. ¿Me lo explicas?"
       }
     ],
     "context_gaps": [
-      "No se conoce la fecha exacta de alta de la promoción ni el número de contrato",
-      "No se sabe si hubo cambios de tarifa o de titularidad que pudieran afectar al descuento"
+      "tipo de producto (móvil/fibra/miMovistar) y tarifa",
+      "importe o líneas a las que se refiere cada apartado",
+      "periodo de facturación y si hay prorrateos"
     ],
-    "optimal_follow_up": "Para revisar bien tu caso, necesito confirmar algunos datos. ¿Podrías indicarme el número de línea principal asociada a tu Fusión y, si lo recuerdas, la fecha aproximada en la que aceptaste la oferta del 50%? También dime si has cambiado de tarifa, de paquete Fusión o de titular desde entonces. Con esa información podré comprobar si la promoción seguía vigente en el ciclo de esta factura y, si se trata de un error, solicitar la regularización del importe que no se te ha descontado.",
+    "optimal_follow_up": "Claro. En general: 1) **Cuota mensual** es el precio fijo de tu tarifa/paquete (fibra, móvil, TV, etc.) por el periodo facturado; si hubo alta/cambio a mitad de mes puede aparecer prorrateada. 2) **Consumos** son cargos variables (llamadas fuera de bono, SMS, datos extra, roaming, números especiales, etc.). 3) **Otros conceptos** suele incluir ajustes (regularizaciones), cuotas de servicios adicionales, compras/servicios de terceros si están activados, o cargos puntuales (instalación, envío, cambio de equipo). Si me dices el **mes**, el **tipo de servicio** y me copias los **importes** que ves en cada apartado (o una foto/captura), te lo desgloso línea por línea y te indico exactamente de dónde sale cada cargo.",
     "follow_up_rules": [
-      "Verificar siempre la vigencia temporal y condiciones de la promoción antes de prometer un abono",
-      "Explicar claramente si la promoción ha caducado, se ha perdido por cambio de tarifa o si procede una corrección"
+      "Dar explicación general y pedir datos concretos para un desglose exacto",
+      "Invitar a compartir importes/captura sin solicitar datos sensibles",
+      "Mencionar prorrateos y cargos variables como causas comunes"
     ],
     "expected_resolution_turns": 2,
-    "category": "discounts_and_promotions"
+    "category": "invoice_breakdown_and_understanding"
   },
   {
     "id": "DLG_004",
-    "scenario": "confusion_between_plan_fee_and_device_installments",
+    "scenario": "tax_vat_breakdown_request",
     "conversation": [
       {
         "role": "customer",
-        "message": "En la factura me salen dos cargos: uno de 54€ y otro de 18€ al mes. Yo pensaba que mi tarifa era solo de 54€. ¿Qué es ese otro importe?"
+        "message": "Necesito saber cuánto IVA estoy pagando en la factura y la base imponible. ¿Dónde lo veo?"
       },
       {
         "role": "agent",
-        "message": "Comprendo la duda, en la factura pueden aparecer conceptos distintos además de la cuota de tu tarifa. Vamos a revisarlo juntos."
+        "message": "Te lo indico. ¿Es una factura de particular o empresa?"
       },
       {
         "role": "customer",
-        "message": "No sé si será del móvil que cogí a plazos, pero no lo tengo claro."
+        "message": "Particular, es miMovistar."
       }
     ],
     "context_gaps": [
-      "No se sabe si el cliente tiene un terminal financiado o algún equipo adicional (router, deco, etc.)",
-      "No se dispone del detalle de conceptos de la factura (nombre de la tarifa, nombre del plan de financiación)"
+      "periodo/mes de la factura",
+      "si hay varios tipos impositivos o conceptos exentos",
+      "si necesita el dato para un justificante específico"
     ],
-    "optimal_follow_up": "Es muy probable que ese segundo importe esté relacionado con la financiación de un dispositivo, pero lo confirmamos. ¿Podrías indicarme el número de tu línea móvil principal o el número de cliente que aparece en la factura? Además, dime si recientemente has adquirido un móvil, tablet o dispositivo con pago a plazos con Movistar. Con esos datos podré revisar el detalle de la factura y explicarte qué corresponde a la cuota de tu tarifa y qué parte es la mensualidad del dispositivo, así como cuántas cuotas te quedan por pagar.",
+    "optimal_follow_up": "Perfecto. En las facturas de particular, la **base imponible**, el **IVA** y el **total** suelen aparecer en el apartado final de “Resumen/Impuestos” (normalmente en la última página). Si me confirmas el **mes** de la factura, te digo exactamente en qué sección aparece en tu PDF y, si me indicas el **total** o me compartes una captura del resumen (tapando datos personales), puedo ayudarte a identificar la base y el IVA que corresponden a cada concepto si hubiera varios.",
     "follow_up_rules": [
-      "Distinguir claramente entre cuota de servicio (tarifa) y cuotas de financiación de equipos",
-      "Ofrecer un desglose sencillo y, si el cliente lo pide, indicar el número de cuotas restantes del dispositivo"
+      "Indicar ubicación típica del desglose fiscal en la factura",
+      "Pedir mes/periodo para guiar con precisión",
+      "Solicitar capturas con datos personales ocultos si hace falta"
     ],
     "expected_resolution_turns": 2,
-    "category": "plan_and_package_billing"
+    "category": "invoice_breakdown_and_understanding"
   },
   {
     "id": "DLG_005",
-    "scenario": "payment_not_reflected_and_line_suspended",
+    "scenario": "bill_higher_than_usual_data_overage",
     "conversation": [
       {
         "role": "customer",
-        "message": "He pagado la factura de Movistar ayer por transferencia y hoy me han cortado la línea. ¿Por qué no se ha reflejado el pago?"
-      },
-      {
-        "role": "agent",
-        "message": "Siento las molestias por el corte de servicio, vamos a revisar el estado de tu pago y la factura pendiente."
-      },
-      {
-        "role": "customer",
-        "message": "Tengo el justificante del banco, pero en la app sigue saliendo como pendiente."
+        "message": "Este mes me han cobrado 30€ más y no sé por qué. Siempre pago lo mismo."
       }
     ],
     "context_gaps": [
-      "No se conoce el número de factura ni el importe exacto pagado",
-      "No se sabe a qué cuenta o referencia se hizo la transferencia ni desde qué país/banco"
+      "mes de la factura y total cobrado",
+      "si hubo cambios de tarifa/servicios o alta de extras",
+      "si hay consumos fuera de bono (roaming, premium, datos extra)"
     ],
-    "optimal_follow_up": "Gracias por la información. Para localizar tu pago necesito algunos datos: ¿puedes indicarme el importe exacto que transferiste, la fecha y el número de cuenta o IBAN de Movistar al que hiciste el ingreso? Si lo tienes a mano, también ayuda el número de factura o el concepto que pusiste en la transferencia. Con eso podré comprobar si el pago está en proceso de conciliación y explicarte los plazos habituales. Además, te indicaré qué opciones tienes para reactivar la línea lo antes posible mientras se registra el pago.",
+    "optimal_follow_up": "Entiendo la preocupación; vamos a localizar el motivo. ¿Me confirmas el **mes** de la factura y el **importe total** (y, si puedes, el importe habitual)? También dime si en ese periodo hubo algún **cambio** (tarifa, TV, líneas añadidas, instalación) o si recibiste avisos de **datos extra/roaming/números especiales**. Con esos datos te indico qué apartado subió (cuota, consumos u otros conceptos) y qué cargo concreto explica esos 30€; si detectamos algo no reconocido, te explico cómo bloquearlo y cómo reclamarlo.",
     "follow_up_rules": [
-      "Explicar los plazos de actualización de pagos por transferencia y la diferencia con pagos inmediatos (tarjeta, domiciliación)",
-      "Indicar claramente los pasos para la reactivación del servicio una vez confirmado el pago o mediante un pago alternativo"
+      "Mostrar empatía y orientar a identificar el apartado que subió",
+      "Solicitar mes e importes para comparar",
+      "Proponer medidas preventivas (bloqueos) y vía de reclamación si procede"
     ],
-    "expected_resolution_turns": 2,
-    "category": "payment_and_collections"
+    "expected_resolution_turns": 3,
+    "category": "unexpected_charge_or_high_bill"
   },
   {
     "id": "DLG_006",
-    "scenario": "doubt_about_new_regulatory_fee_on_invoice",
+    "scenario": "unknown_third_party_charge",
     "conversation": [
       {
         "role": "customer",
-        "message": "En la factura me aparece un concepto nuevo de 'cargo regulatorio' que antes no salía. ¿Qué es eso?"
+        "message": "En la factura aparece un cargo de 'Pagos Movistar' o algo así de 9,99€ y yo no he comprado nada."
       },
       {
         "role": "agent",
-        "message": "Entiendo que un concepto nuevo pueda generar dudas. Te explico qué significa ese cargo regulatorio y por qué aparece en tu factura."
+        "message": "Lo revisamos. ¿Recuerdas si alguien usó tu móvil para suscribirse a algún servicio?"
       },
       {
         "role": "customer",
-        "message": "¿Es un impuesto del gobierno o algo que ha puesto Movistar?"
+        "message": "No, y además es la línea de mi hijo."
       }
     ],
     "context_gaps": [
-      "No se especifica el país ni el nombre exacto del concepto tal como figura en la factura",
-      "No se sabe si el cliente es residencial o empresa, lo que puede cambiar el tipo de cargo regulatorio"
+      "nombre exacto del concepto y fecha del cargo",
+      "línea afectada y si tiene activados pagos a terceros",
+      "si se recibió SMS de alta/confirmación del servicio"
     ],
-    "optimal_follow_up": "Para darte una explicación precisa, necesito saber desde qué país nos contactas y cómo aparece exactamente el concepto en tu factura (el texto tal cual). Además, dime si tu contrato es particular o de empresa/autónomo. Con esa información podré aclararte si se trata de un impuesto o tasa regulatoria establecida por la administración, o de un ajuste asociado a normativas del sector, y te explicaré si es un cargo fijo, temporal o ligado a algún servicio concreto.",
+    "optimal_follow_up": "Gracias por aclararlo. Para identificarlo con precisión, ¿me copias el **nombre exacto del concepto** tal como aparece y la **fecha**? También confirma los **últimos 3-4 dígitos** de la línea afectada (sin compartir el número completo). Con eso te digo si es un **servicio de terceros/suscripción** y, si no lo reconocéis, te guío para: 1) **bloquear Pagos a terceros/Pagos Movistar** en esa línea para evitar nuevos cargos, 2) **dar de baja** la suscripción si sigue activa, y 3) **tramitar la reclamación** del importe indicando el motivo (cargo no autorizado) y el periodo de factura.",
     "follow_up_rules": [
-      "Diferenciar claramente entre impuestos oficiales y cargos propios del operador",
-      "Adaptar la explicación a la normativa del país y al tipo de cliente (residencial o empresa)"
+      "Pedir el texto exacto del cargo y fecha para clasificarlo",
+      "Proponer bloqueo preventivo y baja del servicio",
+      "Ofrecer proceso de reclamación sin prometer reembolso automático"
     ],
-    "expected_resolution_turns": 2,
-    "category": "taxes_and_regulatory_charges"
+    "expected_resolution_turns": 3,
+    "category": "unexpected_charge_or_high_bill"
   },
   {
     "id": "DLG_007",
-    "scenario": "change_of_billing_address_not_reflected",
+    "scenario": "payment_confirmed_but_service_suspended",
     "conversation": [
       {
         "role": "customer",
-        "message": "Cambié mi dirección de facturación hace un mes y la última factura sigue llegando a la dirección antigua."
-      },
-      {
-        "role": "agent",
-        "message": "Gracias por avisar, vamos a comprobar si el cambio de dirección se ha guardado correctamente en tu perfil de facturación."
-      },
-      {
-        "role": "customer",
-        "message": "Lo hice desde la app, pero no sé si se guardó bien."
+        "message": "Pagué la factura ayer por transferencia y hoy me sale como impagada y me han cortado datos. ¿Qué pasa?"
       }
     ],
     "context_gaps": [
-      "No se conoce la nueva dirección completa ni el canal exacto donde se hizo el cambio (app, web, teléfono)",
-      "No se sabe si el cliente recibe factura en papel, electrónica o ambas"
+      "importe y referencia/fecha de la transferencia",
+      "número de factura o periodo",
+      "tiempos de conciliación y si el pago fue a la cuenta correcta"
     ],
-    "optimal_follow_up": "Para revisar el cambio, necesito que me confirmes tu nueva dirección de facturación completa (calle, número, código postal y ciudad) y desde qué canal hiciste la modificación, si fue desde la app Mi Movistar, la web o por teléfono. También dime si sigues recibiendo la factura en papel o solo en formato electrónico. Con estos datos podré verificar si el cambio se aplicó correctamente en el sistema y, si no, actualizarlo y explicarte desde qué factura se verá reflejado.",
+    "optimal_follow_up": "Lo siento, entiendo la urgencia. Las transferencias pueden tardar 24–72 h laborables en reflejarse. Para revisarlo y ayudarte a regularizarlo cuanto antes, dime: 1) **fecha y hora** del pago, 2) **importe**, 3) **concepto/referencia** que pusiste y, si lo tienes, el **justificante** (sin datos bancarios completos). También confirma el **número de factura** o el mes. Con eso verifico si está en proceso de conciliación y te indico la opción más rápida para reactivar el servicio (por ejemplo, pago con tarjeta/Bizum si está disponible) o cómo enviar el justificante para acelerar la actualización.",
     "follow_up_rules": [
-      "Verificar y confirmar con el cliente la nueva dirección antes de actualizarla",
-      "Informar desde qué ciclo de facturación se aplicará el cambio de dirección y si afecta al envío en papel"
+      "Explicar plazos de reflejo de transferencias y pedir datos verificables",
+      "Priorizar restablecimiento del servicio con alternativas de pago rápidas",
+      "Solicitar justificante minimizando exposición de datos bancarios"
     ],
-    "expected_resolution_turns": 2,
-    "category": "billing_profile_and_personal_data"
+    "expected_resolution_turns": 3,
+    "category": "payment_status_and_confirmation"
   },
   {
     "id": "DLG_008",
-    "scenario": "request_refund_for_charged_cancellation_fee",
+    "scenario": "duplicate_payment_check",
     "conversation": [
       {
         "role": "customer",
-        "message": "Me han cobrado una penalización por baja anticipada y el comercial me dijo que no tenía permanencia. Quiero que me devuelvan ese importe."
-      },
-      {
-        "role": "agent",
-        "message": "Lamento la situación, vamos a revisar las condiciones de tu contrato y el motivo de ese cargo por permanencia."
-      },
-      {
-        "role": "customer",
-        "message": "La baja la hice hace dos semanas porque me cambié de compañía."
+        "message": "Creo que he pagado dos veces la misma factura: una por la app y otra por el banco. ¿Cómo lo compruebo?"
       }
     ],
     "context_gaps": [
-      "No se conoce la fecha de alta del servicio ni si hubo instalación subvencionada o equipo financiado",
-      "No se dispone de la oferta concreta que le hizo el comercial ni del canal (tienda, teléfono, online)"
+      "número de factura/periodo",
+      "fechas e importes de ambos pagos",
+      "si uno de los pagos está pendiente o retenido"
     ],
-    "optimal_follow_up": "Para analizar si ese cargo por permanencia es correcto y valorar una posible devolución, necesito algunos datos más: ¿puedes indicarme la fecha aproximada en la que contrataste el servicio y si incluía instalación de fibra o algún equipo (router, descodificador TV, etc.) con descuento? También dime si la oferta te la hicieron en tienda, por teléfono o por la web. Con esa información revisaré las condiciones de permanencia que tenías asociadas y, si detectamos alguna discrepancia con lo que te informaron, te explicaré los pasos para reclamar formalmente y solicitar la devolución del importe si corresponde.",
+    "optimal_follow_up": "Te ayudo a comprobarlo. Necesito el **mes o número de factura** y los **dos movimientos** (fecha e importe) tal como aparecen en tu banco/app. Con eso revisamos si: a) uno es solo una **preautorización**/pendiente, b) son dos pagos reales, o c) uno corresponde a otra factura. Si confirmamos doble pago, te indico cómo se gestiona normalmente: se aplica como **saldo a favor** en la siguiente factura o se puede **solicitar devolución** según el caso, y te digo los plazos estimados.",
     "follow_up_rules": [
-      "Comprobar siempre las condiciones de permanencia y los documentos de contratación antes de prometer un reembolso",
-      "Explicar el procedimiento de reclamación y los plazos de respuesta cuando el cliente alega información incorrecta del comercial"
+      "Pedir identificadores de factura y detalles de movimientos",
+      "Distinguir entre pendiente/preautorización y cargo definitivo",
+      "Explicar opciones: saldo a favor o devolución, sin asegurar plazos exactos"
     ],
     "expected_resolution_turns": 2,
-    "category": "refunds_and_compensations"
+    "category": "payment_status_and_confirmation"
   },
   {
     "id": "DLG_009",
-    "scenario": "repeated_billing_of_cancelled_service",
+    "scenario": "change_direct_debit_iban",
     "conversation": [
       {
         "role": "customer",
-        "message": "Di de baja el paquete de TV de Movistar hace meses y me lo siguen cobrando en la factura."
+        "message": "Quiero cambiar la cuenta bancaria donde se domicilia la factura. ¿Me lo haces?"
       },
       {
         "role": "agent",
-        "message": "Entiendo tu malestar, si el servicio está dado de baja no debería seguir facturándose. Vamos a comprobar qué ha ocurrido."
+        "message": "Sí. ¿Es para una línea móvil o para un paquete miMovistar?"
       },
       {
         "role": "customer",
-        "message": "Llamé en noviembre para cancelarlo y pensé que ya estaba hecho."
+        "message": "Para miMovistar, y que sea efectivo ya para la próxima factura."
       }
     ],
     "context_gaps": [
-      "No se conoce la fecha exacta de la solicitud de baja ni el número de gestión",
-      "No se sabe si el cliente tiene un paquete convergente donde la TV esté incluida por defecto"
+      "identificación del titular (NIF/NIE) y método de verificación",
+      "nuevo IBAN completo",
+      "fecha de cierre de ciclo para saber si entra en la próxima factura"
     ],
-    "optimal_follow_up": "Para revisar bien tu caso, necesito que me indiques la fecha aproximada en la que solicitaste la baja del paquete de TV y, si lo tienes, el número de gestión o referencia que te dieron en la llamada. Además, dime qué paquete tienes actualmente contratado (por ejemplo, Fusión o miMovistar y el nombre aproximado). Con esta información podré comprobar si la baja se tramitó correctamente, si la TV forma parte de tu paquete actual y, en caso de cobro indebido, explicarte cómo se regularizarán las facturas afectadas.",
+    "optimal_follow_up": "Perfecto. Para tramitar el cambio de domiciliación de tu miMovistar necesito verificar al titular: **NIF/NIE** y un dato de contraste (por ejemplo, **código postal** de la instalación o los **4 últimos dígitos** del IBAN actual). Después me indicas el **nuevo IBAN**. Ten en cuenta que, según la fecha de cierre de tu ciclo, el cambio puede aplicarse a la **próxima** factura o a la **siguiente**; si me dices cuándo sueles recibir la factura, te confirmo si llega a tiempo. Cuando lo tenga, te confirmo que queda actualizado y desde qué factura se cobrará en la nueva cuenta.",
     "follow_up_rules": [
-      "Verificar si el servicio está realmente de baja o si forma parte de un paquete que el cliente mantiene activo",
-      "Si hay cobros indebidos, detallar cómo y en qué factura se aplicará la regularización o abono"
+      "Verificar identidad antes de modificar método de pago",
+      "Explicar posible ventana de aplicación según ciclo de facturación",
+      "Confirmar por escrito el IBAN destino y la factura a la que aplica"
     ],
-    "expected_resolution_turns": 2,
-    "category": "recurring_or_historical_issues"
+    "expected_resolution_turns": 3,
+    "category": "payment_method_management"
   },
   {
     "id": "DLG_010",
-    "scenario": "confusion_with_shared_data_plan_and_multiple_lines",
+    "scenario": "update_payment_card_expired",
     "conversation": [
       {
         "role": "customer",
-        "message": "Tengo tres líneas en la misma cuenta y no entiendo por qué una de ellas tiene cargos extra por datos si se supone que compartimos los gigas."
-      },
-      {
-        "role": "agent",
-        "message": "Te ayudo a revisarlo. En las cuentas con varias líneas es importante ver cómo se reparten los datos y qué línea ha consumido más."
-      },
-      {
-        "role": "customer",
-        "message": "La línea de mi hijo es la que se ha pasado, pero pensaba que se cortaba al llegar al límite."
+        "message": "Me ha llegado aviso de que mi tarjeta caducó y no se pudo cobrar la factura. ¿Cómo actualizo la tarjeta?"
       }
     ],
     "context_gaps": [
-      "No se conoce el tipo de plan compartido ni el límite de datos contratado",
-      "No se sabe si el cliente tiene activado el control de consumo o bloqueo de datos al superar el límite"
+      "si el cliente paga por tarjeta recurrente o domiciliación",
+      "importe y fecha de vencimiento de la factura",
+      "si hay recargo o estado de suspensión"
     ],
-    "optimal_follow_up": "Para explicarte bien esos cargos, necesito que me indiques el número de la línea principal del contrato y el de la línea de tu hijo. También dime si recuerdas el nombre de la tarifa o el total de gigas que tenéis para compartir. Con esos datos podré ver cuántos datos ha consumido cada línea, si se han activado bonos adicionales o datos de pago por uso y si tenéis configurado algún límite o bloqueo. A partir de ahí, te explicaré cómo ajustar el control de consumo para evitar cargos extra en próximas facturas.",
+    "optimal_follow_up": "Te indico cómo hacerlo y evitamos más incidencias. Primero, ¿tu pago está configurado como **tarjeta** (pago recurrente) o es **domiciliación bancaria** y solo usaste tarjeta puntualmente? Dime también el **mes/importe** de la factura y si el aviso indica **fecha límite**. Con esa info te guío paso a paso en Mi Movistar para **actualizar la tarjeta** y, si el cobro ya falló, te indico cómo **pagarla ahora** y comprobar que queda como “pagada” para evitar restricciones del servicio.",
     "follow_up_rules": [
-      "Identificar claramente qué línea genera el exceso de consumo y bajo qué condiciones se factura",
-      "Ofrecer soluciones de control de consumo (bloqueos, avisos, cambios de tarifa) para prevenir futuros cargos"
+      "Aclarar el método de pago real antes de dar instrucciones",
+      "Priorizar pago de la factura vencida y luego actualizar el método",
+      "Comprobar estado del servicio y fechas límite"
     ],
     "expected_resolution_turns": 2,
-    "category": "multi_account_or_multi_line_billing"
+    "category": "payment_method_management"
   },
   {
     "id": "DLG_011",
-    "scenario": "billing_for_technician_visit_after_reported_fault",
+    "scenario": "bank_returned_direct_debit",
     "conversation": [
       {
         "role": "customer",
-        "message": "En la factura me han cobrado una visita de técnico y vino porque el WiFi no funcionaba. Me dijeron que era gratuito."
-      },
-      {
-        "role": "agent",
-        "message": "Siento la confusión, vamos a revisar el motivo de la visita y por qué se ha facturado ese desplazamiento."
-      },
-      {
-        "role": "customer",
-        "message": "Solo cambió el router porque decía que estaba estropeado."
+        "message": "El banco me ha devuelto el recibo de Movistar y ahora me pone 'deuda pendiente'. Yo tenía saldo, no entiendo."
       }
     ],
     "context_gaps": [
-      "No se conoce el parte de avería ni el informe del técnico (si fue avería de red o problema interno del cliente)",
-      "No se sabe si el router estaba en garantía o si se trataba de un equipo en cesión"
+      "motivo de devolución (orden del cliente, cuenta cancelada, datos incorrectos, falta de fondos, etc.)",
+      "fecha de devolución y número de factura",
+      "si hay comisiones por devolución y estado del servicio"
     ],
-    "optimal_follow_up": "Para analizar si el cargo por la visita del técnico es correcto, necesito que me indiques la fecha aproximada en la que vino el técnico y el número de línea fija o de fibra asociada. Si tienes el SMS o correo con el número de incidencia, también ayuda. Con esa información revisaré el informe del técnico para ver si se trató de una avería de la red de Movistar (que no se factura) o de una intervención en la instalación interna o equipo fuera de garantía. Después te explicaré el motivo del cargo y, si detectamos algún error, los pasos para reclamarlo.",
+    "optimal_follow_up": "Entiendo, y es bastante común que el banco devuelva un recibo por motivos distintos a “falta de saldo” (por ejemplo, cambio de cuenta, límites, recibo no autorizado, datos del mandato SEPA, etc.). Para revisarlo: ¿me confirmas el **mes/número de factura**, la **fecha** en que el banco lo devolvió y si el banco te indica algún **código/motivo**? Con eso te digo cómo regularizarlo: opciones de **pago inmediato** (tarjeta/transferencia) y, si procede, **actualizar la cuenta** o reintentar la domiciliación. También te indico si aparece algún **cargo por devolución** en la siguiente factura y cómo evitarlo.",
     "follow_up_rules": [
-      "Diferenciar entre averías de red (no facturables) y actuaciones en instalación interna o equipos fuera de garantía (facturables)",
-      "Explicar claramente el criterio de facturación de visitas técnicas y cómo reclamar si el cliente no está de acuerdo"
+      "Explicar que hay múltiples causas de devolución bancaria",
+      "Solicitar motivo/código y datos de factura para actuar",
+      "Ofrecer vías de pago y prevención (actualizar cuenta/mandato)"
     ],
-    "expected_resolution_turns": 2,
-    "category": "technical_or_service_related_billing"
+    "expected_resolution_turns": 3,
+    "category": "failed_payment_and_bank_return"
   },
   {
     "id": "DLG_012",
-    "scenario": "basic_question_about_billing_cycle_and_due_date",
+    "scenario": "refund_for_overpayment_credit_balance",
     "conversation": [
       {
         "role": "customer",
-        "message": "¿Qué días suele cerrar Movistar la factura y cuándo me la cobran en el banco?"
-      },
-      {
-        "role": "agent",
-        "message": "Te explico cómo funciona el ciclo de facturación y el cargo en cuenta de tus facturas de Movistar."
-      },
-      {
-        "role": "customer",
-        "message": "Es que quiero saberlo para tener el dinero preparado."
+        "message": "Me sale un saldo a favor de 18,50€ en la factura. ¿Me lo devolvéis o se descuenta?"
       }
     ],
     "context_gaps": [
-      "No se conoce el país ni el tipo de servicio (móvil prepago, contrato, fibra, paquete convergente)",
-      "No se sabe si el cliente tiene facturación mensual estándar o ciclos especiales (empresa, grandes cuentas)"
+      "origen del saldo (regularización, devolución de servicio, doble pago)",
+      "si el cliente prefiere abono en próxima factura o devolución",
+      "método de pago (domiciliación/tarjeta) para gestionar devolución"
     ],
-    "optimal_follow_up": "Para darte una respuesta exacta, necesito saber desde qué país nos escribes y si tu contrato es particular o de empresa. Además, dime si tu servicio principal es solo móvil de contrato o si tienes fibra/paquete convergente con Movistar. En función de eso, te indicaré el periodo habitual que cubre tu factura (por ejemplo, del día X al día Y) y la fecha aproximada en la que se emite y se carga en tu cuenta bancaria cada mes.",
+    "optimal_follow_up": "Te lo aclaro. Normalmente un **saldo a favor** se **descuenta automáticamente** en la siguiente factura, pero en algunos casos se puede **solicitar devolución**. Para confirmarte qué aplica en tu caso, dime: 1) el **mes** de la factura donde aparece el saldo, 2) si ves algún concepto tipo “abono/regularización”, y 3) tu **método de pago** (domiciliación o tarjeta). Con eso te indico si se compensará en la próxima factura o cómo tramitar la devolución y los plazos orientativos.",
     "follow_up_rules": [
-      "Ajustar la explicación del ciclo de facturación según país y tipo de cliente",
-      "Dar rangos de fechas claros y, si es posible, indicar dónde consultar las fechas exactas en la app o en la propia factura"
+      "Explicar comportamiento habitual (compensación) y alternativa (devolución)",
+      "Pedir datos para identificar el origen del crédito",
+      "No prometer devolución sin validar condiciones"
     ],
     "expected_resolution_turns": 2,
-    "category": "general_billing_information"
+    "category": "refunds_and_credits"
   },
   {
     "id": "DLG_013",
-    "scenario": "question_about_non_movistar_charge",
+    "scenario": "promo_discount_missing",
     "conversation": [
       {
         "role": "customer",
-        "message": "En mi cuenta del banco veo un cargo que pone 'MOVISTAR SERVICIOS DIGITALES', pero yo solo quiero saber si es de Netflix o de otra cosa."
+        "message": "Contraté una promo de 50% durante 3 meses y en la factura me han cobrado el precio completo. Quiero que lo arreglen."
       },
       {
         "role": "agent",
-        "message": "Puedo ayudarte con los cargos que se reflejan en tus facturas de Movistar. Vamos a ver de qué se trata ese concepto."
+        "message": "Lo reviso. ¿Cuándo contrataste la promo y por qué canal?"
       },
       {
         "role": "customer",
-        "message": "No sé si es algo de Google Play o de una suscripción aparte."
+        "message": "La contraté el 5 de este mes por teléfono, me dijeron que entraba ya."
       }
     ],
     "context_gaps": [
-      "No se sabe si el cargo proviene de la factura de Movistar o es un cargo directo bancario de un tercero",
-      "No se dispone de la factura ni del detalle del concepto tal como aparece en el documento de Movistar"
+      "nombre exacto de la promoción y condiciones (fecha de inicio, duración, servicios incluidos)",
+      "periodo de facturación (si la factura incluye días previos a la promo)",
+      "si hay permanencia o requisitos (alta nueva, portabilidad, etc.)"
     ],
-    "optimal_follow_up": "Para comprobar si ese cargo forma parte de tu factura de Movistar o es de un tercero, necesito que me confirmes si ves ese concepto dentro de tu factura en la app Mi Movistar o solo en el extracto de tu banco. Si lo ves en la factura, indícame el texto exacto que aparece y el importe. Si solo lo ves en el banco, te recomendaré cómo contactar con la entidad o el proveedor correspondiente, ya que desde aquí solo puedo revisar cargos que estén dentro de las facturas emitidas por Movistar.",
+    "optimal_follow_up": "Gracias por los detalles. Puede pasar que la factura incluya días **anteriores** a la activación o que el descuento se aplique como **abono** en la siguiente, pero lo confirmamos. Para revisarlo bien, dime: 1) el **mes/periodo** que cubre esa factura (fechas de inicio/fin si aparecen), 2) el **nombre de la promo** o el texto que figure en el contrato/SMS, y 3) el **importe** que esperabas vs. el cobrado. Con eso verifico si el descuento debía aplicarse ya; si falta, te indico cómo **abrir reclamación** para que se aplique el descuento y se **regularice** el importe (abono) en la factura correspondiente.",
     "follow_up_rules": [
-      "Aclarar el alcance: solo gestionar cargos que formen parte de facturas de Movistar",
-      "Derivar de forma clara y respetuosa al banco o proveedor externo cuando el cargo no sea de Movistar"
+      "Considerar prorrateos y aplicación diferida de descuentos",
+      "Solicitar evidencias/identificadores de la promo (texto, fechas, importes)",
+      "Ofrecer reclamación y regularización sin asegurar resultado"
     ],
-    "expected_resolution_turns": 2,
-    "category": "out_of_scope_non_billing"
+    "expected_resolution_turns": 3,
+    "category": "discounts_promotions_and_contract_billing"
   },
   {
     "id": "DLG_014",
-    "scenario": "very_vague_complaint_about_bill",
+    "scenario": "plan_change_proration_confusion",
     "conversation": [
       {
         "role": "customer",
-        "message": "Mi factura está mal, no puede ser lo que me han cobrado este mes."
-      },
-      {
-        "role": "agent",
-        "message": "Entiendo tu preocupación, vamos a revisar qué parte de la factura no te cuadra para poder ayudarte."
-      },
-      {
-        "role": "customer",
-        "message": "Es que es demasiado, algo está mal."
+        "message": "Cambié de tarifa a mitad de mes y ahora me cobran dos cuotas. ¿Me están cobrando doble?"
       }
     ],
     "context_gaps": [
-      "No se conoce el importe de la factura ni con qué lo compara el cliente",
-      "No se sabe qué concepto concreto considera incorrecto (cuota, consumo, servicios extra, impuestos, etc.)"
+      "fecha exacta del cambio de tarifa",
+      "periodo de facturación y fecha de cierre",
+      "si hubo cuota de alta/cambio o servicios adicionales"
     ],
-    "optimal_follow_up": "Para ayudarte de verdad necesito que concretemos un poco más. ¿Podrías decirme el importe total que te han cobrado este mes y cuánto sueles pagar normalmente? Además, dime qué parte de la factura te parece incorrecta: la cuota de tu tarifa, el consumo de datos o llamadas, algún servicio adicional, o si ves algún concepto nuevo que no reconoces. Con esos detalles podré revisar contigo el desglose y explicarte cada cargo paso a paso.",
+    "optimal_follow_up": "Entiendo la duda. En un cambio de tarifa a mitad de ciclo es normal ver **dos cuotas prorrateadas**: una por los días con la tarifa anterior y otra por los días con la nueva, pero no debería ser un doble cobro por el mismo periodo. Para confirmarlo, dime: 1) **fecha del cambio**, 2) **periodo** que indica la factura (fechas), y 3) los **importes** de esas dos cuotas. Con eso te calculo si el prorrateo es correcto y, si detectamos solape o un cargo de cambio no informado, te indico cómo solicitar la regularización.",
     "follow_up_rules": [
-      "Pedir al cliente que concrete importe y concepto antes de entrar en explicaciones detalladas",
-      "Mantener un tono empático y guiar al cliente para identificar el punto exacto de su malestar"
+      "Explicar prorrateo de forma clara y tranquilizadora",
+      "Pedir fechas e importes para validar solapes",
+      "Ofrecer vía de regularización si hay error"
     ],
     "expected_resolution_turns": 2,
-    "category": "unclear_or_insufficient_information"
+    "category": "plan_change_proration_and_one_time_fees"
   },
   {
     "id": "DLG_015",
-    "scenario": "simple_request_for_invoice_copy_by_email",
+    "scenario": "non_billing_technical_issue_out_of_scope",
     "conversation": [
       {
         "role": "customer",
-        "message": "¿Me podéis enviar por correo electrónico la factura de enero? La necesito para un trámite."
-      },
-      {
-        "role": "agent",
-        "message": "Claro, te ayudo a conseguir una copia de tu factura de enero."
-      },
-      {
-        "role": "customer",
-        "message": "La quiero en PDF para poder adjuntarla."
+        "message": "No me funciona el router desde ayer y quiero que me descuenten el día en la factura. ¿Me lo arreglas ya?"
       }
     ],
     "context_gaps": [
-      "No se conoce el correo electrónico donde desea recibir la factura ni si coincide con el registrado en su perfil",
-      "No se sabe si la factura de enero ya está emitida y disponible en el sistema"
+      "si hay incidencia técnica abierta y número de avería",
+      "duración exacta de la interrupción y servicios afectados",
+      "condiciones de compensación aplicables según contrato/SLAs"
     ],
-    "optimal_follow_up": "Con gusto te la enviamos en PDF. Para hacerlo de forma segura, necesito que me confirmes tu número de línea o número de cliente y la dirección de correo electrónico donde quieres recibir la factura. También dime desde qué país nos escribes para localizar correctamente tu contrato. Una vez verifique tus datos y confirme que la factura de enero está emitida, te indicaré el plazo en el que la recibirás en tu correo y cómo descargarla también desde la app Mi Movistar si lo necesitas.",
+    "optimal_follow_up": "Puedo ayudarte con la parte de **facturación/compensación**, y para la reparación del router lo ideal es abrir o revisar una **incidencia técnica**. Para avanzar: ¿tienes ya un **número de avería** o prefieres que te indique cómo abrirla desde Mi Movistar/soporte? En paralelo, dime la **fecha y hora** aproximadas desde que no funciona y si afecta a **fibra/TV/teléfono**. Con esos datos te explico cómo se solicita la **compensación por interrupción del servicio** (si aplica) y qué información suele pedir Movistar para calcular el ajuste en factura.",
     "follow_up_rules": [
-      "Verificar identidad y correo antes de enviar documentación sensible como facturas",
-      "Confirmar disponibilidad de la factura y ofrecer también la opción de descarga desde la app o la web"
+      "Delimitar alcance: facturación/compensación vs soporte técnico",
+      "Recopilar datos de interrupción y existencia de incidencia",
+      "Guiar al canal correcto sin abandonar la solicitud de ajuste en factura"
     ],
-    "expected_resolution_turns": 2,
-    "category": "invoice_access_and_delivery"
+    "expected_resolution_turns": 3,
+    "category": "out_of_scope_or_unknown"
   }
 ]

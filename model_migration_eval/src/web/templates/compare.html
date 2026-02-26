@@ -132,7 +132,7 @@
 
             <!-- Foundry Comparison -->
             <div id="foundry-compare-section" class="hidden fluent-card p-5 mb-8">
-                <h3 class="text-xl font-bold text-brand-700 mb-2">☁️ Foundry LLM-as-Judge Comparison <span class="info-tooltip ml-1 align-middle"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-100 hover:bg-brand-200 text-brand-600 text-[11px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Semantic quality comparison from Microsoft Foundry Control Plane. Both models are evaluated by a GPT-4.1 grader on a 1–5 scale across dimensions like coherence, fluency, relevance and task adherence. The table shows per-dimension averages for each model with percentage change and significance level.</span></span></h3>
+                <h3 class="text-xl font-bold text-brand-700 mb-2">☁️ Foundry LLM-as-Judge Comparison <span class="info-tooltip ml-1 align-middle"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-100 hover:bg-brand-200 text-brand-600 text-[11px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Semantic quality comparison from Microsoft Foundry Control Plane. Both models are evaluated by a configurable LLM grader on a 1–5 scale across dimensions like coherence, fluency, relevance and task adherence. The table shows per-dimension averages for each model with percentage change and significance level.</span></span></h3>
                 <p id="foundry-compare-meta" class="text-sm text-gray-500 mb-4"></p>
                 <div id="foundry-report-links" class="hidden mb-4 flex flex-wrap gap-2">
                     <a id="foundry-report-model-a" href="#" target="_blank" class="hidden inline-flex items-center px-3 py-1.5 rounded-md text-sm bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors">
@@ -408,6 +408,12 @@
                 });
                 // Default: first model in A, second in B
                 if (models.length >= 2) selB.value = models[1].name;
+                // Read URL query params or localStorage to override defaults
+                const params = new URLSearchParams(window.location.search);
+                const qA = params.get('model_a') || (function(){ try { return localStorage.getItem('compare_model_a'); } catch(e){ return null; } })();
+                const qB = params.get('model_b') || (function(){ try { return localStorage.getItem('compare_model_b'); } catch(e){ return null; } })();
+                if (qA && models.some(m => m.name === qA)) selA.value = qA;
+                if (qB && models.some(m => m.name === qB)) selB.value = qB;
             } catch (e) { console.error('Failed to load models', e); }
         }
 
@@ -415,11 +421,21 @@
             await loadModels();
             await checkFoundryStatus();
             loadActiveTopic();
-            // Update heading with actual deployment names
-            const heading = document.getElementById('compare-heading');
-            heading.textContent = `${displayName('gpt4')} vs ${displayName('gpt5')} Comparison`;
-            document.title = `Model Comparison - ${displayName('gpt4')} vs ${displayName('gpt5')}`;
+            // Update heading with selected model names
+            updateCompareHeading();
         });
+
+        function updateCompareHeading() {
+            const modelA = document.getElementById('model-a').value;
+            const modelB = document.getElementById('model-b').value;
+            const heading = document.getElementById('compare-heading');
+            heading.textContent = `${displayName(modelA)} vs ${displayName(modelB)} Comparison`;
+            document.title = `Model Comparison — ${displayName(modelA)} vs ${displayName(modelB)}`;
+        }
+
+        // Update heading whenever dropdowns change
+        document.getElementById('model-a').addEventListener('change', updateCompareHeading);
+        document.getElementById('model-b').addEventListener('change', updateCompareHeading);
 
         document.getElementById('run-comparison').addEventListener('click', async function() {
             const modelA = document.getElementById('model-a').value;

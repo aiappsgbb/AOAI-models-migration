@@ -1,7 +1,7 @@
-# Azure OpenAI Model Migration Guide
-## GPT-4.1 to GPT-5.x Migration Best Practices
+# Azure OpenAI Cross-Generation Model Migration Guide
+## Best Practices for Migrating Between Azure OpenAI Model Generations
 
-This comprehensive guide covers all aspects of migrating live systems from GPT-4.1 to GPT-5.x on Azure AI Foundry.
+This comprehensive guide covers best practices for migrating between Azure OpenAI model generations (e.g., GPT-4o → GPT-4.1, GPT-4o → GPT-5.x, etc.) on Azure AI Foundry. The examples below use GPT-4o/GPT-5.x comparisons for illustration, but the patterns apply to any cross-generation migration.
 
 ---
 
@@ -98,7 +98,7 @@ Customer Message → Pre-processing → Classification → Routing
                               Follow-up Questions
 ```
 
-### 2.2 Key Optimizations for GPT-5
+### 2.2 Key Optimizations for Newer Model Generations
 
 1. **Simplify System Prompts**: Remove explicit reasoning instructions
 2. **Use Structured Output**: Always specify `response_format`
@@ -151,9 +151,9 @@ def classify_customer_message(message: str, client) -> dict:
 - Always get: budget, usage needs, timeline
 - Offer: concrete options with prices
 
-### 3.3 GPT-5 Follow-up Generation
+### 3.3 Next-Generation Follow-up Improvements
 
-GPT-5 generates better contextual follow-ups with less prompting:
+Newer model generations generate better contextual follow-ups with less prompting:
 
 ```yaml
 # GPT-4 prompt needed explicit rules
@@ -194,7 +194,7 @@ examples:
 - ✅ Concise examples (3-5 maximum)
 - ✅ Single responsibility per prompt
 
-### 4.3 GPT-5 Prompt Structure
+### 4.3 Optimized Prompt Structure for Newer Models
 
 ```markdown
 # ROLE (brief)
@@ -280,7 +280,7 @@ for chunk in stream:
 
 ### 6.1 RAG Architecture for Migration
 
-When migrating RAG pipelines from GPT-4.1 to GPT-5.x, the core challenge is ensuring the model stays **grounded** in the provided context while leveraging improved reasoning capabilities.
+When migrating RAG pipelines between model generations, the core challenge is ensuring the model stays **grounded** in the provided context while leveraging improved reasoning capabilities.
 
 ```
 User Query → Retriever → Context Documents → GPT Model → Grounded Response
@@ -299,7 +299,7 @@ User Query → Retriever → Context Documents → GPT Model → Grounded Respon
 | Long-context recall | Degrades >64K | Better sustained attention | Larger context batches |
 | Reasoning over context | Explicit CoT needed | Native reasoning | Remove CoT instructions |
 
-### 6.3 RAG Prompt Design for GPT-5
+### 6.3 RAG Prompt Design Best Practices
 
 ```markdown
 # RAG AGENT
@@ -348,9 +348,9 @@ The framework evaluates RAG scenarios with these metrics:
 
 ## 7. Tool Calling & Function Calling
 
-### 7.1 Migration from GPT-4 to GPT-5 Tool Calling
+### 7.1 Tool Calling Migration Between Model Generations
 
-GPT-5 brings significant improvements to tool calling: better parameter extraction, more reliable tool selection, and native support for complex multi-tool workflows.
+Newer model generations bring significant improvements to tool calling: better parameter extraction, more reliable tool selection, and native support for complex multi-tool workflows.
 
 ### 7.2 GPT-4 vs GPT-5 Tool Calling Differences
 

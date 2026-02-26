@@ -1,7 +1,7 @@
 # Prompt Design Best Practices
-## Optimizing Prompts for GPT-4.1 and GPT-5.x Models
+## Optimizing Prompts Across Azure OpenAI Model Generations
 
-This guide covers prompt engineering best practices for migrating from GPT-4.1 to GPT-5.x, with focus on stability, reproducibility, and performance.
+This guide covers prompt engineering best practices for designing and adapting prompts across different Azure OpenAI model generations, with focus on stability, reproducibility, and performance.
 
 ---
 

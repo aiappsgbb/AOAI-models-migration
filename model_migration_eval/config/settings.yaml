@@ -15,21 +15,40 @@ azure:
   api_version: "2025-04-01-preview"
   
   # Model Deployments
+  # Each model needs a unique key (used as directory name and API identifier).
+  # model_family determines prompt-style guidance (e.g. "gpt4", "gpt5").
   models:
     gpt4:
       deployment_name: "gpt-4.1"
+      model_family: "gpt4"
       model_version: "2024-08-06"
       max_tokens: 4096
       temperature: 0.1  # Low for reproducibility
-      
+
+    gpt4o:
+      deployment_name: "gpt-4o"
+      model_family: "gpt4"
+      model_version: "2024-08-06"
+      max_tokens: 4096
+      temperature: 0.1
+
+    gpt41_mini:
+      deployment_name: "gpt-4.1-mini"
+      model_family: "gpt4"
+      model_version: "2025-04-14"
+      max_tokens: 16384
+      temperature: 0.1
+
     gpt5:
-      deployment_name: "gpt-5.2"  # Update with actual deployment name
+      deployment_name: "gpt-5.2"
+      model_family: "gpt5"
       model_version: "2025-01-01"
       max_tokens: 8192
       temperature: 0.1
       
     gpt5_reasoning:
-      deployment_name: "gpt-5.1" # 5.1-reasoning"  # o3/o4 series
+      deployment_name: "gpt-5.1"
+      model_family: "gpt5"
       model_version: "2025-01-01"
       max_tokens: 16384
       reasoning_effort: "medium"  # low, medium, high

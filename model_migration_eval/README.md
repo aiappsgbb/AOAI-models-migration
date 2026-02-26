@@ -1,12 +1,12 @@
 # Azure OpenAI Model Migration Evaluation Framework
 
-A comprehensive evaluation framework for migrating production systems between Azure OpenAI model generations (e.g. GPT-4.1 → GPT-5.2).  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **5 scenario types** (classification, dialog, general, RAG, and tool calling), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
+A comprehensive evaluation framework for migrating production systems between any Azure OpenAI model generations (e.g. GPT-4o → GPT-4.1, GPT-4.1 → GPT-5.2, or any configured pair).  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **5 scenario types** (classification, dialog, general, RAG, and tool calling), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
 
 ---
 
 ## 🎯 Overview
 
-When you upgrade a model deployment in Azure AI Foundry — from GPT-4.1 to GPT-5.2, for example — you need to answer questions like:
+When you upgrade or switch a model deployment in Azure AI Foundry — from GPT-4o to GPT-4.1, or from GPT-4.1 to GPT-5.2, for example — you need to answer questions like:
 
 - *"Does the new model still classify tickets correctly?"*
 - *"Is latency better or worse?"*
@@ -26,10 +26,10 @@ This framework automates that process end-to-end:
 
 | Area | Highlights |
 |------|------------|
-| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4.1, GPT-5.2, GPT-5, o-series, etc.) |
+| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.2, o-series, etc.) |
 | **Multi-Topic** | Switch between self-contained topic archives (prompts + data) without losing anything |
-| **AI Generation** | One-click generation of 8 optimised prompts (4 task types × 2 models) + 5 test datasets (70 scenarios) tailored to any domain, with dynamic category taxonomy and JSON retry logic |
-| **Topic Import** | Import your own GPT-4 prompts + test data from disk (web UI or CLI) — GPT-5 prompts are auto-generated and the topic is archived ready to activate |
+| **AI Generation** | One-click generation of optimised prompts (4 task types × N models) + 5 test datasets (70 scenarios) tailored to any domain, with dynamic category taxonomy and JSON retry logic |
+| **Topic Import** | Import prompts + test data from disk for any source model (web UI or CLI) — target model prompts are auto-generated and the topic is archived ready to activate |
 | **Classification** | Accuracy, F1, precision, recall, subcategory/priority/sentiment accuracy, confidence calibration, confusion matrix |
 | **Dialog** | Follow-up quality, context coverage, rule compliance, empathy score, optimal similarity, resolution efficiency, consistency |
 | **General** | Format compliance, completeness, reasoning, safety, structured output |
@@ -44,7 +44,7 @@ This framework automates that process end-to-end:
 | **Verbose Logging** | Rich narrative verbose mode with colour-coded entries (step/ok/warn/err/detail/head) and timestamped progress feed |
 | **Foundry Control Plane** | Optional LLM-as-judge evaluation via Microsoft Foundry Runtime — coherence, fluency, relevance, task adherence, intent resolution — with results visible in the Foundry dashboard |
 | **Copilot Studio UI** | Fluent 2 design system inspired by Microsoft Copilot Studio — top header bar, collapsible sidebar, brand-blue palette, flat controls, Segoe UI typography |
-| **Auto-Detection** | SDK automatically uses `max_completion_tokens` for GPT-5/o-series models |
+| **Auto-Detection** | SDK automatically uses `max_completion_tokens` for newer-generation and o-series models |
 
 ---
 
@@ -126,17 +126,17 @@ model_migration_eval/
 │           └── prompts_V1.html      # Prompt Manager (previous layout version)
 │
 ├── tools/
-│   ├── import_topic.py              # CLI tool: import external topic from GPT-4 prompt + test data
+│   ├── import_topic.py              # CLI tool: import external topic from source prompt + test data
 │   ├── regenerate_all_topics.py     # Regenerate prompts + test data for all archived topics
-│   ├── gpt4_classification_prompt.md # Sample GPT-4 classification prompt for import testing
-│   ├── gpt4_dialog_prompt.txt       # Sample GPT-4 dialog prompt for import testing
+│   ├── gpt4_classification_prompt.md # Sample classification prompt for import testing
+│   ├── gpt4_dialog_prompt.txt       # Sample dialog prompt for import testing
 │   ├── test_data_classification.json # Sample classification test data for import testing
 │   ├── test_data_dialog.json        # Sample dialog test data for import testing
 │   ├── test_data_general.json       # Sample general test data for import testing
 │   └── test_import.bat              # Quick-launch script for import testing
 │
 ├── docs/
-│   ├── migration_guide.md          # Comprehensive GPT-4 → GPT-5 migration guide
+│   ├── migration_guide.md          # Comprehensive model migration guide
 │   ├── prompt_design.md            # Prompt engineering best practices
 │   └── security_guide.md           # Security & governance
 │
@@ -328,7 +328,7 @@ Topics are self-contained packages of prompts + test data.  The system supports:
 ```
 
 1. **Generate a new topic** — Use the AI Generate panel on the Prompts page.  This replaces the active prompts and data.
-2. **Import an external topic** — Upload your own GPT-4 prompt(s) + test data via the 📥 Import panel or the CLI tool.  A GPT-5 prompt is auto-generated and everything is saved as an archived topic.
+2. **Import an external topic** — Upload your own prompt(s) + test data via the 📥 Import panel or the CLI tool.  Target model prompts are auto-generated and everything is saved as an archived topic.
 3. **Archive the current topic** — Before generating a new one, the current topic is auto-archived (or you can manually archive via the API).
 4. **Switch topics** — Activate any archived topic from the topic selector.  The active set is swapped out and the selected archive becomes active.
 5. **Delete an archive** — Remove an old topic you no longer need.
@@ -397,20 +397,20 @@ All content is domain-adapted and coherent — the test data exercises the exact
 
 ### Importing External Topics
 
-If you already have your own GPT-4 system prompt and test data, you can import them directly — the framework will generate the GPT-5 optimised prompt automatically and create an archived topic ready to activate.
+If you already have your own system prompt and test data, you can import them directly — the framework will generate optimised prompts for the target models automatically and create an archived topic ready to activate.
 
 #### From the Web UI
 
 1. Go to **Prompts** → sidebar → **📥 Import Topic**.
 2. Enter a **topic name** (e.g. *"Insurance Claims Processing"*).
-3. Upload one or both GPT-4 prompts:
+3. Upload one or both source model prompts:
    - **Classification prompt** (`.txt` / `.md`)
    - **Dialog prompt** (`.txt` / `.md`)
 4. Upload one or more test data files:
    - **Classification scenarios** (`.json`)
    - **Dialog scenarios** (`.json`)
    - **General capability tests** (`.json`)
-5. Select the **generator model** for GPT-5 prompt creation.
+5. Select the **generator model** for target prompt creation.
 6. Click **📥 Import Topic**.
 
 The system validates the prompt(s) and test data, generates a GPT-5 version for each prompt, and writes everything as an archived topic.  Activate it from the topic selector to start running evaluations.
@@ -465,7 +465,7 @@ python tools/import_topic.py \
 2. A GPT-5 optimised version is generated for each prompt, preserving the same category taxonomy.
 3. Test data is validated and missing optional fields are auto-filled.
 4. Everything is written to the archive structure:
-   - `prompts/topics/<slug>/gpt4/` and `gpt5/` — prompt files
+   - `prompts/topics/<slug>/<model>/` — prompt files per model
    - `data/synthetic/topics/<slug>/` — test data by type
    - `topic.json` — metadata
 
@@ -821,7 +821,7 @@ The deployment uses a **User-Assigned Managed Identity** instead of API keys or 
 | [Azure CLI (`az`)](https://aka.ms/installazurecliwindows) | ✅ | `winget install Microsoft.AzureCLI` |
 | [Docker Desktop](https://www.docker.com/products/docker-desktop/) | ✅ | Required to build the container image |
 | Azure subscription with **Contributor** role | ✅ | — |
-| Azure OpenAI resource with model deployments | ✅ | GPT-4.1, GPT-5.2, etc. |
+| Azure OpenAI resource with model deployments | ✅ | Any supported models (GPT-4o, GPT-4.1, GPT-5.2, etc.) |
 
 ### Step 1 — Authenticate
 
@@ -973,7 +973,7 @@ python app.py compare --model-a gpt4 --model-b gpt5 --type classification
 # Compare across all evaluation types at once
 python app.py compare --model-a gpt4 --model-b gpt5 --type all
 
-# Import an external topic (GPT-4 prompt + test data → archived topic with GPT-5)
+# Import an external topic (source prompt + test data → archived topic with target prompts)
 python tools/import_topic.py --topic "My Topic" --gpt4-class-prompt prompt.txt --class-test-data data.json
 ```
 
@@ -1062,7 +1062,7 @@ All endpoints are available at `http://127.0.0.1:<port>/api/`.
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/topics` | List all topics (active + archived) |
-| `POST` | `/api/topics/import` | Import external topic from uploaded GPT-4 prompt(s) + test data (multipart form) |
+| `POST` | `/api/topics/import` | Import external topic from uploaded prompt(s) + test data (multipart form) |
 | `POST` | `/api/topics/activate` | Switch to an archived topic (restores prompts + data) |
 | `POST` | `/api/topics/archive` | Archive the current active topic |
 | `DELETE` | `/api/topics/<name>` | Delete an archived topic |
@@ -1253,7 +1253,7 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 
 | Document | Description |
 |----------|-------------|
-| [Migration Guide](docs/migration_guide.md) | Comprehensive GPT-4 → GPT-5 migration playbook |
+| [Migration Guide](docs/migration_guide.md) | Comprehensive model migration playbook |
 | [Prompt Design](docs/prompt_design.md) | Best practices: formatting, drift avoidance, caching |
 | [Security & Governance](docs/security_guide.md) | Data protection, sandbox tools, content filtering, audit |
 

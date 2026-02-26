@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Model Migration Evaluator - Azure OpenAI GPT-4 to GPT-5</title>
+    <title>Model Migration Evaluation</title>
     <script src="https://cdn.tailwindcss.com"></script>
     {% include '_fluent_head.html' %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -45,6 +45,7 @@
         <!-- Header -->
         <div class="text-center mb-12">
             <h1 id="main-heading" class="fluent-page-title mb-1">Model Migration Evaluation</h1>
+            <p id="models-subtitle" class="text-base text-gray-500 font-medium mb-1"></p>
             <p id="active-topic-subtitle" class="text-sm text-brand-600 font-semibold mb-3"></p>
             <p class="fluent-subtitle text-[15px] max-w-3xl mx-auto">
                 Comprehensive evaluation framework for comparing Azure OpenAI models across 
@@ -119,15 +120,8 @@
                     <label class="fluent-label">Customer Message</label>
                     <textarea id="test-input" rows="4" class="fluent-input focus:border-transparent" placeholder="Enter a customer message to test classification...">I just got my bill and there's a $45 charge I don't recognize. I've been a customer for 5 years.</textarea>
                     
-                    <div class="mt-4 flex space-x-4">
-                        <label class="flex items-center">
-                            <input type="checkbox" id="test-gpt4" checked class="h-4 w-4 text-blue-600 rounded">
-                            <span class="ml-2 text-sm text-gray-700">GPT-4</span>
-                        </label>
-                        <label class="flex items-center">
-                            <input type="checkbox" id="test-gpt5" checked class="h-4 w-4 text-blue-600 rounded">
-                            <span class="ml-2 text-sm text-gray-700">GPT-5</span>
-                        </label>
+                    <div id="test-model-checkboxes" class="mt-4 flex flex-wrap gap-x-4 gap-y-2">
+                        <!-- populated dynamically by loadModels() -->
                     </div>
                     
                     <div class="mt-4 flex items-center space-x-4">
@@ -214,7 +208,7 @@
         <!-- Microsoft Foundry LLM-as-Judge Dimensions -->
         <div class="mt-8 fluent-card p-6">
             <h2 class="fluent-section-title mb-1 text-brand-700">☁️ Microsoft Foundry — LLM-as-Judge Dimensions</h2>
-            <p class="text-sm text-[var(--text-secondary)] mb-5">Optional semantic quality evaluation via <a href="https://ai.azure.com/" target="_blank" class="text-brand-500 hover:underline">Microsoft Foundry Control Plane</a>. A GPT-4.1 grader model rates each response on a 1–5 scale.</p>
+            <p class="text-sm text-[var(--text-secondary)] mb-5">Optional semantic quality evaluation via <a href="https://ai.azure.com/" target="_blank" class="text-brand-500 hover:underline">Microsoft Foundry Control Plane</a>. A configurable LLM grader model rates each response on a 1–5 scale.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 <div class="text-center p-4 bg-brand-50 rounded-lg border border-brand-200">
                     <div class="text-[20px] font-semibold text-brand-600 mb-1">Coherence <span class="info-tooltip"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-200 hover:bg-brand-300 text-brand-700 text-xs font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Measures logical flow and internal consistency of the response. A Foundry LLM grader scores from 1 (disjointed, contradictory) to 5 (perfectly structured and logically connected).</span></span></div>
@@ -251,6 +245,7 @@
     <script>
         // Model display-name map: { gpt4: "gpt-4.1", gpt5: "gpt-5.1", … }
         let modelNames = {};
+        let availableModels = [];
 
         function displayName(key) {
             return modelNames[key] || key;
@@ -367,20 +362,29 @@
                 const resp = await fetch('/api/models');
                 const data = await resp.json();
                 const models = data.models || [];
+                availableModels = models;
                 models.forEach(m => { modelNames[m.name] = m.display_name || m.deployment; });
-                // Update checkbox labels
-                document.querySelectorAll('#test-gpt4').forEach(el => {
-                    el.parentElement.querySelector('span').textContent = displayName('gpt4');
-                });
-                document.querySelectorAll('#test-gpt5').forEach(el => {
-                    el.parentElement.querySelector('span').textContent = displayName('gpt5');
-                });
+                // Populate Quick Evaluation model checkboxes dynamically
+                const cbContainer = document.getElementById('test-model-checkboxes');
+                if (cbContainer) {
+                    const familyColors = { gpt4: 'blue', gpt5: 'purple' };
+                    cbContainer.innerHTML = models.map(m => {
+                        const color = familyColors[m.model_family] || 'blue';
+                        return `<label class="flex items-center">
+                            <input type="checkbox" value="${m.name}" checked class="test-model-cb h-4 w-4 text-${color}-600 rounded">
+                            <span class="ml-2 text-sm text-gray-700">${m.display_name || m.deployment}</span>
+                        </label>`;
+                    }).join('');
+                }
                 // Update heading & footer with actual model names
-                document.getElementById('main-heading').textContent =
-                    `${displayName('gpt4')} to ${displayName('gpt5')} Migration Evaluation`;
+                const allNames = models.map(m => m.display_name || m.deployment);
+                if (allNames.length >= 2) {
+                    document.getElementById('models-subtitle').textContent = allNames.join('  ·  ');
+                }
                 document.getElementById('footer-subtitle').textContent =
-                    `${displayName('gpt4')} → ${displayName('gpt5')} Migration Best Practices`;
-                document.title = `Model Migration Evaluator - ${displayName('gpt4')} to ${displayName('gpt5')}`;
+                    allNames.length >= 2
+                        ? `Configured models: ${allNames.join(', ')}`
+                        : 'Model Migration Best Practices';
             } catch (e) { console.error('Failed to load models', e); }
         }
 
@@ -426,8 +430,6 @@
         // Quick test functionality
         document.getElementById('run-test').addEventListener('click', async function() {
             const input = document.getElementById('test-input').value;
-            const testGpt4 = document.getElementById('test-gpt4').checked;
-            const testGpt5 = document.getElementById('test-gpt5').checked;
             const resultsEl = document.getElementById('test-results');
             
             if (!input.trim()) {
@@ -435,9 +437,7 @@
                 return;
             }
 
-            const models = [];
-            if (testGpt4) models.push('gpt4');
-            if (testGpt5) models.push('gpt5');
+            const models = Array.from(document.querySelectorAll('.test-model-cb:checked')).map(cb => cb.value);
 
             if (models.length === 0) {
                 resultsEl.innerHTML = '<p class="text-red-500">Please select at least one model</p>';
@@ -479,7 +479,7 @@
                         detail += `<br>`;
                         if (p.priority) detail += `🔺 Priority: <strong>${p.priority}</strong> &nbsp;|&nbsp; `;
                         if (p.sentiment) detail += `😊 Sentiment: <strong>${p.sentiment}</strong> &nbsp;|&nbsp; `;
-                        if (p.confidence > 0) detail += `📈 Confidence: <strong>${(p.confidence * 100).toFixed(0)}%</strong>`;
+                        if (parseFloat(p.confidence) > 0) detail += `📈 Confidence: <strong>${(parseFloat(p.confidence) * 100).toFixed(0)}%</strong>`;
                         detail += `<br>⏱ Latency: <strong>${r.latency?.toFixed(3) || '?'}s</strong>`;
                         detail += ` &nbsp;|&nbsp; Tokens: ${t.total || '?'} (${t.prompt_tokens || '?'} prompt + ${t.completion_tokens || '?'} completion)`;
                         if (t.cached > 0) detail += ` &nbsp;|&nbsp; ${t.cached} cached`;
@@ -493,7 +493,9 @@
                 let html = '';
                 for (const [model, result] of Object.entries(data)) {
                     html += `<div class="mb-4 p-3 bg-white rounded border">`;
-                    html += `<h4 class="font-bold text-${model === 'gpt4' ? 'blue' : 'purple'}-600 mb-2">${displayName(model)}</h4>`;
+                    const mFamily = (availableModels.find(m => m.name === model) || {}).model_family;
+                    const mColor = mFamily === 'gpt5' ? 'purple' : 'blue';
+                    html += `<h4 class="font-bold text-${mColor}-600 mb-2">${displayName(model)}</h4>`;
                     
                     if (result.error) {
                         html += `<p class="text-red-500">${result.error}</p>`;
@@ -506,7 +508,7 @@
                         html += `<div><span class="text-gray-500">Subcategory:</span> ${parsed.subcategory || 'N/A'}</div>`;
                         html += `<div><span class="text-gray-500">Priority:</span> ${parsed.priority || 'N/A'}</div>`;
                         html += `<div><span class="text-gray-500">Sentiment:</span> ${parsed.sentiment || 'N/A'}</div>`;
-                        html += `<div><span class="text-gray-500">Confidence:</span> ${parsed.confidence != null && parsed.confidence > 0 ? (parsed.confidence * 100).toFixed(1) + '%' : 'N/A'}</div>`;
+                        html += `<div><span class="text-gray-500">Confidence:</span> ${parseFloat(parsed.confidence) > 0 ? (parseFloat(parsed.confidence) * 100).toFixed(1) + '%' : 'N/A'}</div>`;
                         html += `<div><span class="text-gray-500">Latency:</span> ${result.latency?.toFixed(3)}s</div>`;
                         html += `<div><span class="text-gray-500">Tokens:</span> ${tokens.total || 'N/A'}</div>`;
                         html += `<div><span class="text-gray-500">Cost:</span> ${cost.usd != null ? '$' + cost.usd.toFixed(4) : 'N/A'}</div>`;

@@ -530,9 +530,9 @@ class FoundryEvaluator:
     Usage:
         fe = FoundryEvaluator(
             project_endpoint="https://<name>.services.ai.azure.com/api/projects/<proj>",
-            deployment_name="gpt-4.1",
+            deployment_name="<deployment>",
         )
-        result = fe.submit_evaluation(raw_results, "classification", "gpt4")
+        result = fe.submit_evaluation(raw_results, "classification", "<model_key>")
     """
 
     def __init__(
@@ -584,7 +584,7 @@ class FoundryEvaluator:
             raw_results: The raw_results from EvaluationResult
             evaluation_type: 'classification', 'dialog', 'general', 'rag',
                 or 'tool_calling'
-            model_name: Local model key (e.g. 'gpt4') — used for naming
+            model_name: Local model key (e.g. 'gpt4', 'gpt4o') — used for naming
             poll: Whether to wait for the run to complete
             poll_interval: Seconds between status checks
             timeout: Maximum seconds to wait (defaults to ``self.timeout``)

@@ -1,6 +1,6 @@
 """
 Model Comparator Module
-Compares evaluation results between different models (GPT-4 vs GPT-5).
+Compares evaluation results between any two configured models.
 
 Supports parallel execution: both models can be evaluated simultaneously
 and Foundry LLM-as-judge submissions run concurrently.
@@ -775,12 +775,12 @@ class ModelComparator:
         recommendations.append("")  # separator
         recommendations.append("📋 MIGRATION BEST PRACTICES:")
         recommendations.append(
-            "Use 'developer' role instead of 'system' for GPT-5/o-series models "
-            "(auto-applied by this framework)."
+            "Use 'developer' role instead of 'system' for newer-generation models "
+            "(auto-applied by this framework when model_family is 'gpt5')."
         )
         recommendations.append(
             "Use 'max_completion_tokens' instead of 'max_tokens' for new-generation models "
-            "(GPT-5, o-series, model-router)."
+            "(o-series, reasoning models, model-router)."
         )
         recommendations.append(
             "Set 'reasoning_effort' (low/medium/high) on reasoning models to control "

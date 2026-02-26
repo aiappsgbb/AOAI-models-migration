@@ -40,6 +40,20 @@ from .metrics import (
 
 logger = logging.getLogger(__name__)
 
+# Maps evaluation type to the prompt template key required
+_EVAL_PROMPT_TYPES = {
+    'classification': 'classification_agent_system',
+    'dialog':         'dialog_agent_system',
+    'rag':            'rag_agent_system',
+    'tool_calling':   'tool_calling_agent_system',
+    # 'general' does not use prompt templates
+}
+
+
+class MissingPromptsError(Exception):
+    """Raised when a model has no prompts for the requested evaluation type."""
+    pass
+
 
 @dataclass
 class EvaluationResult:
@@ -117,7 +131,24 @@ class ModelEvaluator:
         self.metrics_calc = MetricsCalculator()
         self.consistency_runs = consistency_runs
         self.max_concurrent = max(1, max_concurrent)
-        
+
+    def _check_prompts_exist(self, model_name: str, evaluation_type: str) -> None:
+        """Pre-check that the required prompt template exists for a model.
+
+        Raises ``MissingPromptsError`` with a user-friendly message if the
+        prompt file is not found, preventing noisy per-scenario errors.
+        """
+        prompt_type = _EVAL_PROMPT_TYPES.get(evaluation_type)
+        if prompt_type is None:
+            return  # e.g. 'general' doesn't need prompt templates
+        if not self.prompt_loader.has_prompt(model_name, prompt_type):
+            raise MissingPromptsError(
+                f"No prompts found for model '{model_name}' "
+                f"(expected '{prompt_type}.md'). "
+                f"Go to the Prompts page and generate or import prompts "
+                f"for this model before running the evaluation."
+            )
+
     def evaluate_classification(
         self,
         model_name: str,
@@ -129,7 +160,7 @@ class ModelEvaluator:
         Delegates to the async implementation for parallel execution.
         
         Args:
-            model_name: Name of registered model ('gpt4', 'gpt5')
+            model_name: Name of a registered model (e.g. 'gpt4', 'gpt4o', 'gpt5')
             scenarios: List of scenarios (default: load from data)
             measure_consistency: Whether to run consistency tests
             
@@ -153,6 +184,8 @@ class ModelEvaluator:
         ``self.max_concurrent``).  Consistency runs for each scenario also
         execute in parallel within the same semaphore.
         """
+        self._check_prompts_exist(model_name, 'classification')
+
         scenarios = scenarios or self.data_loader.load_classification_scenarios()
         
         logger.info(f"=== Classification evaluation: model={model_name}, scenarios={len(scenarios)}, concurrency={self.max_concurrent} ===")
@@ -341,6 +374,8 @@ class ModelEvaluator:
         - Latency analytics (mean, P95, std, tokens/sec)
         - Cost & token analytics (cost per request, cache hit rate, reasoning %)
         """
+        self._check_prompts_exist(model_name, 'dialog')
+
         scenarios = scenarios or self.data_loader.load_dialog_scenarios()
         
         logger.info(f"=== Dialog evaluation: model={model_name}, scenarios={len(scenarios)}, concurrency={self.max_concurrent} ===")
@@ -648,6 +683,8 @@ class ModelEvaluator:
         - Latency analytics
         - Consistency / reproducibility
         """
+        self._check_prompts_exist(model_name, 'rag')
+
         scenarios = scenarios or self.data_loader.load_rag_scenarios()
 
         logger.info(
@@ -816,6 +853,8 @@ class ModelEvaluator:
         - Latency analytics
         - Consistency / reproducibility
         """
+        self._check_prompts_exist(model_name, 'tool_calling')
+
         scenarios = scenarios or self.data_loader.load_tool_calling_scenarios()
 
         logger.info(
@@ -1090,4 +1129,4 @@ if __name__ == "__main__":
     print("=" * 50)
     print("\nUsage:")
     print("  evaluator = ModelEvaluator(client)")
-    print("  results = evaluator.run_full_evaluation('gpt4')")
+    print("  results = evaluator.run_full_evaluation('<model_name>')")

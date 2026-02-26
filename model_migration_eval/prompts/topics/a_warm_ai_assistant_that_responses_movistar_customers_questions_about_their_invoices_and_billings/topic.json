@@ -1,7 +1,14 @@
 {
   "topic": "A warm, AI assistant that responses Movistar customers questions about their invoices and billings",
   "slug": "a_warm_ai_assistant_that_responses_movistar_customers_questions_about_their_invoices_and_billings",
-  "archived_at": "2026-02-22T21:00:52.450023",
-  "prompts_updated_at": "2026-02-17T17:44:09.850578",
-  "data_generated_at": "2026-02-17T17:45:47.405277"
+  "models": [
+    "gpt4",
+    "gpt41_mini",
+    "gpt4o",
+    "gpt5",
+    "gpt5_reasoning"
+  ],
+  "archived_at": "2026-02-26T18:59:18.834157",
+  "prompts_updated_at": "2026-02-26T18:58:04.736029",
+  "data_generated_at": "2026-02-26T18:59:18.647986"
 }

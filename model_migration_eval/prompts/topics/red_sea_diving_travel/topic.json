@@ -1,7 +1,14 @@
 {
   "topic": "Red Sea Diving Travel",
   "slug": "red_sea_diving_travel",
-  "archived_at": "2026-02-22T21:00:54.622431",
-  "prompts_updated_at": "2026-02-16T10:24:08.318148",
-  "data_generated_at": "2026-02-16T10:26:28.227570"
+  "models": [
+    "gpt4",
+    "gpt41_mini",
+    "gpt4o",
+    "gpt5",
+    "gpt5_reasoning"
+  ],
+  "archived_at": "2026-02-26T18:54:08.911140",
+  "prompts_updated_at": "2026-02-26T18:47:50.413789",
+  "data_generated_at": "2026-02-26T18:49:00.405007"
 }

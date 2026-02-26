@@ -20,6 +20,20 @@
             <!-- LEFT SIDEBAR                                                   -->
             <!-- ============================================================= -->
             <div class="lg:col-span-1 space-y-6">
+                <!-- Sidebar Tab Bar -->
+                <div class="flex border-b border-gray-200">
+                    <button id="sidebar-tab-manage" class="flex-1 py-2 text-sm font-medium text-center text-brand-600 border-b-2 border-brand-600 transition"
+                            onclick="switchSidebarTab('manage')">
+                        📂 Manage
+                    </button>
+                    <button id="sidebar-tab-generate" class="flex-1 py-2 text-sm font-medium text-center text-gray-500 border-b-2 border-transparent hover:text-gray-700 transition"
+                            onclick="switchSidebarTab('generate')">
+                        ✨ Generate &amp; Import
+                    </button>
+                </div>
+
+                <!-- ======== TAB: Manage ======== -->
+                <div id="sidebar-panel-manage" class="space-y-6">
                 <!-- Topic Selector -->
                 <div class="fluent-card p-5">
                     <h2 class="font-semibold text-[15px] text-[var(--text-primary)] mb-3">
@@ -38,33 +52,6 @@
                     <div id="prompt-list" class="space-y-4">
                         <p class="text-gray-500 text-sm">Loading…</p>
                     </div>
-                </div>
-
-                <!-- AI Generate Panel -->
-                <div class="fluent-card p-5">
-                    <h2 class="font-semibold text-[15px] text-[var(--text-primary)] mb-3">
-                        <span class="mr-1">✨</span> AI Generate
-                    </h2>
-                    <p class="text-xs text-gray-500 mb-3">Enter a topic and generate optimised prompts <strong>and matching test data</strong> for all models &amp; tasks at once.</p>
-                    <label class="fluent-label mb-1">Topic</label>
-                    <textarea id="gen-topic" rows="3" class="fluent-input text-sm" placeholder="e.g. Soporte técnico de telecomunicaciones"></textarea>
-                    <label class="block text-sm font-medium text-gray-700 mt-3 mb-1">Generator model</label>
-                    <select id="gen-model" class="fluent-input text-sm">
-                        <!-- populated dynamically -->
-                    </select>
-                    <button id="btn-generate" class="mt-4 w-full fluent-btn-primary py-2 px-4 flex items-center justify-center">
-                        <svg class="h-5 w-5 mr-2 hidden animate-spin" id="gen-spinner" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-                        </svg>
-                        Generate Prompts + Test Data
-                    </button>
-                    <label class="flex items-center mt-2 cursor-pointer">
-                        <input type="checkbox" id="verbose-mode" class="h-4 w-4 text-green-600 rounded border-gray-300">
-                        <span class="ml-1.5 text-sm text-[var(--text-secondary)]">Verbose</span>
-                    </label>
-                    <div id="gen-status" class="mt-2 text-xs"></div>
-                    <div id="verbose-log" class="hidden mt-2 bg-gray-900 text-green-400 rounded-lg p-3 font-mono text-xs max-h-[200px] overflow-auto"></div>
                 </div>
 
                 <!-- Data Sync Status -->
@@ -94,18 +81,81 @@
                     </div>
                 </div>
 
+                <!-- Key Differences (inside Manage tab) -->
+                <div class="fluent-card p-5">
+                    <h2 class="font-semibold text-[15px] text-[var(--text-primary)] mb-3">Key Differences</h2>
+                    <div id="key-diff-container" class="space-y-3 text-sm">
+                        <!-- populated dynamically by loadModels -->
+                    </div>
+                </div>
+                </div><!-- /sidebar-panel-manage -->
+
+                <!-- ======== TAB: Generate & Import ======== -->
+                <div id="sidebar-panel-generate" class="hidden space-y-6">
+
+                <!-- AI Generate Panel -->
+                <div class="fluent-card p-5">
+                    <h2 class="font-semibold text-[15px] text-[var(--text-primary)] mb-3">
+                        <span class="mr-1">✨</span> AI Generate
+                    </h2>
+                    <p class="text-xs text-gray-500 mb-3">Enter a topic and generate optimised prompts <strong>and matching test data</strong> for all models &amp; tasks at once.</p>
+                    <label class="fluent-label mb-1">Topic</label>
+                    <textarea id="gen-topic" rows="3" class="fluent-input text-sm" placeholder="e.g. Soporte técnico de telecomunicaciones"></textarea>
+                    <label class="block text-sm font-medium text-gray-700 mt-3 mb-1">Generator model</label>
+                    <select id="gen-model" class="fluent-input text-sm">
+                        <!-- populated dynamically -->
+                    </select>
+                    <button id="btn-generate" class="mt-4 w-full fluent-btn-primary py-2 px-4 flex items-center justify-center">
+                        <svg class="h-5 w-5 mr-2 hidden animate-spin" id="gen-spinner" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                        </svg>
+                        Generate Prompts + Test Data
+                    </button>
+                    <label class="flex items-center mt-2 cursor-pointer">
+                        <input type="checkbox" id="verbose-mode" class="h-4 w-4 text-green-600 rounded border-gray-300">
+                        <span class="ml-1.5 text-sm text-[var(--text-secondary)]">Verbose</span>
+                    </label>
+                    <div id="gen-status" class="mt-2 text-xs"></div>
+                    <div id="verbose-log" class="hidden mt-2 bg-gray-900 text-green-400 rounded-lg p-3 font-mono text-xs max-h-[200px] overflow-auto"></div>
+                </div>
+
                 <!-- Import External Topic -->
                 <div class="fluent-card p-5">
                     <h2 class="font-semibold text-[15px] text-[var(--text-primary)] mb-3">
                         <span class="mr-1">📥</span> Import Topic
                     </h2>
-                    <p class="text-xs text-gray-500 mb-3">Import an external topic from your own GPT-4 prompt(s) and test data files. A GPT-5 optimised prompt will be generated automatically.</p>
+                    <p class="text-xs text-gray-500 mb-3">Import an external topic from your own prompt(s) and test data files. Optimised prompts will be generated automatically for each target model following its best practices.</p>
 
                     <label class="fluent-label mb-1">Topic name <span class="text-red-500">*</span></label>
                     <input id="import-topic-name" type="text" class="fluent-input text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none mb-3" placeholder="e.g. Insurance Claims Processing">
 
-                    <!-- GPT-4 Prompts -->
-                    <p class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">GPT-4 Prompts <span class="text-red-500">*</span> <span class="font-normal normal-case text-gray-400">(at least one)</span></p>
+                    <!-- Source / Target Model Selection -->
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="fluent-label mb-1">Source model</label>
+                            <select id="import-source-model" class="fluent-input text-sm">
+                                <!-- populated by loadModels() -->
+                            </select>
+                            <p class="text-[10px] text-gray-400 mt-0.5">Model the uploaded prompts are written for</p>
+                        </div>
+                        <div>
+                            <label class="fluent-label mb-1">Generator model</label>
+                            <select id="import-gen-model" class="fluent-input text-sm">
+                                <!-- populated by loadModels() -->
+                            </select>
+                            <p class="text-[10px] text-gray-400 mt-0.5">AI model used to generate target prompts</p>
+                        </div>
+                    </div>
+
+                    <label class="fluent-label mb-1">Target models <span class="text-red-500">*</span></label>
+                    <div id="import-target-models" class="flex flex-wrap gap-x-3 gap-y-1.5 mb-3 p-2 border border-gray-200 rounded-lg bg-white">
+                        <!-- populated by loadModels(): one checkbox per model -->
+                    </div>
+                    <p class="text-[10px] text-gray-400 -mt-2 mb-3">Select the model(s) to generate optimised prompts for. Each will follow its model family’s best practices.</p>
+
+                    <!-- Source Prompts -->
+                    <p class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Source Prompts <span class="text-red-500">*</span> <span class="font-normal normal-case text-gray-400">(at least one)</span></p>
                     <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Classification prompt (.txt / .md)</label>
                     <input id="import-class-prompt" type="file" accept=".txt,.md,.text" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                     <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Dialog prompt (.txt / .md)</label>
@@ -129,10 +179,6 @@
                     <input id="import-tool-data" type="file" accept=".json" class="w-full text-xs mb-3 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
 
                     <!-- Options -->
-                    <label class="fluent-label mb-1">Generator model</label>
-                    <select id="import-gen-model" class="fluent-input text-sm mb-2">
-                        <!-- populated dynamically by loadModels() -->
-                    </select>
                     <label class="flex items-center cursor-pointer mb-3">
                         <input type="checkbox" id="import-force" class="h-4 w-4 text-indigo-600 rounded border-gray-300">
                         <span class="ml-1.5 text-sm text-[var(--text-secondary)]">Overwrite if topic exists</span>
@@ -147,29 +193,7 @@
                     </button>
                     <div id="import-status" class="mt-2 text-xs"></div>
                 </div>
-
-                <!-- Key Differences -->
-                <div class="fluent-card p-5">
-                    <h2 class="font-semibold text-[15px] text-[var(--text-primary)] mb-3">Key Differences</h2>
-                    <div class="space-y-3 text-sm">
-                        <div>
-                            <h3 class="font-medium text-blue-600 key-diff-gpt4-name">GPT-4 Prompts</h3>
-                            <ul class="text-[var(--text-secondary)] ml-4 list-disc">
-                                <li>Explicit CoT instructions</li>
-                                <li>Detailed formatting rules</li>
-                                <li>More verbose examples</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h3 class="font-medium text-brand-500 key-diff-gpt5-name">GPT-5 Prompts</h3>
-                            <ul class="text-[var(--text-secondary)] ml-4 list-disc">
-                                <li>Leverage native reasoning</li>
-                                <li>Streamlined structure</li>
-                                <li>YAML/JSON schemas</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
+                </div><!-- /sidebar-panel-generate -->
             </div>
 
             <!-- ============================================================= -->
@@ -177,7 +201,7 @@
             <!-- ============================================================= -->
             <div class="lg:col-span-3 space-y-6">
                 <!-- View Toggle + Model Selector -->
-                <div class="bg-white rounded-lg shadow-md p-4">
+                <div id="view-toggle-bar" class="bg-white rounded-lg shadow-md p-4">
                     <div class="flex items-center justify-between flex-wrap gap-2">
                         <div class="flex space-x-2">
                             <button id="view-single"  class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Single View</button>
@@ -199,7 +223,7 @@
                     <div class="flex items-center justify-between mb-4">
                         <h2 id="prompt-title" class="fluent-section-title text-[16px]">Select a prompt</h2>
                         <div class="flex items-center space-x-2">
-                            <span id="prompt-model" class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">GPT-4</span>
+                            <span id="prompt-model" class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">Model</span>
                             <button id="btn-toggle-edit" class="hidden px-3 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium hover:bg-yellow-200 transition">
                                 ✏️ Edit
                             </button>
@@ -228,25 +252,33 @@
 
                 <!-- ======= COMPARE VIEW ======= -->
                 <div id="compare-view" class="hidden">
-                    <div class="grid grid-cols-2 gap-6">
-                        <div class="fluent-card p-5">
-                            <div class="flex items-center justify-between mb-4">
-                                <h2 id="compare-gpt4-title" class="text-[16px] font-semibold text-[var(--text-primary)]">GPT-4</h2>
-                                <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">Current</span>
+                    <!-- Model A / B selector bar -->
+                    <div class="bg-white rounded-lg shadow-md p-4 mb-4">
+                        <div class="flex items-center justify-between flex-wrap gap-3">
+                            <div class="flex items-center space-x-4">
+                                <div class="flex items-center space-x-2">
+                                    <label class="text-sm font-medium text-blue-700">Model A:</label>
+                                    <select id="compare-model-a" class="px-3 py-1 border border-blue-300 rounded-lg text-sm bg-blue-50">
+                                        <!-- populated dynamically -->
+                                    </select>
+                                </div>
+                                <span class="text-gray-400 font-bold">vs</span>
+                                <div class="flex items-center space-x-2">
+                                    <label class="text-sm font-medium text-purple-700">Model B:</label>
+                                    <select id="compare-model-b" class="px-3 py-1 border border-purple-300 rounded-lg text-sm bg-purple-50">
+                                        <!-- populated dynamically -->
+                                    </select>
+                                </div>
                             </div>
-                            <div id="compare-gpt4" class="prose max-w-none text-sm overflow-auto max-h-[600px]">
-                                <p class="text-gray-500">Select a prompt type to compare</p>
-                            </div>
+                            <a id="btn-go-compare" href="/compare" target="_blank"
+                               class="inline-flex items-center px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition shadow-sm">
+                                📊 Run Comparison
+                            </a>
                         </div>
-                        <div class="fluent-card p-5">
-                            <div class="flex items-center justify-between mb-4">
-                                <h2 id="compare-gpt5-title" class="text-[16px] font-semibold text-[var(--text-primary)]">GPT-5</h2>
-                                <span class="px-3 py-1 bg-brand-100 text-brand-700 rounded-full text-sm">New</span>
-                            </div>
-                            <div id="compare-gpt5" class="prose max-w-none text-sm overflow-auto max-h-[600px]">
-                                <p class="text-gray-500">Select a prompt type to compare</p>
-                            </div>
-                        </div>
+                    </div>
+                    <!-- Two-column prompt comparison -->
+                    <div id="compare-grid" class="grid grid-cols-2 gap-6">
+                        <!-- Populated dynamically by loadComparePrompts -->
                     </div>
                 </div>
 
@@ -414,10 +446,10 @@
         }
 
         // ── Init ──────────────────────────────────────────────────────
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadModels();      // must resolve first so displayName() works
             loadTopics();
             loadPromptList();
-            loadModels();
             bindEvents();
             checkSyncStatus();
             loadActiveTopic();
@@ -483,6 +515,36 @@
 
         function $(id) { return document.getElementById(id); }
 
+        // ── Sidebar Tab Switching ─────────────────────────────────────
+        function switchSidebarTab(tab) {
+            const tabs = ['manage', 'generate'];
+            tabs.forEach(t => {
+                const btn = $(`sidebar-tab-${t}`);
+                const panel = $(`sidebar-panel-${t}`);
+                if (t === tab) {
+                    btn.classList.add('text-brand-600', 'border-brand-600');
+                    btn.classList.remove('text-gray-500', 'border-transparent');
+                    panel.classList.remove('hidden');
+                    panel.classList.add('space-y-6');
+                } else {
+                    btn.classList.remove('text-brand-600', 'border-brand-600');
+                    btn.classList.add('text-gray-500', 'border-transparent');
+                    panel.classList.add('hidden');
+                }
+            });
+            // Show view-toggle bar & content views only in Manage tab
+            const viewBar = $('view-toggle-bar');
+            const contentViews = ['single-view', 'compare-view', 'history-view', 'data-view'];
+            if (tab === 'manage') {
+                viewBar.classList.remove('hidden');
+                // Restore current view
+                contentViews.forEach(id => $(id).classList.toggle('hidden', id !== currentView + '-view'));
+            } else {
+                viewBar.classList.add('hidden');
+                contentViews.forEach(id => $(id).classList.add('hidden'));
+            }
+        }
+
         // ── View Switching ────────────────────────────────────────────
         function switchView(view) {
             currentView = view;
@@ -503,6 +565,9 @@
 
             $('model-selector').classList.toggle('hidden', view !== 'single');
 
+            // Force reload compare when switching to it so selectors refresh
+            if (view === 'compare') { viewLoaded.compare = false; }
+
             // Only reload content the first time a tab is visited (preserves results on revisit)
             if (view === 'history' && !viewLoaded.history) { loadHistory(); viewLoaded.history = true; }
             if (view === 'compare' && currentPromptType && !viewLoaded.compare) { loadComparePrompts(currentPromptType); viewLoaded.compare = true; }
@@ -520,9 +585,12 @@
 
                 for (const [model, prompts] of Object.entries(data)) {
                     if (['templates', 'history', 'topics'].includes(model)) continue;
+                    const mInfo = availableModels.find(m => m.name === model) || {};
+                    const mFamily = mInfo.model_family || 'gpt4';
+                    const headColor = mFamily === 'gpt5' ? 'text-purple-700' : 'text-blue-700';
                     const section = document.createElement('div');
                     section.innerHTML = `
-                        <h3 class="font-medium text-gray-700 mb-2">${model.toUpperCase()}</h3>
+                        <h3 class="font-medium ${headColor} mb-2">${displayName(model) || model.toUpperCase()}</h3>
                         <ul class="space-y-1">
                             ${prompts.map(p => `
                                 <li>
@@ -567,23 +635,79 @@
                 regenSel.innerHTML = availableModels.map(m =>
                     `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
-                // Also populate import model dropdown
-                const importSel = $('import-gen-model');
-                importSel.innerHTML = availableModels.map(m =>
+                // Populate import source-model dropdown
+                const importSrcSel = $('import-source-model');
+                importSrcSel.innerHTML = availableModels.map(m =>
+                    `<option value="${m.name}"${m.name === 'gpt4' ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
+                ).join('');
+                // Populate import generator-model dropdown
+                const importGenSel = $('import-gen-model');
+                importGenSel.innerHTML = availableModels.map(m =>
                     `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
+                // Populate import target-models checkboxes
+                const importTargets = $('import-target-models');
+                const srcVal = importSrcSel.value;
+                importTargets.innerHTML = availableModels.map(m => {
+                    const checked = m.name !== srcVal ? 'checked' : '';
+                    const familyLabel = (m.model_family || 'gpt4').toUpperCase();
+                    const familyBadge = m.model_family === 'gpt5'
+                        ? `<span class="ml-1 text-[9px] bg-purple-100 text-purple-700 px-1 rounded">${familyLabel}</span>`
+                        : `<span class="ml-1 text-[9px] bg-blue-100 text-blue-700 px-1 rounded">${familyLabel}</span>`;
+                    return `<label class="flex items-center text-xs cursor-pointer whitespace-nowrap">
+                        <input type="checkbox" class="import-target-cb h-3.5 w-3.5 text-indigo-600 rounded border-gray-300" value="${m.name}" ${checked}>
+                        <span class="ml-1">${m.display_name || m.deployment}</span>${familyBadge}
+                    </label>`;
+                }).join('');
+                // When source changes, uncheck it and check others by default
+                importSrcSel.addEventListener('change', () => {
+                    const sv = importSrcSel.value;
+                    importTargets.querySelectorAll('.import-target-cb').forEach(cb => {
+                        cb.checked = cb.value !== sv;
+                    });
+                });
                 // Update compare-view headings
-                const g4title = $('compare-gpt4-title');
-                const g5title = $('compare-gpt5-title');
-                if (g4title) g4title.textContent = displayName('gpt4');
-                if (g5title) g5title.textContent = displayName('gpt5');
-                // Update sidebar Key Differences headings
-                document.querySelectorAll('.key-diff-gpt4-name').forEach(el => el.textContent = displayName('gpt4') + ' Prompts');
-                document.querySelectorAll('.key-diff-gpt5-name').forEach(el => el.textContent = displayName('gpt5') + ' Prompts');
-                // Populate model selector dropdown
+                // (compare-view is now fully dynamic, no hardcoded titles)
+                // Populate compare model A / B dropdowns
+                const cmpA = $('compare-model-a');
+                const cmpB = $('compare-model-b');
+                cmpA.innerHTML = availableModels.map((m, i) =>
+                    `<option value="${m.name}"${i === 0 ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
+                ).join('');
+                cmpB.innerHTML = availableModels.map((m, i) =>
+                    `<option value="${m.name}"${i === 1 ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
+                ).join('');
+                // Reload compare when selection changes
+                cmpA.addEventListener('change', () => { viewLoaded.compare = false; if (currentView === 'compare' && currentPromptType) { loadComparePrompts(currentPromptType); viewLoaded.compare = true; } });
+                cmpB.addEventListener('change', () => { viewLoaded.compare = false; if (currentView === 'compare' && currentPromptType) { loadComparePrompts(currentPromptType); viewLoaded.compare = true; } });
+                // Update Go to Compare link
+                $('btn-go-compare').href = `/compare?model_a=${encodeURIComponent(cmpA.value)}&model_b=${encodeURIComponent(cmpB.value)}`;
+                // Update sidebar Key Differences — build dynamically by family
+                const keyDiffContainer = $('key-diff-container');
+                if (keyDiffContainer) {
+                    const families = {};
+                    availableModels.forEach(m => {
+                        const fam = m.model_family || 'gpt4';
+                        if (!families[fam]) families[fam] = [];
+                        families[fam].push(m.display_name || m.deployment);
+                    });
+                    const familyInfo = {
+                        gpt4: { color: 'blue-600', traits: ['Explicit CoT instructions', 'Detailed formatting rules', 'More verbose examples'] },
+                        gpt5: { color: 'purple-500', traits: ['Leverage native reasoning', 'Streamlined structure', 'YAML/JSON schemas'] },
+                    };
+                    keyDiffContainer.innerHTML = Object.entries(families).map(([fam, models]) => {
+                        const info = familyInfo[fam] || familyInfo.gpt4;
+                        return `<div>
+                            <h3 class="font-medium text-${info.color}">${fam.toUpperCase()} Family (${models.join(', ')})</h3>
+                            <ul class="text-[var(--text-secondary)] ml-4 list-disc">
+                                ${info.traits.map(t => `<li>${t}</li>`).join('')}
+                            </ul>
+                        </div>`;
+                    }).join('');
+                }
+                // Populate model selector dropdown — ALL models
                 const curSel = $('current-model');
                 curSel.innerHTML = availableModels
-                    .filter(m => m.name === 'gpt4' || m.name === 'gpt5')
                     .map(m => `<option value="${m.name}">${m.display_name || m.deployment}</option>`)
                     .join('');
                 // Populate history filter model dropdown
@@ -601,6 +725,28 @@
             currentPromptType = type;
             $('current-model').value = model;
             cancelEdit();
+
+            // In compare view: set the clicked model as A, keep the other as B
+            if (currentView === 'compare') {
+                const cmpA = $('compare-model-a');
+                const cmpB = $('compare-model-b');
+                const oldA = cmpA.value;
+                const oldB = cmpB.value;
+                if (model === oldB) {
+                    // Clicked model was B → swap: it becomes A, old A becomes B
+                    cmpA.value = model;
+                    cmpB.value = oldA;
+                } else {
+                    // Set clicked as A, keep B unless it's the same → pick the other
+                    cmpA.value = model;
+                    if (model === oldB || model === cmpB.value) {
+                        // Pick first model that isn't the clicked one
+                        const other = availableModels.find(m => m.name !== model);
+                        if (other) cmpB.value = other.name;
+                    }
+                }
+            }
+
             // Reset single/compare caches so new prompt loads
             viewLoaded.single = false;
             viewLoaded.compare = false;
@@ -616,7 +762,8 @@
                 $('prompt-title').textContent = type.replace(/_/g, ' ');
                 const badge = $('prompt-model');
                 badge.textContent = displayName(model);
-                badge.className = `px-3 py-1 rounded-full text-sm font-medium ${model === 'gpt4' ? 'bg-blue-100 text-blue-800' : 'bg-brand-100 text-brand-700'}`;
+                const mFamily = (availableModels.find(m => m.name === model) || {}).model_family;
+                badge.className = `px-3 py-1 rounded-full text-sm font-medium ${mFamily === 'gpt5' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`;
                 $('prompt-readonly').innerHTML = `<pre class="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-lg overflow-auto max-h-[700px]">${esc(data.content)}</pre>`;
                 $('btn-toggle-edit').classList.remove('hidden');
                 // Pre-fill editor
@@ -627,13 +774,44 @@
         }
 
         async function loadComparePrompts(type) {
-            for (const model of ['gpt4', 'gpt5']) {
+            const grid = $('compare-grid');
+            if (!grid) return;
+            const modelA = $('compare-model-a').value;
+            const modelB = $('compare-model-b').value;
+            if (!modelA || !modelB) return;
+            // Update the Go to Compare link & persist selection for cross-page nav
+            $('btn-go-compare').href = `/compare?model_a=${encodeURIComponent(modelA)}&model_b=${encodeURIComponent(modelB)}`;
+            try { localStorage.setItem('compare_model_a', modelA); localStorage.setItem('compare_model_b', modelB); } catch(e) {}
+            // Build side-by-side cards for model A and B
+            grid.innerHTML = '';
+            for (const [idx, mKey] of [modelA, modelB].entries()) {
+                const side = idx === 0 ? 'a' : 'b';
+                const mInfo = availableModels.find(m => m.name === mKey) || {};
+                const mFamily = mInfo.model_family || 'gpt4';
+                const isA = idx === 0;
+                const badgeCls = isA ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700';
+                const borderCls = isA ? 'border-blue-200' : 'border-purple-200';
+                const card = document.createElement('div');
+                card.className = `fluent-card p-5 border-2 ${borderCls}`;
+                const targetId = `compare-${side}-${mKey}`;
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-[16px] font-semibold text-[var(--text-primary)]">${displayName(mKey)}</h2>
+                        <span class="px-3 py-1 ${badgeCls} rounded-full text-sm">${isA ? 'Model A' : 'Model B'}</span>
+                    </div>
+                    <div id="${targetId}" class="prose max-w-none text-sm overflow-auto max-h-[600px]">
+                        <p class="text-gray-400 text-xs">Loading…</p>
+                    </div>`;
+                grid.appendChild(card);
+                // Fetch prompt content
                 try {
-                    const resp = await fetch(`/api/prompts/${model}/${type}`);
+                    const resp = await fetch(`/api/prompts/${mKey}/${type}`);
                     const data = await resp.json();
-                    $(`compare-${model}`).innerHTML = `<pre class="whitespace-pre-wrap text-xs bg-gray-50 p-3 rounded-lg">${esc(data.content)}</pre>`;
+                    document.getElementById(targetId).innerHTML =
+                        `<pre class="whitespace-pre-wrap text-xs bg-gray-50 p-3 rounded-lg">${esc(data.content)}</pre>`;
                 } catch (err) {
-                    $(`compare-${model}`).innerHTML = '<p class="text-red-500 text-sm">Not available</p>';
+                    document.getElementById(targetId).innerHTML =
+                        '<p class="text-red-500 text-sm">Not available</p>';
                 }
             }
         }
@@ -797,16 +975,27 @@
                 return;
             }
 
-            // Collect files
+            // Source & target models
+            const sourceModel = $('import-source-model').value;
+            const targetModels = Array.from(
+                document.querySelectorAll('.import-target-cb:checked')
+            ).map(cb => cb.value);
+            if (!targetModels.length) {
+                $('import-status').innerHTML = '<span class="text-red-500">Select at least one target model.</span>';
+                return;
+            }
+
+            // Collect prompt files
             const classPrompt  = $('import-class-prompt').files[0];
             const dialogPrompt = $('import-dialog-prompt').files[0];
             const ragPrompt    = $('import-rag-prompt').files[0];
             const toolPrompt   = $('import-tool-prompt').files[0];
             if (!classPrompt && !dialogPrompt && !ragPrompt && !toolPrompt) {
-                $('import-status').innerHTML = '<span class="text-red-500">Select at least one GPT-4 prompt file.</span>';
+                $('import-status').innerHTML = '<span class="text-red-500">Select at least one source prompt file.</span>';
                 return;
             }
 
+            // Collect data files
             const classData   = $('import-class-data').files[0];
             const dialogData  = $('import-dialog-data').files[0];
             const generalData = $('import-general-data').files[0];
@@ -823,12 +1012,14 @@
             // Build multipart form
             const form = new FormData();
             form.append('topic', topicName);
+            form.append('source_model', sourceModel);
+            form.append('target_models', targetModels.join(','));
             form.append('generator_model', generatorModel);
             form.append('force', force ? 'true' : 'false');
-            if (classPrompt)  form.append('gpt4_class_prompt', classPrompt);
-            if (dialogPrompt) form.append('gpt4_dialog_prompt', dialogPrompt);
-            if (ragPrompt)    form.append('gpt4_rag_prompt', ragPrompt);
-            if (toolPrompt)   form.append('gpt4_tool_prompt', toolPrompt);
+            if (classPrompt)  form.append('source_class_prompt', classPrompt);
+            if (dialogPrompt) form.append('source_dialog_prompt', dialogPrompt);
+            if (ragPrompt)    form.append('source_rag_prompt', ragPrompt);
+            if (toolPrompt)   form.append('source_tool_prompt', toolPrompt);
             if (classData)    form.append('class_test_data', classData);
             if (dialogData)   form.append('dialog_test_data', dialogData);
             if (generalData)  form.append('general_test_data', generalData);
@@ -839,7 +1030,8 @@
             const spinner = $('import-spinner');
             btn.disabled = true;
             spinner.classList.remove('hidden');
-            $('import-status').innerHTML = '<span class="text-blue-600">⏳ Importing topic… GPT-5 prompt generation may take 1-2 minutes.</span>';
+            const targetNames = targetModels.map(m => displayName(m) || m).join(', ');
+            $('import-status').innerHTML = `<span class="text-blue-600">⏳ Importing topic… generating prompts for ${esc(targetNames)}. This may take 1-2 minutes.</span>`;
             const t0 = performance.now();
 
             try {
@@ -851,16 +1043,25 @@
                 const data = await resp.json();
 
                 if (resp.ok) {
-                    // Build success message
-                    const promptParts = Object.entries(data.prompts || {}).map(
-                        ([task, info]) => `${task} (${info.generation_time}s)`
-                    );
+                    // Build success message with per-model details
+                    let html = `<span class="text-green-600">✅ Imported "${esc(data.topic)}" in ${elapsed}s</span>`;
+                    html += `<br><span class="text-[var(--text-secondary)]">Source: ${esc(displayName(data.source_model || sourceModel))}`;
+                    html += ` → Targets: ${(data.target_models || targetModels).map(m => esc(displayName(m))).join(', ')}</span>`;
+
+                    // Per-task prompt details with model info
+                    const promptParts = Object.entries(data.prompts || {}).map(([task, info]) => {
+                        const models = info.models ? Object.keys(info.models) : [];
+                        const times = info.generation_times || {};
+                        const timeStr = Object.entries(times).map(([m, t]) => `${displayName(m)}: ${t}s`).join(', ');
+                        return `${task} (${models.length} models${timeStr ? ' — ' + timeStr : ''})`;
+                    });
+                    if (promptParts.length) html += `<br><span class="text-[var(--text-secondary)]">Prompts: ${promptParts.join('; ')}</span>`;
+
+                    // Data summary
                     const dataParts = Object.entries(data.data || {}).map(
                         ([task, info]) => `${info.count} ${task}`
                     );
-                    let html = `<span class="text-green-600">✅ Imported "${esc(data.topic)}" in ${elapsed}s</span>`;
-                    if (promptParts.length) html += `<br><span class="text-[var(--text-secondary)]">Prompts: ${promptParts.join(', ')}</span>`;
-                    if (dataParts.length)   html += `<br><span class="text-[var(--text-secondary)]">Data: ${dataParts.join(', ')}</span>`;
+                    if (dataParts.length) html += `<br><span class="text-[var(--text-secondary)]">Data: ${dataParts.join(', ')}</span>`;
 
                     // Show data warnings if any
                     for (const [task, info] of Object.entries(data.data || {})) {
@@ -875,15 +1076,9 @@
                     await Promise.all([loadTopics(), loadPromptList(), checkSyncStatus(), loadActiveTopic()]);
 
                     // Clear file inputs for next import
-                    $('import-class-prompt').value  = '';
-                    $('import-dialog-prompt').value  = '';
-                    $('import-rag-prompt').value     = '';
-                    $('import-tool-prompt').value    = '';
-                    $('import-class-data').value    = '';
-                    $('import-dialog-data').value   = '';
-                    $('import-general-data').value  = '';
-                    $('import-rag-data').value      = '';
-                    $('import-tool-data').value     = '';
+                    ['import-class-prompt','import-dialog-prompt','import-rag-prompt','import-tool-prompt',
+                     'import-class-data','import-dialog-data','import-general-data','import-rag-data','import-tool-data'
+                    ].forEach(id => { $(id).value = ''; });
                 } else {
                     $('import-status').innerHTML = `<span class="text-red-600">❌ ${esc(data.error || 'Unknown error')}</span>`;
                 }
@@ -986,20 +1181,50 @@
             const btn = $('btn-regen-topic');
             const spinner = $('regen-topic-spinner');
             const statusEl = $('regen-topic-status');
-            const generatorModel = $('gen-model').value;
+            const generatorModel = $('regen-model').value || $('gen-model').value;
 
             btn.disabled = true;
             if (spinner) spinner.classList.remove('hidden');
-            statusEl.innerHTML = '<span class="text-blue-600">⏳ Regenerando prompts + datos… puede tardar 1-2 minutos.</span>';
+            statusEl.innerHTML = '<span class="text-blue-600">⏳ Regenerando prompts + datos… puede tardar 2-4 minutos.</span>';
+            const t0 = performance.now();
 
             try {
+                // 1. POST to kick off async generation — returns 202
                 const resp = await fetch('/api/prompts/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ topic: topicName, generator_model: generatorModel }),
                 });
-                const data = await resp.json();
-                if (!resp.ok) throw new Error(data.error || 'Unknown error');
+                const kickoff = await resp.json();
+                if (!resp.ok) throw new Error(kickoff.error || 'Unknown error');
+
+                const runId = kickoff.run_id;
+
+                // 2. Poll status endpoint every 2.5 s until complete
+                const POLL_MS = 2500;
+                let dotCount = 0;
+                const data = await new Promise((resolve, reject) => {
+                    const timer = setInterval(async () => {
+                        try {
+                            dotCount++;
+                            const elapsed = ((performance.now() - t0) / 1000).toFixed(0);
+                            statusEl.innerHTML = `<span class="text-blue-600">⏳ Regenerando prompts + datos… ${elapsed}s${'.'.repeat((dotCount % 3) + 1)}</span>`;
+                            const sr = await fetch(`/api/prompts/generate/${runId}/status`);
+                            const sj = await sr.json();
+                            if (sj.status === 'completed') {
+                                clearInterval(timer);
+                                resolve(sj.result);
+                            } else if (sj.status === 'failed') {
+                                clearInterval(timer);
+                                reject(new Error(sj.error || 'Generation failed'));
+                            }
+                            // else 'running' — keep polling
+                        } catch (e) {
+                            clearInterval(timer);
+                            reject(e);
+                        }
+                    }, POLL_MS);
+                });
 
                 const promptCount = Object.values(data.prompts || {}).reduce((n, obj) => n + Object.keys(obj).length, 0);
                 const dataInfo = data.data || {};
@@ -1007,8 +1232,11 @@
                 if (dataInfo.classification) dataParts.push(`${dataInfo.classification.count || 0} classification`);
                 if (dataInfo.dialog) dataParts.push(`${dataInfo.dialog.count || 0} dialog`);
                 if (dataInfo.general) dataParts.push(`${dataInfo.general.count || 0} general`);
+                if (dataInfo.rag) dataParts.push(`${dataInfo.rag.count || 0} rag`);
+                if (dataInfo.tool_calling) dataParts.push(`${dataInfo.tool_calling.count || 0} tool_calling`);
 
-                statusEl.innerHTML = `<span class="text-green-600">✅ ${promptCount} prompts + ${dataParts.join(', ')} datos regenerados</span>`;
+                const elapsed = ((performance.now() - t0) / 1000).toFixed(0);
+                statusEl.innerHTML = `<span class="text-green-600">✅ ${promptCount} prompts + ${dataParts.join(', ')} datos regenerados (${elapsed}s)</span>`;
 
                 // Reload everything
                 viewLoaded = { single: false, compare: false, history: false, data: false };

@@ -1,6 +1,6 @@
 """
 Azure OpenAI Client Wrapper for Model Migration Evaluation
-Provides unified interface for GPT-4 and GPT-5 model interactions
+Provides unified interface for Azure OpenAI model interactions across generations
 """
 
 import os
@@ -50,8 +50,9 @@ class ModelConfig:
     frequency_penalty: float = 0.0
     presence_penalty: float = 0.0
     seed: Optional[int] = None
-    reasoning_effort: Optional[str] = None  # GPT-5/o-series only
+    reasoning_effort: Optional[str] = None  # o-series / reasoning models only
     use_max_completion_tokens: Optional[bool] = None  # Auto-detected if None
+    model_family: Optional[str] = None  # "gpt4" or "gpt5" — determines prompt style guidelines
     
 
 @dataclass
@@ -120,7 +121,7 @@ class CompletionResult:
 class AzureOpenAIClient:
     """
     Unified client for Azure OpenAI model interactions.
-    Supports both GPT-4 and GPT-5 series models with metrics collection.
+    Supports multiple model generations with metrics collection.
     """
     
     def __init__(
@@ -386,7 +387,7 @@ class AzureOpenAIClient:
         return hashlib.sha256(cache_str.encode()).hexdigest()
     
     def _is_new_generation_model(self, config: ModelConfig) -> bool:
-        """Check if this is a GPT-5.x, o-series, or model-router deployment.
+        """Check if this is a newer-generation model (GPT-5.x, o-series, or model-router).
         
         These models use:
         - max_completion_tokens instead of max_tokens
@@ -404,16 +405,16 @@ class AzureOpenAIClient:
     def _needs_max_completion_tokens(self, config: ModelConfig) -> bool:
         """Determine if the model requires max_completion_tokens instead of max_tokens.
         
-        GPT-5.x, o-series, and reasoning models use max_completion_tokens.
+        Newer-generation and o-series models use max_completion_tokens.
         """
         return self._is_new_generation_model(config)
 
     @staticmethod
     def _apply_developer_role(messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
-        """Replace 'system' role with 'developer' for GPT-5/o-series models.
+        """Replace 'system' role with 'developer' for newer-generation models.
         
-        Per Azure OpenAI migration best practices, GPT-5 and o-series models
-        use the 'developer' role instead of 'system'. This method performs
+        Per Azure OpenAI migration best practices, newer-generation and o-series
+        models use the 'developer' role instead of 'system'. This method performs
         the auto-replacement transparently.
         """
         return [
@@ -431,7 +432,7 @@ class AzureOpenAIClient:
         **kwargs
     ) -> Dict[str, Any]:
         """Build request parameters dict, handling model-specific differences."""
-        # Auto-replace 'system' → 'developer' for GPT-5/o-series models
+        # Auto-replace 'system' → 'developer' for newer-generation models
         if self._is_new_generation_model(config):
             messages = self._apply_developer_role(messages)
 
@@ -440,7 +441,7 @@ class AzureOpenAIClient:
             'messages': messages,
         }
         
-        # Use max_completion_tokens for GPT-5/o-series, max_tokens for GPT-4
+        # Use max_completion_tokens for newer models, max_tokens for older ones
         token_limit = kwargs.get('max_tokens', config.max_tokens)
         if self._needs_max_completion_tokens(config):
             request_params['max_completion_tokens'] = token_limit
@@ -471,7 +472,7 @@ class AzureOpenAIClient:
         if stream:
             request_params['stream'] = True
             
-        # GPT-5/o-series specific: reasoning_effort
+        # Reasoning-model specific: reasoning_effort
         if reasoning_effort:
             request_params['reasoning_effort'] = reasoning_effort
         

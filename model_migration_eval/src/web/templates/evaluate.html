@@ -113,7 +113,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
                 </svg>
                 Foundry LLM-as-Judge Scores
-                <span class="info-tooltip ml-2 align-middle"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-100 hover:bg-brand-200 text-brand-600 text-[11px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Semantic quality scores from Microsoft Foundry Control Plane. A GPT-4.1 grader model rates each response on a 1–5 scale across multiple dimensions (coherence, fluency, relevance, etc.).</span></span>
+                <span class="info-tooltip ml-2 align-middle"><button class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-100 hover:bg-brand-200 text-brand-600 text-[11px] font-bold leading-none focus:outline-none" aria-label="Info">i</button><span class="tooltip-text">Semantic quality scores from Microsoft Foundry Control Plane. A configurable LLM grader model rates each response on a 1–5 scale across multiple dimensions (coherence, fluency, relevance, etc.).</span></span>
             </h2>
             <!-- Foundry metric cards -->
             <div id="foundry-metric-cards" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"></div>
@@ -131,7 +131,7 @@
                             <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500"></span><strong>3</strong> Acceptable</span>
                             <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500"></span><strong>1–2</strong> Poor</span>
                         </div>
-                        <p class="mt-2 leading-relaxed">Scores by GPT-4.1 grader via Foundry <code>score_model</code> (1–5). Click a row to expand reasoning.</p>
+                        <p class="mt-2 leading-relaxed">Scores by LLM grader via Foundry <code>score_model</code> (1–5). Click a row to expand reasoning.</p>
                     </div>
                 </div>
                 <!-- Right column: Evaluator Insights Table -->
