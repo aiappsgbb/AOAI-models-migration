@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // openai-access.bicep — Grants a managed identity the
-// "Cognitive Services OpenAI User" role on an existing Azure OpenAI account.
-// Deployed to the resource group where the account lives.
+// "Cognitive Services OpenAI User" role on a Cognitive Services account.
+// Works with both kind: OpenAI and kind: AIServices accounts.
 // ---------------------------------------------------------------------------
 
 @description('Name of the existing Cognitive Services account.')
@@ -13,7 +13,7 @@ param principalId string
 // Cognitive Services OpenAI User
 var roleDefinitionId = '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
 
-resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = {
+resource openAiAccount 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = {
   name: accountName
 }
 

@@ -127,7 +127,7 @@ class AzureOpenAIClient:
         self,
         endpoint: str = None,
         api_key: str = None,
-        api_version: str = "2024-12-01-preview",
+        api_version: str = None,
         config_path: str = None
     ):
         """
@@ -143,6 +143,8 @@ class AzureOpenAIClient:
             api_version: API version string
             config_path: Path to settings.yaml config file
         """
+        _default_api_version = "2025-04-01-preview"
+
         # Load config if provided
         if config_path and Path(config_path).exists():
             with open(config_path, 'r') as f:
@@ -150,12 +152,12 @@ class AzureOpenAIClient:
                 azure_config = config.get('azure', {})
                 endpoint = endpoint or azure_config.get('endpoint')
                 api_key = api_key or azure_config.get('api_key')
-                api_version = api_version or azure_config.get('api_version', api_version)
+                api_version = api_version or azure_config.get('api_version')
         
         # Resolve environment variable references (${VAR_NAME} syntax)
         self.endpoint = self._resolve_env_var(endpoint) or os.getenv('AZURE_OPENAI_ENDPOINT')
         self.api_key = self._resolve_env_var(api_key) or os.getenv('AZURE_OPENAI_API_KEY')
-        self.api_version = self._resolve_env_var(api_version) or api_version
+        self.api_version = self._resolve_env_var(api_version) or _default_api_version
         
         if not self.endpoint:
             raise ValueError(

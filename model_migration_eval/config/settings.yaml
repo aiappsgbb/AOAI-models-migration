@@ -29,7 +29,7 @@ azure:
       temperature: 0.1
       
     gpt5_reasoning:
-      deployment_name: "gpt-5" #.1-reasoning"  # o3/o4 series
+      deployment_name: "gpt-5.1" # 5.1-reasoning"  # o3/o4 series
       model_version: "2025-01-01"
       max_tokens: 16384
       reasoning_effort: "medium"  # low, medium, high

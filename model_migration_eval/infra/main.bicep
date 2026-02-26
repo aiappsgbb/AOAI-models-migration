@@ -1,11 +1,19 @@
 // ---------------------------------------------------------------------------
-// main.bicep — Azure Developer CLI entry point (AVM pattern modules)
-// Deploys: Resource Group → Monitoring → ACR + CAE (Stack) → Identity → App
+// main.bicep — Azure Developer CLI entry point
+// Deploys: RG → Monitoring → ACR + CAE → Identity → AI Services hub → App
+//
+// Always creates all resources from scratch using a SINGLE AI Services
+// account (kind: AIServices) which:
+//   • Hosts all model deployments (gpt-4.1, gpt-5.2, gpt-5.1)
+//   • Acts as AI Foundry hub with a project for evaluations
+//   • Provides the OpenAI-compatible endpoint for the app
+//
+// This avoids the 'kind: OpenAI' SKU which requires a separate quota.
 // ---------------------------------------------------------------------------
 
 targetScope = 'subscription'
 
-// ── Parameters (populated by azd) ──────────────────────────────────────────
+// ── Parameters ─────────────────────────────────────────────────────────────
 @minLength(1)
 @maxLength(64)
 @description('Name of the azd environment — used to derive all resource names')
@@ -15,34 +23,24 @@ param environmentName string
 @description('Primary Azure region for all resources')
 param location string
 
-@description('ID of the principal running the deployment (used for RBAC)')
-param principalId string = ''
-
-// ── Azure OpenAI / AI Foundry settings ─────────────────────────────────────
-// Authentication uses the User-Assigned Managed Identity (Entra ID / keyless).
-// No API keys or Service Principal credentials needed.
-@description('Azure OpenAI endpoint URL (e.g. https://<name>.openai.azure.com)')
-param azureOpenAiEndpoint string = ''
-
-@description('AI Foundry project endpoint (optional)')
-param foundryProjectEndpoint string = ''
-
-// ── RBAC: resource IDs for role assignments (optional) ─────────────────────
-// Provide these so Bicep assigns Cognitive Services OpenAI User and
-// Azure AI Developer roles to the managed identity automatically.
-@description('Resource ID of the Azure OpenAI (Cognitive Services) account for RBAC. Leave empty to assign roles manually.')
-param azureOpenAiAccountResourceId string = ''
-
-@description('Full resource ID of the AI Foundry project (Microsoft.CognitiveServices/accounts/{account}/projects/{project}) for RBAC. Leave empty to assign roles manually.')
-param aiFoundryProjectResourceId string = ''
-
-@description('Container image name for the web service. Set automatically by azd after deploy to prevent image reset on re-provision.')
+@description('Container image name for the web service. Set automatically by azd.')
 param webImageName string = ''
 
 // ── Derived names ──────────────────────────────────────────────────────────
 var resourceSuffix = take(uniqueString(subscription().id, environmentName, location), 6)
-var envNameLower = toLower(environmentName)
+var envNameLower = replace(toLower(environmentName), '_', '-')
 var resourceGroupName = 'rg-${environmentName}'
+
+// Single AI Services account — hosts ALL models + Foundry project
+var aiServicesName = 'ais-${envNameLower}-${resourceSuffix}'
+var foundryProjectName = '${envNameLower}-project'
+
+// All model deployments live in the AI Services account
+var modelDeployments = [
+  { name: 'gpt-4.1', model: 'gpt-4.1', version: '2025-04-14', skuName: 'GlobalStandard', capacity: 10 }
+  { name: 'gpt-5.2', model: 'gpt-5.2', version: '2025-12-11', skuName: 'GlobalStandard', capacity: 10 }
+  { name: 'gpt-5.1', model: 'gpt-5.1', version: '2025-11-13', skuName: 'GlobalStandard', capacity: 10 }
+]
 
 var tags = {
   'azd-env-name': environmentName
@@ -68,7 +66,7 @@ module monitoring 'br/public:avm/ptn/azd/monitoring:0.1.0' = {
   }
 }
 
-// ── Container Apps Stack — ACR + Container Apps Environment (AVM) ──────────
+// ── Container Apps Stack — ACR + CAE (AVM) ─────────────────────────────────
 module containerApps 'br/public:avm/ptn/azd/container-apps-stack:0.1.0' = {
   name: 'container-apps-stack'
   scope: rg
@@ -84,7 +82,7 @@ module containerApps 'br/public:avm/ptn/azd/container-apps-stack:0.1.0' = {
   }
 }
 
-// ── User-Assigned Managed Identity for web (ACR pull + Entra ID auth) ──────
+// ── User-Assigned Managed Identity ─────────────────────────────────────────
 module webIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.4.0' = {
   name: 'web-identity'
   scope: rg
@@ -95,7 +93,7 @@ module webIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.
   }
 }
 
-// ── ACR Pull Role Assignment ───────────────────────────────────────────────
+// ── ACR Pull ───────────────────────────────────────────────────────────────
 module acrAccess './modules/acr-access.bicep' = {
   name: 'acr-access'
   scope: rg
@@ -105,45 +103,34 @@ module acrAccess './modules/acr-access.bicep' = {
   }
 }
 
-// ── RBAC: Azure OpenAI + AI Foundry role assignments ───────────────────────
-// Grants the managed identity access to call models and run evaluations,
-// replacing the need for API keys or Service Principal credentials.
-// Each module is deployed to the resource group where the target resource
-// lives (which may differ from the deployment RG).
-
-// Safe placeholders so split() always has enough segments when ID is empty
-var _openAiId = !empty(azureOpenAiAccountResourceId)
-  ? azureOpenAiAccountResourceId
-  : '/subscriptions/x/resourceGroups/x/providers/x/x/x'
-// Foundry project IDs have the form:
-// /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.CognitiveServices/accounts/{account}/projects/{project}
-var _foundryId = !empty(aiFoundryProjectResourceId)
-  ? aiFoundryProjectResourceId
-  : '/subscriptions/x/resourceGroups/x/providers/Microsoft.CognitiveServices/accounts/x/projects/x'
-
-module openAiAccess './modules/openai-access.bicep' = if (!empty(azureOpenAiAccountResourceId)) {
-  name: 'openai-access'
-  scope: resourceGroup(split(_openAiId, '/')[4])
+// ── AI Services hub + model deployments + Foundry project ──────────────────
+// Single account (kind: AIServices) replaces both the OpenAI account and
+// the Foundry hub. All models are deployed here and the same endpoint is
+// used for both app inference and Foundry evaluations.
+module aiServices './modules/foundry-resource.bicep' = {
+  name: 'ai-services'
+  scope: rg
   params: {
-    accountName: last(split(_openAiId, '/'))
-    principalId: webIdentity.outputs.principalId
+    name: aiServicesName
+    projectName: foundryProjectName
+    location: location
+    tags: tags
+    deployments: modelDeployments
   }
 }
 
-module foundryAccess './modules/foundry-access.bicep' = if (!empty(aiFoundryProjectResourceId)) {
+// ── RBAC: All roles (OpenAI + Foundry + Storage) ───────────────────────────
+module foundryAccess './modules/foundry-access.bicep' = {
   name: 'foundry-access'
-  scope: resourceGroup(split(_foundryId, '/')[4])
+  scope: rg
   params: {
-    accountName: split(_foundryId, '/')[8]   // CognitiveServices account name
-    projectName: last(split(_foundryId, '/')) // project name
+    accountName: aiServices.outputs.accountName
+    projectName: aiServices.outputs.projectName
     principalId: webIdentity.outputs.principalId
   }
 }
 
-// ── Container App — the web service (AVM resource module) ──────────────────
-// Uses avm/res/app/container-app directly for full control over probes,
-// scale rules, ingress security, and scale-to-zero — features that the
-// azd pattern modules (container-app-upsert / acr-container-app) don't expose.
+// ── Container App ──────────────────────────────────────────────────────────
 var containerAppName = take('ca-${envNameLower}-${resourceSuffix}', 32)
 var containerImage = !empty(webImageName)
   ? webImageName
@@ -168,14 +155,12 @@ module web 'br/public:avm/res/app/container-app:0.10.0' = {
       }
     ]
 
-    // ── Ingress ────────────────────────────────────────────────────────────
     ingressExternal: true
     ingressTargetPort: 5000
     ingressTransport: 'auto'
-    ingressAllowInsecure: false          // redirect HTTP → HTTPS
+    ingressAllowInsecure: false
 
-    // ── Scale (matches deploy.ps1) ─────────────────────────────────────────
-    scaleMinReplicas: 0                  // scale-to-zero for cost savings
+    scaleMinReplicas: 0
     scaleMaxReplicas: 3
     scaleRules: [
       {
@@ -188,18 +173,16 @@ module web 'br/public:avm/res/app/container-app:0.10.0' = {
       }
     ]
 
-    // ── Container definition (with probes from deploy.ps1) ─────────────────
-    // No secrets needed — authentication uses the User-Assigned Managed Identity.
-    // DefaultAzureCredential picks up the identity via AZURE_CLIENT_ID.
     containers: [
       {
         image: containerImage
         name: 'main'
         env: [
           { name: 'PYTHONUNBUFFERED', value: '1' }
-          { name: 'AZURE_OPENAI_ENDPOINT', value: azureOpenAiEndpoint }
-          { name: 'FOUNDRY_PROJECT_ENDPOINT', value: foundryProjectEndpoint }
+          { name: 'AZURE_OPENAI_ENDPOINT', value: aiServices.outputs.endpoint }
+          { name: 'FOUNDRY_PROJECT_ENDPOINT', value: aiServices.outputs.projectEndpoint }
           { name: 'AZURE_CLIENT_ID', value: webIdentity.outputs.clientId }
+          { name: 'AZURE_TENANT_ID', value: tenant().tenantId }
           { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: monitoring.outputs.applicationInsightsConnectionString }
         ]
         resources: {
@@ -209,19 +192,13 @@ module web 'br/public:avm/res/app/container-app:0.10.0' = {
         probes: [
           {
             type: 'Liveness'
-            httpGet: {
-              path: '/api/health'
-              port: 5000
-            }
+            httpGet: { path: '/api/health', port: 5000 }
             initialDelaySeconds: 10
             periodSeconds: 30
           }
           {
             type: 'Readiness'
-            httpGet: {
-              path: '/api/health'
-              port: 5000
-            }
+            httpGet: { path: '/api/health', port: 5000 }
             initialDelaySeconds: 5
             periodSeconds: 10
           }
@@ -239,3 +216,5 @@ output AZURE_RESOURCE_GROUP string = rg.name
 output SERVICE_WEB_ENDPOINT_URL string = 'https://${web.outputs.fqdn}'
 output SERVICE_WEB_IMAGE_NAME string = containerImage
 output SERVICE_WEB_NAME string = web.outputs.name
+output AZURE_OPENAI_ENDPOINT string = aiServices.outputs.endpoint
+output FOUNDRY_PROJECT_ENDPOINT string = aiServices.outputs.projectEndpoint

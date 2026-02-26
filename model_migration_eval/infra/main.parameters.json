@@ -8,21 +8,6 @@
     "location": {
       "value": "${AZURE_LOCATION}"
     },
-    "principalId": {
-      "value": "${AZURE_PRINCIPAL_ID}"
-    },
-    "azureOpenAiEndpoint": {
-      "value": "${AZURE_OPENAI_ENDPOINT}"
-    },
-    "foundryProjectEndpoint": {
-      "value": "${FOUNDRY_PROJECT_ENDPOINT}"
-    },
-    "azureOpenAiAccountResourceId": {
-      "value": "${AZURE_OPENAI_ACCOUNT_RESOURCE_ID}"
-    },
-    "aiFoundryProjectResourceId": {
-      "value": "${AI_FOUNDRY_PROJECT_RESOURCE_ID}"
-    },
     "webImageName": {
       "value": "${SERVICE_WEB_IMAGE_NAME}"
     }

@@ -44,3 +44,4 @@ OLD/
 *.pptx
 prompts/history/*.md
 *.ps1
+*.bat
