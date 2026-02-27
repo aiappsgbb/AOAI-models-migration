@@ -1,5 +1,1125 @@
 [
   {
+    "id": "20260227_122128_957770",
+    "model": "gpt5_reasoning",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.960630",
+    "filename": "gpt5_reasoning__tool_calling_agent_system__20260227_122128_957770_new.md"
+  },
+  {
+    "id": "20260227_122128_882572",
+    "model": "gpt5_reasoning",
+    "prompt_type": "rag_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.886170",
+    "filename": "gpt5_reasoning__rag_agent_system__20260227_122128_882572_new.md"
+  },
+  {
+    "id": "20260227_122128_787730",
+    "model": "gpt5_reasoning",
+    "prompt_type": "dialog_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.791302",
+    "filename": "gpt5_reasoning__dialog_agent_system__20260227_122128_787730_new.md"
+  },
+  {
+    "id": "20260227_122128_709405",
+    "model": "gpt5_reasoning",
+    "prompt_type": "classification_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.714285",
+    "filename": "gpt5_reasoning__classification_agent_system__20260227_122128_709405_new.md"
+  },
+  {
+    "id": "20260227_122128_615564",
+    "model": "gpt5",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.619468",
+    "filename": "gpt5__tool_calling_agent_system__20260227_122128_615564_new.md"
+  },
+  {
+    "id": "20260227_122128_601903",
+    "model": "gpt5",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.611816",
+    "filename": "gpt5__tool_calling_agent_system__20260227_122128_601903.md"
+  },
+  {
+    "id": "20260227_122128_509560",
+    "model": "gpt5",
+    "prompt_type": "rag_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.512052",
+    "filename": "gpt5__rag_agent_system__20260227_122128_509560_new.md"
+  },
+  {
+    "id": "20260227_122128_496189",
+    "model": "gpt5",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.507105",
+    "filename": "gpt5__rag_agent_system__20260227_122128_496189.md"
+  },
+  {
+    "id": "20260227_122128_422386",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.426330",
+    "filename": "gpt5__dialog_agent_system__20260227_122128_422386_new.md"
+  },
+  {
+    "id": "20260227_122128_409408",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.419074",
+    "filename": "gpt5__dialog_agent_system__20260227_122128_409408.md"
+  },
+  {
+    "id": "20260227_122128_342832",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.346393",
+    "filename": "gpt5__classification_agent_system__20260227_122128_342832_new.md"
+  },
+  {
+    "id": "20260227_122128_326223",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.339045",
+    "filename": "gpt5__classification_agent_system__20260227_122128_326223.md"
+  },
+  {
+    "id": "20260227_122128_242750",
+    "model": "gpt4o",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.247192",
+    "filename": "gpt4o__tool_calling_agent_system__20260227_122128_242750_new.md"
+  },
+  {
+    "id": "20260227_122128_230341",
+    "model": "gpt4o",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.239631",
+    "filename": "gpt4o__tool_calling_agent_system__20260227_122128_230341.md"
+  },
+  {
+    "id": "20260227_122128_156836",
+    "model": "gpt4o",
+    "prompt_type": "rag_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.160318",
+    "filename": "gpt4o__rag_agent_system__20260227_122128_156836_new.md"
+  },
+  {
+    "id": "20260227_122128_144961",
+    "model": "gpt4o",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.154464",
+    "filename": "gpt4o__rag_agent_system__20260227_122128_144961.md"
+  },
+  {
+    "id": "20260227_122128_058788",
+    "model": "gpt4o",
+    "prompt_type": "dialog_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.063822",
+    "filename": "gpt4o__dialog_agent_system__20260227_122128_058788_new.md"
+  },
+  {
+    "id": "20260227_122128_043007",
+    "model": "gpt4o",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:28.054742",
+    "filename": "gpt4o__dialog_agent_system__20260227_122128_043007.md"
+  },
+  {
+    "id": "20260227_122127_966081",
+    "model": "gpt4o",
+    "prompt_type": "classification_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.970166",
+    "filename": "gpt4o__classification_agent_system__20260227_122127_966081_new.md"
+  },
+  {
+    "id": "20260227_122127_956403",
+    "model": "gpt4o",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.963940",
+    "filename": "gpt4o__classification_agent_system__20260227_122127_956403.md"
+  },
+  {
+    "id": "20260227_122127_879827",
+    "model": "gpt41_mini",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.885012",
+    "filename": "gpt41_mini__tool_calling_agent_system__20260227_122127_879827_new.md"
+  },
+  {
+    "id": "20260227_122127_864638",
+    "model": "gpt41_mini",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.874839",
+    "filename": "gpt41_mini__tool_calling_agent_system__20260227_122127_864638.md"
+  },
+  {
+    "id": "20260227_122127_773679",
+    "model": "gpt41_mini",
+    "prompt_type": "rag_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.781228",
+    "filename": "gpt41_mini__rag_agent_system__20260227_122127_773679_new.md"
+  },
+  {
+    "id": "20260227_122127_763089",
+    "model": "gpt41_mini",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.771092",
+    "filename": "gpt41_mini__rag_agent_system__20260227_122127_763089.md"
+  },
+  {
+    "id": "20260227_122127_665211",
+    "model": "gpt41_mini",
+    "prompt_type": "dialog_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.669814",
+    "filename": "gpt41_mini__dialog_agent_system__20260227_122127_665211_new.md"
+  },
+  {
+    "id": "20260227_122127_650156",
+    "model": "gpt41_mini",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.660448",
+    "filename": "gpt41_mini__dialog_agent_system__20260227_122127_650156.md"
+  },
+  {
+    "id": "20260227_122127_573634",
+    "model": "gpt41_mini",
+    "prompt_type": "classification_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.576723",
+    "filename": "gpt41_mini__classification_agent_system__20260227_122127_573634_new.md"
+  },
+  {
+    "id": "20260227_122127_566237",
+    "model": "gpt41_mini",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.571874",
+    "filename": "gpt41_mini__classification_agent_system__20260227_122127_566237.md"
+  },
+  {
+    "id": "20260227_122127_489434",
+    "model": "gpt4",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.492160",
+    "filename": "gpt4__tool_calling_agent_system__20260227_122127_489434_new.md"
+  },
+  {
+    "id": "20260227_122127_484075",
+    "model": "gpt4",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.488302",
+    "filename": "gpt4__tool_calling_agent_system__20260227_122127_484075.md"
+  },
+  {
+    "id": "20260227_122127_435642",
+    "model": "gpt4",
+    "prompt_type": "rag_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.438018",
+    "filename": "gpt4__rag_agent_system__20260227_122127_435642_new.md"
+  },
+  {
+    "id": "20260227_122127_424100",
+    "model": "gpt4",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.433845",
+    "filename": "gpt4__rag_agent_system__20260227_122127_424100.md"
+  },
+  {
+    "id": "20260227_122127_362628",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.364406",
+    "filename": "gpt4__dialog_agent_system__20260227_122127_362628_new.md"
+  },
+  {
+    "id": "20260227_122127_354070",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:21:27.361331",
+    "filename": "gpt4__dialog_agent_system__20260227_122127_354070.md"
+  },
+  {
+    "id": "20260227_121900_702811",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:19:00.705728",
+    "filename": "gpt4__classification_agent_system__20260227_121900_702811_new.md"
+  },
+  {
+    "id": "20260227_121900_690812",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T12:19:00.699457",
+    "filename": "gpt4__classification_agent_system__20260227_121900_690812.md"
+  },
+  {
+    "id": "20260227_115744_487316",
+    "model": "gpt5_reasoning",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:44.490626",
+    "filename": "gpt5_reasoning__tool_calling_agent_system__20260227_115744_487316_new.md"
+  },
+  {
+    "id": "20260227_115744_390552",
+    "model": "gpt5_reasoning",
+    "prompt_type": "rag_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:44.396030",
+    "filename": "gpt5_reasoning__rag_agent_system__20260227_115744_390552_new.md"
+  },
+  {
+    "id": "20260227_115744_299944",
+    "model": "gpt5_reasoning",
+    "prompt_type": "dialog_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:44.303523",
+    "filename": "gpt5_reasoning__dialog_agent_system__20260227_115744_299944_new.md"
+  },
+  {
+    "id": "20260227_115744_223572",
+    "model": "gpt5_reasoning",
+    "prompt_type": "classification_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:44.225526",
+    "filename": "gpt5_reasoning__classification_agent_system__20260227_115744_223572_new.md"
+  },
+  {
+    "id": "20260227_115744_122270",
+    "model": "gpt5",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:44.127007",
+    "filename": "gpt5__tool_calling_agent_system__20260227_115744_122270_new.md"
+  },
+  {
+    "id": "20260227_115744_104987",
+    "model": "gpt5",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:44.118395",
+    "filename": "gpt5__tool_calling_agent_system__20260227_115744_104987.md"
+  },
+  {
+    "id": "20260227_115744_018185",
+    "model": "gpt5",
+    "prompt_type": "rag_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:44.020746",
+    "filename": "gpt5__rag_agent_system__20260227_115744_018185_new.md"
+  },
+  {
+    "id": "20260227_115744_006680",
+    "model": "gpt5",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:44.014533",
+    "filename": "gpt5__rag_agent_system__20260227_115744_006680.md"
+  },
+  {
+    "id": "20260227_115743_945319",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.948435",
+    "filename": "gpt5__dialog_agent_system__20260227_115743_945319_new.md"
+  },
+  {
+    "id": "20260227_115743_932618",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.942001",
+    "filename": "gpt5__dialog_agent_system__20260227_115743_932618.md"
+  },
+  {
+    "id": "20260227_115743_865486",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.867676",
+    "filename": "gpt5__classification_agent_system__20260227_115743_865486_new.md"
+  },
+  {
+    "id": "20260227_115743_857824",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.863804",
+    "filename": "gpt5__classification_agent_system__20260227_115743_857824.md"
+  },
+  {
+    "id": "20260227_115743_802102",
+    "model": "gpt4o",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.803904",
+    "filename": "gpt4o__tool_calling_agent_system__20260227_115743_802102_new.md"
+  },
+  {
+    "id": "20260227_115743_793423",
+    "model": "gpt4o",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.800302",
+    "filename": "gpt4o__tool_calling_agent_system__20260227_115743_793423.md"
+  },
+  {
+    "id": "20260227_115743_730620",
+    "model": "gpt4o",
+    "prompt_type": "rag_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.733935",
+    "filename": "gpt4o__rag_agent_system__20260227_115743_730620_new.md"
+  },
+  {
+    "id": "20260227_115743_722628",
+    "model": "gpt4o",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.728356",
+    "filename": "gpt4o__rag_agent_system__20260227_115743_722628.md"
+  },
+  {
+    "id": "20260227_115743_666538",
+    "model": "gpt4o",
+    "prompt_type": "dialog_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.668728",
+    "filename": "gpt4o__dialog_agent_system__20260227_115743_666538_new.md"
+  },
+  {
+    "id": "20260227_115743_655849",
+    "model": "gpt4o",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.663343",
+    "filename": "gpt4o__dialog_agent_system__20260227_115743_655849.md"
+  },
+  {
+    "id": "20260227_115743_569415",
+    "model": "gpt4o",
+    "prompt_type": "classification_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.573591",
+    "filename": "gpt4o__classification_agent_system__20260227_115743_569415_new.md"
+  },
+  {
+    "id": "20260227_115743_551322",
+    "model": "gpt4o",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.564849",
+    "filename": "gpt4o__classification_agent_system__20260227_115743_551322.md"
+  },
+  {
+    "id": "20260227_115743_476782",
+    "model": "gpt41_mini",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.482694",
+    "filename": "gpt41_mini__tool_calling_agent_system__20260227_115743_476782_new.md"
+  },
+  {
+    "id": "20260227_115743_468306",
+    "model": "gpt41_mini",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.475367",
+    "filename": "gpt41_mini__tool_calling_agent_system__20260227_115743_468306.md"
+  },
+  {
+    "id": "20260227_115743_400129",
+    "model": "gpt41_mini",
+    "prompt_type": "rag_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.403239",
+    "filename": "gpt41_mini__rag_agent_system__20260227_115743_400129_new.md"
+  },
+  {
+    "id": "20260227_115743_387065",
+    "model": "gpt41_mini",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.396631",
+    "filename": "gpt41_mini__rag_agent_system__20260227_115743_387065.md"
+  },
+  {
+    "id": "20260227_115743_307834",
+    "model": "gpt41_mini",
+    "prompt_type": "dialog_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.311103",
+    "filename": "gpt41_mini__dialog_agent_system__20260227_115743_307834_new.md"
+  },
+  {
+    "id": "20260227_115743_294264",
+    "model": "gpt41_mini",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.305581",
+    "filename": "gpt41_mini__dialog_agent_system__20260227_115743_294264.md"
+  },
+  {
+    "id": "20260227_115743_194295",
+    "model": "gpt41_mini",
+    "prompt_type": "classification_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.198607",
+    "filename": "gpt41_mini__classification_agent_system__20260227_115743_194295_new.md"
+  },
+  {
+    "id": "20260227_115743_184083",
+    "model": "gpt41_mini",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.191805",
+    "filename": "gpt41_mini__classification_agent_system__20260227_115743_184083.md"
+  },
+  {
+    "id": "20260227_115743_110455",
+    "model": "gpt4",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.115254",
+    "filename": "gpt4__tool_calling_agent_system__20260227_115743_110455_new.md"
+  },
+  {
+    "id": "20260227_115743_094193",
+    "model": "gpt4",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.107193",
+    "filename": "gpt4__tool_calling_agent_system__20260227_115743_094193.md"
+  },
+  {
+    "id": "20260227_115743_009830",
+    "model": "gpt4",
+    "prompt_type": "rag_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.016324",
+    "filename": "gpt4__rag_agent_system__20260227_115743_009830_new.md"
+  },
+  {
+    "id": "20260227_115743_004339",
+    "model": "gpt4",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:43.008445",
+    "filename": "gpt4__rag_agent_system__20260227_115743_004339.md"
+  },
+  {
+    "id": "20260227_115742_946698",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:42.948903",
+    "filename": "gpt4__dialog_agent_system__20260227_115742_946698_new.md"
+  },
+  {
+    "id": "20260227_115742_938567",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:57:42.943913",
+    "filename": "gpt4__dialog_agent_system__20260227_115742_938567.md"
+  },
+  {
+    "id": "20260227_115454_315795",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:54:54.317926",
+    "filename": "gpt4__classification_agent_system__20260227_115454_315795_new.md"
+  },
+  {
+    "id": "20260227_115454_307025",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:54:54.313619",
+    "filename": "gpt4__classification_agent_system__20260227_115454_307025.md"
+  },
+  {
+    "id": "20260227_114826_468713",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated-fixed",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:48:26.473593",
+    "filename": "gpt5__classification_agent_system__20260227_114826_468713_new.md"
+  },
+  {
+    "id": "20260227_114826_389424",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:48:26.464411",
+    "filename": "gpt5__classification_agent_system__20260227_114826_389424.md"
+  },
+  {
+    "id": "20260227_114809_395813",
+    "model": "gpt4o",
+    "prompt_type": "classification_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated-fixed",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:48:09.399006",
+    "filename": "gpt4o__classification_agent_system__20260227_114809_395813_new.md"
+  },
+  {
+    "id": "20260227_114809_244365",
+    "model": "gpt4o",
+    "prompt_type": "classification_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:48:09.391241",
+    "filename": "gpt4o__classification_agent_system__20260227_114809_244365.md"
+  },
+  {
+    "id": "20260227_114743_908115",
+    "model": "gpt5_reasoning",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.911710",
+    "filename": "gpt5_reasoning__tool_calling_agent_system__20260227_114743_908115_new.md"
+  },
+  {
+    "id": "20260227_114743_807580",
+    "model": "gpt5_reasoning",
+    "prompt_type": "rag_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.812852",
+    "filename": "gpt5_reasoning__rag_agent_system__20260227_114743_807580_new.md"
+  },
+  {
+    "id": "20260227_114743_721972",
+    "model": "gpt5_reasoning",
+    "prompt_type": "dialog_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.728088",
+    "filename": "gpt5_reasoning__dialog_agent_system__20260227_114743_721972_new.md"
+  },
+  {
+    "id": "20260227_114743_644963",
+    "model": "gpt5_reasoning",
+    "prompt_type": "classification_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.648089",
+    "filename": "gpt5_reasoning__classification_agent_system__20260227_114743_644963_new.md"
+  },
+  {
+    "id": "20260227_114743_567797",
+    "model": "gpt5",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.573292",
+    "filename": "gpt5__tool_calling_agent_system__20260227_114743_567797_new.md"
+  },
+  {
+    "id": "20260227_114743_551797",
+    "model": "gpt5",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.563664",
+    "filename": "gpt5__tool_calling_agent_system__20260227_114743_551797.md"
+  },
+  {
+    "id": "20260227_114743_464649",
+    "model": "gpt5",
+    "prompt_type": "rag_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.469970",
+    "filename": "gpt5__rag_agent_system__20260227_114743_464649_new.md"
+  },
+  {
+    "id": "20260227_114743_447110",
+    "model": "gpt5",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.457639",
+    "filename": "gpt5__rag_agent_system__20260227_114743_447110.md"
+  },
+  {
+    "id": "20260227_114743_378452",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.380567",
+    "filename": "gpt5__dialog_agent_system__20260227_114743_378452_new.md"
+  },
+  {
+    "id": "20260227_114743_368929",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.376203",
+    "filename": "gpt5__dialog_agent_system__20260227_114743_368929.md"
+  },
+  {
+    "id": "20260227_114743_323646",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.326358",
+    "filename": "gpt5__classification_agent_system__20260227_114743_323646_new.md"
+  },
+  {
+    "id": "20260227_114743_316594",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.321373",
+    "filename": "gpt5__classification_agent_system__20260227_114743_316594.md"
+  },
+  {
+    "id": "20260227_114743_242263",
+    "model": "gpt4o",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.247825",
+    "filename": "gpt4o__tool_calling_agent_system__20260227_114743_242263_new.md"
+  },
+  {
+    "id": "20260227_114743_219698",
+    "model": "gpt4o",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.235260",
+    "filename": "gpt4o__tool_calling_agent_system__20260227_114743_219698.md"
+  },
+  {
+    "id": "20260227_114743_145644",
+    "model": "gpt4o",
+    "prompt_type": "rag_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.148696",
+    "filename": "gpt4o__rag_agent_system__20260227_114743_145644_new.md"
+  },
+  {
+    "id": "20260227_114743_134345",
+    "model": "gpt4o",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.142731",
+    "filename": "gpt4o__rag_agent_system__20260227_114743_134345.md"
+  },
+  {
+    "id": "20260227_114743_076836",
+    "model": "gpt4o",
+    "prompt_type": "dialog_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.079034",
+    "filename": "gpt4o__dialog_agent_system__20260227_114743_076836_new.md"
+  },
+  {
+    "id": "20260227_114743_066392",
+    "model": "gpt4o",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:43.074693",
+    "filename": "gpt4o__dialog_agent_system__20260227_114743_066392.md"
+  },
+  {
+    "id": "20260227_114742_985141",
+    "model": "gpt4o",
+    "prompt_type": "classification_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.987745",
+    "filename": "gpt4o__classification_agent_system__20260227_114742_985141_new.md"
+  },
+  {
+    "id": "20260227_114742_971989",
+    "model": "gpt4o",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.982651",
+    "filename": "gpt4o__classification_agent_system__20260227_114742_971989.md"
+  },
+  {
+    "id": "20260227_114742_919930",
+    "model": "gpt41_mini",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.923234",
+    "filename": "gpt41_mini__tool_calling_agent_system__20260227_114742_919930_new.md"
+  },
+  {
+    "id": "20260227_114742_913170",
+    "model": "gpt41_mini",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.918506",
+    "filename": "gpt41_mini__tool_calling_agent_system__20260227_114742_913170.md"
+  },
+  {
+    "id": "20260227_114742_800747",
+    "model": "gpt41_mini",
+    "prompt_type": "rag_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.805189",
+    "filename": "gpt41_mini__rag_agent_system__20260227_114742_800747_new.md"
+  },
+  {
+    "id": "20260227_114742_785155",
+    "model": "gpt41_mini",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.796814",
+    "filename": "gpt41_mini__rag_agent_system__20260227_114742_785155.md"
+  },
+  {
+    "id": "20260227_114742_700916",
+    "model": "gpt41_mini",
+    "prompt_type": "dialog_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.704053",
+    "filename": "gpt41_mini__dialog_agent_system__20260227_114742_700916_new.md"
+  },
+  {
+    "id": "20260227_114742_686078",
+    "model": "gpt41_mini",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.698120",
+    "filename": "gpt41_mini__dialog_agent_system__20260227_114742_686078.md"
+  },
+  {
+    "id": "20260227_114742_613862",
+    "model": "gpt41_mini",
+    "prompt_type": "classification_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.616366",
+    "filename": "gpt41_mini__classification_agent_system__20260227_114742_613862_new.md"
+  },
+  {
+    "id": "20260227_114742_602260",
+    "model": "gpt41_mini",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.611767",
+    "filename": "gpt41_mini__classification_agent_system__20260227_114742_602260.md"
+  },
+  {
+    "id": "20260227_114742_534772",
+    "model": "gpt4",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.537230",
+    "filename": "gpt4__tool_calling_agent_system__20260227_114742_534772_new.md"
+  },
+  {
+    "id": "20260227_114742_525920",
+    "model": "gpt4",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.533059",
+    "filename": "gpt4__tool_calling_agent_system__20260227_114742_525920.md"
+  },
+  {
+    "id": "20260227_114742_447338",
+    "model": "gpt4",
+    "prompt_type": "rag_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.449746",
+    "filename": "gpt4__rag_agent_system__20260227_114742_447338_new.md"
+  },
+  {
+    "id": "20260227_114742_433413",
+    "model": "gpt4",
+    "prompt_type": "rag_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.445289",
+    "filename": "gpt4__rag_agent_system__20260227_114742_433413.md"
+  },
+  {
+    "id": "20260227_114742_334156",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.341470",
+    "filename": "gpt4__dialog_agent_system__20260227_114742_334156_new.md"
+  },
+  {
+    "id": "20260227_114742_315467",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:47:42.327677",
+    "filename": "gpt4__dialog_agent_system__20260227_114742_315467.md"
+  },
+  {
+    "id": "20260227_114455_590413",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "un agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:44:55.594561",
+    "filename": "gpt4__classification_agent_system__20260227_114455_590413_new.md"
+  },
+  {
+    "id": "20260227_114455_494758",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "TELCO Customer Service",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-02-27T11:44:55.586320",
+    "filename": "gpt4__classification_agent_system__20260227_114455_494758.md"
+  },
+  {
     "id": "20260226_185804_721577",
     "model": "gpt5_reasoning",
     "prompt_type": "tool_calling_agent_system",

@@ -1,0 +1,29 @@
+Generate exactly {count} RAG (Retrieval-Augmented Generation) test scenarios for the topic: "{topic}".
+
+Return a JSON object with a single key "scenarios" containing an array.
+Each element MUST have this exact schema:
+{{
+  "scenarios": [
+    {{
+      "id": "RAG_001",
+      "scenario": "short_snake_case_name",
+      "query": "A realistic user question about the topic",
+      "context": "One or more paragraphs of retrieved context that contain relevant information. This should be 2-5 sentences of realistic domain text.",
+      "ground_truth": "The correct answer that can be fully derived from the context.",
+      "expected_behavior": "Description of how the model should use the context to answer.",
+      "complexity": "low|medium|high"
+    }}
+  ]
+}}
+
+IMPORTANT RULES:
+1. ALL scenarios must be domain-specific to "{topic}"
+2. Context passages must be realistic and contain enough detail to answer the query
+3. Ground truth must be FULLY derivable from the context (no external knowledge needed)
+4. Include at least 1 scenario where context is INSUFFICIENT to fully answer the query
+5. Include at least 1 scenario with CONTRADICTORY information in the context
+6. Distribute complexity: ~30% low, ~40% medium, ~30% high
+7. Queries should be natural and varied
+8. Context should simulate real retrieved documents (policies, manuals, FAQs, articles)
+9. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation
+10. The "scenarios" array MUST contain EXACTLY {count} items — not more, not less

@@ -1,0 +1,35 @@
+Generate exactly {count} realistic classification test scenarios for the topic: "{topic}".
+
+Return a JSON object with a single key "scenarios" containing an array.
+Each element MUST have this exact schema:
+{{
+  "scenarios": [
+    {{
+      "id": "CLASS_001",
+      "scenario": "short_snake_case",
+      "customer_input": "Realistic customer message (2-4 sentences)",
+      "expected_category": "readable_snake_case",
+      "expected_subcategory": "descriptive_subcategory",
+      "expected_priority": "low|medium|high|critical",
+      "expected_sentiment": "VALUE",
+      "context": {{}},
+      "follow_up_questions_expected": ["question1", "question2"]
+    }}
+  ]
+}}
+
+{category_block}
+
+SENTIMENT VALUES (use exactly one of these):
+  very_angry, angry, frustrated, concerned, worried, neutral, curious, cautious, positive, professional
+
+IMPORTANT RULES:
+1. ALL scenarios, customer inputs, categories, subcategories, and contexts must be domain-specific to "{topic}"
+2. Use at least 5 of your invented categories, distributing scenarios across them
+3. Distribute priorities evenly: ~20% critical, ~30% high, ~30% medium, ~20% low
+4. Mix sentiments realistically using ONLY the values listed above
+5. Customer inputs must be natural, varied in tone and length
+6. Context fields should contain domain-specific metadata
+7. Follow-up questions should be relevant and specific to the scenario
+8. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON
+9. The "scenarios" array MUST contain EXACTLY {count} items — not more, not less

@@ -345,6 +345,8 @@ class PromptManager:
         "tool_calling":   "tool_calling_scenarios.json",
     }
 
+    _DATA_GEN_PROMPTS_DIR = Path("config/data_gen_prompts")
+
     def __init__(self, prompts_dir: str = "prompts", data_dir: str = "data/synthetic", config: Optional[Dict] = None):
         self.prompts_dir = Path(prompts_dir)
         self.data_dir = Path(data_dir)
@@ -366,6 +368,24 @@ class PromptManager:
             if not model_dir.exists():
                 model_dir.mkdir(parents=True, exist_ok=True)
                 logger.info(f"Created missing prompt directory for configured model: {model_key}")
+
+    # ── Template loader for data-gen prompts ──────────────────────
+
+    def _load_data_gen_template(self, filename: str) -> Optional[str]:
+        """Load a data-generation prompt template from ``config/data_gen_prompts/``.
+
+        Returns *None* when the file does not exist so callers can fall back
+        to the hardcoded default.
+        """
+        path = self._DATA_GEN_PROMPTS_DIR / filename
+        try:
+            return path.read_text(encoding="utf-8").strip()
+        except FileNotFoundError:
+            logger.debug(f"Template {path} not found — using built-in default")
+            return None
+        except Exception as exc:
+            logger.warning(f"Failed to read template {path}: {exc} — using built-in default")
+            return None
 
     def _get_model_dirs(self) -> List[str]:
         """Return active model directory names under the prompts directory."""
@@ -713,6 +733,7 @@ class PromptManager:
         generator_model: str = "gpt4",
         data_dir: str = "data/synthetic",
         topic: Optional[str] = None,
+        data_counts: Optional[Dict[str, int]] = None,
     ) -> Dict[str, Any]:
         """Regenerate only the synthetic test data for the current (or given) topic.
 
@@ -761,12 +782,14 @@ class PromptManager:
         elif _cats_by_model:
             canonical_categories = list(_cats_by_model.values())[0]
 
+        _dc = data_counts or {}
+        _cfg_dc = self._config.get("evaluation", {}).get("test_data_counts", {})
         data_generators = [
-            ("classification", self._build_classification_data_prompt, 20),
-            ("dialog",         self._build_dialog_data_prompt,         15),
-            ("general",        self._build_general_data_prompt,        15),
-            ("rag",            self._build_rag_data_prompt,            10),
-            ("tool_calling",   self._build_tool_calling_data_prompt,   10),
+            ("classification", self._build_classification_data_prompt, _dc.get("classification", _cfg_dc.get("classification", 20))),
+            ("dialog",         self._build_dialog_data_prompt,         _dc.get("dialog",         _cfg_dc.get("dialog", 15))),
+            ("general",        self._build_general_data_prompt,        _dc.get("general",        _cfg_dc.get("general", 15))),
+            ("rag",            self._build_rag_data_prompt,            _dc.get("rag",            _cfg_dc.get("rag", 10))),
+            ("tool_calling",   self._build_tool_calling_data_prompt,   _dc.get("tool_calling",   _cfg_dc.get("tool_calling", 10))),
         ]
 
         MAX_REGEN_RETRIES = 2
@@ -1130,13 +1153,17 @@ class PromptManager:
                 try:
                     data_prompt = prompt_builder(topic, target_count, categories=canonical_categories)
 
-                    system_msg = (
-                        "You are a synthetic-data generator for AI evaluation frameworks. "
-                        "You produce realistic, diverse test scenarios in valid JSON. "
-                        "Return a JSON object with a single key \"scenarios\" whose value is "
-                        "the array of test items.  No markdown fences, no trailing "
-                        "commas, no comments, no explanation."
-                    )
+                    _sys_tpl = self._load_data_gen_template("system_message.txt")
+                    if _sys_tpl:
+                        system_msg = _sys_tpl.replace("{count}", str(target_count))
+                    else:
+                        system_msg = (
+                            "You are a synthetic-data generator for AI evaluation frameworks. "
+                            "You produce realistic, diverse test scenarios in valid JSON. "
+                            "Return a JSON object with a single key \"scenarios\" whose value is "
+                            "the array of test items.  No markdown fences, no trailing "
+                            "commas, no comments, no explanation."
+                        )
                     if attempt > 1:
                         system_msg += (
                             "\n\nIMPORTANT: Your previous response was rejected. "
@@ -1251,6 +1278,7 @@ class PromptManager:
         generator_model: str = "gpt5",
         data_dir: str = "data/synthetic",
         target_models: Optional[List[str]] = None,
+        data_counts: Optional[Dict[str, int]] = None,
     ) -> Dict[str, Any]:
         """
         Use an AI model to generate optimised prompts **and** matching
@@ -1483,12 +1511,14 @@ class PromptManager:
         # ── 4. Generate ALL synthetic test data in PARALLEL ───────────
         logger.info("== Step 4/4: Generating 5 data types in parallel ==")
         data_path = Path(data_dir)
+        _dc = data_counts or {}
+        _cfg_dc = self._config.get("evaluation", {}).get("test_data_counts", {})
         data_generators = [
-            ("classification", self._build_classification_data_prompt, 20),
-            ("dialog",         self._build_dialog_data_prompt,         15),
-            ("general",        self._build_general_data_prompt,        15),
-            ("rag",            self._build_rag_data_prompt,            10),
-            ("tool_calling",   self._build_tool_calling_data_prompt,   10),
+            ("classification", self._build_classification_data_prompt, _dc.get("classification", _cfg_dc.get("classification", 20))),
+            ("dialog",         self._build_dialog_data_prompt,         _dc.get("dialog",         _cfg_dc.get("dialog", 15))),
+            ("general",        self._build_general_data_prompt,        _dc.get("general",        _cfg_dc.get("general", 15))),
+            ("rag",            self._build_rag_data_prompt,            _dc.get("rag",            _cfg_dc.get("rag", 10))),
+            ("tool_calling",   self._build_tool_calling_data_prompt,   _dc.get("tool_calling",   _cfg_dc.get("tool_calling", 10))),
         ]
         MAX_DATA_RETRIES = 2
 
@@ -1659,20 +1689,29 @@ Create {task_description.get(task, task)}
 
         if categories:
             cat_list = ', '.join(f'"{c}"' for c in categories)
-            category_block = f"""MANDATORY CATEGORIES — use EXACTLY these category codes (copy them verbatim):
-  [{cat_list}]
-- You MUST use these exact strings as `expected_category` values — do NOT paraphrase, rename, or invent new ones.
-- Each category must have 2-6 subcategories, also in readable snake_case.
-- Distribute the {count} scenarios across ALL categories (at least 2 per category)."""
+            category_block = (
+                f"MANDATORY CATEGORIES — use EXACTLY these category codes (copy them verbatim):\n"
+                f"  [{cat_list}]\n"
+                f"- You MUST use these exact strings as `expected_category` values — do NOT paraphrase, rename, or invent new ones.\n"
+                f"- Each category must have 2-6 subcategories, also in readable snake_case.\n"
+                f"- Distribute the {count} scenarios across ALL categories (at least 2 per category)."
+            )
         else:
-            category_block = f"""CATEGORY NAMING RULES:
-- Invent 5-7 categories that are SPECIFIC and NATURAL for the topic "{topic}"
-- Use descriptive snake_case names (e.g. "billing_inquiry", "technical_support",
-  "travel_packages", "flight_operations", "safety_compliance")
-- Do NOT use short acronyms or codes (no "BILL", "PKG", "TECH", etc.)
-- Each category must have 2-6 subcategories, also in readable snake_case
-- Categories must cover the full breadth of the domain"""
+            category_block = (
+                f'CATEGORY NAMING RULES:\n'
+                f'- Invent 5-7 categories that are SPECIFIC and NATURAL for the topic "{topic}"\n'
+                f'- Use descriptive snake_case names (e.g. "billing_inquiry", "technical_support",\n'
+                f'  "travel_packages", "flight_operations", "safety_compliance")\n'
+                f'- Do NOT use short acronyms or codes (no "BILL", "PKG", "TECH", etc.)\n'
+                f'- Each category must have 2-6 subcategories, also in readable snake_case\n'
+                f'- Categories must cover the full breadth of the domain'
+            )
 
+        template = self._load_data_gen_template("classification.txt")
+        if template:
+            return template.format(count=count, topic=topic, category_block=category_block)
+
+        # Built-in fallback
         return f"""Generate exactly {count} realistic classification test scenarios for the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.
@@ -1714,14 +1753,23 @@ IMPORTANT RULES:
 
         if categories:
             cat_list = ', '.join(f'"{c}"' for c in categories)
-            category_block = f"""MANDATORY CATEGORIES — use ONLY these exact category codes:
-  [{cat_list}]
-Copy them VERBATIM as the `category` field value. Do NOT rename or invent new ones.
-Distribute scenarios across at least 4 of these categories."""
+            category_block = (
+                f"MANDATORY CATEGORIES — use ONLY these exact category codes:\n"
+                f"  [{cat_list}]\n"
+                f"Copy them VERBATIM as the `category` field value. Do NOT rename or invent new ones.\n"
+                f"Distribute scenarios across at least 4 of these categories."
+            )
         else:
-            category_block = """CATEGORY NAMING: Use descriptive snake_case names specific to the topic
-(e.g. "technical_support", "safety_compliance"). Do NOT use short codes or acronyms."""
+            category_block = (
+                'CATEGORY NAMING: Use descriptive snake_case names specific to the topic\n'
+                '(e.g. "technical_support", "safety_compliance"). Do NOT use short codes or acronyms.'
+            )
 
+        template = self._load_data_gen_template("dialog.txt")
+        if template:
+            return template.format(count=count, topic=topic, category_block=category_block)
+
+        # Built-in fallback
         return f"""Generate exactly {count} realistic dialog/follow-up test scenarios for the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.
@@ -1762,6 +1810,11 @@ IMPORTANT RULES:
         """Build the meta-prompt for generating general capability tests."""
         # General tests don't use the category taxonomy, but we accept
         # the kwarg for a uniform call signature.
+        template = self._load_data_gen_template("general.txt")
+        if template:
+            return template.format(count=count, topic=topic, category_block="")
+
+        # Built-in fallback
         return f"""Generate exactly {count} general capability test cases for evaluating AI models on the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.
@@ -1816,6 +1869,11 @@ IMPORTANT RULES:
         """Build the meta-prompt for generating RAG test scenarios."""
         # RAG tests don't use the category taxonomy, but we accept
         # the kwarg for a uniform call signature.
+        template = self._load_data_gen_template("rag.txt")
+        if template:
+            return template.format(count=count, topic=topic, category_block="")
+
+        # Built-in fallback
         return f"""Generate exactly {count} RAG (Retrieval-Augmented Generation) test scenarios for the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.
@@ -1849,6 +1907,11 @@ IMPORTANT RULES:
     def _build_tool_calling_data_prompt(self, topic: str, count: int, *, categories: Optional[List[str]] = None) -> str:
         """Build the meta-prompt for generating tool-calling test scenarios."""
         # Tool calling tests don't use the category taxonomy.
+        template = self._load_data_gen_template("tool_calling.txt")
+        if template:
+            return template.format(count=count, topic=topic, category_block="")
+
+        # Built-in fallback
         return f"""Generate exactly {count} tool-calling/function-calling test scenarios for the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.

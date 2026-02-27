@@ -96,6 +96,14 @@ evaluation:
   # parallel_models: when comparing two models, evaluate both simultaneously
   parallel_models: true
   
+  # Test data generation — number of synthetic scenarios per type
+  test_data_counts:
+    classification: 20
+    dialog: 15
+    general: 15
+    rag: 10
+    tool_calling: 10
+
   # Output settings
   results_dir: "data/results"
   save_responses: true

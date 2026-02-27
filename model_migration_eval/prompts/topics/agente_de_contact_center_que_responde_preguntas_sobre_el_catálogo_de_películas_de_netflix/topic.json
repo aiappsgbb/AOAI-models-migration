@@ -1,0 +1,14 @@
+{
+  "topic": "agente de contact center que responde preguntas sobre el catálogo de películas de Netflix",
+  "slug": "agente_de_contact_center_que_responde_preguntas_sobre_el_catálogo_de_películas_de_netflix",
+  "models": [
+    "gpt4",
+    "gpt41_mini",
+    "gpt4o",
+    "gpt5",
+    "gpt5_reasoning"
+  ],
+  "archived_at": "2026-02-27T12:22:08.320791",
+  "prompts_updated_at": "2026-02-27T12:21:28.988875",
+  "data_generated_at": "2026-02-27T12:22:08.100769"
+}

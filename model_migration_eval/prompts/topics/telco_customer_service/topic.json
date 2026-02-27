@@ -5,9 +5,10 @@
     "gpt4",
     "gpt41_mini",
     "gpt4o",
-    "gpt5"
+    "gpt5",
+    "gpt5_reasoning"
   ],
-  "archived_at": "2026-02-26T18:09:05.657726",
+  "archived_at": "2026-02-27T12:18:03.900317",
   "prompts_updated_at": "2026-02-15T17:15:10.387486",
   "data_generated_at": "2026-02-15T17:19:59.482850"
 }

@@ -88,6 +88,42 @@ def create_app(config_path: str = None) -> Flask:
     _regenerate_jobs = {}
     _regenerate_jobs_lock = threading.Lock()
 
+    # ── Topic-safety lock ────────────────────────────────────────────
+    # Tracks the number of running jobs that depend on the active topic
+    # (evaluations, comparisons, generations, regenerations).  While the
+    # count is > 0 the activate_topic endpoint will be rejected.  A
+    # topic switch in progress (_topic_switching flag) blocks new jobs.
+    _active_jobs_lock = threading.Lock()
+    _active_jobs_count = 0
+    _topic_switching = False  # True while activate_topic is executing
+
+    def _register_job():
+        """Mark that a topic-dependent job is starting."""
+        with _active_jobs_lock:
+            if _topic_switching:
+                raise RuntimeError(
+                    'A topic switch is in progress. '
+                    'Please wait until the switch completes before starting a new job.'
+                )
+            nonlocal _active_jobs_count
+            _active_jobs_count += 1
+
+    def _unregister_job():
+        """Mark that a topic-dependent job has finished."""
+        nonlocal _active_jobs_count
+        with _active_jobs_lock:
+            _active_jobs_count = max(0, _active_jobs_count - 1)
+
+    def _check_topic_switchable():
+        """Raise if the topic cannot be switched right now."""
+        with _active_jobs_lock:
+            if _active_jobs_count > 0:
+                raise RuntimeError(
+                    f'Cannot switch topic while {_active_jobs_count} job(s) are running '
+                    f'(evaluations, comparisons, or generators). '
+                    f'Wait for them to finish or cancel them first.'
+                )
+
     class _RunLogCaptureHandler(logging.Handler):
         """Capture log records for the active run_id context into memory."""
 
@@ -346,7 +382,20 @@ def create_app(config_path: str = None) -> Flask:
                 'model_family': config.model_family or 'gpt4',
             })
         return jsonify({'models': models})
-        
+
+    @app.route('/api/settings/test-data-counts')
+    def get_test_data_counts():
+        """Return the default test-data generation counts from settings.yaml."""
+        cfg_dc = app.config.get('SETTINGS', {}).get('evaluation', {}).get('test_data_counts', {})
+        defaults = {
+            'classification': cfg_dc.get('classification', 20),
+            'dialog':         cfg_dc.get('dialog', 15),
+            'general':        cfg_dc.get('general', 15),
+            'rag':            cfg_dc.get('rag', 10),
+            'tool_calling':   cfg_dc.get('tool_calling', 10),
+        }
+        return jsonify(defaults)
+
     @app.route('/api/data/summary')
     def data_summary():
         """Get summary of available test data"""
@@ -581,9 +630,16 @@ def create_app(config_path: str = None) -> Flask:
         model_name = data.get('model', 'gpt4')
         evaluation_type = data.get('type', 'classification')
         limit = min(data.get('limit', 10), 100)  # Cap at 100 to prevent abuse
-        
+
+        try:
+            _register_job()
+        except RuntimeError as e:
+            _current_run_id.reset(token)
+            return jsonify({'error': str(e), 'run_id': run_id}), 409
+
         evaluator = get_evaluator()
         if not evaluator:
+            _unregister_job()
             _current_run_id.reset(token)
             return jsonify({'error': 'Evaluator not available', 'run_id': run_id}), 500
             
@@ -631,6 +687,7 @@ def create_app(config_path: str = None) -> Flask:
         except Exception as e:
             return jsonify({'error': str(e), 'run_id': run_id}), 500
         finally:
+            _unregister_job()
             _current_run_id.reset(token)
             
     @app.route('/api/compare', methods=['POST'])
@@ -644,8 +701,14 @@ def create_app(config_path: str = None) -> Flask:
         evaluation_type = data.get('type', 'classification')
         include_foundry = bool(data.get('include_foundry', False))
 
+        try:
+            _register_job()
+        except RuntimeError as e:
+            return jsonify({'error': str(e), 'run_id': run_id}), 409
+
         comparator = get_comparator()
         if not comparator:
+            _unregister_job()
             return jsonify({'error': 'Comparator not available', 'run_id': run_id}), 500
 
         results_dir = app.config['RESULTS_DIR']
@@ -691,6 +754,7 @@ def create_app(config_path: str = None) -> Flask:
                     _compare_jobs[run_id]['status'] = 'failed'
                     _compare_jobs[run_id]['error'] = str(exc)
             finally:
+                _unregister_job()
                 _current_run_id.reset(token)
 
         thread = threading.Thread(target=_bg_compare, daemon=True)
@@ -866,14 +930,19 @@ def create_app(config_path: str = None) -> Flask:
         topic = data.get('topic', '')
         generator_model = data.get('generator_model', 'gpt5')
         target_models = data.get('target_models')  # Optional list of model keys
+        data_counts = data.get('data_counts')       # Optional {type: int} overrides
         if not topic:
             return jsonify({'error': 'topic is required'}), 400
+        try:
+            _register_job()
+        except RuntimeError as e:
+            return jsonify({'error': str(e), 'run_id': run_id}), 409
 
         client = get_client()
         if not client:
+            _unregister_job()
             return jsonify({'error': 'Client not configured'}), 500
 
-        # Register job as running
         with _generate_jobs_lock:
             _generate_jobs[run_id] = {
                 'status': 'running',
@@ -893,6 +962,7 @@ def create_app(config_path: str = None) -> Flask:
                     generator_model=generator_model,
                     data_dir=app.config['DATA_DIR'],
                     target_models=target_models,
+                    data_counts=data_counts,
                 )
                 # Invalidate caches so new content is picked up
                 loader = get_prompt_loader()
@@ -915,6 +985,7 @@ def create_app(config_path: str = None) -> Flask:
                     _generate_jobs[run_id]['status'] = 'failed'
                     _generate_jobs[run_id]['error'] = str(exc)
             finally:
+                _unregister_job()
                 _current_run_id.reset(token)
 
         thread = threading.Thread(target=_bg_generate, daemon=True)
@@ -960,9 +1031,16 @@ def create_app(config_path: str = None) -> Flask:
         _cleanup_run_logs()
         topic = data.get('topic')
         generator_model = data.get('generator_model', 'gpt5')
+        data_counts = data.get('data_counts')  # Optional {type: int} overrides
+
+        try:
+            _register_job()
+        except RuntimeError as e:
+            return jsonify({'error': str(e), 'run_id': run_id}), 409
 
         client = get_client()
         if not client:
+            _unregister_job()
             return jsonify({'error': 'Client not configured'}), 500
 
         # Register job as running
@@ -984,6 +1062,7 @@ def create_app(config_path: str = None) -> Flask:
                     generator_model=generator_model,
                     data_dir=app.config['DATA_DIR'],
                     topic=topic,
+                    data_counts=data_counts,
                 )
                 if 'error' in result and isinstance(result.get('error'), str):
                     with _regenerate_jobs_lock:
@@ -1003,6 +1082,7 @@ def create_app(config_path: str = None) -> Flask:
                     _regenerate_jobs[run_id]['status'] = 'failed'
                     _regenerate_jobs[run_id]['error'] = str(exc)
             finally:
+                _unregister_job()
                 _current_run_id.reset(token)
 
         thread = threading.Thread(target=_bg_regenerate, daemon=True)
@@ -1460,15 +1540,30 @@ def create_app(config_path: str = None) -> Flask:
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/topics/lock-status')
+    def topic_lock_status():
+        """Return whether the topic can be switched (no running jobs)."""
+        with _active_jobs_lock:
+            running = _active_jobs_count
+            switching = _topic_switching
+        return jsonify({
+            'locked': running > 0 or switching,
+            'active_jobs': running,
+            'topic_switching': switching,
+        })
+
     @app.route('/api/topics/activate', methods=['POST'])
     def activate_topic():
         """Switch to a previously archived topic."""
-        nonlocal _evaluator, _comparator
+        nonlocal _evaluator, _comparator, _topic_switching
         data = request.get_json()
         slug = data.get('slug', '')
         if not slug:
             return jsonify({'error': 'slug is required'}), 400
         try:
+            _check_topic_switchable()
+            with _active_jobs_lock:
+                _topic_switching = True
             manager = get_prompt_manager()
             meta = manager.activate_topic(slug)
             # Invalidate ALL caches so new content is picked up
@@ -1480,10 +1575,15 @@ def create_app(config_path: str = None) -> Flask:
             _evaluator = None
             _comparator = None
             return jsonify({'status': 'activated', 'topic': meta})
+        except RuntimeError as e:
+            return jsonify({'error': str(e)}), 409
         except FileNotFoundError as e:
             return jsonify({'error': str(e)}), 404
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+        finally:
+            with _active_jobs_lock:
+                _topic_switching = False
 
     @app.route('/api/topics/archive', methods=['POST'])
     def archive_topic():
