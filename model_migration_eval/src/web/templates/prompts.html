@@ -426,13 +426,19 @@
                         <div id="data-save-status" class="mt-2 text-sm"></div>
                     </div>
 
-                    <!-- Scenario detail editor (modal-like) -->
+                    <!-- Scenario detail editor (form-based) -->
                     <div id="scenario-editor" class="hidden fluent-card p-5 mt-6">
                         <div class="flex items-center justify-between mb-4">
                             <h3 id="scenario-editor-title" class="text-[16px] font-semibold text-[var(--text-primary)]">Edit Scenario</h3>
-                            <button id="btn-close-scenario" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">✕ Close</button>
+                            <div class="flex items-center gap-2">
+                                <button id="btn-toggle-json" class="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs hover:bg-gray-200" title="Toggle raw JSON view">{ } JSON</button>
+                                <button id="btn-close-scenario" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">✕ Close</button>
+                            </div>
                         </div>
-                        <textarea id="scenario-json-editor" rows="20" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y" spellcheck="false"></textarea>
+                        <!-- Dynamic form container -->
+                        <div id="scenario-form-container" class="space-y-4"></div>
+                        <!-- Raw JSON fallback (hidden by default) -->
+                        <textarea id="scenario-json-editor" rows="18" class="hidden w-full border border-gray-300 rounded-lg px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y" spellcheck="false"></textarea>
                         <div class="flex items-center justify-between mt-3">
                             <div id="scenario-edit-status" class="text-sm"></div>
                             <button id="btn-apply-scenario" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 font-medium">✅ Apply</button>
@@ -538,6 +544,7 @@
             $('btn-add-scenario').addEventListener('click', addScenario);
             $('btn-close-scenario').addEventListener('click', () => $('scenario-editor').classList.add('hidden'));
             $('btn-apply-scenario').addEventListener('click', applyScenarioEdit);
+            $('btn-toggle-json').addEventListener('click', toggleJsonView);
             document.querySelectorAll('.data-tab').forEach(btn => {
                 btn.addEventListener('click', () => {
                     loadedDataType = btn.dataset.dtype;
@@ -2016,95 +2023,523 @@
             wrapper.innerHTML = html;
         }
 
+        // ── Form-based scenario editor ─────────────────────────────
+        let scenarioFormJsonMode = false;
+
+        /** Field definitions per task type */
+        const SCENARIO_FIELDS = {
+            classification: [
+                { key: 'id',                        label: 'ID',                  type: 'text',     ph: 'CLASS_001' },
+                { key: 'scenario',                   label: 'Scenario',            type: 'text',     ph: 'e.g. language_switch_query' },
+                { key: 'customer_input',             label: 'Customer Input',      type: 'textarea', ph: 'Customer message to classify…' },
+                { key: 'expected_category',           label: 'Expected Category',   type: 'text',     ph: 'e.g. content_discovery' },
+                { key: 'expected_subcategory',        label: 'Expected Subcategory',type: 'text',     ph: 'e.g. search_by_person' },
+                { key: 'expected_priority',           label: 'Priority',            type: 'select',   opts: ['low','medium','high'] },
+                { key: 'expected_sentiment',          label: 'Sentiment',           type: 'select',   opts: ['positive','neutral','negative','curious','frustrated','urgent','confused','angry'] },
+                { key: 'context',                     label: 'Context',             type: 'context' },
+                { key: 'follow_up_questions_expected', label: 'Follow-up Questions', type: 'tags',     ph: 'Add question and press Enter' },
+            ],
+            dialog: [
+                { key: 'id',                       label: 'ID',                    type: 'text',       ph: 'DLG_001' },
+                { key: 'scenario',                  label: 'Scenario',              type: 'text',       ph: 'e.g. billing_dispute' },
+                { key: 'category',                  label: 'Category',              type: 'text',       ph: 'e.g. billing' },
+                { key: 'conversation',              label: 'Conversation',          type: 'conversation' },
+                { key: 'context_gaps',              label: 'Context Gaps',          type: 'tags',       ph: 'Add gap and press Enter' },
+                { key: 'optimal_follow_up',         label: 'Optimal Follow-up',     type: 'textarea',   ph: 'Ideal next agent response…' },
+                { key: 'follow_up_rules',           label: 'Follow-up Rules',       type: 'tags',       ph: 'Add rule and press Enter' },
+                { key: 'expected_resolution_turns',  label: 'Expected Resolution Turns', type: 'number', ph: '2' },
+            ],
+            general: [
+                { key: 'id',                 label: 'ID',                type: 'text',     ph: 'GEN_001' },
+                { key: 'test_type',          label: 'Test Type',         type: 'select',   opts: ['structured_output','consistency','safety_boundary','multi_language','calculation_accuracy'] },
+                { key: 'complexity',         label: 'Complexity',        type: 'select',   opts: ['low','medium','high'] },
+                { key: 'prompt',             label: 'Prompt',            type: 'textarea', ph: 'Full prompt to send…' },
+                { key: 'expected_behavior',  label: 'Expected Behavior', type: 'textarea', ph: 'Describe what a correct answer looks like…' },
+                { key: 'expected_output',    label: 'Expected Output (JSON, optional)', type: 'json', ph: 'null or JSON schema object' },
+                { key: 'run_count',          label: 'Run Count (optional)', type: 'number', ph: '1' },
+            ],
+            rag: [
+                { key: 'id',                 label: 'ID',                type: 'text',     ph: 'RAG_001' },
+                { key: 'scenario',           label: 'Scenario',          type: 'text',     ph: 'e.g. multi_source_answer' },
+                { key: 'query',              label: 'Query',             type: 'textarea', ph: 'Customer question…' },
+                { key: 'context',            label: 'Context (passage)', type: 'textarea', ph: 'Retrieved text passage(s)…', rows: 6 },
+                { key: 'ground_truth',       label: 'Ground Truth',      type: 'textarea', ph: 'Ideal answer based on context…' },
+                { key: 'expected_behavior',  label: 'Expected Behavior', type: 'text',     ph: 'e.g. grounded_answer' },
+                { key: 'complexity',         label: 'Complexity',        type: 'select',   opts: ['low','medium','high'] },
+            ],
+            tool_calling: [
+                { key: 'id',                  label: 'ID',                 type: 'text',     ph: 'TC_001' },
+                { key: 'scenario',            label: 'Scenario',           type: 'text',     ph: 'e.g. search_and_book' },
+                { key: 'query',               label: 'Query',              type: 'textarea', ph: 'Customer question requiring tool calls…' },
+                { key: 'available_tools',     label: 'Available Tools',    type: 'tools' },
+                { key: 'expected_tool_calls', label: 'Expected Tool Calls',type: 'tags',     ph: 'Add function name and press Enter' },
+                { key: 'expected_parameters', label: 'Expected Params (JSON)', type: 'json', ph: '{"search_catalog":{"query":"action movies"}}' },
+                { key: 'complexity',          label: 'Complexity',         type: 'select',   opts: ['low','medium','high'] },
+            ],
+        };
+
+        /** Build default blank item for a type */
+        function blankScenario(type, nextId) {
+            const pad = String(nextId).padStart(3, '0');
+            if (type === 'classification') return { id: `CLASS_${pad}`, scenario: '', customer_input: '', expected_category: '', expected_subcategory: '', expected_priority: 'medium', expected_sentiment: 'neutral', context: {}, follow_up_questions_expected: [] };
+            if (type === 'dialog') return { id: `DLG_${pad}`, scenario: '', conversation: [{ role: 'customer', message: '' }], context_gaps: [], optimal_follow_up: '', follow_up_rules: [], expected_resolution_turns: 2, category: '' };
+            if (type === 'rag') return { id: `RAG_${pad}`, scenario: '', query: '', context: '', ground_truth: '', expected_behavior: 'grounded_answer', complexity: 'medium' };
+            if (type === 'tool_calling') return { id: `TC_${pad}`, scenario: '', query: '', available_tools: [{ type: 'function', function: { name: '', description: '', parameters: { type: 'object', properties: {}, required: [] } } }], expected_tool_calls: [], expected_parameters: {}, complexity: 'medium' };
+            return { id: `GEN_${pad}`, test_type: '', prompt: '', complexity: 'medium', expected_behavior: '', expected_output: null };
+        }
+
+        /** Render the form inside #scenario-form-container */
+        function renderScenarioForm(item) {
+            const fields = SCENARIO_FIELDS[loadedDataType] || SCENARIO_FIELDS.general;
+            const c = $('scenario-form-container');
+            c.innerHTML = '';
+
+            fields.forEach(f => {
+                const wrap = document.createElement('div');
+                const lbl = document.createElement('label');
+                lbl.className = 'block text-xs font-semibold text-gray-600 mb-1';
+                lbl.textContent = f.label;
+                wrap.appendChild(lbl);
+
+                if (f.type === 'text') {
+                    const inp = document.createElement('input');
+                    inp.type = 'text'; inp.className = _inputCls();
+                    inp.placeholder = f.ph || ''; inp.dataset.key = f.key;
+                    inp.value = item[f.key] != null ? String(item[f.key]) : '';
+                    wrap.appendChild(inp);
+                } else if (f.type === 'number') {
+                    const inp = document.createElement('input');
+                    inp.type = 'number'; inp.className = _inputCls();
+                    inp.placeholder = f.ph || ''; inp.dataset.key = f.key;
+                    inp.value = item[f.key] != null ? item[f.key] : '';
+                    wrap.appendChild(inp);
+                } else if (f.type === 'textarea') {
+                    const ta = document.createElement('textarea');
+                    ta.rows = f.rows || 3; ta.className = _inputCls() + ' resize-y';
+                    ta.placeholder = f.ph || ''; ta.dataset.key = f.key;
+                    ta.value = item[f.key] != null ? String(item[f.key]) : '';
+                    wrap.appendChild(ta);
+                } else if (f.type === 'select') {
+                    const sel = document.createElement('select');
+                    sel.className = _inputCls(); sel.dataset.key = f.key;
+                    (f.opts || []).forEach(o => {
+                        const opt = document.createElement('option');
+                        opt.value = o; opt.textContent = o;
+                        if (String(item[f.key]) === o) opt.selected = true;
+                        sel.appendChild(opt);
+                    });
+                    wrap.appendChild(sel);
+                } else if (f.type === 'json') {
+                    const ta = document.createElement('textarea');
+                    ta.rows = 4; ta.className = _inputCls() + ' font-mono text-xs resize-y';
+                    ta.placeholder = f.ph || ''; ta.dataset.key = f.key; ta.dataset.jsonField = '1';
+                    const val = item[f.key];
+                    ta.value = (val != null && typeof val === 'object') ? JSON.stringify(val, null, 2) : (val != null ? String(val) : '');
+                    wrap.appendChild(ta);
+                } else if (f.type === 'context') {
+                    wrap.appendChild(_buildContextEditor(item[f.key] || {}));
+                } else if (f.type === 'tags') {
+                    wrap.appendChild(_buildTagsEditor(f.key, item[f.key] || [], f.ph));
+                } else if (f.type === 'conversation') {
+                    wrap.appendChild(_buildConversationEditor(item.conversation || []));
+                } else if (f.type === 'tools') {
+                    wrap.appendChild(_buildToolsEditor(item.available_tools || []));
+                }
+
+                c.appendChild(wrap);
+            });
+        }
+
+        /** Collect values from form back into an object */
+        function collectScenarioForm() {
+            const fields = SCENARIO_FIELDS[loadedDataType] || SCENARIO_FIELDS.general;
+            const obj = {};
+            fields.forEach(f => {
+                if (f.type === 'context') {
+                    obj[f.key] = _collectContext();
+                } else if (f.type === 'conversation') {
+                    obj[f.key] = _collectConversation();
+                } else if (f.type === 'tools') {
+                    obj[f.key] = _collectTools();
+                } else if (f.type === 'tags') {
+                    obj[f.key] = _collectTags(f.key);
+                } else if (f.type === 'json') {
+                    const ta = $('scenario-form-container').querySelector(`[data-key="${f.key}"]`);
+                    const raw = ta ? ta.value.trim() : '';
+                    if (!raw || raw === 'null') { obj[f.key] = (f.key === 'context' && loadedDataType === 'classification') ? {} : null; }
+                    else { try { obj[f.key] = JSON.parse(raw); } catch { obj[f.key] = raw; } }
+                } else if (f.type === 'number') {
+                    const inp = $('scenario-form-container').querySelector(`[data-key="${f.key}"]`);
+                    const v = inp ? inp.value.trim() : '';
+                    obj[f.key] = v !== '' ? Number(v) : undefined;
+                } else {
+                    const el = $('scenario-form-container').querySelector(`[data-key="${f.key}"]`);
+                    obj[f.key] = el ? el.value : '';
+                }
+            });
+            // Remove undefined values
+            Object.keys(obj).forEach(k => { if (obj[k] === undefined) delete obj[k]; });
+            return obj;
+        }
+
+        /* ── Sub-editors ──────────────────────────────────────────── */
+
+        /** Tags editor (array of strings) */
+        function _buildTagsEditor(key, values, placeholder) {
+            const div = document.createElement('div');
+            div.dataset.tagsKey = key;
+            div.className = 'border border-gray-200 rounded-lg p-2 bg-white';
+
+            const list = document.createElement('div');
+            list.className = 'flex flex-wrap gap-1 mb-2 min-h-[24px]';
+            list.dataset.tagsList = key;
+            values.forEach(v => list.appendChild(_tagPill(key, v)));
+            div.appendChild(list);
+
+            const inp = document.createElement('input');
+            inp.type = 'text'; inp.className = _inputCls('text-xs');
+            inp.placeholder = placeholder || 'Type and press Enter';
+            inp.addEventListener('keydown', e => {
+                if (e.key === 'Enter' && inp.value.trim()) {
+                    e.preventDefault();
+                    list.appendChild(_tagPill(key, inp.value.trim()));
+                    inp.value = '';
+                }
+            });
+            div.appendChild(inp);
+            return div;
+        }
+        function _tagPill(key, text) {
+            const span = document.createElement('span');
+            span.className = 'inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs rounded-full px-2 py-0.5';
+            span.innerHTML = `${esc(text)} <button type="button" class="text-blue-500 hover:text-red-600 font-bold ml-0.5" onclick="this.parentElement.remove()">×</button>`;
+            span.dataset.tagValue = text;
+            return span;
+        }
+        function _collectTags(key) {
+            const pills = $('scenario-form-container').querySelectorAll(`[data-tags-key="${key}"] [data-tag-value]`);
+            return Array.from(pills).map(p => p.dataset.tagValue);
+        }
+
+        /** Generic context editor — dynamic key-value pairs that adapt to any topic */
+        function _buildContextEditor(ctx) {
+            const div = document.createElement('div');
+            div.id = 'ctx-editor';
+            div.className = 'border border-gray-200 rounded-lg p-3 bg-white space-y-2';
+
+            // Header hint
+            const hint = document.createElement('p');
+            hint.className = 'text-[10px] text-gray-400 italic mb-1';
+            hint.textContent = 'Key-value metadata for this scenario. Complex values (objects, arrays) are edited as JSON.';
+            div.appendChild(hint);
+
+            // ── Property rows for every existing key ──
+            const propsContainer = document.createElement('div');
+            propsContainer.id = 'ctx-props';
+            propsContainer.className = 'space-y-2';
+            Object.keys(ctx).forEach(k => {
+                propsContainer.appendChild(_ctxPropRow(k, ctx[k]));
+            });
+            div.appendChild(propsContainer);
+
+            // ── Add property row ──
+            const btnRow = document.createElement('div');
+            btnRow.className = 'flex items-center gap-2 mt-2';
+            const newKeyInp = document.createElement('input');
+            newKeyInp.type = 'text'; newKeyInp.className = _inputCls('text-xs') + ' max-w-[180px]';
+            newKeyInp.placeholder = 'New property name'; newKeyInp.id = 'ctx-new-key';
+            newKeyInp.addEventListener('keydown', e => {
+                if (e.key === 'Enter') { e.preventDefault(); _ctxAddProp(propsContainer, newKeyInp); }
+            });
+            const btnAdd = document.createElement('button');
+            btnAdd.type = 'button';
+            btnAdd.className = 'px-3 py-1 bg-green-50 text-green-700 border border-green-300 rounded-lg text-xs hover:bg-green-100';
+            btnAdd.textContent = '＋ Add Property';
+            btnAdd.onclick = () => _ctxAddProp(propsContainer, newKeyInp);
+            btnRow.appendChild(newKeyInp);
+            btnRow.appendChild(btnAdd);
+            div.appendChild(btnRow);
+
+            return div;
+        }
+
+        function _ctxAddProp(container, input) {
+            const k = input.value.trim();
+            if (!k) return;
+            container.appendChild(_ctxPropRow(k, ''));
+            input.value = '';
+            // Focus the new value input
+            const rows = container.querySelectorAll('.ctx-prop-row');
+            const last = rows[rows.length - 1];
+            const valEl = last?.querySelector('[data-ctx-prop-val]');
+            if (valEl) valEl.focus();
+        }
+
+        /** Single property row in context editor */
+        function _ctxPropRow(key, value) {
+            const row = document.createElement('div');
+            row.className = 'ctx-prop-row flex items-start gap-2 bg-gray-50 rounded-lg p-2';
+
+            // Key badge
+            const keySpan = document.createElement('span');
+            keySpan.className = 'inline-block bg-blue-100 text-blue-800 text-xs font-mono rounded px-2 py-1 mt-0.5 flex-shrink-0 min-w-[110px] truncate';
+            keySpan.textContent = key;
+            keySpan.title = key;
+            keySpan.dataset.ctxPropKey = key;
+            row.appendChild(keySpan);
+
+            // Value — object/array → JSON textarea; boolean → checkbox; number → number input; else text
+            const isComplex = (value != null && typeof value === 'object');
+            const isBool = (typeof value === 'boolean');
+
+            if (isComplex) {
+                const ta = document.createElement('textarea');
+                ta.rows = Math.min(6, Math.max(2, JSON.stringify(value, null, 2).split('\n').length));
+                ta.className = _inputCls('text-xs font-mono') + ' flex-1 resize-y';
+                ta.dataset.ctxPropVal = '1'; ta.dataset.ctxPropJson = '1';
+                ta.value = JSON.stringify(value, null, 2);
+                row.appendChild(ta);
+            } else if (isBool) {
+                const label = document.createElement('label');
+                label.className = 'flex items-center gap-2 flex-1 py-1 cursor-pointer';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox'; cb.checked = value;
+                cb.className = 'w-4 h-4 accent-blue-600';
+                cb.dataset.ctxPropVal = '1'; cb.dataset.ctxPropBool = '1';
+                const txt = document.createElement('span');
+                txt.className = 'text-xs text-gray-600';
+                txt.textContent = value ? 'true' : 'false';
+                cb.addEventListener('change', () => { txt.textContent = cb.checked ? 'true' : 'false'; });
+                label.appendChild(cb); label.appendChild(txt);
+                row.appendChild(label);
+            } else if (typeof value === 'number') {
+                const inp = document.createElement('input');
+                inp.type = 'number'; inp.className = _inputCls('text-xs') + ' flex-1';
+                inp.dataset.ctxPropVal = '1'; inp.dataset.ctxPropNum = '1';
+                inp.value = value;
+                row.appendChild(inp);
+            } else {
+                const inp = document.createElement('input');
+                inp.type = 'text'; inp.className = _inputCls('text-xs') + ' flex-1';
+                inp.dataset.ctxPropVal = '1';
+                inp.value = value != null ? String(value) : '';
+                row.appendChild(inp);
+            }
+
+            // Delete button
+            const btnDel = document.createElement('button');
+            btnDel.type = 'button'; btnDel.className = 'text-red-400 hover:text-red-600 text-sm mt-1 flex-shrink-0';
+            btnDel.textContent = '🗑️'; btnDel.onclick = () => row.remove();
+            row.appendChild(btnDel);
+            return row;
+        }
+
+        /** Collect context from the editor back into an object */
+        function _collectContext() {
+            const obj = {};
+            document.querySelectorAll('#ctx-props .ctx-prop-row').forEach(row => {
+                const key = row.querySelector('[data-ctx-prop-key]')?.textContent;
+                const valEl = row.querySelector('[data-ctx-prop-val]');
+                if (!key || !valEl) return;
+                if (valEl.dataset.ctxPropJson) {
+                    try { obj[key] = JSON.parse(valEl.value); } catch { obj[key] = valEl.value; }
+                } else if (valEl.dataset.ctxPropBool) {
+                    obj[key] = valEl.checked;
+                } else if (valEl.dataset.ctxPropNum) {
+                    obj[key] = valEl.value !== '' ? Number(valEl.value) : 0;
+                } else {
+                    const v = valEl.value.trim();
+                    // Auto-detect booleans and numbers typed in text inputs
+                    if (v === 'true') obj[key] = true;
+                    else if (v === 'false') obj[key] = false;
+                    else if (v !== '' && !isNaN(Number(v)) && v === String(Number(v))) obj[key] = Number(v);
+                    else obj[key] = v;
+                }
+            });
+            return obj;
+        }
+
+        /** Conversation editor (dialog type) */
+        function _buildConversationEditor(turns) {
+            const div = document.createElement('div');
+            div.id = 'conv-editor';
+            div.className = 'space-y-2';
+            turns.forEach((t, i) => div.appendChild(_convTurnRow(i, t)));
+            const btnAdd = document.createElement('button');
+            btnAdd.type = 'button';
+            btnAdd.className = 'mt-1 px-3 py-1 bg-green-50 text-green-700 border border-green-300 rounded-lg text-xs hover:bg-green-100';
+            btnAdd.textContent = '＋ Add Turn';
+            btnAdd.onclick = () => {
+                const rows = div.querySelectorAll('.conv-turn-row');
+                const lastRole = rows.length ? rows[rows.length - 1].querySelector('select').value : 'agent';
+                const nextRole = lastRole === 'customer' ? 'agent' : 'customer';
+                div.insertBefore(_convTurnRow(rows.length, { role: nextRole, message: '' }), btnAdd);
+            };
+            div.appendChild(btnAdd);
+            return div;
+        }
+        function _convTurnRow(i, turn) {
+            const row = document.createElement('div');
+            row.className = 'conv-turn-row flex items-start gap-2 bg-gray-50 rounded-lg p-2';
+            const sel = document.createElement('select');
+            sel.className = 'border border-gray-300 rounded px-2 py-1 text-xs bg-white w-24 flex-shrink-0';
+            ['customer', 'agent'].forEach(r => {
+                const o = document.createElement('option'); o.value = r; o.textContent = r;
+                if (turn.role === r) o.selected = true; sel.appendChild(o);
+            });
+            const ta = document.createElement('textarea');
+            ta.rows = 2; ta.className = _inputCls('text-xs') + ' flex-1 resize-y';
+            ta.placeholder = 'Message…'; ta.value = turn.message || '';
+            const btnDel = document.createElement('button');
+            btnDel.type = 'button'; btnDel.className = 'text-red-400 hover:text-red-600 text-sm mt-1 flex-shrink-0';
+            btnDel.textContent = '🗑️'; btnDel.onclick = () => row.remove();
+            row.appendChild(sel); row.appendChild(ta); row.appendChild(btnDel);
+            return row;
+        }
+        function _collectConversation() {
+            const rows = document.querySelectorAll('#conv-editor .conv-turn-row');
+            return Array.from(rows).map(r => ({
+                role: r.querySelector('select').value,
+                message: r.querySelector('textarea').value
+            }));
+        }
+
+        /** Tools editor (tool_calling type) */
+        function _buildToolsEditor(tools) {
+            const div = document.createElement('div');
+            div.id = 'tools-editor';
+            div.className = 'space-y-3';
+            tools.forEach((t, i) => div.appendChild(_toolCard(i, t)));
+            const btnAdd = document.createElement('button');
+            btnAdd.type = 'button';
+            btnAdd.className = 'mt-1 px-3 py-1 bg-green-50 text-green-700 border border-green-300 rounded-lg text-xs hover:bg-green-100';
+            btnAdd.textContent = '＋ Add Tool';
+            btnAdd.onclick = () => {
+                div.insertBefore(_toolCard(div.querySelectorAll('.tool-card').length, { type: 'function', function: { name: '', description: '', parameters: { type: 'object', properties: {}, required: [] } } }), btnAdd);
+            };
+            div.appendChild(btnAdd);
+            return div;
+        }
+        function _toolCard(i, tool) {
+            const fn = tool.function || tool;  // handle both formats
+            const card = document.createElement('div');
+            card.className = 'tool-card border border-gray-200 rounded-lg p-3 bg-white';
+            card.innerHTML = `
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold text-gray-500">Tool #${i + 1}</span>
+                    <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick="this.closest('.tool-card').remove()">🗑️ Remove</button>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                    <div>
+                        <label class="text-[10px] text-gray-500">Function Name</label>
+                        <input type="text" data-tool-name class="${_inputCls('text-xs')}" placeholder="e.g. search_catalog" value="${esc(fn.name || '')}">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-500">Description</label>
+                        <input type="text" data-tool-desc class="${_inputCls('text-xs')}" placeholder="What this tool does" value="${esc(fn.description || '')}">
+                    </div>
+                </div>
+                <label class="text-[10px] text-gray-500">Parameters (JSON Schema)</label>
+                <textarea data-tool-params rows="3" class="${_inputCls('text-xs font-mono')} resize-y" placeholder='{"type":"object","properties":{}}'>${esc(JSON.stringify(fn.parameters || {}, null, 2))}</textarea>
+            `;
+            return card;
+        }
+        function _collectTools() {
+            const cards = document.querySelectorAll('#tools-editor .tool-card');
+            return Array.from(cards).map(c => {
+                let params = {};
+                try { params = JSON.parse(c.querySelector('[data-tool-params]').value); } catch {}
+                return {
+                    type: 'function',
+                    function: {
+                        name: c.querySelector('[data-tool-name]').value,
+                        description: c.querySelector('[data-tool-desc]').value,
+                        parameters: params
+                    }
+                };
+            });
+        }
+
+        /** Shared input class */
+        function _inputCls(extra) {
+            return 'w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none ' + (extra || '');
+        }
+
+        /** Toggle between form view and raw JSON view */
+        function toggleJsonView() {
+            scenarioFormJsonMode = !scenarioFormJsonMode;
+            const formC = $('scenario-form-container');
+            const jsonTa = $('scenario-json-editor');
+            const btn = $('btn-toggle-json');
+            if (scenarioFormJsonMode) {
+                // Collect form → fill JSON textarea
+                const obj = collectScenarioForm();
+                jsonTa.value = JSON.stringify(obj, null, 2);
+                formC.classList.add('hidden');
+                jsonTa.classList.remove('hidden');
+                btn.textContent = '📝 Form';
+            } else {
+                // Parse JSON → re-render form
+                try {
+                    const obj = JSON.parse(jsonTa.value);
+                    renderScenarioForm(obj);
+                } catch { /* keep form as-is if JSON is invalid */ }
+                jsonTa.classList.add('hidden');
+                formC.classList.remove('hidden');
+                btn.textContent = '{ } JSON';
+            }
+        }
+
+        /* ── Edit / Add / Apply ────────────────────────────────────── */
+
         function editScenario(idx) {
             editingScenarioIdx = idx;
+            scenarioFormJsonMode = false;
             const item = loadedDataItems[idx];
             $('scenario-editor-title').textContent = `Edit Scenario #${idx + 1} (${item.id || 'new'})`;
-            $('scenario-json-editor').value = JSON.stringify(item, null, 2);
+            $('scenario-form-container').classList.remove('hidden');
+            $('scenario-json-editor').classList.add('hidden');
+            $('btn-toggle-json').textContent = '{ } JSON';
+            renderScenarioForm(item);
             $('scenario-editor').classList.remove('hidden');
             $('scenario-edit-status').innerHTML = '';
-            $('scenario-json-editor').focus();
+            $('scenario-editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function applyScenarioEdit() {
             try {
-                const parsed = JSON.parse($('scenario-json-editor').value);
+                let parsed;
+                if (scenarioFormJsonMode) {
+                    parsed = JSON.parse($('scenario-json-editor').value);
+                } else {
+                    parsed = collectScenarioForm();
+                }
                 if (editingScenarioIdx >= 0 && editingScenarioIdx < loadedDataItems.length) {
                     loadedDataItems[editingScenarioIdx] = parsed;
                 } else {
-                    // New scenario being added
                     loadedDataItems.push(parsed);
                 }
                 renderDataTable();
                 $('data-count').textContent = `${loadedDataItems.length} scenario(s)`;
                 $('scenario-edit-status').innerHTML = '<span class="text-green-600">✅ Applied (remember to Save Changes)</span>';
             } catch (err) {
-                $('scenario-edit-status').innerHTML = `<span class="text-red-600">❌ Invalid JSON: ${esc(err.message)}</span>`;
+                $('scenario-edit-status').innerHTML = `<span class="text-red-600">❌ Error: ${esc(err.message)}</span>`;
             }
         }
 
         function addScenario() {
-            // Create a blank template based on type
-            let template;
             const nextId = loadedDataItems.length + 1;
-            if (loadedDataType === 'classification') {
-                template = {
-                    id: `CLASS_${String(nextId).padStart(3, '0')}`,
-                    scenario: '',
-                    customer_input: '',
-                    expected_category: '',
-                    expected_subcategory: '',
-                    expected_priority: 'medium',
-                    expected_sentiment: 'neutral',
-                    context: {},
-                    follow_up_questions_expected: []
-                };
-            } else if (loadedDataType === 'dialog') {
-                template = {
-                    id: `DLG_${String(nextId).padStart(3, '0')}`,
-                    scenario: '',
-                    conversation: [{ role: 'customer', message: '' }],
-                    context_gaps: [],
-                    optimal_follow_up: '',
-                    follow_up_rules: [],
-                    expected_resolution_turns: 2,
-                    category: ''
-                };
-            } else if (loadedDataType === 'rag') {
-                template = {
-                    id: `RAG_${String(nextId).padStart(3, '0')}`,
-                    scenario: '',
-                    query: '',
-                    context: '',
-                    ground_truth: '',
-                    expected_behavior: 'grounded_answer',
-                    complexity: 'medium'
-                };
-            } else if (loadedDataType === 'tool_calling') {
-                template = {
-                    id: `TC_${String(nextId).padStart(3, '0')}`,
-                    scenario: '',
-                    query: '',
-                    available_tools: [{ name: '', description: '', parameters: {} }],
-                    expected_tool_calls: [],
-                    expected_parameters: {},
-                    complexity: 'medium'
-                };
-            } else {
-                template = {
-                    id: `GEN_${String(nextId).padStart(3, '0')}`,
-                    test_type: '',
-                    prompt: '',
-                    complexity: 'medium',
-                    expected_behavior: ''
-                };
-            }
+            const template = blankScenario(loadedDataType, nextId);
             editingScenarioIdx = loadedDataItems.length; // will append
+            scenarioFormJsonMode = false;
             $('scenario-editor-title').textContent = `New Scenario #${nextId}`;
-            $('scenario-json-editor').value = JSON.stringify(template, null, 2);
+            $('scenario-form-container').classList.remove('hidden');
+            $('scenario-json-editor').classList.add('hidden');
+            $('btn-toggle-json').textContent = '{ } JSON';
+            renderScenarioForm(template);
             $('scenario-editor').classList.remove('hidden');
             $('scenario-edit-status').innerHTML = '';
-            $('scenario-json-editor').focus();
+            $('scenario-editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function deleteScenario(idx) {

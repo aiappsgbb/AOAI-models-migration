@@ -1,60 +1,138 @@
 [
   {
     "id": "TC_001",
-    "scenario": "explicar_categorias_sin_buscar",
-    "query": "¿Qué significa que una película esté marcada como 'Top 10' o 'Tendencias' en Netflix? No necesito títulos, solo la explicación.",
+    "scenario": "weather_lookup",
+    "query": "What's the weather like in Madrid right now?",
     "available_tools": [
       {
         "type": "function",
         "function": {
-          "name": "search_catalog",
-          "description": "Busca películas en el catálogo de Netflix por filtros (título, género, año, país, etc.).",
+          "name": "get_current_weather",
+          "description": "Get the current weather in a given location",
           "parameters": {
             "type": "object",
             "properties": {
-              "query": {
-                "type": "string",
-                "description": "Texto libre para buscar por título o palabras clave."
-              },
-              "genre": {
-                "type": "string",
-                "description": "Género principal (p. ej., 'Acción', 'Comedia')."
-              },
-              "year": {
-                "type": "number",
-                "description": "Año de estreno."
-              },
-              "limit": {
-                "type": "number",
-                "description": "Máximo de resultados a devolver."
-              }
+              "location": {"type": "string", "description": "City name, e.g., 'Madrid, Spain'"},
+              "unit": {"type": "string", "enum": ["celsius", "fahrenheit"], "description": "Temperature unit"}
             },
-            "required": [
-              "query"
-            ]
+            "required": ["location"]
           }
         }
       },
       {
         "type": "function",
         "function": {
-          "name": "get_movie_details",
-          "description": "Obtiene detalles de una película del catálogo por su ID (sinopsis, reparto, duración, clasificación, audio/subtítulos).",
+          "name": "get_weather_forecast",
+          "description": "Get a 5-day weather forecast for a location",
           "parameters": {
             "type": "object",
             "properties": {
-              "movie_id": {
-                "type": "string",
-                "description": "Identificador único de la película en el catálogo."
-              },
-              "locale": {
-                "type": "string",
-                "description": "Idioma/región para metadatos (p. ej., 'es-ES', 'es-MX')."
-              }
+              "location": {"type": "string", "description": "City name"},
+              "days": {"type": "integer", "description": "Number of days (1-5)"}
             },
-            "required": [
-              "movie_id"
-            ]
+            "required": ["location"]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": ["get_current_weather"],
+    "expected_parameters": {"location": "Madrid, Spain", "unit": "celsius"},
+    "complexity": "low"
+  },
+  {
+    "id": "TC_002",
+    "scenario": "multi_tool_trip_planning",
+    "query": "I need to fly from New York to London next Friday and I'll need a hotel for 3 nights.",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "search_flights",
+          "description": "Search for available flights between two cities",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "origin": {"type": "string", "description": "Departure city"},
+              "destination": {"type": "string", "description": "Arrival city"},
+              "date": {"type": "string", "description": "Departure date in YYYY-MM-DD format"},
+              "passengers": {"type": "integer", "description": "Number of passengers"}
+            },
+            "required": ["origin", "destination", "date"]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "search_hotels",
+          "description": "Search for available hotels in a city",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "city": {"type": "string", "description": "City to search hotels in"},
+              "check_in": {"type": "string", "description": "Check-in date YYYY-MM-DD"},
+              "check_out": {"type": "string", "description": "Check-out date YYYY-MM-DD"},
+              "guests": {"type": "integer", "description": "Number of guests"}
+            },
+            "required": ["city", "check_in", "check_out"]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "convert_currency",
+          "description": "Convert amount between currencies",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "amount": {"type": "number"},
+              "from_currency": {"type": "string"},
+              "to_currency": {"type": "string"}
+            },
+            "required": ["amount", "from_currency", "to_currency"]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": ["search_flights", "search_hotels"],
+    "expected_parameters": {
+      "search_flights": {"origin": "New York", "destination": "London"},
+      "search_hotels": {"city": "London"}
+    },
+    "complexity": "medium"
+  },
+  {
+    "id": "TC_003",
+    "scenario": "no_tool_needed",
+    "query": "What is the capital of France?",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "search_database",
+          "description": "Search the product database for items matching a query",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "query": {"type": "string", "description": "Search query"},
+              "category": {"type": "string", "description": "Product category"}
+            },
+            "required": ["query"]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_stock_price",
+          "description": "Get current stock price for a ticker symbol",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "symbol": {"type": "string", "description": "Stock ticker symbol"}
+            },
+            "required": ["symbol"]
           }
         }
       }
@@ -64,460 +142,228 @@
     "complexity": "low"
   },
   {
-    "id": "TC_002",
-    "scenario": "buscar_pelicula_por_titulo_y_region",
-    "query": "¿Está 'El Irlandés' en Netflix España? Si sí, dime duración y si tiene audio en español.",
-    "available_tools": [
-      {
-        "type": "function",
-        "function": {
-          "name": "search_catalog",
-          "description": "Busca películas en el catálogo de Netflix por filtros y región.",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "title": {
-                "type": "string",
-                "description": "Título exacto o aproximado."
-              },
-              "region": {
-                "type": "string",
-                "description": "Región del catálogo (p. ej., 'ES', 'MX', 'AR')."
-              },
-              "type": {
-                "type": "string",
-                "description": "Tipo de contenido: 'movie' o 'series'."
-              },
-              "limit": {
-                "type": "number",
-                "description": "Máximo de resultados."
-              }
-            },
-            "required": [
-              "title",
-              "region",
-              "type"
-            ]
-          }
-        }
-      },
-      {
-        "type": "function",
-        "function": {
-          "name": "get_movie_details",
-          "description": "Devuelve detalles de una película (duración, audio/subtítulos, clasificación por edad, etc.) por ID y región.",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "movie_id": {
-                "type": "string",
-                "description": "ID de la película."
-              },
-              "region": {
-                "type": "string",
-                "description": "Región del catálogo."
-              },
-              "include_audio_tracks": {
-                "type": "boolean",
-                "description": "Si true, incluye lista de pistas de audio disponibles."
-              }
-            },
-            "required": [
-              "movie_id",
-              "region"
-            ]
-          }
-        }
-      },
-      {
-        "type": "function",
-        "function": {
-          "name": "check_availability",
-          "description": "Verifica si un título específico está disponible en una región y devuelve ventana de disponibilidad si existe.",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "title_id": {
-                "type": "string",
-                "description": "ID del título en el catálogo."
-              },
-              "region": {
-                "type": "string",
-                "description": "Región del catálogo."
-              }
-            },
-            "required": [
-              "title_id",
-              "region"
-            ]
-          }
-        }
-      }
-    ],
-    "expected_tool_calls": [
-      "search_catalog",
-      "get_movie_details"
-    ],
-    "expected_parameters": {
-      "search_catalog": {
-        "title": "El Irlandés",
-        "region": "ES",
-        "type": "movie",
-        "limit": 5
-      },
-      "get_movie_details": {
-        "movie_id": "TBD_FROM_SEARCH",
-        "region": "ES",
-        "include_audio_tracks": true
-      }
-    },
-    "complexity": "medium"
-  },
-  {
-    "id": "TC_003",
-    "scenario": "recomendaciones_con_parametros_faltantes",
-    "query": "Recomiéndame 5 películas parecidas a 'Knives Out' que estén en Netflix.",
-    "available_tools": [
-      {
-        "type": "function",
-        "function": {
-          "name": "search_catalog",
-          "description": "Busca títulos en el catálogo por texto y tipo.",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "query": {
-                "type": "string",
-                "description": "Texto libre (título o keywords)."
-              },
-              "type": {
-                "type": "string",
-                "description": "Tipo: 'movie' o 'series'."
-              },
-              "region": {
-                "type": "string",
-                "description": "Región del catálogo (p. ej., 'ES', 'MX')."
-              }
-            },
-            "required": [
-              "query",
-              "type",
-              "region"
-            ]
-          }
-        }
-      },
-      {
-        "type": "function",
-        "function": {
-          "name": "get_similar_titles",
-          "description": "Devuelve títulos similares a un título dado, filtrando por región y tipo.",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "seed_title_id": {
-                "type": "string",
-                "description": "ID del título semilla."
-              },
-              "region": {
-                "type": "string",
-                "description": "Región del catálogo."
-              },
-              "limit": {
-                "type": "number",
-                "description": "Cantidad de recomendaciones."
-              },
-              "exclude_watched": {
-                "type": "boolean",
-                "description": "Si true, excluye títulos ya vistos por el perfil."
-              }
-            },
-            "required": [
-              "seed_title_id",
-              "region",
-              "limit"
-            ]
-          }
-        }
-      }
-    ],
-    "expected_tool_calls": [],
-    "expected_parameters": {},
-    "complexity": "medium"
-  },
-  {
     "id": "TC_004",
-    "scenario": "ambiguedad_pelicula_o_serie_y_region",
-    "query": "¿'The Witcher' está en Netflix y es película? Si no, pásame la película más parecida que sí esté.",
+    "scenario": "database_query_with_filter",
+    "query": "Find all active premium customers who signed up in the last 30 days and have spent over $500.",
     "available_tools": [
       {
         "type": "function",
         "function": {
-          "name": "search_catalog",
-          "description": "Busca títulos por nombre en el catálogo, pudiendo devolver películas y series.",
+          "name": "query_customers",
+          "description": "Query customer database with filters",
           "parameters": {
             "type": "object",
             "properties": {
-              "query": {
-                "type": "string",
-                "description": "Texto de búsqueda."
-              },
-              "region": {
-                "type": "string",
-                "description": "Región del catálogo."
-              },
-              "types": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Tipos a incluir, p. ej. ['movie','series']."
-              },
-              "limit": {
-                "type": "number",
-                "description": "Máximo de resultados."
-              }
+              "status": {"type": "string", "enum": ["active", "inactive", "suspended"]},
+              "tier": {"type": "string", "enum": ["free", "basic", "premium", "enterprise"]},
+              "signed_up_after": {"type": "string", "description": "ISO date string"},
+              "min_total_spent": {"type": "number", "description": "Minimum total amount spent"}
             },
-            "required": [
-              "query",
-              "region"
-            ]
+            "required": ["status"]
           }
         }
       },
       {
         "type": "function",
         "function": {
-          "name": "check_availability",
-          "description": "Comprueba disponibilidad de un título por ID en una región.",
+          "name": "export_report",
+          "description": "Export a report in specified format",
           "parameters": {
             "type": "object",
             "properties": {
-              "title_id": {
-                "type": "string",
-                "description": "ID del título."
-              },
-              "region": {
-                "type": "string",
-                "description": "Región del catálogo."
-              }
+              "report_type": {"type": "string"},
+              "format": {"type": "string", "enum": ["csv", "pdf", "xlsx"]}
             },
-            "required": [
-              "title_id",
-              "region"
-            ]
-          }
-        }
-      },
-      {
-        "type": "function",
-        "function": {
-          "name": "get_similar_titles",
-          "description": "Sugiere títulos similares a un título semilla, filtrando por tipo y región.",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "seed_title_id": {
-                "type": "string",
-                "description": "ID del título semilla."
-              },
-              "region": {
-                "type": "string",
-                "description": "Región del catálogo."
-              },
-              "type": {
-                "type": "string",
-                "description": "Tipo deseado: 'movie' o 'series'."
-              },
-              "limit": {
-                "type": "number",
-                "description": "Cantidad de resultados."
-              }
-            },
-            "required": [
-              "seed_title_id",
-              "region",
-              "type",
-              "limit"
-            ]
+            "required": ["report_type", "format"]
           }
         }
       }
     ],
-    "expected_tool_calls": [],
-    "expected_parameters": {},
+    "expected_tool_calls": ["query_customers"],
+    "expected_parameters": {
+      "query_customers": {"status": "active", "tier": "premium", "min_total_spent": 500}
+    },
     "complexity": "medium"
   },
   {
     "id": "TC_005",
-    "scenario": "filtrar_catalogo_por_audio_subtitulos_y_duracion",
-    "query": "Busco películas de terror en Netflix México de menos de 100 minutos, con audio en inglés y subtítulos en español. Dame 8 opciones y marca cuáles son aptas para mayores de 16.",
+    "scenario": "sequential_tool_chain",
+    "query": "Send an email to the project manager with the latest sales report for Q4 2025.",
     "available_tools": [
       {
         "type": "function",
         "function": {
-          "name": "search_catalog",
-          "description": "Busca películas por filtros avanzados (género, región, duración, clasificación por edad).",
+          "name": "lookup_contact",
+          "description": "Look up a contact by role or name",
           "parameters": {
             "type": "object",
             "properties": {
-              "region": {
-                "type": "string",
-                "description": "Región del catálogo."
-              },
-              "type": {
-                "type": "string",
-                "description": "Tipo: 'movie' o 'series'."
-              },
-              "genre": {
-                "type": "string",
-                "description": "Género (p. ej., 'Terror')."
-              },
-              "max_runtime_minutes": {
-                "type": "number",
-                "description": "Duración máxima en minutos."
-              },
-              "limit": {
-                "type": "number",
-                "description": "Máximo de resultados."
-              }
-            },
-            "required": [
-              "region",
-              "type",
-              "genre",
-              "limit"
-            ]
+              "role": {"type": "string", "description": "Job role to search for"},
+              "name": {"type": "string", "description": "Contact name"}
+            }
           }
         }
       },
       {
         "type": "function",
         "function": {
-          "name": "get_movie_details_bulk",
-          "description": "Obtiene detalles de varias películas a la vez (audio/subtítulos, duración, clasificación por edad).",
+          "name": "generate_report",
+          "description": "Generate a business report",
           "parameters": {
             "type": "object",
             "properties": {
-              "movie_ids": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Lista de IDs de películas."
-              },
-              "region": {
-                "type": "string",
-                "description": "Región del catálogo."
-              },
-              "include_audio_tracks": {
-                "type": "boolean",
-                "description": "Incluye pistas de audio."
-              },
-              "include_subtitle_tracks": {
-                "type": "boolean",
-                "description": "Incluye pistas de subtítulos."
-              }
+              "report_type": {"type": "string", "enum": ["sales", "inventory", "financial"]},
+              "period": {"type": "string", "description": "Time period, e.g., 'Q4 2025'"},
+              "format": {"type": "string", "enum": ["pdf", "csv", "html"]}
             },
-            "required": [
-              "movie_ids",
-              "region"
-            ]
+            "required": ["report_type", "period"]
           }
         }
       },
       {
         "type": "function",
         "function": {
-          "name": "filter_by_language_tracks",
-          "description": "Filtra una lista de títulos por disponibilidad de audio y subtítulos en idiomas específicos.",
+          "name": "send_email",
+          "description": "Send an email with optional attachments",
           "parameters": {
             "type": "object",
             "properties": {
-              "items": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Lista de IDs de películas a filtrar."
-              },
-              "required_audio": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Idiomas requeridos para audio (p. ej., ['en'])."
-              },
-              "required_subtitles": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Idiomas requeridos para subtítulos (p. ej., ['es'])."
-              }
+              "to": {"type": "string", "description": "Recipient email address"},
+              "subject": {"type": "string"},
+              "body": {"type": "string"},
+              "attachments": {"type": "array", "items": {"type": "string"}, "description": "File paths to attach"}
             },
-            "required": [
-              "items",
-              "required_audio",
-              "required_subtitles"
-            ]
-          }
-        }
-      },
-      {
-        "type": "function",
-        "function": {
-          "name": "normalize_maturity_rating",
-          "description": "Convierte clasificaciones locales (p. ej., 'TV-MA', '16+', 'R') a una escala de edad mínima numérica para comparación.",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "rating": {
-                "type": "string",
-                "description": "Clasificación por edad tal como aparece en el catálogo."
-              },
-              "region": {
-                "type": "string",
-                "description": "Región para interpretar la clasificación."
-              }
-            },
-            "required": [
-              "rating",
-              "region"
-            ]
+            "required": ["to", "subject", "body"]
           }
         }
       }
     ],
-    "expected_tool_calls": [
-      "search_catalog",
-      "get_movie_details_bulk",
-      "filter_by_language_tracks"
-    ],
+    "expected_tool_calls": ["lookup_contact", "generate_report", "send_email"],
     "expected_parameters": {
-      "search_catalog": {
-        "region": "MX",
-        "type": "movie",
-        "genre": "Terror",
-        "max_runtime_minutes": 100,
-        "limit": 30
-      },
-      "get_movie_details_bulk": {
-        "movie_ids": "TBD_FROM_SEARCH",
-        "region": "MX",
-        "include_audio_tracks": true,
-        "include_subtitle_tracks": true
-      },
-      "filter_by_language_tracks": {
-        "items": "TBD_FROM_DETAILS",
-        "required_audio": [
-          "en"
-        ],
-        "required_subtitles": [
-          "es"
-        ]
-      }
+      "lookup_contact": {"role": "project manager"},
+      "generate_report": {"report_type": "sales", "period": "Q4 2025"}
     },
     "complexity": "high"
+  },
+  {
+    "id": "TC_006",
+    "scenario": "parameter_extraction_from_natural_language",
+    "query": "Schedule a 45-minute meeting with Alice and Bob tomorrow at 2pm in Conference Room B to discuss the Q1 budget.",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "create_calendar_event",
+          "description": "Create a calendar event",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "title": {"type": "string", "description": "Event title"},
+              "start_time": {"type": "string", "description": "Start time in ISO 8601 format"},
+              "duration_minutes": {"type": "integer", "description": "Duration in minutes"},
+              "attendees": {"type": "array", "items": {"type": "string"}, "description": "List of attendee names or emails"},
+              "location": {"type": "string", "description": "Meeting location"},
+              "description": {"type": "string", "description": "Event description"}
+            },
+            "required": ["title", "start_time", "duration_minutes"]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": ["create_calendar_event"],
+    "expected_parameters": {
+      "create_calendar_event": {
+        "title": "Q1 Budget Discussion",
+        "duration_minutes": 45,
+        "attendees": ["Alice", "Bob"],
+        "location": "Conference Room B"
+      }
+    },
+    "complexity": "medium"
+  },
+  {
+    "id": "TC_007",
+    "scenario": "ambiguous_tool_selection",
+    "query": "How much did we spend on marketing last month?",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_department_budget",
+          "description": "Get the allocated budget for a department",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "department": {"type": "string"},
+              "fiscal_year": {"type": "string"}
+            },
+            "required": ["department"]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_expense_report",
+          "description": "Get actual expenses for a department in a specific period",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "department": {"type": "string"},
+              "start_date": {"type": "string", "description": "Start date YYYY-MM-DD"},
+              "end_date": {"type": "string", "description": "End date YYYY-MM-DD"}
+            },
+            "required": ["department", "start_date", "end_date"]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_invoice_total",
+          "description": "Get total invoiced amount for a vendor",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "vendor_name": {"type": "string"},
+              "period": {"type": "string"}
+            },
+            "required": ["vendor_name"]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": ["get_expense_report"],
+    "expected_parameters": {
+      "get_expense_report": {"department": "marketing"}
+    },
+    "complexity": "medium"
+  },
+  {
+    "id": "TC_008",
+    "scenario": "error_handling_missing_params",
+    "query": "Send a notification.",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "send_notification",
+          "description": "Send a push notification to a user",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "user_id": {"type": "string", "description": "Target user ID"},
+              "title": {"type": "string", "description": "Notification title"},
+              "message": {"type": "string", "description": "Notification body"},
+              "priority": {"type": "string", "enum": ["low", "normal", "high", "urgent"]}
+            },
+            "required": ["user_id", "title", "message"]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": [],
+    "expected_parameters": {},
+    "complexity": "medium"
   }
 ]

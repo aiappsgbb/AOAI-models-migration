@@ -1,136 +1,394 @@
 [
   {
     "id": "CLASS_001",
-    "scenario": "buscar_pelicula_por_actor_y_ano",
-    "customer_input": "Estoy buscando una película que vi en Netflix hace como dos años. Salía Ryan Gosling y creo que era de 2011 o 2012, pero no recuerdo el título. ¿Me puedes ayudar a encontrarla en el catálogo?",
-    "expected_category": "title_search_and_discovery",
-    "expected_subcategory": "search_by_cast_and_year",
-    "expected_priority": "medium",
-    "expected_sentiment": "curious",
+    "scenario": "overcharged_internet_bill",
+    "customer_input": "I just received my mobile and home internet bill and it’s almost double what I usually pay. I haven’t changed my plan or used more data than normal, so I don’t understand why it’s so high. Can you explain these extra charges and fix this?",
+    "expected_category": "billing_inquiry",
+    "expected_subcategory": "unexpected_charges",
+    "expected_priority": "high",
+    "expected_sentiment": "frustrated",
     "context": {
-      "locale": "es-MX",
-      "device": "smart_tv",
-      "profile_type": "adult",
-      "search_signals": {
-        "cast": [
-          "Ryan Gosling"
-        ],
-        "approx_year": "2011-2012",
-        "format": "movie"
-      }
+      "account_tenure_months": 18,
+      "billing_cycle": "2026-01",
+      "services": [
+        "mobile_postpaid",
+        "home_broadband"
+      ],
+      "recent_plan_change": false
     },
     "follow_up_questions_expected": [
-      "¿Recuerdas algún detalle de la trama o el género (romance, acción, drama)?",
-      "¿La viste en tu perfil principal o en otro perfil de la cuenta?"
+      "Can you confirm the total amount you were billed this month and the usual amount you pay?",
+      "Have you received any SMS or email notifications about additional charges or add-on activations recently?"
     ]
   },
   {
     "id": "CLASS_002",
-    "scenario": "recomendar_peliculas_para_noche_familiar",
-    "customer_input": "Hoy queremos ver una película en familia y no sabemos cuál elegir. Somos dos adultos y dos niños de 9 y 12, y preferimos algo divertido sin escenas fuertes. ¿Qué me recomiendas que esté en Netflix?",
-    "expected_category": "recommendations",
-    "expected_subcategory": "family_friendly_movie_recommendations",
-    "expected_priority": "low",
-    "expected_sentiment": "positive",
+    "scenario": "no_signal_after_storm",
+    "customer_input": "Since the storm last night, I have had no mobile signal at all in my area. I can’t make calls or use data, which is a big problem because I work from home and rely on my phone hotspot. When will this be fixed?",
+    "expected_category": "technical_support",
+    "expected_subcategory": "outage_or_service_disruption",
+    "expected_priority": "critical",
+    "expected_sentiment": "very_angry",
     "context": {
-      "locale": "es-ES",
-      "device": "tablet",
-      "profiles": [
-        {
-          "name": "Adultos",
-          "maturity_level": "18+"
-        },
-        {
-          "name": "Kids",
-          "maturity_level": "7+"
-        }
-      ],
-      "preferences": {
-        "avoid": [
-          "violence",
-          "explicit_sex",
-          "strong_language"
-        ],
-        "tone": "fun"
-      }
+      "network_type": "mobile_4g",
+      "reported_location_postcode": "94107",
+      "outage_ticket_open": true,
+      "affected_services": [
+        "voice",
+        "sms",
+        "data"
+      ]
     },
     "follow_up_questions_expected": [
-      "¿Prefieren animación, comedia familiar o aventura con actores reales?",
-      "¿Tienen alguna película o saga que les haya gustado para tomarla como referencia?"
+      "Can you confirm if other people around you are experiencing the same issue?",
+      "Have you tried restarting your phone or toggling airplane mode since the storm?"
     ]
   },
   {
     "id": "CLASS_003",
-    "scenario": "titulo_no_disponible_por_region",
-    "customer_input": "Estoy en Argentina y no me aparece 'Oppenheimer' en Netflix, pero a un amigo en otro país sí le sale. ¿Está en el catálogo de acá o la quitaron? Necesito saber si es un tema de región o de mi cuenta.",
-    "expected_category": "availability_and_catalog",
-    "expected_subcategory": "regional_availability_check",
-    "expected_priority": "high",
-    "expected_sentiment": "frustrated",
+    "scenario": "query_on_roaming_charges",
+    "customer_input": "I just got back from a trip abroad and my bill shows high roaming charges. I thought I had activated an international roaming pack before I left. Can you check if the pack was active and why I was still charged so much?",
+    "expected_category": "billing_inquiry",
+    "expected_subcategory": "roaming_and_international_charges",
+    "expected_priority": "medium",
+    "expected_sentiment": "concerned",
     "context": {
-      "locale": "es-AR",
-      "device": "android_phone",
-      "current_country": "AR",
-      "title_queried": "Oppenheimer",
-      "network": {
-        "vpn_suspected": false
-      }
+      "travel_country": "Spain",
+      "roaming_pack_requested": true,
+      "roaming_pack_status": "unknown",
+      "billing_cycle": "2026-02"
     },
     "follow_up_questions_expected": [
-      "¿En qué país está tu amigo y en qué fecha la vio disponible?",
-      "¿Te aparece algún resultado si la buscas por el nombre del director o por el elenco?"
+      "On what date did you activate the roaming pack and through which channel (app, USSD, customer care)?",
+      "Can you share the dates you were abroad so we can match them with the roaming usage on your account?"
     ]
   },
   {
     "id": "CLASS_004",
-    "scenario": "consultar_duracion_idiomas_y_subtitulos",
-    "customer_input": "Antes de poner una película quiero saber cuánto dura y si tiene audio en español latino. También me interesa si hay subtítulos en inglés para practicar. ¿Me puedes confirmar esos datos del título que estoy viendo en Netflix?",
-    "expected_category": "movie_details_and_metadata",
-    "expected_subcategory": "runtime_audio_and_subtitles_info",
-    "expected_priority": "medium",
-    "expected_sentiment": "neutral",
+    "scenario": "slow_home_broadband_evenings",
+    "customer_input": "My home broadband has been extremely slow every evening for the past week. Streaming keeps buffering and even simple browsing is painful, but during the day it seems fine. Is there congestion in my area or something wrong with my line?",
+    "expected_category": "technical_support",
+    "expected_subcategory": "home_broadband_speed_issues",
+    "expected_priority": "high",
+    "expected_sentiment": "frustrated",
     "context": {
-      "locale": "es-CO",
-      "device": "web_browser",
-      "title_context": {
-        "title_name": "unknown_from_customer",
-        "format": "movie"
-      },
-      "metadata_requested": [
-        "runtime",
-        "audio_languages",
-        "subtitle_languages"
-      ]
+      "connection_type": "fiber",
+      "router_model": "ZX-HomeFiber-300",
+      "peak_issue_time": "19:00-23:00",
+      "previous_tickets_last_30_days": 1
     },
     "follow_up_questions_expected": [
-      "¿Cuál es el nombre exacto de la película (y si puedes, el año) para verificar la ficha correcta?",
-      "¿La estás viendo desde un perfil específico y en qué dispositivo (TV, móvil o web)?"
+      "Have you run any speed tests during the slow periods, and if so what download and upload speeds did you see?",
+      "Are you connected over Wi-Fi or directly via Ethernet when you experience the slow speeds?"
     ]
   },
   {
     "id": "CLASS_005",
-    "scenario": "pelicula_no_reproduce_error_calidad",
-    "customer_input": "Estoy intentando ver una película y se queda cargando o baja a una calidad horrible, pero otras series me van bien. Ya reinicié la app y sigue igual. ¿Me pueden decir si es un problema del título o de mi cuenta?",
-    "expected_category": "playback_and_quality",
-    "expected_subcategory": "title_specific_playback_issue",
-    "expected_priority": "critical",
+    "scenario": "add_new_line_to_family_plan",
+    "customer_input": "I have a family mobile plan with three lines and I’d like to add a fourth line for my daughter. I want to keep the same shared data but maybe increase the total allowance a bit. What are my options and will this extend my contract?",
+    "expected_category": "sales_and_upgrades",
+    "expected_subcategory": "plan_changes_and_upgrades",
+    "expected_priority": "medium",
+    "expected_sentiment": "curious",
+    "context": {
+      "current_plan_type": "family_shared_40gb",
+      "lines_on_account": 3,
+      "contract_remaining_months": 8,
+      "device_financing_active": true
+    },
+    "follow_up_questions_expected": [
+      "Do you have a specific monthly budget in mind for adding the new line and extra data?",
+      "Will your daughter need international calling or roaming on this new line?"
+    ]
+  },
+  {
+    "id": "CLASS_006",
+    "scenario": "complaint_about_rude_agent",
+    "customer_input": "I called your helpline earlier today about a billing issue and the agent I spoke with was extremely rude and dismissive. They kept interrupting me and refused to escalate the call when I asked. I want to file a formal complaint and have this reviewed.",
+    "expected_category": "complaints_and_escalations",
+    "expected_subcategory": "agent_behavior_and_service_quality",
+    "expected_priority": "high",
     "expected_sentiment": "angry",
     "context": {
-      "locale": "es-MX",
-      "device": "fire_tv",
-      "connection_type": "wifi",
-      "issue_symptoms": [
-        "buffering",
-        "low_resolution"
-      ],
-      "scope": "single_title",
-      "troubleshooting_done": [
-        "app_restart"
+      "contact_channel": "voice_call",
+      "interaction_datetime": "2026-02-14T10:35:00Z",
+      "previous_complaints_count": 0,
+      "issue_reference_number": "INT-784392"
+    },
+    "follow_up_questions_expected": [
+      "Can you confirm the approximate time of the call and the number you called from so we can locate the recording?",
+      "Can you describe specific statements or actions from the agent that you found rude or unprofessional?"
+    ]
+  },
+  {
+    "id": "CLASS_007",
+    "scenario": "sim_card_not_activating",
+    "customer_input": "I bought a new prepaid SIM card this morning and followed the activation steps in the app, but it still shows ‘no service’. It’s been over three hours now and I can’t make any calls. Is there something else I need to do to activate it?",
+    "expected_category": "technical_support",
+    "expected_subcategory": "sim_activation_and_provisioning",
+    "expected_priority": "high",
+    "expected_sentiment": "concerned",
+    "context": {
+      "sim_type": "prepaid",
+      "activation_channel": "mobile_app",
+      "time_since_purchase_minutes": 210,
+      "device_os": "Android"
+    },
+    "follow_up_questions_expected": [
+      "Have you tried inserting the SIM card into a different phone to see if the issue persists?",
+      "Did you receive any SMS or email confirming that the SIM activation request was successful?"
+    ]
+  },
+  {
+    "id": "CLASS_008",
+    "scenario": "request_for_itemized_bill",
+    "customer_input": "I’d like to get an itemized bill for the last three months showing all calls, texts, and data usage. I need it for reimbursement purposes at work. How can I download this, and is there any extra charge for detailed statements?",
+    "expected_category": "billing_inquiry",
+    "expected_subcategory": "billing_statements_and_history",
+    "expected_priority": "low",
+    "expected_sentiment": "professional",
+    "context": {
+      "account_type": "corporate_individual",
+      "billing_delivery_method": "email",
+      "months_requested": 3,
+      "online_portal_access": true
+    },
+    "follow_up_questions_expected": [
+      "Do you need the itemized bills in PDF format only, or also as spreadsheets?",
+      "Should the itemized statements include roaming and international usage details as well?"
+    ]
+  },
+  {
+    "id": "CLASS_009",
+    "scenario": "porting_number_from_other_carrier",
+    "customer_input": "I’m planning to switch from my current provider to your network but I want to keep my existing number. What is the process for porting my number, and will there be any downtime where I can’t receive calls?",
+    "expected_category": "sales_and_upgrades",
+    "expected_subcategory": "number_porting_and_mnp",
+    "expected_priority": "medium",
+    "expected_sentiment": "curious",
+    "context": {
+      "current_provider": "OtherTel",
+      "number_type": "mobile_postpaid",
+      "desired_activation_date": "2026-02-20",
+      "sales_channel": "online_store"
+    },
+    "follow_up_questions_expected": [
+      "Have you already requested a porting code or authorization from your current provider?",
+      "Is there a specific time of day when downtime would be least disruptive for you during the porting process?"
+    ]
+  },
+  {
+    "id": "CLASS_010",
+    "scenario": "data_not_working_on_new_phone",
+    "customer_input": "I upgraded to a new smartphone yesterday and moved my SIM over, but mobile data isn’t working at all. I can make calls and send texts, just no internet unless I’m on Wi-Fi. Do I need to change any settings for your network?",
+    "expected_category": "technical_support",
+    "expected_subcategory": "mobile_data_connectivity_issues",
+    "expected_priority": "high",
+    "expected_sentiment": "concerned",
+    "context": {
+      "device_brand": "Samsung",
+      "device_model": "Galaxy S25",
+      "apn_settings_checked": false,
+      "sim_form_factor": "eSIM"
+    },
+    "follow_up_questions_expected": [
+      "Can you confirm whether mobile data is enabled in your phone’s settings and that airplane mode is turned off?",
+      "Have you received any configuration SMS from us and, if so, did you install the settings?"
+    ]
+  },
+  {
+    "id": "CLASS_011",
+    "scenario": "missed_payment_reconnection_request",
+    "customer_input": "My mobile line was suspended because I missed last month’s payment, but I’ve just paid the full outstanding amount online. How long will it take for my service to be restored, and do I need to do anything else to get reconnected?",
+    "expected_category": "billing_inquiry",
+    "expected_subcategory": "payment_failures_and_reconnection",
+    "expected_priority": "medium",
+    "expected_sentiment": "worried",
+    "context": {
+      "outstanding_balance_before_payment": 120.5,
+      "payment_method": "credit_card_online",
+      "service_status": "suspended_outgoing",
+      "last_payment_timestamp": "2026-02-15T09:10:00Z"
+    },
+    "follow_up_questions_expected": [
+      "Can you share the payment confirmation number or screenshot of the transaction?",
+      "Are you currently able to receive calls and SMS, or is the line completely barred?"
+    ]
+  },
+  {
+    "id": "CLASS_012",
+    "scenario": "coverage_complaint_inside_building",
+    "customer_input": "The signal inside my apartment is terrible. I have to stand near the window to make calls, and they still drop frequently. Outside the building it’s fine, but indoors it’s almost unusable. Is there anything you can do to improve indoor coverage?",
+    "expected_category": "technical_support",
+    "expected_subcategory": "poor_indoor_coverage",
+    "expected_priority": "medium",
+    "expected_sentiment": "frustrated",
+    "context": {
+      "building_type": "high_rise_apartment",
+      "floor_number": 12,
+      "network_type": "5g",
+      "indoor_coverage_solution_offered": false
+    },
+    "follow_up_questions_expected": [
+      "Does the issue occur throughout your apartment or mainly in specific rooms?",
+      "Have you tried using Wi-Fi calling, and if so does it improve your call quality?"
+    ]
+  },
+  {
+    "id": "CLASS_013",
+    "scenario": "fraudulent_international_calls",
+    "customer_input": "I just received an alert about several expensive international calls that I definitely did not make. My phone was with me the whole time and I don’t call that country at all. I’m worried my number has been hacked or cloned and I don’t want to pay for these charges.",
+    "expected_category": "security_and_fraud",
+    "expected_subcategory": "suspected_fraudulent_usage",
+    "expected_priority": "critical",
+    "expected_sentiment": "worried",
+    "context": {
+      "suspicious_destination_country": "Nigeria",
+      "time_of_suspicious_activity": "2026-02-14T02:00:00Z",
+      "international_calling_enabled": true,
+      "previous_fraud_reports": 0
+    },
+    "follow_up_questions_expected": [
+      "Have you recently shared your one-time passwords or account PIN with anyone or on any website?",
+      "Can you confirm whether your SIM card has been in your possession at all times during the period of these calls?"
+    ]
+  },
+  {
+    "id": "CLASS_014",
+    "scenario": "lost_phone_block_sim_request",
+    "customer_input": "I lost my phone in a taxi about an hour ago and I’m scared someone might use my number or access my accounts. I need you to block the SIM immediately and tell me how to get a replacement with the same number.",
+    "expected_category": "security_and_fraud",
+    "expected_subcategory": "sim_loss_and_blocking",
+    "expected_priority": "critical",
+    "expected_sentiment": "concerned",
+    "context": {
+      "device_reported_lost": true,
+      "time_since_loss_minutes": 60,
+      "account_verification_status": "pending",
+      "linked_services": [
+        "mobile_banking_otp",
+        "two_factor_auth"
       ]
     },
     "follow_up_questions_expected": [
-      "¿Cuál es el título exacto de la película y te aparece algún código de error en pantalla?",
-      "¿A qué hora aproximada ocurrió y qué velocidad de internet tienes en ese dispositivo?"
+      "Can you confirm your full name, date of birth, and the last three digits of your ID for verification?",
+      "Do you want us to block only the SIM or also blacklist the device IMEI so it cannot be used on our network?"
+    ]
+  },
+  {
+    "id": "CLASS_015",
+    "scenario": "request_to_cancel_tv_bundle",
+    "customer_input": "I’m not really using the TV bundle that’s included with my broadband anymore and I’d like to cancel it to reduce my monthly bill. Will removing the TV package affect my contract period or incur any penalties?",
+    "expected_category": "retention_and_cancellation",
+    "expected_subcategory": "add_on_and_bundle_management",
+    "expected_priority": "low",
+    "expected_sentiment": "neutral",
+    "context": {
+      "current_bundle": "broadband_plus_tv",
+      "contract_remaining_months": 4,
+      "tv_box_in_use": false,
+      "discounts_applied": [
+        "bundle_discount_15_percent"
+      ]
+    },
+    "follow_up_questions_expected": [
+      "When did you first activate the TV bundle on your account?",
+      "Are you open to switching to a lower-cost TV package instead of fully cancelling it?"
+    ]
+  },
+  {
+    "id": "CLASS_016",
+    "scenario": "corporate_account_support_response_time",
+    "customer_input": "We have a corporate account with over 50 lines and our dedicated support email hasn’t been responding for several days. We have a few lines that need urgent plan changes and SIM replacements. This delay is affecting our employees’ work.",
+    "expected_category": "complaints_and_escalations",
+    "expected_subcategory": "response_time_and_sla_issues",
+    "expected_priority": "high",
+    "expected_sentiment": "professional",
+    "context": {
+      "account_type": "corporate",
+      "number_of_lines": 57,
+      "open_requests_pending": 3,
+      "assigned_account_manager": true
+    },
+    "follow_up_questions_expected": [
+      "Can you share the ticket numbers or email timestamps for the pending requests?",
+      "Which specific lines or employees are most urgently impacted by the delays?"
+    ]
+  },
+  {
+    "id": "CLASS_017",
+    "scenario": "query_about_5g_upgrade_eligibility",
+    "customer_input": "I heard that 5G is now available in my city. I’m currently on a 4G postpaid plan with an older phone. Am I eligible to upgrade to a 5G plan, and would I need to change my SIM card as well?",
+    "expected_category": "sales_and_upgrades",
+    "expected_subcategory": "technology_and_speed_upgrades",
+    "expected_priority": "low",
+    "expected_sentiment": "curious",
+    "context": {
+      "current_plan_type": "4g_postpaid_10gb",
+      "device_5g_capable": false,
+      "city": "Chicago",
+      "sim_type": "4g_usim"
+    },
+    "follow_up_questions_expected": [
+      "Are you interested in upgrading your device at the same time as moving to a 5G plan?",
+      "What is your average monthly data usage so we can recommend a suitable 5G plan?"
+    ]
+  },
+  {
+    "id": "CLASS_018",
+    "scenario": "unable_to_login_to_selfcare_app",
+    "customer_input": "I’m trying to log in to your self-care app to check my usage, but it keeps saying my password is incorrect even after I reset it. I’ve tried multiple times and I’m locked out now. Can you help me regain access?",
+    "expected_category": "technical_support",
+    "expected_subcategory": "account_access_and_authentication_issues",
+    "expected_priority": "medium",
+    "expected_sentiment": "frustrated",
+    "context": {
+      "login_channel": "mobile_app",
+      "failed_login_attempts": 6,
+      "password_reset_attempted": true,
+      "two_factor_enabled": true
+    },
+    "follow_up_questions_expected": [
+      "Did you receive and successfully enter the one-time password sent to your registered number during the reset?",
+      "Are you able to log in using the same credentials on the web portal, or is the issue only in the app?"
+    ]
+  },
+  {
+    "id": "CLASS_019",
+    "scenario": "life_support_device_and_line_reliability",
+    "customer_input": "My father’s medical alert device is connected through your fixed line service, and we’ve had two outages this week where the line went dead. This is a serious safety risk for him. I need assurance that this will be fixed immediately and won’t happen again.",
+    "expected_category": "technical_support",
+    "expected_subcategory": "fixed_line_outage_with_safety_impact",
+    "expected_priority": "critical",
+    "expected_sentiment": "concerned",
+    "context": {
+      "service_type": "fixed_voice_line",
+      "medical_dependency": true,
+      "recent_outages_count": 2,
+      "last_outage_duration_minutes": 45
+    },
+    "follow_up_questions_expected": [
+      "Can you confirm the exact times and dates when the line went dead this week?",
+      "Is there any backup communication method available at the premises, such as a mobile phone or broadband connection?"
+    ]
+  },
+  {
+    "id": "CLASS_020",
+    "scenario": "feedback_on_store_experience",
+    "customer_input": "I visited your retail store yesterday to upgrade my plan and the staff there were very helpful and patient. They explained the differences between the plans clearly and set up my new phone quickly. I just wanted to share positive feedback about the experience.",
+    "expected_category": "complaints_and_escalations",
+    "expected_subcategory": "positive_feedback_and_praise",
+    "expected_priority": "low",
+    "expected_sentiment": "positive",
+    "context": {
+      "store_location": "Downtown Mall",
+      "interaction_type": "in_store_visit",
+      "service_received": "plan_upgrade_and_device_setup",
+      "wait_time_minutes": 10
+    },
+    "follow_up_questions_expected": [
+      "Would you like to share the name or description of the staff member who assisted you so we can recognize them?",
+      "Are you satisfied with the performance of your new plan and device so far?"
     ]
   }
 ]
