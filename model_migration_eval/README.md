@@ -39,7 +39,7 @@ This framework automates that process end-to-end:
 | **Consistency** | Multi-run reproducibility scoring, response variance, format consistency |
 | **Model Comparison** | Dimension-by-dimension comparison with statistical significance (Welch's t-test) and actionable recommendations |
 | **Prompt Versioning** | Every save creates a timestamped snapshot — preview, restore, or delete any version |
-| **Test Data Editor** | View and edit raw test scenarios in-browser for each evaluation type |
+| **Test Data Editor** | View, create, and edit test scenarios via type-specific web forms (classification, dialog, general, RAG, tool calling) with auto-scroll, a JSON toggle for advanced editing, and configurable scenario counts per type |
 | **Results Persistence** | Evaluations and comparisons auto-save to disk — browse, filter, inspect, and delete from the UI |
 | **Verbose Logging** | Rich narrative verbose mode with colour-coded entries (step/ok/warn/err/detail/head) and timestamped progress feed |
 | **Foundry Control Plane** | Optional LLM-as-judge evaluation via Microsoft Foundry Runtime — coherence, fluency, relevance, task adherence, intent resolution — with results visible in the Foundry dashboard |
@@ -72,7 +72,14 @@ model_migration_eval/
 │
 ├── config/
 │   ├── settings.yaml               # Azure credentials & model definitions
-│   └── model_params.yaml           # Model parameter reference table
+│   ├── model_params.yaml           # Model parameter reference table
+│   └── data_gen_prompts/           # ⬅ Externalised meta-prompt templates
+│       ├── classification.txt      #   Classification test-data generation template
+│       ├── dialog.txt              #   Dialog test-data generation template
+│       ├── general.txt             #   General capability test-data generation template
+│       ├── rag.txt                 #   RAG test-data generation template
+│       ├── tool_calling.txt        #   Tool calling test-data generation template
+│       └── system_message.txt      #   System message for the data-generation LLM
 │
 ├── data/
 │   ├── synthetic/                  # Active synthetic evaluation datasets
@@ -304,7 +311,7 @@ The Prompts page has four sub-tabs:
 | **View / Edit** | Read and edit the active prompt template for any model/type combination |
 | **✨ AI Generate** | Generate all 8 prompts (4 types × 2 models) + 5 test datasets for a new topic in one click |
 | **Version History** | Filter, preview, restore, or delete (single/bulk) any past prompt version |
-| **Test Data** | Browse and edit raw test scenarios (classification/dialog/general/RAG/tool calling) with inline JSON editor |
+| **Test Data** | Browse, create, and edit test scenarios for all 5 evaluation types via **dynamic web forms** — each type gets a purpose-built form with specialised sub-editors (conversation turns, tool definitions, key-value context, tag lists). Toggle to raw JSON view for advanced editing |
 
 Additionally, the left sidebar includes an **📥 Import Topic** panel (see [Importing External Topics](#importing-external-topics) below).
 
@@ -394,6 +401,10 @@ This generates in one go:
 | `data/synthetic/tool_calling/*.json` | 10 tool calling scenarios with expected tools and parameters |
 
 All content is domain-adapted and coherent — the test data exercises the exact categories defined in the prompts.
+
+**Configurable scenario counts:**  The number of scenarios per type is configurable — set defaults in `config/settings.yaml` under `evaluation.test_data_counts`, or override per-run via the collapsible *🧪 Test data counts per type* panel in the Generate UI.
+
+**Externalised meta-prompt templates:**  The meta-prompts that instruct the generator LLM how to build test data are stored as editable `.txt` files in `config/data_gen_prompts/` (one per type, plus a `system_message.txt`).  Templates use `{count}`, `{topic}`, and `{category_block}` placeholders.  If a template file is missing, a built-in fallback is used automatically.
 
 ### Importing External Topics
 
@@ -498,6 +509,32 @@ From the **Version History** tab you can:
 - **Preview** any version's content.
 - **♻️ Restore** a version as the active prompt.
 - **🗑️ Delete** individual versions or **bulk-delete** a selection.
+
+### Test Data Explorer
+
+The **Test Data** sub-tab provides a full scenario editor for all 5 evaluation types.  Each type has a **purpose-built web form** instead of raw JSON editing:
+
+| Type | Form Fields |
+|------|-------------|
+| **Classification** | ID, Scenario, Customer Input (textarea), Expected Category, Subcategory, Priority (dropdown), Sentiment (dropdown), Context (dynamic key-value editor), Follow-up Questions (tag list) |
+| **Dialog** | ID, Scenario, Category, Conversation (multi-turn editor with role selector + message per turn), Context Gaps (tags), Optimal Follow-up (textarea), Follow-up Rules (tags), Expected Resolution Turns |
+| **General** | ID, Test Type (dropdown), Complexity (dropdown), Prompt (textarea), Expected Behavior (textarea), Expected Output (JSON, optional), Run Count |
+| **RAG** | ID, Scenario, Query (textarea), Context passage (textarea), Ground Truth (textarea), Expected Behavior, Complexity (dropdown) |
+| **Tool Calling** | ID, Scenario, Query (textarea), Available Tools (visual tool-card editor: name, description, parameters JSON schema), Expected Tool Calls (tags), Expected Parameters (JSON), Complexity (dropdown) |
+
+**Specialised sub-editors:**
+
+- **Context editor** (classification) — Generic key-value pair editor. String, number, and boolean values are auto-detected and rendered as the appropriate input type; complex values (objects, arrays) use an inline JSON textarea. Add/remove properties dynamically.
+- **Conversation editor** (dialog) — Add, remove, and reorder conversation turns with a role selector (`customer` / `agent`) and a message textarea per turn.
+- **Tools editor** (tool calling) — Visual cards for each tool with function name, description, and a JSON Schema textarea for parameters. Add/remove tools dynamically.
+- **Tags editor** — Used for string-array fields (context gaps, follow-up rules, expected tool calls, follow-up questions). Type and press Enter to add tag pills; click × to remove.
+
+**Additional features:**
+
+- **`{ } JSON` toggle** — Switch between the visual form and a raw JSON editor for any scenario.
+- **Auto-scroll** — Clicking ✏️ Edit or ➕ Add Scenario automatically scrolls the page to the form.
+- **Add / Edit / Delete** — Create new scenarios from blank type-specific templates, edit existing ones, or delete with confirmation.
+- **Save Changes** — Persist all modifications back to disk with a single click.
 
 ---
 
