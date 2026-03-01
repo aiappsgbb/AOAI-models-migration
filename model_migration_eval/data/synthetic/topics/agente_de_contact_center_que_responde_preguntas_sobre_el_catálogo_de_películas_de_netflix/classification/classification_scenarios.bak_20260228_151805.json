@@ -1,0 +1,136 @@
+[
+  {
+    "id": "CLASS_001",
+    "scenario": "buscar_pelicula_por_actor_y_ano",
+    "customer_input": "Estoy buscando una película que vi en Netflix hace como dos años. Salía Ryan Gosling y creo que era de 2011 o 2012, pero no recuerdo el título. ¿Me puedes ayudar a encontrarla en el catálogo?",
+    "expected_category": "title_search_and_discovery",
+    "expected_subcategory": "search_by_cast_and_year",
+    "expected_priority": "medium",
+    "expected_sentiment": "curious",
+    "context": {
+      "locale": "es-MX",
+      "device": "smart_tv",
+      "profile_type": "adult",
+      "search_signals": {
+        "cast": [
+          "Ryan Gosling"
+        ],
+        "approx_year": "2011-2012",
+        "format": "movie"
+      }
+    },
+    "follow_up_questions_expected": [
+      "¿Recuerdas algún detalle de la trama o el género (romance, acción, drama)?",
+      "¿La viste en tu perfil principal o en otro perfil de la cuenta?"
+    ]
+  },
+  {
+    "id": "CLASS_002",
+    "scenario": "recomendar_peliculas_para_noche_familiar",
+    "customer_input": "Hoy queremos ver una película en familia y no sabemos cuál elegir. Somos dos adultos y dos niños de 9 y 12, y preferimos algo divertido sin escenas fuertes. ¿Qué me recomiendas que esté en Netflix?",
+    "expected_category": "recommendations",
+    "expected_subcategory": "family_friendly_movie_recommendations",
+    "expected_priority": "low",
+    "expected_sentiment": "positive",
+    "context": {
+      "locale": "es-ES",
+      "device": "tablet",
+      "profiles": [
+        {
+          "name": "Adultos",
+          "maturity_level": "18+"
+        },
+        {
+          "name": "Kids",
+          "maturity_level": "7+"
+        }
+      ],
+      "preferences": {
+        "avoid": [
+          "violence",
+          "explicit_sex",
+          "strong_language"
+        ],
+        "tone": "fun"
+      }
+    },
+    "follow_up_questions_expected": [
+      "¿Prefieren animación, comedia familiar o aventura con actores reales?",
+      "¿Tienen alguna película o saga que les haya gustado para tomarla como referencia?"
+    ]
+  },
+  {
+    "id": "CLASS_003",
+    "scenario": "titulo_no_disponible_por_region",
+    "customer_input": "Estoy en Argentina y no me aparece 'Oppenheimer' en Netflix, pero a un amigo en otro país sí le sale. ¿Está en el catálogo de acá o la quitaron? Necesito saber si es un tema de región o de mi cuenta.",
+    "expected_category": "availability_and_catalog",
+    "expected_subcategory": "regional_availability_check",
+    "expected_priority": "high",
+    "expected_sentiment": "frustrated",
+    "context": {
+      "locale": "es-AR",
+      "device": "android_phone",
+      "current_country": "AR",
+      "title_queried": "Oppenheimer",
+      "network": {
+        "vpn_suspected": false
+      }
+    },
+    "follow_up_questions_expected": [
+      "¿En qué país está tu amigo y en qué fecha la vio disponible?",
+      "¿Te aparece algún resultado si la buscas por el nombre del director o por el elenco?"
+    ]
+  },
+  {
+    "id": "CLASS_004",
+    "scenario": "consultar_duracion_idiomas_y_subtitulos",
+    "customer_input": "Antes de poner una película quiero saber cuánto dura y si tiene audio en español latino. También me interesa si hay subtítulos en inglés para practicar. ¿Me puedes confirmar esos datos del título que estoy viendo en Netflix?",
+    "expected_category": "movie_details_and_metadata",
+    "expected_subcategory": "runtime_audio_and_subtitles_info",
+    "expected_priority": "medium",
+    "expected_sentiment": "neutral",
+    "context": {
+      "locale": "es-CO",
+      "device": "web_browser",
+      "title_context": {
+        "title_name": "unknown_from_customer",
+        "format": "movie"
+      },
+      "metadata_requested": [
+        "runtime",
+        "audio_languages",
+        "subtitle_languages"
+      ]
+    },
+    "follow_up_questions_expected": [
+      "¿Cuál es el nombre exacto de la película (y si puedes, el año) para verificar la ficha correcta?",
+      "¿La estás viendo desde un perfil específico y en qué dispositivo (TV, móvil o web)?"
+    ]
+  },
+  {
+    "id": "CLASS_005",
+    "scenario": "pelicula_no_reproduce_error_calidad",
+    "customer_input": "Estoy intentando ver una película y se queda cargando o baja a una calidad horrible, pero otras series me van bien. Ya reinicié la app y sigue igual. ¿Me pueden decir si es un problema del título o de mi cuenta?",
+    "expected_category": "playback_and_quality",
+    "expected_subcategory": "title_specific_playback_issue",
+    "expected_priority": "critical",
+    "expected_sentiment": "angry",
+    "context": {
+      "locale": "es-MX",
+      "device": "fire_tv",
+      "connection_type": "wifi",
+      "issue_symptoms": [
+        "buffering",
+        "low_resolution"
+      ],
+      "scope": "single_title",
+      "troubleshooting_done": [
+        "app_restart"
+      ]
+    },
+    "follow_up_questions_expected": [
+      "¿Cuál es el título exacto de la película y te aparece algún código de error en pantalla?",
+      "¿A qué hora aproximada ocurrió y qué velocidad de internet tienes en ese dispositivo?"
+    ]
+  }
+]

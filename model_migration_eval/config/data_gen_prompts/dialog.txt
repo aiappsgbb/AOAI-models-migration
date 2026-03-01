@@ -1,35 +1,35 @@
 Generate exactly {count} realistic dialog/follow-up test scenarios for the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.
-Each element MUST have this exact schema:
+Each element MUST have this exact schema (6 flat fields, CSV-compatible):
 {{
   "scenarios": [
     {{
       "id": "DLG_001",
-      "scenario": "short_snake_case_name",
-      "conversation": [
-        {{"role": "customer", "message": "..."}},
-        {{"role": "agent",    "message": "..."}},
-        {{"role": "customer", "message": "..."}}
-      ],
-      "context_gaps": ["gap1", "gap2"],
+      "conversation": "[{{\"role\": \"customer\", \"message\": \"...\"}}, {{\"role\": \"agent\", \"message\": \"...\"}}, {{\"role\": \"customer\", \"message\": \"...\"}}]",
+      "context_gaps": "gap1 | gap2 | gap3",
       "optimal_follow_up": "Best next agent response (detailed)",
-      "follow_up_rules": ["rule1", "rule2"],
-      "expected_resolution_turns": 2,
-      "category": "readable_snake_case"
+      "follow_up_rules": "rule1 | rule2 | rule3",
+      "expected_resolution_turns": 2
     }}
   ]
 }}
 
 {category_block}
 
+FIELD RULES:
+- "conversation" is a JSON-encoded string of an array of {{role, message}} objects.
+  Roles are "customer" or "agent".
+- "context_gaps" is a pipe-separated string of information gaps (e.g. "gap1 | gap2").
+- "follow_up_rules" is a pipe-separated string of follow-up rules (e.g. "rule1 | rule2").
+- Do NOT use raw arrays or objects for these fields - they MUST be flat strings.
+
 IMPORTANT RULES:
-1. ALL scenarios, conversations, and categories must be domain-specific to "{topic}"
+1. ALL scenarios, conversations must be domain-specific to "{topic}"
 2. Vary conversation lengths: some with 1 turn, some with 2-3 turns
 3. Context gaps should reflect realistic missing information for the domain
 4. Optimal follow-ups should be professional, empathetic, and specific
-5. Create at least 4 distinct categories
-6. Mix simple and complex dialog situations
-7. Customer messages should be natural and varied
-8. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON
-9. The "scenarios" array MUST contain EXACTLY {count} items — not more, not less
+5. Mix simple and complex dialog situations
+6. Customer messages should be natural and varied
+7. Return ONLY the JSON object with "scenarios" key - no markdown fences, no explanation, no comments inside the JSON
+8. The "scenarios" array MUST contain EXACTLY {count} items - not more, not less

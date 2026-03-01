@@ -148,9 +148,15 @@
 
                 <!-- Import External Topic -->
                 <div class="fluent-card p-5">
-                    <h2 class="font-semibold text-[15px] text-[var(--text-primary)] mb-3">
-                        <span class="mr-1">📥</span> Import Topic
-                    </h2>
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="font-semibold text-[15px] text-[var(--text-primary)]">
+                            <span class="mr-1">📥</span> Import Topic
+                        </h2>
+                        <a href="/import-samples" target="_blank" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                            Samples
+                        </a>
+                    </div>
                     <p class="text-xs text-gray-500 mb-3">Import an external topic from your own prompt(s) and test data files. Optimised prompts will be generated automatically for each target model following its best practices.</p>
 
                     <label class="fluent-label mb-1">Topic name <span class="text-red-500">*</span></label>
@@ -193,16 +199,16 @@
 
                     <!-- Test Data -->
                     <p class="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Test Data <span class="text-red-500">*</span> <span class="font-normal normal-case text-gray-400">(at least one)</span></p>
-                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Classification scenarios (.json)</label>
-                    <input id="import-class-data" type="file" accept=".json" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Dialog scenarios (.json)</label>
-                    <input id="import-dialog-data" type="file" accept=".json" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-brand-50 file:text-brand-600 hover:file:bg-brand-100">
-                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">General capability tests (.json)</label>
-                    <input id="import-general-data" type="file" accept=".json" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100">
-                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">RAG scenarios (.json)</label>
-                    <input id="import-rag-data" type="file" accept=".json" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
-                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Tool Calling scenarios (.json)</label>
-                    <input id="import-tool-data" type="file" accept=".json" class="w-full text-xs mb-3 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Classification scenarios (.json / .csv)</label>
+                    <input id="import-class-data" type="file" accept=".json,.csv" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Dialog scenarios (.json / .csv)</label>
+                    <input id="import-dialog-data" type="file" accept=".json,.csv" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-brand-50 file:text-brand-600 hover:file:bg-brand-100">
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">General capability tests (.json / .csv)</label>
+                    <input id="import-general-data" type="file" accept=".json,.csv" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100">
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">RAG scenarios (.json / .csv)</label>
+                    <input id="import-rag-data" type="file" accept=".json,.csv" class="w-full text-xs mb-2 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                    <label class="block text-xs text-[var(--text-secondary)] mb-0.5">Tool Calling scenarios (.json / .csv)</label>
+                    <input id="import-tool-data" type="file" accept=".json,.csv" class="w-full text-xs mb-3 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
 
                     <!-- Options -->
                     <label class="flex items-center cursor-pointer mb-3">
@@ -1592,32 +1598,32 @@
             if (dataType === 'classification') {
                 cols = [
                     { key: 'id', label: 'ID' },
-                    { key: 'scenario', label: 'Scenario' },
                     { key: 'customer_input', label: 'Customer Input' },
                     { key: 'expected_category', label: 'Category' },
                     { key: 'expected_priority', label: 'Priority' },
+                    { key: 'context', label: 'Context' },
                 ];
             } else if (dataType === 'dialog') {
                 cols = [
                     { key: 'id', label: 'ID' },
-                    { key: 'scenario', label: 'Scenario' },
-                    { key: 'category', label: 'Category' },
+                    { key: 'conversation', label: 'Conversation' },
                     { key: 'context_gaps', label: 'Context Gaps' },
+                    { key: 'optimal_follow_up', label: 'Follow-up' },
                 ];
             } else if (dataType === 'rag') {
                 cols = [
                     { key: 'id', label: 'ID' },
-                    { key: 'scenario', label: 'Scenario' },
                     { key: 'query', label: 'Query' },
-                    { key: 'complexity', label: 'Complexity' },
+                    { key: 'context', label: 'Context' },
+                    { key: 'ground_truth', label: 'Ground Truth' },
                 ];
             } else if (dataType === 'tool_calling') {
                 cols = [
                     { key: 'id', label: 'ID' },
-                    { key: 'scenario', label: 'Scenario' },
                     { key: 'query', label: 'Query' },
-                    { key: 'complexity', label: 'Complexity' },
-                    { key: 'expected_tool_calls', label: 'Expected Tools' },
+                    { key: 'available_tools', label: 'Tools' },
+                    { key: 'expected_tool_calls', label: 'Expected Calls' },
+                    { key: 'expected_parameters', label: 'Expected Params' },
                 ];
             } else {
                 // general or fallback: show all keys from first item
@@ -1934,47 +1940,43 @@
             if (loadedDataType === 'classification') {
                 cols = [
                     { key: 'id', label: 'ID', w: 'w-20' },
-                    { key: 'scenario', label: 'Scenario', w: 'w-40' },
                     { key: 'customer_input', label: 'Customer Input', w: 'w-96' },
                     { key: 'expected_category', label: 'Category', w: 'w-32' },
                     { key: 'expected_subcategory', label: 'Subcategory', w: 'w-36' },
                     { key: 'expected_priority', label: 'Priority', w: 'w-20' },
                     { key: 'expected_sentiment', label: 'Sentiment', w: 'w-24' },
+                    { key: 'context', label: 'Context', w: 'w-40' },
                 ];
             } else if (loadedDataType === 'dialog') {
                 cols = [
                     { key: 'id', label: 'ID', w: 'w-20' },
-                    { key: 'scenario', label: 'Scenario', w: 'w-40' },
-                    { key: 'category', label: 'Category', w: 'w-32' },
                     { key: '_conv_summary', label: 'Conversation', w: 'w-64' },
                     { key: 'context_gaps', label: 'Gaps', w: 'w-40' },
+                    { key: 'optimal_follow_up', label: 'Optimal Follow-up', w: 'w-48' },
                     { key: 'expected_resolution_turns', label: 'Turns', w: 'w-16' },
                 ];
             } else if (loadedDataType === 'rag') {
                 cols = [
                     { key: 'id', label: 'ID', w: 'w-20' },
-                    { key: 'scenario', label: 'Scenario', w: 'w-40' },
                     { key: 'query', label: 'Query', w: 'w-64' },
                     { key: 'context', label: 'Context', w: 'w-64' },
                     { key: 'ground_truth', label: 'Ground Truth', w: 'w-48' },
-                    { key: 'expected_behavior', label: 'Behavior', w: 'w-28' },
-                    { key: 'complexity', label: 'Complexity', w: 'w-20' },
                 ];
             } else if (loadedDataType === 'tool_calling') {
                 cols = [
                     { key: 'id', label: 'ID', w: 'w-20' },
-                    { key: 'scenario', label: 'Scenario', w: 'w-40' },
                     { key: 'query', label: 'Query', w: 'w-64' },
                     { key: '_tools_summary', label: 'Available Tools', w: 'w-48' },
                     { key: '_expected_calls', label: 'Expected Calls', w: 'w-40' },
-                    { key: 'complexity', label: 'Complexity', w: 'w-20' },
+                    { key: '_expected_params', label: 'Expected Params', w: 'w-40' },
                 ];
             } else {
                 cols = [
                     { key: 'id', label: 'ID', w: 'w-20' },
                     { key: 'test_type', label: 'Type', w: 'w-28' },
                     { key: 'complexity', label: 'Complexity', w: 'w-24' },
-                    { key: 'prompt', label: 'Prompt', w: 'w-96' },
+                    { key: 'prompt', label: 'Prompt', w: 'w-64' },
+                    { key: 'expected_behavior', label: 'Expected Behavior', w: 'w-48' },
                 ];
             }
 
@@ -1997,19 +1999,37 @@
                 cols.forEach(c => {
                     let val;
                     if (c.key === '_conv_summary') {
-                        // Summarise conversation for dialog type
-                        const conv = item.conversation || [];
-                        val = conv.map(m => `${m.role}: ${(m.message || '').substring(0, 40)}…`).join(' → ');
+                        // Summarise conversation for dialog type (may be JSON string)
+                        let conv = item.conversation || '';
+                        if (typeof conv === 'string' && conv.startsWith('[')) { try { conv = JSON.parse(conv); } catch {} }
+                        if (Array.isArray(conv)) {
+                            val = conv.map(m => `${m.role}: ${(m.message || m.content || '').substring(0, 40)}…`).join(' → ');
+                        } else { val = String(conv).substring(0, 120); }
                     } else if (c.key === '_tools_summary') {
-                        // Summarise available tools for tool_calling type
-                        const tools = item.available_tools || [];
-                        val = tools.map(t => t.name || t).join(', ');
+                        // Summarise available tools for tool_calling type (may be JSON string)
+                        let tools = item.available_tools || '';
+                        if (typeof tools === 'string' && tools.startsWith('[')) { try { tools = JSON.parse(tools); } catch {} }
+                        if (Array.isArray(tools)) { val = tools.map(t => (t.function||{}).name || t.name || t).join(', '); }
+                        else { val = String(tools).substring(0, 80); }
                     } else if (c.key === '_expected_calls') {
-                        // Summarise expected tool calls
-                        const calls = item.expected_tool_calls || [];
-                        val = Array.isArray(calls) ? calls.join(', ') : String(calls);
+                        // Pipe-separated string or legacy array
+                        const calls = item.expected_tool_calls || '';
+                        val = typeof calls === 'string' ? calls : (Array.isArray(calls) ? calls.join(', ') : String(calls));
+                    } else if (c.key === '_expected_params') {
+                        val = typeof item.expected_parameters === 'string' ? item.expected_parameters : JSON.stringify(item.expected_parameters || {});
+                    } else if (c.key === 'context' && loadedDataType === 'classification') {
+                        // Show context as key: value pairs summary
+                        let ctxObj = item[c.key];
+                        if (typeof ctxObj === 'string') { try { ctxObj = JSON.parse(ctxObj); } catch { ctxObj = null; } }
+                        if (ctxObj && typeof ctxObj === 'object' && !Array.isArray(ctxObj)) {
+                            val = Object.entries(ctxObj).map(([k,v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(', ');
+                        } else {
+                            val = item[c.key] != null ? String(item[c.key]) : '';
+                        }
                     } else if (c.key === 'context_gaps') {
-                        val = Array.isArray(item[c.key]) ? item[c.key].join(', ') : String(item[c.key] || '');
+                        // Pipe-separated string or legacy array
+                        const gaps = item[c.key];
+                        val = typeof gaps === 'string' ? gaps : (Array.isArray(gaps) ? gaps.join(', ') : String(gaps || ''));
                     } else {
                         val = item[c.key] != null ? String(item[c.key]) : '';
                     }
@@ -2030,62 +2050,53 @@
         const SCENARIO_FIELDS = {
             classification: [
                 { key: 'id',                        label: 'ID',                  type: 'text',     ph: 'CLASS_001' },
-                { key: 'scenario',                   label: 'Scenario',            type: 'text',     ph: 'e.g. language_switch_query' },
                 { key: 'customer_input',             label: 'Customer Input',      type: 'textarea', ph: 'Customer message to classify…' },
                 { key: 'expected_category',           label: 'Expected Category',   type: 'text',     ph: 'e.g. content_discovery' },
                 { key: 'expected_subcategory',        label: 'Expected Subcategory',type: 'text',     ph: 'e.g. search_by_person' },
                 { key: 'expected_priority',           label: 'Priority',            type: 'select',   opts: ['low','medium','high'] },
                 { key: 'expected_sentiment',          label: 'Sentiment',           type: 'select',   opts: ['positive','neutral','negative','curious','frustrated','urgent','confused','angry'] },
-                { key: 'context',                     label: 'Context',             type: 'context' },
-                { key: 'follow_up_questions_expected', label: 'Follow-up Questions', type: 'tags',     ph: 'Add question and press Enter' },
+                { key: 'context',                     label: 'Context',              type: 'context' },
             ],
             dialog: [
                 { key: 'id',                       label: 'ID',                    type: 'text',       ph: 'DLG_001' },
-                { key: 'scenario',                  label: 'Scenario',              type: 'text',       ph: 'e.g. billing_dispute' },
-                { key: 'category',                  label: 'Category',              type: 'text',       ph: 'e.g. billing' },
                 { key: 'conversation',              label: 'Conversation',          type: 'conversation' },
-                { key: 'context_gaps',              label: 'Context Gaps',          type: 'tags',       ph: 'Add gap and press Enter' },
+                { key: 'context_gaps',              label: 'Context Gaps',          type: 'tags', ph: 'Type a gap and press Enter' },
                 { key: 'optimal_follow_up',         label: 'Optimal Follow-up',     type: 'textarea',   ph: 'Ideal next agent response…' },
-                { key: 'follow_up_rules',           label: 'Follow-up Rules',       type: 'tags',       ph: 'Add rule and press Enter' },
+                { key: 'follow_up_rules',           label: 'Follow-up Rules',       type: 'tags', ph: 'Type a rule and press Enter' },
                 { key: 'expected_resolution_turns',  label: 'Expected Resolution Turns', type: 'number', ph: '2' },
             ],
             general: [
                 { key: 'id',                 label: 'ID',                type: 'text',     ph: 'GEN_001' },
-                { key: 'test_type',          label: 'Test Type',         type: 'select',   opts: ['structured_output','consistency','safety_boundary','multi_language','calculation_accuracy'] },
+                { key: 'test_type',          label: 'Test Type',         type: 'select',   opts: ['structured_output','consistency','safety_boundary','multi_language','calculation_accuracy','reasoning_capability','instruction_following','edge_case_handling','summarization','persona_adherence','ambiguity_resolution','context_retention'] },
                 { key: 'complexity',         label: 'Complexity',        type: 'select',   opts: ['low','medium','high'] },
                 { key: 'prompt',             label: 'Prompt',            type: 'textarea', ph: 'Full prompt to send…' },
                 { key: 'expected_behavior',  label: 'Expected Behavior', type: 'textarea', ph: 'Describe what a correct answer looks like…' },
-                { key: 'expected_output',    label: 'Expected Output (JSON, optional)', type: 'json', ph: 'null or JSON schema object' },
+                { key: 'conversation',       label: 'Conversation (JSON string, optional for multi-turn)', type: 'textarea', ph: 'Leave empty for single-turn tests. Example: [{"role":"user","content":"Hi, I need help with my plan"},{"role":"assistant","content":"Sure, what would you like to change?"},{"role":"user","content":"I want more data but lower cost"}]', rows: 4 },
                 { key: 'run_count',          label: 'Run Count (optional)', type: 'number', ph: '1' },
             ],
             rag: [
                 { key: 'id',                 label: 'ID',                type: 'text',     ph: 'RAG_001' },
-                { key: 'scenario',           label: 'Scenario',          type: 'text',     ph: 'e.g. multi_source_answer' },
                 { key: 'query',              label: 'Query',             type: 'textarea', ph: 'Customer question…' },
                 { key: 'context',            label: 'Context (passage)', type: 'textarea', ph: 'Retrieved text passage(s)…', rows: 6 },
                 { key: 'ground_truth',       label: 'Ground Truth',      type: 'textarea', ph: 'Ideal answer based on context…' },
-                { key: 'expected_behavior',  label: 'Expected Behavior', type: 'text',     ph: 'e.g. grounded_answer' },
-                { key: 'complexity',         label: 'Complexity',        type: 'select',   opts: ['low','medium','high'] },
             ],
             tool_calling: [
                 { key: 'id',                  label: 'ID',                 type: 'text',     ph: 'TC_001' },
-                { key: 'scenario',            label: 'Scenario',           type: 'text',     ph: 'e.g. search_and_book' },
                 { key: 'query',               label: 'Query',              type: 'textarea', ph: 'Customer question requiring tool calls…' },
                 { key: 'available_tools',     label: 'Available Tools',    type: 'tools' },
-                { key: 'expected_tool_calls', label: 'Expected Tool Calls',type: 'tags',     ph: 'Add function name and press Enter' },
-                { key: 'expected_parameters', label: 'Expected Params (JSON)', type: 'json', ph: '{"search_catalog":{"query":"action movies"}}' },
-                { key: 'complexity',          label: 'Complexity',         type: 'select',   opts: ['low','medium','high'] },
+                { key: 'expected_tool_calls', label: 'Expected Tool Calls', type: 'tags', ph: 'Type function name and press Enter' },
+                { key: 'expected_parameters', label: 'Expected Parameters', type: 'json', ph: '{"func_name": {"param": "value"}}' },
             ],
         };
 
         /** Build default blank item for a type */
         function blankScenario(type, nextId) {
             const pad = String(nextId).padStart(3, '0');
-            if (type === 'classification') return { id: `CLASS_${pad}`, scenario: '', customer_input: '', expected_category: '', expected_subcategory: '', expected_priority: 'medium', expected_sentiment: 'neutral', context: {}, follow_up_questions_expected: [] };
-            if (type === 'dialog') return { id: `DLG_${pad}`, scenario: '', conversation: [{ role: 'customer', message: '' }], context_gaps: [], optimal_follow_up: '', follow_up_rules: [], expected_resolution_turns: 2, category: '' };
-            if (type === 'rag') return { id: `RAG_${pad}`, scenario: '', query: '', context: '', ground_truth: '', expected_behavior: 'grounded_answer', complexity: 'medium' };
-            if (type === 'tool_calling') return { id: `TC_${pad}`, scenario: '', query: '', available_tools: [{ type: 'function', function: { name: '', description: '', parameters: { type: 'object', properties: {}, required: [] } } }], expected_tool_calls: [], expected_parameters: {}, complexity: 'medium' };
-            return { id: `GEN_${pad}`, test_type: '', prompt: '', complexity: 'medium', expected_behavior: '', expected_output: null };
+            if (type === 'classification') return { id: `CLASS_${pad}`, customer_input: '', expected_category: '', expected_subcategory: '', expected_priority: 'medium', expected_sentiment: 'neutral', context: {} };
+            if (type === 'dialog') return { id: `DLG_${pad}`, conversation: [], context_gaps: [], optimal_follow_up: '', follow_up_rules: [], expected_resolution_turns: 2 };
+            if (type === 'rag') return { id: `RAG_${pad}`, query: '', context: '', ground_truth: '' };
+            if (type === 'tool_calling') return { id: `TC_${pad}`, query: '', available_tools: [], expected_tool_calls: [], expected_parameters: {} };
+            return { id: `GEN_${pad}`, test_type: '', prompt: '', complexity: 'medium', expected_behavior: '', conversation: '', run_count: 1 };
         }
 
         /** Render the form inside #scenario-form-container */
@@ -2117,7 +2128,8 @@
                     const ta = document.createElement('textarea');
                     ta.rows = f.rows || 3; ta.className = _inputCls() + ' resize-y';
                     ta.placeholder = f.ph || ''; ta.dataset.key = f.key;
-                    ta.value = item[f.key] != null ? String(item[f.key]) : '';
+                    const rawVal = item[f.key];
+                    ta.value = (rawVal != null && typeof rawVal === 'object') ? JSON.stringify(rawVal, null, 2) : (rawVal != null ? String(rawVal) : '');
                     wrap.appendChild(ta);
                 } else if (f.type === 'select') {
                     const sel = document.createElement('select');
@@ -2141,9 +2153,15 @@
                 } else if (f.type === 'tags') {
                     wrap.appendChild(_buildTagsEditor(f.key, item[f.key] || [], f.ph));
                 } else if (f.type === 'conversation') {
-                    wrap.appendChild(_buildConversationEditor(item.conversation || []));
+                    let convVal = item.conversation || [];
+                    if (typeof convVal === 'string') { try { convVal = JSON.parse(convVal); } catch { convVal = []; } }
+                    if (!Array.isArray(convVal)) convVal = [];
+                    wrap.appendChild(_buildConversationEditor(convVal));
                 } else if (f.type === 'tools') {
-                    wrap.appendChild(_buildToolsEditor(item.available_tools || []));
+                    let toolsVal = item.available_tools || [];
+                    if (typeof toolsVal === 'string') { try { toolsVal = JSON.parse(toolsVal); } catch { toolsVal = []; } }
+                    if (!Array.isArray(toolsVal)) toolsVal = [];
+                    wrap.appendChild(_buildToolsEditor(toolsVal));
                 }
 
                 c.appendChild(wrap);
@@ -2186,6 +2204,12 @@
 
         /** Tags editor (array of strings) */
         function _buildTagsEditor(key, values, placeholder) {
+            // Accept array, pipe-separated string, or comma-separated string
+            if (typeof values === 'string' && values.trim()) {
+                const sep = values.includes('|') ? '|' : ',';
+                values = values.split(sep).map(s => s.trim()).filter(Boolean);
+            }
+            if (!Array.isArray(values)) values = [];
             const div = document.createElement('div');
             div.dataset.tagsKey = key;
             div.className = 'border border-gray-200 rounded-lg p-2 bg-white';
@@ -2223,6 +2247,11 @@
 
         /** Generic context editor — dynamic key-value pairs that adapt to any topic */
         function _buildContextEditor(ctx) {
+            // Accept both object and JSON-string inputs
+            if (typeof ctx === 'string') {
+                try { ctx = JSON.parse(ctx); } catch { ctx = {}; }
+            }
+            if (!ctx || typeof ctx !== 'object' || Array.isArray(ctx)) ctx = {};
             const div = document.createElement('div');
             div.id = 'ctx-editor';
             div.className = 'border border-gray-200 rounded-lg p-3 bg-white space-y-2';

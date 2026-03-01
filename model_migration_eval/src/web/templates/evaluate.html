@@ -736,29 +736,44 @@
                 html += '<thead class="bg-gray-50"><tr>';
 
                 const th = (t) => `<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">${t}</th>`;
-                if (evalType === 'rag') {
-                    html += th('ID') + th('Query') + th('Complexity');
+                if (evalType === 'classification') {
+                    html += th('ID') + th('Customer Input') + th('Category') + th('Priority');
+                } else if (evalType === 'dialog') {
+                    html += th('ID') + th('Follow-up') + th('Gaps') + th('Turns');
+                } else if (evalType === 'general') {
+                    html += th('ID') + th('Prompt') + th('Type') + th('Complexity');
+                } else if (evalType === 'rag') {
+                    html += th('ID') + th('Query') + th('Ground Truth');
                 } else if (evalType === 'tool_calling') {
                     html += th('ID') + th('Query') + th('Expected Tools');
-                } else {
-                    html += th('ID') + th('Scenario') + th('Category');
                 }
                 html += '</tr></thead><tbody class="divide-y divide-gray-200">';
-                
-                const scenarios = data.scenarios.slice(0, 5);
+
+                const scenarios = (data.scenarios || []).slice(0, 5);
+                const td = (v) => `<td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${v}</td>`;
+                const trunc = (s, n) => { s = s || '-'; return s.length > n ? s.substring(0, n) + '…' : s; };
                 for (const s of scenarios) {
                     html += '<tr>';
                     html += `<td class="px-4 py-2 text-sm text-gray-900">${s.id}</td>`;
-                    if (evalType === 'rag') {
-                        html += `<td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${(s.query || '-').substring(0, 60)}...</td>`;
-                        html += `<td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${s.complexity || '-'}</td>`;
+                    if (evalType === 'classification') {
+                        html += td(trunc(s.customer_input, 60));
+                        html += td(s.expected_category || '-');
+                        html += td(s.expected_priority || '-');
+                    } else if (evalType === 'dialog') {
+                        html += td(trunc(s.optimal_follow_up, 60));
+                        html += td(trunc(s.context_gaps, 40));
+                        html += td(s.expected_resolution_turns ?? '-');
+                    } else if (evalType === 'general') {
+                        html += td(trunc(s.prompt, 60));
+                        html += td(s.test_type || '-');
+                        html += td(s.complexity || '-');
+                    } else if (evalType === 'rag') {
+                        html += td(trunc(s.query, 60));
+                        html += td(trunc(s.ground_truth, 60));
                     } else if (evalType === 'tool_calling') {
-                        html += `<td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${(s.query || '-').substring(0, 60)}...</td>`;
-                        const tools = Array.isArray(s.expected_tool_calls) ? s.expected_tool_calls.join(', ') : (s.expected_tool_calls || '-');
-                        html += `<td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${tools}</td>`;
-                    } else {
-                        html += `<td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${s.scenario || s.customer_input?.substring(0, 50) || '-'}...</td>`;
-                        html += `<td class="px-4 py-2 text-sm text-[var(--text-secondary)]">${s.expected_category || s.category || '-'}</td>`;
+                        html += td(trunc(s.query, 60));
+                        const tools = typeof s.expected_tool_calls === 'string' ? s.expected_tool_calls : (Array.isArray(s.expected_tool_calls) ? s.expected_tool_calls.join(', ') : '-');
+                        html += td(tools);
                     }
                     html += '</tr>';
                 }

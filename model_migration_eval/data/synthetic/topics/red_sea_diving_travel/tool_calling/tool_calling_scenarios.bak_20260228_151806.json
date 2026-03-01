@@ -1,0 +1,971 @@
+[
+  {
+    "id": "TC_001",
+    "scenario": "best_months_visibility_currents",
+    "query": "When are the best months for clear visibility and calmer currents for diving in the Egyptian Red Sea (Hurghada vs Sharm)?",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "red_sea_seasonality_lookup",
+          "description": "Returns seasonal diving conditions (visibility, currents, water temp, wind) by region and month range.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "regions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Red Sea regions (e.g., Hurghada, Sharm El Sheikh, Marsa Alam, Dahab)."
+              },
+              "months": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Months to evaluate (e.g., Jan, Feb...)."
+              },
+              "prioritize": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Condition priorities (e.g., visibility, calm_currents, warm_water)."
+              }
+            },
+            "required": [
+              "regions",
+              "prioritize"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "water_temperature_stats",
+          "description": "Provides average sea temperature ranges by region and month.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "region": {
+                "type": "string",
+                "description": "Region name."
+              },
+              "month": {
+                "type": "string",
+                "description": "Month abbreviation (e.g., Mar)."
+              }
+            },
+            "required": [
+              "region",
+              "month"
+            ]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": [],
+    "expected_parameters": {},
+    "complexity": "low"
+  },
+  {
+    "id": "TC_002",
+    "scenario": "liveaboard_price_quote_brothers_daedalus",
+    "query": "Can you find me a 7-night liveaboard to Brothers/Daedalus in May from Hurghada for 2 divers, budget up to $1800 per person, nitrox included?",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "liveaboard_search",
+          "description": "Searches Red Sea liveaboard itineraries and availability by route, month, departure port, and diver preferences.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "route": {
+                "type": "string",
+                "description": "Itinerary/route name (e.g., BDE, North & Tiran)."
+              },
+              "month": {
+                "type": "string",
+                "description": "Travel month (e.g., May 2026)."
+              },
+              "departure_port": {
+                "type": "string",
+                "description": "Departure port/city (e.g., Hurghada, Port Ghalib)."
+              },
+              "nights": {
+                "type": "number",
+                "description": "Trip length in nights."
+              },
+              "divers": {
+                "type": "number",
+                "description": "Number of divers."
+              },
+              "nitrox_included": {
+                "type": "boolean",
+                "description": "Whether nitrox must be included."
+              },
+              "max_price_per_person_usd": {
+                "type": "number",
+                "description": "Maximum price per person in USD."
+              }
+            },
+            "required": [
+              "route",
+              "month",
+              "departure_port",
+              "nights",
+              "divers"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "liveaboard_price_breakdown",
+          "description": "Returns detailed pricing and inclusions/exclusions for a specific liveaboard departure.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "departure_id": {
+                "type": "string",
+                "description": "Unique departure identifier from search results."
+              },
+              "currency": {
+                "type": "string",
+                "description": "Currency code (e.g., USD, EUR)."
+              }
+            },
+            "required": [
+              "departure_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "nitrox_policy_check",
+          "description": "Checks whether nitrox is included, available, and any certification requirements for a given boat/departure.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "boat_id": {
+                "type": "string",
+                "description": "Boat identifier."
+              },
+              "departure_id": {
+                "type": "string",
+                "description": "Departure identifier."
+              }
+            },
+            "required": [
+              "departure_id"
+            ]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": [
+      "liveaboard_search"
+    ],
+    "expected_parameters": {
+      "liveaboard_search": {
+        "route": "Brothers/Daedalus",
+        "month": "May",
+        "departure_port": "Hurghada",
+        "nights": 7,
+        "divers": 2,
+        "nitrox_included": true,
+        "max_price_per_person_usd": 1800
+      }
+    },
+    "complexity": "medium"
+  },
+  {
+    "id": "TC_003",
+    "scenario": "marine_park_fees_and_permits",
+    "query": "What marine park fees and permits should I expect for a Red Sea liveaboard that visits Ras Mohammed and the Brothers?",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "marine_park_fee_lookup",
+          "description": "Returns current marine park fees and permit requirements for Egyptian Red Sea protected areas.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "sites": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Protected areas/sites (e.g., Ras Mohammed, Brothers Islands)."
+              },
+              "trip_type": {
+                "type": "string",
+                "description": "Trip type (day_boat, shore, liveaboard)."
+              },
+              "nationality": {
+                "type": "string",
+                "description": "Traveler nationality for any differential fees (if applicable)."
+              }
+            },
+            "required": [
+              "sites",
+              "trip_type"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "liveaboard_inclusions_check",
+          "description": "Checks whether park fees are included in a specific liveaboard package.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "boat_id": {
+                "type": "string",
+                "description": "Boat identifier."
+              },
+              "departure_id": {
+                "type": "string",
+                "description": "Departure identifier."
+              }
+            },
+            "required": [
+              "boat_id"
+            ]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": [
+      "marine_park_fee_lookup"
+    ],
+    "expected_parameters": {
+      "marine_park_fee_lookup": {
+        "sites": [
+          "Ras Mohammed",
+          "Brothers Islands"
+        ],
+        "trip_type": "liveaboard",
+        "nationality": "unspecified"
+      }
+    },
+    "complexity": "medium"
+  },
+  {
+    "id": "TC_004",
+    "scenario": "dive_center_recommendation_with_constraints",
+    "query": "Recommend a dive center in Dahab that offers small groups (max 4), has DIN valves, and can arrange a day trip to the Blue Hole next week.",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "dive_center_search",
+          "description": "Searches dive centers by location and service features (group size, equipment, trips).",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "Town/area (e.g., Dahab, Sharm El Sheikh)."
+              },
+              "max_group_size": {
+                "type": "number",
+                "description": "Maximum divers per guide."
+              },
+              "requires_din": {
+                "type": "boolean",
+                "description": "Whether DIN valves are required."
+              },
+              "trip_options": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Requested trips/sites (e.g., Blue Hole, Canyon)."
+              },
+              "start_date": {
+                "type": "string",
+                "description": "Desired start date (ISO 8601) or relative (e.g., next week)."
+              }
+            },
+            "required": [
+              "location"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "dive_center_availability",
+          "description": "Checks guide and boat/transport availability for a given dive center and date range.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "center_id": {
+                "type": "string",
+                "description": "Dive center identifier."
+              },
+              "date_range": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Start and end dates (ISO 8601)."
+              },
+              "group_size": {
+                "type": "number",
+                "description": "Number of divers."
+              }
+            },
+            "required": [
+              "center_id",
+              "date_range"
+            ]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": [
+      "dive_center_search"
+    ],
+    "expected_parameters": {
+      "dive_center_search": {
+        "location": "Dahab",
+        "max_group_size": 4,
+        "requires_din": true,
+        "trip_options": [
+          "Blue Hole"
+        ],
+        "start_date": "next week"
+      }
+    },
+    "complexity": "medium"
+  },
+  {
+    "id": "TC_005",
+    "scenario": "flight_and_transfer_to_port_ghalib",
+    "query": "I’m landing in Marsa Alam (RMF) at 18:40—what’s the best way to get to Port Ghalib marina for a liveaboard check-in the same evening, and roughly how much will it cost?",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "airport_transfer_options",
+          "description": "Returns transfer options (taxi, private car, shuttle) with estimated duration and cost between Red Sea airports and destinations.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "from_airport": {
+                "type": "string",
+                "description": "Airport code (e.g., RMF, HRG, SSH)."
+              },
+              "to_destination": {
+                "type": "string",
+                "description": "Destination name (e.g., Port Ghalib Marina)."
+              },
+              "arrival_time_local": {
+                "type": "string",
+                "description": "Arrival time local (HH:MM)."
+              },
+              "party_size": {
+                "type": "number",
+                "description": "Number of travelers."
+              }
+            },
+            "required": [
+              "from_airport",
+              "to_destination",
+              "arrival_time_local"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "liveaboard_checkin_policy",
+          "description": "Provides check-in cutoff times and late-arrival procedures for a given marina/boat operator.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "marina": {
+                "type": "string",
+                "description": "Marina name."
+              },
+              "operator": {
+                "type": "string",
+                "description": "Operator/boat name if known."
+              }
+            },
+            "required": [
+              "marina"
+            ]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": [
+      "airport_transfer_options"
+    ],
+    "expected_parameters": {
+      "airport_transfer_options": {
+        "from_airport": "RMF",
+        "to_destination": "Port Ghalib Marina",
+        "arrival_time_local": "18:40",
+        "party_size": 1
+      }
+    },
+    "complexity": "low"
+  },
+  {
+    "id": "TC_006",
+    "scenario": "missing_parameters_liveaboard_dates",
+    "query": "Book me a Red Sea liveaboard from Sharm for 6 nights for two people.",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "liveaboard_search",
+          "description": "Searches Red Sea liveaboard itineraries and availability by route, month, departure port, and diver preferences.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "departure_port": {
+                "type": "string",
+                "description": "Departure port/city (e.g., Sharm El Sheikh)."
+              },
+              "nights": {
+                "type": "number",
+                "description": "Trip length in nights."
+              },
+              "divers": {
+                "type": "number",
+                "description": "Number of divers."
+              },
+              "month": {
+                "type": "string",
+                "description": "Travel month (e.g., Apr 2026)."
+              },
+              "route": {
+                "type": "string",
+                "description": "Route name (e.g., North & Tiran)."
+              }
+            },
+            "required": [
+              "departure_port",
+              "nights",
+              "divers",
+              "month"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "booking_create_hold",
+          "description": "Creates a temporary booking hold for a selected liveaboard departure.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "departure_id": {
+                "type": "string",
+                "description": "Departure identifier."
+              },
+              "lead_name": {
+                "type": "string",
+                "description": "Lead passenger full name."
+              },
+              "email": {
+                "type": "string",
+                "description": "Contact email."
+              },
+              "divers": {
+                "type": "number",
+                "description": "Number of divers."
+              }
+            },
+            "required": [
+              "departure_id",
+              "lead_name",
+              "email",
+              "divers"
+            ]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": [
+      "liveaboard_search"
+    ],
+    "expected_parameters": {
+      "liveaboard_search": {
+        "departure_port": "Sharm El Sheikh",
+        "nights": 6,
+        "divers": 2,
+        "month": ""
+      }
+    },
+    "complexity": "medium"
+  },
+  {
+    "id": "TC_007",
+    "scenario": "ambiguous_weather_vs_conditions",
+    "query": "Is it safe to dive in Hurghada this weekend? I heard the wind can be bad.",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "marine_weather_forecast",
+          "description": "Provides marine forecast (wind, waves, gusts) for Red Sea coastal areas for given dates.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "Coastal location (e.g., Hurghada)."
+              },
+              "start_date": {
+                "type": "string",
+                "description": "Start date (ISO 8601)."
+              },
+              "end_date": {
+                "type": "string",
+                "description": "End date (ISO 8601)."
+              }
+            },
+            "required": [
+              "location",
+              "start_date",
+              "end_date"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "dive_operator_trip_status",
+          "description": "Checks whether local dive operators are running boats or canceling due to conditions.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "Location (e.g., Hurghada)."
+              },
+              "date": {
+                "type": "string",
+                "description": "Date (ISO 8601)."
+              }
+            },
+            "required": [
+              "location",
+              "date"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "port_authority_closure_alerts",
+          "description": "Returns any port closure alerts affecting dive boats in a given Red Sea port area.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "port": {
+                "type": "string",
+                "description": "Port area (e.g., Hurghada)."
+              },
+              "date_range": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Start and end dates (ISO 8601)."
+              }
+            },
+            "required": [
+              "port",
+              "date_range"
+            ]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": [
+      "marine_weather_forecast"
+    ],
+    "expected_parameters": {
+      "marine_weather_forecast": {
+        "location": "Hurghada",
+        "start_date": "",
+        "end_date": ""
+      }
+    },
+    "complexity": "medium"
+  },
+  {
+    "id": "TC_008",
+    "scenario": "sequential_calls_plan_itinerary_and_quote",
+    "query": "Plan a 10-day Red Sea dive trip in October: 3 days shore diving in Dahab (including Canyon/Blue Hole) then a 7-night liveaboard from Sharm (North & Tiran). I want a rough total cost estimate per person including transfers.",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "dive_package_quote",
+          "description": "Quotes shore-diving packages (dives, guide, tanks/weights) for a location and number of days/dives.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "Location (e.g., Dahab)."
+              },
+              "days": {
+                "type": "number",
+                "description": "Number of days."
+              },
+              "dives_per_day": {
+                "type": "number",
+                "description": "Planned dives per day."
+              },
+              "include_gear_rental": {
+                "type": "boolean",
+                "description": "Whether to include full gear rental."
+              }
+            },
+            "required": [
+              "location",
+              "days",
+              "dives_per_day"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "liveaboard_search",
+          "description": "Searches Red Sea liveaboard itineraries and availability by route, month, departure port, and diver preferences.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "route": {
+                "type": "string",
+                "description": "Route name."
+              },
+              "month": {
+                "type": "string",
+                "description": "Travel month (e.g., Oct 2026)."
+              },
+              "departure_port": {
+                "type": "string",
+                "description": "Departure port/city."
+              },
+              "nights": {
+                "type": "number",
+                "description": "Trip length in nights."
+              },
+              "divers": {
+                "type": "number",
+                "description": "Number of divers."
+              }
+            },
+            "required": [
+              "route",
+              "month",
+              "departure_port",
+              "nights",
+              "divers"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "ground_transfer_quote",
+          "description": "Estimates cost and duration for ground transfers between Red Sea towns/airports/marinas.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "segments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "string",
+                      "description": "Origin."
+                    },
+                    "to": {
+                      "type": "string",
+                      "description": "Destination."
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "to"
+                  ]
+                },
+                "description": "List of transfer segments."
+              },
+              "party_size": {
+                "type": "number",
+                "description": "Number of travelers."
+              },
+              "private": {
+                "type": "boolean",
+                "description": "Private transfer if true; shared if false."
+              }
+            },
+            "required": [
+              "segments",
+              "party_size"
+            ]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": [
+      "dive_package_quote",
+      "liveaboard_search",
+      "ground_transfer_quote"
+    ],
+    "expected_parameters": {
+      "dive_package_quote": {
+        "location": "Dahab",
+        "days": 3,
+        "dives_per_day": 2,
+        "include_gear_rental": false
+      },
+      "liveaboard_search": {
+        "route": "North & Tiran",
+        "month": "October",
+        "departure_port": "Sharm El Sheikh",
+        "nights": 7,
+        "divers": 1
+      },
+      "ground_transfer_quote": {
+        "segments": [
+          {
+            "from": "Dahab",
+            "to": "Sharm El Sheikh"
+          },
+          {
+            "from": "Sharm El Sheikh",
+            "to": "Sharm El Sheikh Marina"
+          }
+        ],
+        "party_size": 1,
+        "private": true
+      }
+    },
+    "complexity": "high"
+  },
+  {
+    "id": "TC_009",
+    "scenario": "rebreather_and_helium_availability",
+    "query": "I’m doing CCR diving on a Red Sea liveaboard out of Port Ghalib—can you check which boats can supply oxygen and diluent fills (including helium) and what the prices are?",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "liveaboard_search",
+          "description": "Searches Red Sea liveaboard itineraries and availability by departure port and diver preferences.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "departure_port": {
+                "type": "string",
+                "description": "Departure port/city (e.g., Port Ghalib)."
+              },
+              "month": {
+                "type": "string",
+                "description": "Travel month (e.g., Nov 2026)."
+              },
+              "nights": {
+                "type": "number",
+                "description": "Trip length in nights."
+              }
+            },
+            "required": [
+              "departure_port"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "tech_gas_availability",
+          "description": "Checks availability of CCR support gases (O2, diluent, helium) and booster/compressor support for a given boat/operator.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "boat_id": {
+                "type": "string",
+                "description": "Boat identifier."
+              },
+              "gases": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Requested gases (oxygen, diluent_air, helium)."
+              },
+              "needs_helium": {
+                "type": "boolean",
+                "description": "Whether helium is required."
+              }
+            },
+            "required": [
+              "boat_id",
+              "gases"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "tech_gas_price_list",
+          "description": "Returns price list for oxygen, helium, and blending/fill services for a given operator/boat.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "boat_id": {
+                "type": "string",
+                "description": "Boat identifier."
+              },
+              "currency": {
+                "type": "string",
+                "description": "Currency code (e.g., USD, EUR, EGP)."
+              }
+            },
+            "required": [
+              "boat_id"
+            ]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": [
+      "liveaboard_search",
+      "tech_gas_availability",
+      "tech_gas_price_list"
+    ],
+    "expected_parameters": {
+      "liveaboard_search": {
+        "departure_port": "Port Ghalib",
+        "month": "",
+        "nights": 0
+      },
+      "tech_gas_availability": {
+        "boat_id": "",
+        "gases": [
+          "oxygen",
+          "diluent_air",
+          "helium"
+        ],
+        "needs_helium": true
+      },
+      "tech_gas_price_list": {
+        "boat_id": "",
+        "currency": "USD"
+      }
+    },
+    "complexity": "high"
+  },
+  {
+    "id": "TC_010",
+    "scenario": "dive_insurance_hyperbaric_coverage",
+    "query": "I’m diving in Marsa Alam and want insurance that covers chamber treatment and evacuation. Can you compare two options and tell me which is better for a 2-week trip?",
+    "available_tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "dive_insurance_plan_search",
+          "description": "Searches dive travel insurance plans by destination and coverage needs.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "destination": {
+                "type": "string",
+                "description": "Destination (e.g., Marsa Alam, Egypt)."
+              },
+              "trip_length_days": {
+                "type": "number",
+                "description": "Trip length in days."
+              },
+              "needs_chamber_coverage": {
+                "type": "boolean",
+                "description": "Whether hyperbaric chamber treatment must be covered."
+              },
+              "needs_evacuation": {
+                "type": "boolean",
+                "description": "Whether medical evacuation must be covered."
+              }
+            },
+            "required": [
+              "destination",
+              "trip_length_days"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "insurance_plan_compare",
+          "description": "Compares two insurance plans across key dive-travel benefits and exclusions.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "plan_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Exactly two plan IDs to compare."
+              },
+              "focus": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Comparison focus areas (e.g., chamber, evacuation, depth_limit, preexisting_conditions)."
+              }
+            },
+            "required": [
+              "plan_ids"
+            ]
+          }
+        }
+      }
+    ],
+    "expected_tool_calls": [
+      "dive_insurance_plan_search"
+    ],
+    "expected_parameters": {
+      "dive_insurance_plan_search": {
+        "destination": "Marsa Alam, Egypt",
+        "trip_length_days": 14,
+        "needs_chamber_coverage": true,
+        "needs_evacuation": true
+      }
+    },
+    "complexity": "low"
+  }
+]

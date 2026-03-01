@@ -26,6 +26,7 @@ from typing import Dict, List, Optional, Any, Tuple
 import logging
 
 from src.utils.model_guidance import get_guidance as _get_model_guidance
+from src.utils.data_loader import ensure_flat_schema
 
 logger = logging.getLogger(__name__)
 
@@ -1248,6 +1249,9 @@ class PromptManager:
                     if len(scenarios) < target_count:
                         logger.info(f"{data_type}: got {len(scenarios)}/{target_count} — accepting")
 
+                    # Normalise to flat schema before persisting
+                    scenarios = ensure_flat_schema(scenarios, data_type)
+
                     # Write file
                     out_dir = data_path / data_type
                     out_dir.mkdir(parents=True, exist_ok=True)
@@ -1715,24 +1719,26 @@ Create {task_description.get(task, task)}
         return f"""Generate exactly {count} realistic classification test scenarios for the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.
-Each element MUST have this exact schema:
+Each element MUST have this exact schema (7 flat fields, CSV-compatible):
 {{
   "scenarios": [
     {{
       "id": "CLASS_001",
-      "scenario": "short_snake_case",
       "customer_input": "Realistic customer message (2-4 sentences)",
       "expected_category": "readable_snake_case",
       "expected_subcategory": "descriptive_subcategory",
       "expected_priority": "low|medium|high|critical",
       "expected_sentiment": "VALUE",
-      "context": {{}},
-      "follow_up_questions_expected": ["question1", "question2"]
+      "context": "{{\\"key1\\": \\"value1\\", \\"key2\\": \\"value2\\"}}"
     }}
   ]
 }}
 
 {category_block}
+
+FIELD RULES:
+- "context" is a JSON string (a stringified dict of domain-specific metadata).
+  Do NOT use a raw object; it MUST be a JSON-encoded string.
 
 SENTIMENT VALUES (use exactly one of these):
   very_angry, angry, frustrated, concerned, worried, neutral, curious, cautious, positive, professional
@@ -1743,9 +1749,8 @@ IMPORTANT RULES:
 3. Distribute priorities evenly: ~20% critical, ~30% high, ~30% medium, ~20% low
 4. Mix sentiments realistically using ONLY the values listed above
 5. Customer inputs must be natural, varied in tone and length
-6. Context fields should contain domain-specific metadata
-7. Follow-up questions should be relevant and specific to the scenario
-8. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON
+6. Context fields should contain domain-specific metadata as a JSON string
+7. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON
 """
 
     def _build_dialog_data_prompt(self, topic: str, count: int, *, categories: Optional[List[str]] = None) -> str:
@@ -1773,37 +1778,34 @@ IMPORTANT RULES:
         return f"""Generate exactly {count} realistic dialog/follow-up test scenarios for the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.
-Each element MUST have this exact schema:
+Each element MUST have this exact schema (6 flat fields, CSV-compatible):
 {{
   "scenarios": [
     {{
       "id": "DLG_001",
-      "scenario": "short_snake_case_name",
-      "conversation": [
-        {{"role": "customer", "message": "..."}},
-        {{"role": "agent",    "message": "..."}},
-        {{"role": "customer", "message": "..."}}
-      ],
-      "context_gaps": ["gap1", "gap2"],
+      "conversation": "[{{\\"role\\": \\"customer\\", \\"message\\": \\"...\\"}}, {{\\"role\\": \\"agent\\", \\"message\\": \\"...\\"}}, {{\\"role\\": \\"customer\\", \\"message\\": \\"...\\"}}]",
+      "context_gaps": "gap1 | gap2",
       "optimal_follow_up": "Best next agent response (detailed)",
-      "follow_up_rules": ["rule1", "rule2"],
-      "expected_resolution_turns": 2,
-      "category": "readable_snake_case"
+      "follow_up_rules": "rule1 | rule2",
+      "expected_resolution_turns": 2
     }}
   ]
 }}
 
 {category_block}
 
+FIELD RULES:
+- "conversation" is a JSON-encoded string of a {{role, message}} array. Do NOT use a raw array.
+- "context_gaps" and "follow_up_rules" are pipe-separated strings (e.g. "gap1 | gap2").
+
 IMPORTANT RULES:
-1. ALL scenarios, conversations, and categories must be domain-specific to "{topic}"
+1. ALL scenarios and conversations must be domain-specific to "{topic}"
 2. Vary conversation lengths: some with 1 turn, some with 2-3 turns
 3. Context gaps should reflect realistic missing information for the domain
 4. Optimal follow-ups should be professional, empathetic, and specific
-5. Create at least 4 distinct categories
-6. Mix simple and complex dialog situations
-7. Customer messages should be natural and varied
-8. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON
+5. Mix simple and complex dialog situations
+6. Customer messages should be natural and varied
+7. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON
 """
 
     def _build_general_data_prompt(self, topic: str, count: int, *, categories: Optional[List[str]] = None) -> str:
@@ -1818,7 +1820,7 @@ IMPORTANT RULES:
         return f"""Generate exactly {count} general capability test cases for evaluating AI models on the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.
-Each element uses one of these two variants:
+Each element MUST have this exact schema (7 flat fields, CSV-compatible):
 
 Variant A — Single-prompt test:
 {{
@@ -1828,39 +1830,41 @@ Variant A — Single-prompt test:
       "test_type": "reasoning_capability|instruction_following|structured_output|consistency|edge_case_handling|multi_language|safety_boundary|summarization|calculation_accuracy|persona_adherence|ambiguity_resolution|compliance_awareness|negative_sentiment_handling",
       "prompt": "The test prompt",
       "complexity": "low|medium|high",
-      "expected_output": null,
-      "expected_behavior": "Description of correct behavior"
+      "expected_behavior": "Description of correct behavior",
+      "conversation": "",
+      "run_count": 1
     }}
   ]
 }}
 
-Variant B — Multi-turn test:
+Variant B — Multi-turn test (conversation is a JSON-encoded string):
 {{
   "scenarios": [
     {{
       "id": "GEN_008",
       "test_type": "context_retention",
-      "multi_turn": true,
-      "conversation": [
-        {{"role": "user", "content": "..."}},
-        {{"role": "assistant", "content": "..."}},
-        {{"role": "user", "content": "..."}}
-      ],
-      "expected_behavior": "...",
-      "complexity": "medium"
+      "prompt": "",
+      "complexity": "medium",
+      "expected_behavior": "Description of correct behavior",
+      "conversation": "[{{\\"role\\": \\"user\\", \\"content\\": \\"...\\"}}, {{\\"role\\": \\"assistant\\", \\"content\\": \\"...\\"}}, {{\\"role\\": \\"user\\", \\"content\\": \\"...\\"}}]",
+      "run_count": 1
     }}
   ]
 }}
+
+FIELD RULES:
+- "conversation" is either empty string or a JSON-encoded string of a {{role, content}} array.
+- Every item MUST have ALL 7 fields. Use empty string for unused fields.
 
 IMPORTANT RULES:
 1. ALL test content must be domain-specific to "{topic}" — adapt scenarios, numbers, terminology
 2. Use at least 6 different test_types across the {count} items
 3. Distribute complexity: ~30% low, ~45% medium, ~25% high
-4. Include at least 1 structured_output test with expected JSON
+4. Include at least 1 structured_output test
 5. Include at least 1 consistency test with "run_count": 5
 6. Include at least 1 safety_boundary test relevant to the domain
 7. Include at least 1 multi_language test
-8. Include at least 1 calculation_accuracy test with "expected_calculation" object
+8. Include at least 1 calculation_accuracy test
 9. All prompts should be realistic and testable
 10. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON
 """
@@ -1877,17 +1881,14 @@ IMPORTANT RULES:
         return f"""Generate exactly {count} RAG (Retrieval-Augmented Generation) test scenarios for the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.
-Each element MUST have this exact schema:
+Each element MUST have this exact schema (4 flat text fields, CSV-compatible):
 {{
   "scenarios": [
     {{
       "id": "RAG_001",
-      "scenario": "short_snake_case_name",
       "query": "A realistic user question about the topic",
       "context": "One or more paragraphs of retrieved context that contain relevant information. This should be 2-5 sentences of realistic domain text.",
-      "ground_truth": "The correct answer that can be fully derived from the context.",
-      "expected_behavior": "Description of how the model should use the context to answer.",
-      "complexity": "low|medium|high"
+      "ground_truth": "The correct answer that can be fully derived from the context."
     }}
   ]
 }}
@@ -1898,7 +1899,7 @@ IMPORTANT RULES:
 3. Ground truth must be FULLY derivable from the context (no external knowledge needed)
 4. Include at least 1 scenario where context is INSUFFICIENT to fully answer the query
 5. Include at least 1 scenario with CONTRADICTORY information in the context
-6. Distribute complexity: ~30% low, ~40% medium, ~30% high
+6. Mix query complexity: simple factual, multi-hop reasoning, and synthesis
 7. Queries should be natural and varied
 8. Context should simulate real retrieved documents (policies, manuals, FAQs, articles)
 9. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation
@@ -1915,47 +1916,32 @@ IMPORTANT RULES:
         return f"""Generate exactly {count} tool-calling/function-calling test scenarios for the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.
-Each element MUST have this exact schema:
+Each element MUST have this exact schema (5 flat fields, CSV-compatible):
 {{
   "scenarios": [
     {{
       "id": "TC_001",
-      "scenario": "short_snake_case_name",
       "query": "A natural user request that may or may not require tool usage",
-      "available_tools": [
-        {{
-          "type": "function",
-          "function": {{
-            "name": "tool_name",
-            "description": "What the tool does",
-            "parameters": {{
-              "type": "object",
-              "properties": {{
-                "param1": {{"type": "string", "description": "Param description"}}
-              }},
-              "required": ["param1"]
-            }}
-          }}
-        }}
-      ],
-      "expected_tool_calls": ["tool_name"],
-      "expected_parameters": {{
-        "tool_name": {{"param1": "expected_value"}}
-      }},
-      "complexity": "low|medium|high"
+      "available_tools": "[{{\\"type\\": \\"function\\", \\"function\\": {{\\"name\\": \\"tool_name\\", \\"description\\": \\"What the tool does\\", \\"parameters\\": {{\\"type\\": \\"object\\", \\"properties\\": {{\\"param1\\": {{\\"type\\": \\"string\\", \\"description\\": \\"Param description\\"}}}}}}}}}}]",
+      "expected_tool_calls": "tool_name1 | tool_name2",
+      "expected_parameters": "{{\\"tool_name\\": {{\\"param1\\": \\"expected_value\\"}}}}"
     }}
   ]
 }}
 
+FIELD RULES:
+- "available_tools" is a JSON-encoded string of an array of OpenAI tool defs. Do NOT use a raw array.
+- "expected_tool_calls" is a pipe-separated string (e.g. "func1 | func2"). Empty string if no call expected.
+- "expected_parameters" is a JSON-encoded string of a dict. Empty string if no params expected.
+
 IMPORTANT RULES:
 1. ALL scenarios, tools, and queries must be domain-specific to "{topic}"
 2. Include 2-4 available tools per scenario (realistic for the domain)
-3. Include at least 1 scenario where NO tool is needed (expected_tool_calls: [])
+3. Include at least 1 scenario where NO tool is needed (expected_tool_calls: "")
 4. Include at least 1 scenario requiring MULTIPLE sequential tool calls
 5. Include at least 1 scenario where required parameters are MISSING from the query
 6. Include at least 1 scenario with AMBIGUOUS tool selection
 7. Tool definitions should be realistic and well-structured
 8. Parameter types should vary (string, number, boolean, array)
-9. Distribute complexity: ~25% low, ~50% medium, ~25% high
-10. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation
+9. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation
 """

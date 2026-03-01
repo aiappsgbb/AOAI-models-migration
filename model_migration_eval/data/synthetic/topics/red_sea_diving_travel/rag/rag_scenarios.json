@@ -1,92 +1,62 @@
 [
   {
     "id": "RAG_001",
-    "scenario": "sharm_el_sheikh_airport_to_naama_bay_transfer",
     "query": "How long does it usually take to get from Sharm El Sheikh airport to Naama Bay, and what transfer options are mentioned?",
     "context": "Sharm El Sheikh (SSH) airport is about 12–15 km from Naama Bay. Most dive travelers use pre-booked hotel shuttles or licensed taxis from the arrivals area. Typical transfer time is 15–25 minutes depending on traffic and security checkpoints.",
-    "ground_truth": "It’s typically a 15–25 minute transfer, and the context mentions pre-booked hotel shuttles and licensed taxis as options.",
-    "expected_behavior": "Use only the provided context to report the transfer time range and list the transfer options explicitly mentioned.",
-    "complexity": "low"
+    "ground_truth": "It’s typically a 15–25 minute transfer, and the context mentions pre-booked hotel shuttles and licensed taxis as options."
   },
   {
     "id": "RAG_002",
-    "scenario": "hurghada_day_boat_schedule_and_inclusions",
     "query": "For the Hurghada day boat trips described, what’s the schedule and what’s included in the price?",
     "context": "Our Hurghada day boats depart daily at 08:30 from the main marina and return around 16:00. The standard package includes two guided dives, tanks and weights, lunch on board, and soft drinks. Marine park fees and equipment rental (BCD, regulator, wetsuit) are not included unless stated on your voucher.",
-    "ground_truth": "Depart 08:30 and return around 16:00; included are two guided dives, tanks and weights, lunch, and soft drinks. Marine park fees and gear rental are not included unless the voucher states otherwise.",
-    "expected_behavior": "Extract the schedule and inclusions/exclusions exactly as stated, without adding assumptions about prices or extra services.",
-    "complexity": "low"
+    "ground_truth": "Depart 08:30 and return around 16:00; included are two guided dives, tanks and weights, lunch, and soft drinks. Marine park fees and gear rental are not included unless the voucher states otherwise."
   },
   {
     "id": "RAG_003",
-    "scenario": "dahab_blue_hole_guiding_requirement",
     "query": "Do I need a guide to dive the Blue Hole in Dahab, and are there any stated restrictions?",
     "context": "The Blue Hole area in Dahab is dived as a shore entry with a short walk from the parking area. Local regulations require visiting divers to be accompanied by a registered guide for dives at the Blue Hole and Canyon sites. The briefing notes also state that the Arch is not part of the recreational route and is not offered on standard guided dives.",
-    "ground_truth": "Yes—visiting divers must be accompanied by a registered guide at the Blue Hole (and Canyon). The context also states the Arch is not part of the recreational route and isn’t offered on standard guided dives.",
-    "expected_behavior": "Answer directly from the context: confirm the guide requirement and mention the stated restriction about the Arch.",
-    "complexity": "low"
+    "ground_truth": "Yes—visiting divers must be accompanied by a registered guide at the Blue Hole (and Canyon). The context also states the Arch is not part of the recreational route and isn’t offered on standard guided dives."
   },
   {
     "id": "RAG_004",
-    "scenario": "liveaboard_northern_route_itinerary_and_crossing_time",
     "query": "What does the Northern Red Sea liveaboard route cover, and how long is the crossing to the first wreck area according to the itinerary?",
     "context": "Northern Red Sea liveaboards typically combine Ras Mohammed with the Strait of Tiran and the wrecks of Abu Nuhas. After the first night in port, the itinerary notes an early departure with a 3–4 hour crossing to reach the Abu Nuhas area for the first dives. The route then continues south to Ras Mohammed for reef dives before returning to the marina on the final afternoon.",
-    "ground_truth": "The route covers Ras Mohammed, the Strait of Tiran, and the Abu Nuhas wrecks, with a 3–4 hour crossing to reach Abu Nuhas for the first dives.",
-    "expected_behavior": "Summarize the route components and report the crossing time exactly as given, without adding extra sites not mentioned.",
-    "complexity": "medium"
+    "ground_truth": "The route covers Ras Mohammed, the Strait of Tiran, and the Abu Nuhas wrecks, with a 3–4 hour crossing to reach Abu Nuhas for the first dives."
   },
   {
     "id": "RAG_005",
-    "scenario": "equipment_rental_pricing_and_deposit_policy",
     "query": "If I rent a full set of scuba gear in Marsa Alam, what’s the daily price and what deposit or ID requirements apply?",
     "context": "Marsa Alam Dive Center rental list: Full equipment set (BCD, regulator, wetsuit, mask, fins) is €25 per diving day. A refundable cash deposit of €100 is required, or alternatively the center will hold a passport copy and hotel room number until the gear is returned. Dive computers and torches are priced separately and are not included in the full set.",
-    "ground_truth": "A full set costs €25 per diving day. The center requires either a refundable €100 cash deposit or they will hold a passport copy and hotel room number until return; computers and torches are not included.",
-    "expected_behavior": "Provide the daily price and clearly state the deposit/ID options, noting exclusions mentioned in the context.",
-    "complexity": "medium"
+    "ground_truth": "A full set costs €25 per diving day. The center requires either a refundable €100 cash deposit or they will hold a passport copy and hotel room number until return; computers and torches are not included."
   },
   {
     "id": "RAG_006",
-    "scenario": "marine_park_fees_and_payment_method",
     "query": "What marine park fees apply for Ras Mohammed and Tiran, and how do guests pay them on this trip?",
     "context": "Park fee notice for Sharm day boats: Ras Mohammed National Park fee is 5 USD per person per day, and the Strait of Tiran fee is 3 USD per person per day. Fees are collected in cash on the morning of departure and passed to the rangers; card payments are not accepted for park fees. Guests are advised to bring small bills in USD or the equivalent in EGP.",
-    "ground_truth": "Ras Mohammed is 5 USD per person per day and Tiran is 3 USD per person per day; guests pay in cash on the morning of departure (no card), ideally with small USD bills or equivalent EGP.",
-    "expected_behavior": "Extract both fee amounts and the payment method/timing from the context, without speculating about other parks or fee changes.",
-    "complexity": "medium"
+    "ground_truth": "Ras Mohammed is 5 USD per person per day and Tiran is 3 USD per person per day; guests pay in cash on the morning of departure (no card), ideally with small USD bills or equivalent EGP."
   },
   {
     "id": "RAG_007",
-    "scenario": "nitrox_availability_and_certification_requirement",
     "query": "Is Nitrox available on the liveaboard, what mix is offered, and do I need a certification card to use it?",
     "context": "Onboard gases: Enriched Air Nitrox is available for certified divers. The standard fill is Nitrox 32 (EAN32) and is included in the 'Nitrox package' purchased at check-in. Divers must present a Nitrox certification card during the first-day paperwork; uncertified divers may not use Nitrox fills.",
-    "ground_truth": "Yes—Nitrox is available as EAN32, but only for certified divers who present a Nitrox certification card; uncertified divers may not use it.",
-    "expected_behavior": "Answer using the context: confirm availability, specify the mix, and state the certification requirement and restriction.",
-    "complexity": "medium"
+    "ground_truth": "Yes—Nitrox is available as EAN32, but only for certified divers who present a Nitrox certification card; uncertified divers may not use it."
   },
   {
     "id": "RAG_008",
-    "scenario": "contradictory_baggage_allowance_for_dive_gear",
     "query": "What is the baggage allowance for dive gear on the charter flight to Hurghada, and is there a separate sports equipment allowance?",
     "context": "Airline charter FAQ (updated May): Passengers may check 20 kg of hold baggage plus 5 kg cabin baggage. A separate sports equipment allowance of 10 kg is available for pre-registered dive gear at no extra charge.\n\nOperator pre-departure email (sent June): Your charter ticket includes 15 kg checked baggage and 5 kg hand luggage. Please note there is no additional sports allowance; any extra weight is charged at the airport.",
-    "ground_truth": "The context is contradictory: one document says 20 kg checked plus a 10 kg pre-registered dive gear allowance, while another says 15 kg checked and no sports allowance. A single definitive allowance cannot be determined from the provided context.",
-    "expected_behavior": "Identify and explain the contradiction, avoid choosing one figure as definitive, and suggest what clarification is needed (e.g., confirm with airline/operator or check ticket terms) without inventing a resolution.",
-    "complexity": "high"
+    "ground_truth": "The context is contradictory: one document says 20 kg checked plus a 10 kg pre-registered dive gear allowance, while another says 15 kg checked and no sports allowance. A single definitive allowance cannot be determined from the provided context."
   },
   {
     "id": "RAG_009",
-    "scenario": "insufficient_context_best_months_for_visibility",
     "query": "Which months have the best underwater visibility in the Red Sea for a diving holiday, and why?",
     "context": "Red Sea travel note: Water temperatures vary by season, and many resorts offer diving year-round. Some itineraries are more comfortable in spring and autumn due to milder air temperatures. Always check local forecasts and consult your dive operator for current conditions.",
-    "ground_truth": "The context does not specify which months have the best visibility or provide reasons tied to visibility; it only mentions year-round diving and that spring/autumn can be more comfortable for air temperatures.",
-    "expected_behavior": "State that the retrieved context is insufficient to answer the visibility question, summarize what the context does say, and avoid guessing specific months or causes of visibility changes.",
-    "complexity": "high"
+    "ground_truth": "The context does not specify which months have the best visibility or provide reasons tied to visibility; it only mentions year-round diving and that spring/autumn can be more comfortable for air temperatures."
   },
   {
     "id": "RAG_010",
-    "scenario": "rebreather_policy_and_bailout_requirements_liveaboard",
     "query": "I’m bringing a CCR to a Red Sea liveaboard. What does the policy say about oxygen fills, sorb availability, and bailout requirements?",
     "context": "Technical diving policy (liveaboard): Closed-circuit rebreathers are accepted only with prior approval and proof of training on the specific unit. Oxygen fills are available on board; diluent is provided as air only. Sofnolime is available in limited quantities and must be reserved at least 14 days before departure. Divers must carry open-circuit bailout sufficient to reach the surface, and the policy specifies a minimum of one bailout cylinder with an independent regulator and SPG; additional bailout may be required depending on the planned depth and runtime as agreed with the cruise director.",
-    "ground_truth": "CCRs are allowed only with prior approval and proof of unit-specific training. Oxygen fills are available; diluent is air only. Sofnolime is limited and must be reserved at least 14 days before departure. Bailout is required: at minimum one bailout cylinder with an independent regulator and SPG, with possible additional bailout depending on the planned dive profile as agreed with the cruise director.",
-    "expected_behavior": "Compile the policy points directly from the context (approval/training, gases, sorb reservation timing, and bailout minimums/conditions) without adding external technical standards.",
-    "complexity": "high"
+    "ground_truth": "CCRs are allowed only with prior approval and proof of unit-specific training. Oxygen fills are available; diluent is air only. Sofnolime is limited and must be reserved at least 14 days before departure. Bailout is required: at minimum one bailout cylinder with an independent regulator and SPG, with possible additional bailout depending on the planned dive profile as agreed with the cruise director."
   }
 ]

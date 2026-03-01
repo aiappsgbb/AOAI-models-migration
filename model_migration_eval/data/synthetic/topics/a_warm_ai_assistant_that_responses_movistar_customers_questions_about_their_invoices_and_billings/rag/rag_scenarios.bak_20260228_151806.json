@@ -1,0 +1,92 @@
+[
+  {
+    "id": "RAG_001",
+    "scenario": "download_invoice_from_app",
+    "query": "¿Cómo puedo descargar mi factura en PDF desde la app Mi Movistar?",
+    "context": "En la app Mi Movistar, entra en Facturas y selecciona el mes que quieres consultar. Pulsa en \"Ver factura\" y después en \"Descargar PDF\" para guardarla en tu móvil o compartirla por correo. Si no ves la opción, actualiza la app a la última versión y vuelve a intentarlo.",
+    "ground_truth": "En la app Mi Movistar ve a Facturas, elige el mes, pulsa \"Ver factura\" y luego \"Descargar PDF\". Si no aparece la opción, actualiza la app y prueba de nuevo.",
+    "expected_behavior": "Debe seguir los pasos exactos del contexto para indicar dónde descargar el PDF y mencionar la recomendación de actualizar la app si no aparece la opción.",
+    "complexity": "low"
+  },
+  {
+    "id": "RAG_002",
+    "scenario": "late_payment_fee_explained",
+    "query": "Me han cobrado un recargo por pago fuera de plazo, ¿por qué y cuánto es?",
+    "context": "Si una factura no se paga en la fecha de vencimiento indicada, Movistar puede aplicar un recargo por gestión de impago en la siguiente factura. El recargo estándar es de 3,50 € por cada factura vencida no abonada. En el detalle de la factura aparece como \"Gastos de gestión\" o \"Recargo por impago\".",
+    "ground_truth": "Te lo cobran porque la factura no se pagó en la fecha de vencimiento; el recargo estándar es de 3,50 € por cada factura vencida y aparece como \"Gastos de gestión\" o \"Recargo por impago\".",
+    "expected_behavior": "Debe explicar la causa (factura vencida) y el importe exacto del recargo, usando los nombres tal como aparecen en el detalle de factura.",
+    "complexity": "low"
+  },
+  {
+    "id": "RAG_003",
+    "scenario": "identify_roaming_charges",
+    "query": "En mi última factura veo cargos de 'Roaming datos' y no entiendo de dónde salen, ¿cómo lo compruebo?",
+    "context": "En la factura, los consumos de roaming se detallan en el apartado \"Consumos fuera de bono\" o \"Roaming\" según la tarifa. Para verificar el origen, entra en Mi Movistar > Líneas > Consumo y filtra por fechas del periodo de facturación; los registros muestran país, fecha/hora y MB consumidos. Si el consumo se produjo en un país fuera de la zona incluida en tu tarifa, se tarifica como \"Roaming datos\".",
+    "ground_truth": "Puedes comprobarlo en la factura en \"Consumos fuera de bono\" o \"Roaming\" y en Mi Movistar > Líneas > Consumo filtrando por el periodo de facturación, donde verás país, fecha/hora y MB. Si fue en un país fuera de la zona incluida en tu tarifa, se cobra como \"Roaming datos\".",
+    "expected_behavior": "Debe guiar al usuario a revisar el apartado correcto de la factura y a contrastarlo con el consumo en la app, mencionando los campos (país, fecha/hora, MB) y la condición de país fuera de zona incluida.",
+    "complexity": "medium"
+  },
+  {
+    "id": "RAG_004",
+    "scenario": "prorated_first_bill_after_activation",
+    "query": "Me di de alta a mitad de mes y mi primera factura es más alta de lo esperado, ¿me están cobrando doble?",
+    "context": "En altas nuevas, la primera factura puede incluir una parte proporcional (prorrateo) desde la fecha de activación hasta el cierre del ciclo de facturación, además de la cuota del mes siguiente si la facturación es por adelantado. En el detalle se distinguen conceptos como \"Cuota prorrateada\" y \"Cuota mensual\" con sus fechas de aplicación. Esto no implica un cobro doble, sino la regularización del periodo inicial.",
+    "ground_truth": "No necesariamente te están cobrando doble: la primera factura puede incluir una cuota prorrateada desde tu alta hasta el cierre del ciclo y, si se factura por adelantado, también la cuota mensual del mes siguiente. En el detalle debe aparecer separado como \"Cuota prorrateada\" y \"Cuota mensual\" con fechas.",
+    "expected_behavior": "Debe explicar el prorrateo y la posible facturación por adelantado, indicando cómo identificarlo en el detalle por los conceptos y fechas.",
+    "complexity": "medium"
+  },
+  {
+    "id": "RAG_005",
+    "scenario": "duplicate_charge_direct_debit",
+    "query": "Me han pasado dos cargos por domiciliación este mes con el mismo importe, ¿qué hago?",
+    "context": "Si detectas dos cargos bancarios con el mismo importe, primero comprueba si corresponden a dos facturas distintas (por ejemplo, una regularización y una factura mensual) revisando el número de factura y la fecha de emisión en Mi Movistar > Facturas. Si ambos cargos están asociados al mismo número de factura, se considera un cobro duplicado y puedes solicitar revisión desde Ayuda > Reclamaciones > Facturación, adjuntando el extracto bancario. El plazo habitual de resolución es de 7 a 15 días naturales.",
+    "ground_truth": "Revisa en Mi Movistar > Facturas si son dos facturas distintas mirando número de factura y fecha de emisión. Si los dos cargos corresponden al mismo número de factura, solicita una revisión por cobro duplicado en Ayuda > Reclamaciones > Facturación adjuntando el extracto; la resolución suele tardar 7 a 15 días naturales.",
+    "expected_behavior": "Debe proponer el diagnóstico (dos facturas vs mismo número) y, si es duplicado, indicar el canal exacto de reclamación, documentación y plazo.",
+    "complexity": "medium"
+  },
+  {
+    "id": "RAG_006",
+    "scenario": "invoice_delivery_email_change",
+    "query": "Quiero que mis facturas me lleguen por email a otra dirección, ¿cómo lo cambio?",
+    "context": "Puedes modificar el email de envío de facturas desde Mi Movistar (web o app) en Perfil > Datos de contacto > Email de facturación. El cambio se aplica a partir de la siguiente factura emitida; las facturas ya emitidas no se reenvían automáticamente. También puedes descargar facturas anteriores en PDF desde el apartado Facturas.",
+    "ground_truth": "Cámbialo en Mi Movistar en Perfil > Datos de contacto > Email de facturación. Se aplicará desde la próxima factura emitida; las ya emitidas no se reenvían automáticamente, pero puedes descargarlas en PDF desde Facturas.",
+    "expected_behavior": "Debe dar la ruta exacta para cambiar el email y aclarar el alcance temporal (solo futuras facturas) ofreciendo la alternativa de descarga de facturas anteriores.",
+    "complexity": "low"
+  },
+  {
+    "id": "RAG_007",
+    "scenario": "contradictory_due_date_policy",
+    "query": "¿Cuál es el plazo de pago de mi factura desde que se emite? En un sitio pone 10 días y en otro 15.",
+    "context": "Documento A (FAQ Facturación): \"El vencimiento de la factura domiciliada se fija a los 10 días naturales desde la fecha de emisión\". Documento B (Condiciones de pago): \"El plazo de pago de las facturas es de 15 días naturales desde la fecha de emisión, salvo que en la propia factura se indique una fecha distinta\". En ambos casos, la fecha exacta de vencimiento aparece en la cabecera de la factura como \"Fecha de vencimiento\".",
+    "ground_truth": "Hay información contradictoria (10 vs 15 días), pero ambos documentos coinciden en que la fecha exacta de vencimiento es la que figura en la propia factura como \"Fecha de vencimiento\"; además, el Documento B indica 15 días salvo que la factura indique otra fecha.",
+    "expected_behavior": "Debe detectar y señalar la contradicción, evitar elegir arbitrariamente 10 o 15, y orientar al usuario a la fuente definitiva indicada en el contexto: la \"Fecha de vencimiento\" en la factura (mencionando la salvedad del Documento B).",
+    "complexity": "high"
+  },
+  {
+    "id": "RAG_008",
+    "scenario": "insufficient_context_tax_breakdown",
+    "query": "¿Qué porcentaje de IVA me aplican en mi factura de fibra y móvil en Canarias?",
+    "context": "En las facturas de Movistar, los impuestos se muestran en el apartado \"Resumen de impuestos\" y pueden variar según el territorio fiscal. Para ver el detalle, abre la factura en PDF y revisa las líneas de \"Impuestos\" asociadas a cada concepto. Si necesitas un certificado fiscal, puedes solicitarlo desde el área de documentación en Mi Movistar.",
+    "ground_truth": "El contexto no indica un porcentaje concreto; solo indica que el impuesto varía según el territorio y que puedes verlo en el \"Resumen de impuestos\" de la factura PDF revisando las líneas de impuestos por concepto.",
+    "expected_behavior": "Debe reconocer que no puede dar el porcentaje con la información proporcionada, y guiar al usuario a dónde verificarlo en su factura (Resumen de impuestos en el PDF) y la opción de solicitar documentación/certificado fiscal.",
+    "complexity": "medium"
+  },
+  {
+    "id": "RAG_009",
+    "scenario": "refund_after_cancellation_timeline",
+    "query": "Di de baja una línea y me han cobrado el mes completo, ¿cuándo me devuelven la parte proporcional?",
+    "context": "Cuando se tramita una baja, la facturación se regulariza en la siguiente factura emitida, aplicando un abono por los días no disfrutados si corresponde según el ciclo de facturación. El abono aparece como \"Regularización/Abono por baja\" con importe negativo. Si tras la siguiente factura no aparece el abono, puedes abrir una reclamación de facturación indicando el número de línea y la fecha efectiva de baja.",
+    "ground_truth": "La parte proporcional, si corresponde, se regulariza en la siguiente factura emitida mediante un abono por los días no disfrutados, que aparecerá como \"Regularización/Abono por baja\" en negativo. Si no aparece en la siguiente factura, debes abrir una reclamación indicando la línea y la fecha efectiva de baja.",
+    "expected_behavior": "Debe explicar el momento (siguiente factura), cómo identificar el abono (nombre y signo negativo) y el paso a seguir si no se refleja (reclamación con datos necesarios).",
+    "complexity": "high"
+  },
+  {
+    "id": "RAG_010",
+    "scenario": "split_bill_multiple_lines_and_services",
+    "query": "Tengo varias líneas y Movistar Plus+ en la misma factura, ¿cómo sé qué importe corresponde a cada cosa y a cada línea?",
+    "context": "En la factura unificada, el desglose se organiza por secciones: \"Servicios fijos\" (fibra/telefonía), \"Servicios móviles\" (por cada línea) y \"Televisión\" (Movistar Plus+). Dentro de \"Servicios móviles\" aparece un subtítulo por número de línea con su cuota, consumos y extras; en \"Televisión\" se listan los paquetes y cuotas asociadas. El \"Resumen\" muestra el total, pero el reparto por servicio se obtiene sumando los importes de cada sección.",
+    "ground_truth": "Debes mirar el desglose por secciones: \"Servicios fijos\", \"Servicios móviles\" (con un subtítulo por cada número de línea con su cuota/consumos/extras) y \"Televisión\" (paquetes y cuotas de Movistar Plus+). El total está en el \"Resumen\", y el importe por servicio se obtiene sumando los importes de cada sección.",
+    "expected_behavior": "Debe indicar exactamente dónde está el desglose por línea y por servicio en la factura y cómo calcular el importe por cada categoría a partir de las secciones, sin inventar importes.",
+    "complexity": "high"
+  }
+]

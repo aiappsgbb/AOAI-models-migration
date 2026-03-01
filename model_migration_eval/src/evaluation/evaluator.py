@@ -216,7 +216,7 @@ class ModelEvaluator:
                     messages = self.prompt_loader.load_classification_prompt(
                         model=model_name,
                         customer_message=scenario.customer_input,
-                        context=scenario.context,
+                        context=scenario.get_context_dict(),
                     )
                     completion = await self.client.complete_async(
                         messages=messages,
@@ -395,7 +395,7 @@ class ModelEvaluator:
                 async with sem:
                     messages = self.prompt_loader.load_dialog_prompt(
                         model=model_name,
-                        conversation=scenario.conversation
+                        conversation=scenario.get_conversation_list()
                     )
                     completion = await self.client.complete_async(
                         messages=messages,
@@ -435,11 +435,9 @@ class ModelEvaluator:
                         'scenario': scenario,
                         'raw': {
                             'scenario_id': scenario.id,
-                            'scenario': scenario.scenario,
-                            'category': scenario.category,
-                            'conversation': scenario.conversation,
+                            'conversation': scenario.get_conversation_list(),
                             'response': completion.content,
-                            'context_gaps': scenario.context_gaps,
+                            'context_gaps': scenario.get_context_gaps_list(),
                             'questions_generated': response_questions,
                             'question_count': len(response_questions),
                             'expected_turns': scenario.expected_resolution_turns,
@@ -488,10 +486,10 @@ class ModelEvaluator:
                 'reasoning_tokens': c.metrics.reasoning_tokens,
             })
             generated_questions.append(out['response_questions'])
-            expected_questions.append(s.follow_up_rules)
+            expected_questions.append(s.get_follow_up_rules_list())
             dialog_responses.append(c.content)
-            dialog_context_gaps.append(s.context_gaps)
-            dialog_rules.append(s.follow_up_rules)
+            dialog_context_gaps.append(s.get_context_gaps_list())
+            dialog_rules.append(s.get_follow_up_rules_list())
             dialog_optimal.append(s.optimal_follow_up)
             dialog_expected_turns.append(s.expected_resolution_turns)
             question_counts.append(len(out['response_questions']))
@@ -593,9 +591,10 @@ class ModelEvaluator:
 
         async def _process_one(test: GeneralTestCase) -> Optional[Dict]:
             try:
-                if test.conversation:
+                conv = test.get_conversation_list()
+                if conv:
                     messages = [{"role": m["role"], "content": m["content"]} 
-                                for m in test.conversation]
+                                for m in conv]
                 else:
                     messages = [{"role": "user", "content": test.prompt}]
 
@@ -611,10 +610,20 @@ class ModelEvaluator:
                 )
                 test_responses = [c.content for c in completions]
                 test_latencies = [c.metrics.total_time for c in completions]
+                test_token_data = [
+                    {
+                        'prompt_tokens': c.metrics.prompt_tokens,
+                        'completion_tokens': c.metrics.completion_tokens,
+                        'cached_tokens': c.metrics.cached_tokens,
+                        'reasoning_tokens': c.metrics.reasoning_tokens,
+                    }
+                    for c in completions
+                ]
 
                 return {
                     'responses': test_responses,
                     'latencies': test_latencies,
+                    'token_data': test_token_data,
                     'raw': {
                         'test_id': test.id,
                         'test_type': test.test_type,
@@ -622,8 +631,8 @@ class ModelEvaluator:
                         'prompt': test.prompt,
                         'responses': test_responses,
                         'latencies': test_latencies,
-                        'expected_output': test.expected_output,
                         'expected_behavior': test.expected_behavior,
+                        'token_detail': test_token_data,
                     },
                 }
             except Exception as e:
@@ -635,16 +644,20 @@ class ModelEvaluator:
 
         latencies = []
         responses = []
+        token_data = []
         raw_results = []
         for out in outcomes:
             if out is None:
                 continue
             responses.extend(out['responses'])
             latencies.extend(out['latencies'])
+            token_data.extend(out['token_data'])
             raw_results.append(out['raw'])
 
         if latencies:
-            result.latency_metrics = self.metrics_calc.calculate_latency_metrics(latencies)
+            result.latency_metrics = self.metrics_calc.calculate_latency_metrics(
+                latencies, token_data=token_data, model_name=model_name
+            )
             
         if responses:
             result.quality_metrics = self.metrics_calc.calculate_quality_metrics(
@@ -874,10 +887,11 @@ class ModelEvaluator:
         async def _process_one(scenario: ToolCallingScenario) -> Optional[Dict]:
             try:
                 async with sem:
+                    tools_list = scenario.get_tools_list()
                     messages = self.prompt_loader.load_tool_calling_prompt(
                         model=model_name,
                         query=scenario.query,
-                        available_tools=scenario.available_tools,
+                        available_tools=tools_list,
                     )
                     completion = await self.client.complete_async(
                         messages=messages,
@@ -888,12 +902,12 @@ class ModelEvaluator:
                 response_lower = response_text.lower()
 
                 # Evaluate tool selection accuracy
-                expected_calls = scenario.expected_tool_calls
+                expected_calls = scenario.get_expected_calls_list()
                 if not expected_calls:
                     # Expected: no tool call — check model didn't force one
                     tool_accuracy = 1.0 if not any(
                         t.get('function', {}).get('name', '').lower() in response_lower
-                        for t in scenario.available_tools
+                        for t in tools_list
                         if isinstance(t, dict) and 'function' in t
                     ) else 0.0
                 else:
@@ -904,7 +918,7 @@ class ModelEvaluator:
 
                 # Evaluate parameter extraction (check if expected param values appear in response)
                 param_accuracy = 0.0
-                expected_params = scenario.expected_parameters
+                expected_params = scenario.get_expected_params_dict()
                 if expected_params:
                     total_params = 0
                     matched_params = 0
@@ -959,10 +973,10 @@ class ModelEvaluator:
                         'scenario_id': scenario.id,
                         'query': scenario.query,
                         'available_tools': [
-                            t.get('function', {}).get('name', '') for t in scenario.available_tools
+                            t.get('function', {}).get('name', '') for t in tools_list
                             if isinstance(t, dict)
                         ],
-                        'expected_tool_calls': scenario.expected_tool_calls,
+                        'expected_tool_calls': expected_calls,
                         'response': response_text,
                         'tool_accuracy': tool_accuracy,
                         'param_accuracy': param_accuracy,

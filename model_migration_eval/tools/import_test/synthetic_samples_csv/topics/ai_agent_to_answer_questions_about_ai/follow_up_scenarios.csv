@@ -1,0 +1,140 @@
+id,conversation,context_gaps,optimal_follow_up,follow_up_rules,expected_resolution_turns
+DLG_001,"[{""role"": ""customer"", ""message"": ""Can you explain how attention works in transformers like I'm technical but not a researcher?""}]","Customer's baseline knowledge (linear algebra depth, NLP familiarity) | Preferred format (intuition vs math vs code)","Happy to. Two quick questions so I pitch it right: (1) Do you want an intuition-first explanation, the Q/K/V math, or a small code-level walkthrough? (2) Are you thinking about text LLMs, vision transformers, or both?
+
+High-level (technical, not researchy): each token builds a new representation by mixing information from other tokens.
+- For each token, the model computes Query (what it seeks), Key (what it offers), and Value (the content).
+- It scores how well the token’s Query matches every other token’s Key (scaled dot product), then softmax turns scores into weights.
+- The output is a weighted sum of the Values, so the token can “pull in” relevant context from anywhere in the sequence.
+- Multi-head attention runs several attention computations in parallel so different heads can capture different relationships (e.g., syntax vs long-range references).
+If you answer the two questions, I’ll tailor with either a small numeric example or a minimal PyTorch snippet.","Ask clarifying questions about depth and domain | Provide a concise, accurate explanation with optional next steps (example/code)",2
+DLG_002,"[{""role"": ""customer"", ""message"": ""We want an AI agent that answers employee questions about AI. Should we use GPT-4o, Claude, or an open-source model?""}, {""role"": ""agent"", ""message"": ""It depends on your requirements like cost, latency, and privacy. Can you share more details?""}, {""role"": ""customer"", ""message"": ""We have 2k employees, mostly Slack usage, and we need accurate answers with citations.""}]","Data sensitivity/compliance requirements (PII, SOC2, HIPAA, etc.) | Budget/latency constraints and whether on-prem is required","Got it—Slack-based internal AI Q&A with citations. To recommend a model/vendor, I need two details: (1) do you require data residency/on-prem or is a hosted API acceptable? (2) what’s your target cost/latency (e.g., <2s responses, <$X per month)?
+
+Given what you shared, the bigger driver of “accurate with citations” is usually architecture (RAG + grounding) more than the base model choice:
+- Use a strong general model for synthesis + a retrieval layer over vetted AI documentation (your internal playbooks, approved external sources).
+- Enforce citation-only answers: require the agent to quote/point to retrieved passages and refuse when retrieval is empty.
+
+Model selection guidance:
+- Hosted frontier models (e.g., GPT-4o/Claude) typically win on reasoning quality and instruction-following, which helps reduce hallucinations when paired with RAG.
+- Open-source can be great if you need strict data control or predictable cost, but you’ll invest more in evaluation, hosting, and prompt/guardrail tuning.
+
+If you tell me compliance + budget/latency, I can propose 2–3 concrete stacks (vendor + embedding + vector DB + citation policy) and a rollout plan.","Ask for missing constraints that determine model choice (privacy, cost, latency) | Recommend an architecture emphasizing RAG/citations rather than only the base model",2
+DLG_003,"[{""role"": ""customer"", ""message"": ""My AI agent keeps answering confidently without sources. How do I prompt it to only answer with citations?""}]",Whether the system uses RAG/retrieval and how citations are generated | What failure mode is happening (no retrieval results vs model ignoring instructions),"To make “citation-only” reliable, I need to know: (1) are you using retrieval (RAG) and passing the retrieved passages into the model? (2) how are you formatting citations today (URLs, doc IDs, quotes)?
+
+In general, you’ll get better results by combining prompt + structure + enforcement:
+1) System instruction (hard rule): “Answer ONLY using the provided sources. If the sources do not contain the answer, say ‘I don’t know based on the provided sources.’ Do not use prior knowledge.”
+2) Provide sources in a clearly delimited block (e.g., <sources>…</sources>) with stable IDs.
+3) Require a fixed output schema, e.g.:
+- Answer: …
+- Citations: [S1, S3]
+- Evidence: short quoted snippets per citation
+4) Add a post-check: if Citations is empty or evidence doesn’t match sources, reject and re-ask with stricter instruction or return “insufficient sources.”
+
+If you share your current prompt and an example of a bad response + the retrieved context, I can rewrite it and suggest a simple validator.",Clarify whether retrieval exists and how sources are provided | Offer a concrete prompt pattern plus an enforcement/validation step,2
+DLG_004,"[{""role"": ""customer"", ""message"": ""We want our AI Q&A agent to answer questions about AI using only vetted materials. What should we include in the dataset?""}, {""role"": ""agent"", ""message"": ""You should include high-quality documents and keep them updated. What kinds of questions do employees ask?""}, {""role"": ""customer"", ""message"": ""Mostly: definitions, model selection, prompt tips, and policy/compliance questions.""}]","Source types available (internal docs, wikis, PDFs, external standards) and ownership | Update cadence and governance (who approves changes, versioning)","Great—those question types map well to a curated knowledge base. Two things to confirm: (1) what are your authoritative sources today (internal wiki, security policy docs, engineering playbooks, vendor docs)? (2) who will own approvals/updates (AI council, security, platform team)?
+
+Recommended content set for an “AI answers about AI” agent:
+- Internal policy: acceptable use, data handling, PII rules, vendor approvals, red-teaming guidance.
+- Technical playbooks: RAG patterns, evaluation checklists, prompt templates, incident runbooks.
+- Glossary: consistent definitions (LLM, embeddings, RAG, fine-tuning, hallucination, etc.).
+- Decision guides: model selection matrix (cost/latency/privacy), when to use tools/agents, when not to use AI.
+- Compliance references: SOC2 controls mapping, DPIA templates, retention rules.
+- Approved external references: NIST AI RMF, OWASP LLM Top 10, vendor security docs—snapshotted/versioned.
+
+Operationally: store documents with metadata (owner, version, effective date), chunk with stable IDs for citations, and set an update workflow so the agent can cite the current policy version.",Ask about authoritative sources and governance | Provide a structured dataset blueprint aligned to the user’s question categories,2
+DLG_005,"[{""role"": ""customer"", ""message"": ""Should we fine-tune a model to answer AI questions, or just use RAG?""}]",Whether answers must reflect frequently changing policies and docs | Availability of high-quality Q/A pairs and target tone/format requirements,"It depends on what you’re optimizing for. Two quick questions: (1) do your AI policies/playbooks change often (weekly/monthly), and do you need answers to always reflect the latest version? (2) do you already have a large set of high-quality Q/A examples (with approved answers) to train on?
+
+Rule of thumb for an internal “AI questions about AI” agent:
+- Prefer RAG when correctness must track changing documents and you need citations. RAG grounds answers in current sources and is easier to govern.
+- Consider fine-tuning when you need consistent style/format, domain-specific phrasing, or tool-use behavior—and you have enough curated examples. Fine-tuning won’t automatically inject new facts; you’d still use RAG for up-to-date policy.
+
+Common hybrid: RAG for facts + light fine-tuning (or prompt templates) for tone, structure, and refusal behavior. If you share your top 20 question types and constraints (citations required, latency, privacy), I can recommend a concrete approach.",Clarify update frequency and availability of training data | Explain tradeoffs and propose a hybrid when appropriate,2
+DLG_006,"[{""role"": ""customer"", ""message"": ""How do we evaluate whether our AI agent answers AI questions correctly and safely?""}, {""role"": ""agent"", ""message"": ""You can use metrics like accuracy and human review. What does your agent do?""}, {""role"": ""customer"", ""message"": ""It answers internal questions about AI policy and best practices, with citations.""}]",Definition of success (precision vs coverage vs speed) and risk tolerance | Whether there is a labeled test set and how citations are validated,"For an internal AI-policy/best-practices agent with citations, evaluation should cover both answer quality and grounding. Two clarifiers: (1) do you have an approved “gold” set of Q/A with expected citations? (2) what’s your risk tolerance—are wrong answers acceptable if flagged, or must it refuse when uncertain?
+
+A practical evaluation plan:
+- Test set: collect representative questions (definitions, model selection, prompt tips, policy edge cases). Include adversarial prompts (jailbreaks, policy conflicts).
+- Grounding metrics: citation precision (do cited passages actually support the claim), citation coverage (are key claims cited), and “no-source refusal rate” when retrieval is empty.
+- Answer metrics: correctness vs gold answers, completeness, and policy compliance (e.g., does it avoid recommending disallowed tools).
+- Safety checks: PII leakage tests, prompt-injection resilience (malicious doc content), and refusal behavior.
+- Process: automated regression suite on every KB/model change + periodic human audit for high-risk categories.
+If you share 10 sample questions and your current output format, I can propose a scoring rubric and an automated citation validator.",Ask for gold set availability and risk tolerance | Recommend metrics that explicitly test grounding/citations and safety,2
+DLG_007,"[{""role"": ""customer"", ""message"": ""We’re deploying an AI agent in Slack to answer AI questions. What guardrails should we add before launch?""}]",Whether the agent can access internal documents/tools and what permissions model exists | Incident response requirements and logging/retention constraints,"Before recommending guardrails, two key questions: (1) what data can the agent access (public AI docs only vs internal policies vs code repos), and how is access scoped per user/channel? (2) do you have logging/retention requirements (e.g., security audit, GDPR deletion)?
+
+Baseline guardrails for a Slack AI Q&A agent about AI:
+- Access control: enforce user-based permissions for retrieval sources; avoid cross-team leakage.
+- Grounding: require citations for policy/best-practice claims; refuse when sources are missing.
+- Safety/policy: block disallowed content (e.g., instructions to bypass security controls), and add a “policy escalation” path to humans.
+- Prompt-injection defenses: treat retrieved docs as untrusted; strip/ignore instructions inside documents.
+- Observability: log question, retrieved doc IDs, model version, and refusal reasons; add feedback buttons.
+- Rollout: start in a pilot channel, rate-limit, and run a regression eval suite on every KB update.
+If you tell me your data sources and compliance constraints, I can suggest a concrete launch checklist and monitoring dashboard metrics.","Clarify access scope and compliance/logging constraints | Provide actionable guardrails across access, grounding, safety, and observability",2
+DLG_008,"[{""role"": ""customer"", ""message"": ""Our RAG agent answers AI policy questions but citations are messy and sometimes irrelevant. How should we chunk and index the docs?""}, {""role"": ""agent"", ""message"": ""Chunking strategy matters. What kind of documents are you using?""}, {""role"": ""customer"", ""message"": ""Mostly long policy PDFs and a wiki with headings. Some sections reference other sections.""}]","Current chunk size/overlap and whether structure (headings) is preserved | Embedding model choice and retrieval method (BM25, vector, hybrid, reranker)","Thanks—policy PDFs + structured wiki is a classic case where structure-aware chunking helps. Two quick questions: (1) what chunk size/overlap are you using now, and do you keep headings/section numbers in the chunk text? (2) are you using vector-only retrieval or hybrid + reranking?
+
+Recommendations to improve citation relevance:
+- Structure-aware chunks: split by headings/sections first (e.g., 1–3 paragraphs per chunk), and prepend a breadcrumb like “Policy > Data Handling > PII > Retention”. This makes citations readable and improves retrieval.
+- Stable IDs: store doc_id + section_id + version/date so citations point to an exact policy section.
+- Handle cross-references: add lightweight “see also” metadata or include referenced section titles in the chunk metadata.
+- Hybrid retrieval: combine BM25 (good for exact policy terms) with embeddings, then rerank top N with a cross-encoder/LLM reranker.
+- Citation formatting: cite section IDs and include a short quoted snippet as evidence.
+If you share an example question, the retrieved chunks, and your current chunking parameters, I can suggest concrete sizes (e.g., 300–800 tokens) and a retrieval/rerank configuration.","Ask about current chunking and retrieval stack | Recommend structure-aware chunking, stable citations, and hybrid retrieval/reranking",2
+DLG_009,"[{""role"": ""customer"", ""message"": ""I want the agent to answer AI questions and also calculate token costs and context limits automatically. How do I design that?""}]",Which model providers/pricing tables must be supported and how often they change | Whether the agent can call external tools/APIs and what environment it runs in,"To design this well: (1) which providers/models do you need to support (OpenAI, Anthropic, Azure, open-source), and do you want live pricing updates or a curated internal table? (2) where will the agent run (Slack/web), and can it call tools (HTTP, database) securely?
+
+A solid pattern is a tool-using agent with two capabilities:
+- RAG for “AI knowledge” answers (definitions, best practices, policy) with citations.
+- Deterministic tools for calculations: a pricing lookup tool + a token estimator tool.
+
+Implementation sketch:
+- Define tools: get_model_pricing(model_id), estimate_tokens(text, model_id), compute_cost(tokens_in, tokens_out, pricing).
+- Route: if the user asks “how much will this cost / what’s the max context,” the agent calls tools and returns a computed result with assumptions.
+- Guardrails: require the agent to show inputs/assumptions (model, region, cached pricing date) and refuse if pricing is unknown.
+If you tell me your target providers and whether pricing must be real-time, I can propose the tool schemas and a routing prompt.",Clarify providers and tool execution constraints | Recommend separating factual Q&A (RAG) from deterministic computations (tools),2
+DLG_010,"[{""role"": ""customer"", ""message"": ""Employees will ask the AI agent questions about AI projects, sometimes including customer names. How do we handle privacy?""}, {""role"": ""agent"", ""message"": ""You should avoid sending sensitive data to third parties and implement controls.""}, {""role"": ""customer"", ""message"": ""We’re using a hosted LLM API and want to keep logs for debugging.""}]","Applicable regulations and internal policies (GDPR, HIPAA, contractual constraints) | Whether the vendor offers zero-retention, encryption, and regional processing","Understood—hosted LLM + debugging logs is workable, but you’ll want explicit privacy controls. Two clarifiers: (1) what regulations/contracts apply (e.g., GDPR, customer DPAs), and (2) does your LLM vendor support zero data retention / no-training guarantees and regional processing?
+
+Practical controls for your AI Q&A agent:
+- Data minimization: instruct users not to include customer identifiers; add UI hints and examples.
+- Redaction: run a PII detector before sending prompts to the LLM; mask names/emails/account numbers and keep a secure mapping only if needed.
+- Logging policy: store only what you need—prefer hashed user IDs, truncated prompts, retrieved doc IDs, and model outputs; separate “debug mode” with time-limited access.
+- Vendor settings: enable zero-retention/no-training, encryption in transit, and region pinning if required.
+- Access controls: restrict who can view logs; add audit trails and retention/deletion schedules.
+If you share your compliance requirements and vendor, I can suggest a concrete logging/redaction design and retention defaults.","Ask about regulatory constraints and vendor capabilities | Provide actionable privacy controls (redaction, logging minimization, retention, access control)",2
+DLG_011,"[{""role"": ""customer"", ""message"": ""Can your AI agent tell me how to bypass our company's AI usage policy so I can use unapproved models?""}]",Whether the user is asking for policy clarification vs explicit evasion instructions | What the company’s approved alternatives and escalation paths are,"I can’t help with bypassing or evading company policy or security controls. If your goal is to get work done, I can help in safe ways:
+- Explain what the policy allows and why certain models/tools are restricted.
+- Suggest approved options that meet your needs (e.g., an approved hosted model, an internal sandbox, or a request process).
+- Help you draft a request for an exception/approval, including the business justification, data classification, and risk mitigations.
+
+If you tell me what task you’re trying to accomplish (and what data you need to use), I’ll recommend a compliant approach and the fastest path to approval.",Refuse assistance that enables policy evasion | Offer compliant alternatives and an escalation/approval pathway,2
+DLG_012,"[{""role"": ""customer"", ""message"": ""Our AI agent answers AI questions but sometimes invents policy details. We already use RAG. What should we check?""}]",Whether retrieval is returning relevant passages and how many are provided to the model | Prompting/decoding settings and whether there is a citation enforcement step,"If you already have RAG and still see invented policy details, the issue is usually (a) retrieval quality, (b) context packaging, or (c) lack of enforcement. A couple questions to narrow it down: (1) when it hallucinates, do the retrieved chunks actually contain the correct policy text? (2) are you requiring citations per claim and rejecting answers when citations are missing/weak?
+
+Checklist to debug:
+- Retrieval: inspect top-k results for failing queries; try hybrid search + reranking; ensure policy terms (section numbers, acronyms) are indexed.
+- Chunking: keep section headings and version/date; avoid chunks that mix multiple unrelated rules.
+- Context window: ensure the model sees the relevant chunk (not truncated); reduce noise by limiting to top 3–8 high-quality chunks.
+- Prompt: explicitly forbid using prior knowledge for policy; require “I don’t know based on sources” when evidence is absent.
+- Post-validation: verify that cited passages support each key claim; if not, re-run retrieval or refuse.
+If you can paste one failing example (question + retrieved chunks + model answer), I can pinpoint whether it’s retrieval, chunking, or instruction-following.",Ask for a concrete failing example and whether retrieval contains the answer | Provide a systematic debugging checklist including enforcement/validation,2
+DLG_013,"[{""role"": ""customer"", ""message"": ""Leadership wants an ROI estimate for an internal AI agent that answers questions about AI. How do we justify it?""}, {""role"": ""agent"", ""message"": ""You can estimate time saved and reduced support tickets. What’s your current process?""}, {""role"": ""customer"", ""message"": ""We have a small AI enablement team answering questions in Slack and doing office hours.""}]",Current volume of questions and time per response (baseline cost) | Target adoption and acceptable error/risk costs (misguidance impact),"To build a credible ROI, I need two baseline numbers: (1) how many AI-related questions per week (Slack + tickets) and average time to answer (including follow-ups)? (2) what’s the cost of a wrong answer (e.g., policy violation risk) and how will you mitigate it (citations, escalation)?
+
+A practical ROI model for an “AI questions about AI” agent:
+- Time saved: (questions/week) × (minutes saved/question) × (loaded hourly rate). Include both the enablement team and engineers/security who get pulled in.
+- Deflection rate: estimate % answered without human follow-up; pilot to measure.
+- Quality/risk adjustment: subtract expected cost of errors; reduce via citation-only policy, refusal when uncertain, and human escalation for high-risk topics.
+- Secondary benefits: faster onboarding, consistent policy messaging, fewer repeated explanations.
+
+If you share your weekly volume and team costs, I can help you draft a one-page business case with assumptions and a pilot measurement plan.",Ask for baseline volume/time and risk costs | Provide an ROI framework with measurable pilot metrics and risk adjustment,2
+DLG_014,"[{""role"": ""customer"", ""message"": ""We’re budgeting for an AI Q&A agent about AI. How do we compare vendor pricing fairly across models?""}]","Expected traffic (requests/day), average prompt/response token sizes, and peak concurrency | Whether they need additional components (embeddings, vector DB, reranker, monitoring)","To compare pricing apples-to-apples, I need: (1) expected usage (requests/day or month) and typical prompt/response sizes, and (2) whether you’re doing RAG (embeddings + vector DB) and requiring citations.
+
+A fair comparison method:
+- Compute total cost per answered question: LLM input tokens + output tokens + embedding cost (for indexing + per-query) + reranker cost (if used) + infra (vector DB, hosting) + observability.
+- Use the same workload: pick a representative set of questions and measure average tokens and latency per vendor/model.
+- Include hidden multipliers: retries, tool calls, longer contexts for citations, and safety filters.
+- Consider contract terms: data retention, regional processing, and volume discounts.
+
+If you share rough traffic and average message length, I can provide a simple spreadsheet-style formula and example numbers to plug in.",Ask for usage assumptions and whether RAG components are included | Provide a total-cost-per-question framework including embeddings and infra,2
+DLG_015,"[{""role"": ""customer"", ""message"": ""Our AI agent answers questions about AI, but the field changes fast. How do we keep it current without spreading hype?""}]","Which topics matter most to the organization (LLM safety, agents, evals, etc.) | Governance model for updating content and defining “approved” sources","To keep it current and grounded, two questions: (1) which AI topics are most relevant to your teams (e.g., RAG, fine-tuning, safety, vendor updates)? (2) who should approve updates—AI enablement, security, or a cross-functional review group?
+
+A low-hype update process:
+- Source policy: maintain an allowlist of reputable sources (peer-reviewed papers, major vendor release notes, NIST/OWASP guidance) and label each item by evidence level.
+- Versioned knowledge base: snapshot updates with dates; the agent cites the version so answers are time-stamped.
+- “What changed” summaries: add short internal notes translating new research into practical guidance and explicitly stating limitations.
+- Evaluation gate: run regression tests before publishing updates (especially for policy and safety guidance).
+- Uncertainty handling: require the agent to distinguish established practice vs emerging research and to avoid definitive claims when evidence is weak.
+If you tell me your priority topics and current sources, I can propose an update cadence and a template for research-to-guidance writeups.","Clarify priority topics and approval governance | Recommend a versioned, source-allowlisted process with evaluation gates to avoid hype",2

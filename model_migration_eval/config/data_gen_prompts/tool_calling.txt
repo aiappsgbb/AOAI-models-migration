@@ -1,47 +1,35 @@
 Generate exactly {count} tool-calling/function-calling test scenarios for the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.
-Each element MUST have this exact schema:
+Each element MUST have this exact schema (5 flat fields, CSV-compatible):
 {{
   "scenarios": [
     {{
       "id": "TC_001",
-      "scenario": "short_snake_case_name",
       "query": "A natural user request that may or may not require tool usage",
-      "available_tools": [
-        {{
-          "type": "function",
-          "function": {{
-            "name": "tool_name",
-            "description": "What the tool does",
-            "parameters": {{
-              "type": "object",
-              "properties": {{
-                "param1": {{"type": "string", "description": "Param description"}}
-              }},
-              "required": ["param1"]
-            }}
-          }}
-        }}
-      ],
-      "expected_tool_calls": ["tool_name"],
-      "expected_parameters": {{
-        "tool_name": {{"param1": "expected_value"}}
-      }},
-      "complexity": "low|medium|high"
+      "available_tools": "[{{\"type\": \"function\", \"function\": {{\"name\": \"tool_name\", \"description\": \"What the tool does\", \"parameters\": {{\"type\": \"object\", \"properties\": {{\"param1\": {{\"type\": \"string\", \"description\": \"Param description\"}}}}}}}}}}]",
+      "expected_tool_calls": "tool_name1 | tool_name2",
+      "expected_parameters": "{{\"tool_name\": {{\"param1\": \"expected_value\"}}}}"
     }}
   ]
 }}
 
+FIELD RULES:
+- "available_tools" is a JSON-encoded string of an array of OpenAI tool definitions.
+  Do NOT use a raw array - it MUST be a JSON-encoded string.
+- "expected_tool_calls" is a pipe-separated string of expected function names (e.g. "func1 | func2").
+  Use an empty string if no tool call is expected.
+- "expected_parameters" is a JSON-encoded string of a dict mapping tool names to expected param values.
+  Use an empty string or "{{}}" if no parameters are expected.
+
 IMPORTANT RULES:
 1. ALL scenarios, tools, and queries must be domain-specific to "{topic}"
 2. Include 2-4 available tools per scenario (realistic for the domain)
-3. Include at least 1 scenario where NO tool is needed (expected_tool_calls: [])
+3. Include at least 1 scenario where NO tool is needed (expected_tool_calls: "")
 4. Include at least 1 scenario requiring MULTIPLE sequential tool calls
 5. Include at least 1 scenario where required parameters are MISSING from the query
 6. Include at least 1 scenario with AMBIGUOUS tool selection
 7. Tool definitions should be realistic and well-structured
 8. Parameter types should vary (string, number, boolean, array)
-9. Distribute complexity: ~25% low, ~50% medium, ~25% high
-10. The "scenarios" array MUST contain EXACTLY {count} items — not more, not less
-11. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation
+9. The "scenarios" array MUST contain EXACTLY {count} items - not more, not less
+10. Return ONLY the JSON object with "scenarios" key - no markdown fences, no explanation

@@ -1,9 +1,9 @@
 Generate exactly {count} general capability test cases for evaluating AI models on the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.
-Each element uses one of these two variants:
+Each element MUST have this exact schema (7 flat fields, CSV-compatible):
 
-Variant A — Single-prompt test:
+Variant A - Single-prompt test:
 {{
   "scenarios": [
     {{
@@ -11,39 +11,42 @@ Variant A — Single-prompt test:
       "test_type": "reasoning_capability|instruction_following|structured_output|consistency|edge_case_handling|multi_language|safety_boundary|summarization|calculation_accuracy|persona_adherence|ambiguity_resolution|compliance_awareness|negative_sentiment_handling",
       "prompt": "The test prompt",
       "complexity": "low|medium|high",
-      "expected_output": null,
-      "expected_behavior": "Description of correct behavior"
+      "expected_behavior": "Description of correct behavior",
+      "conversation": "",
+      "run_count": 1
     }}
   ]
 }}
 
-Variant B — Multi-turn test:
+Variant B - Multi-turn test (conversation is a JSON-encoded string):
 {{
   "scenarios": [
     {{
       "id": "GEN_008",
       "test_type": "context_retention",
-      "multi_turn": true,
-      "conversation": [
-        {{"role": "user", "content": "..."}},
-        {{"role": "assistant", "content": "..."}},
-        {{"role": "user", "content": "..."}}
-      ],
-      "expected_behavior": "...",
-      "complexity": "medium"
+      "prompt": "",
+      "complexity": "medium",
+      "expected_behavior": "Description of correct behavior",
+      "conversation": "[{{\"role\": \"user\", \"content\": \"...\"}}, {{\"role\": \"assistant\", \"content\": \"...\"}}, {{\"role\": \"user\", \"content\": \"...\"}}]",
+      "run_count": 1
     }}
   ]
 }}
 
+FIELD RULES:
+- "conversation" is either an empty string (Variant A) or a JSON-encoded string of an array of {{role, content}} objects (Variant B).
+  Do NOT use a raw array - it MUST be a JSON-encoded string.
+- Every item must have ALL 7 fields. Use empty string for unused fields.
+
 IMPORTANT RULES:
-1. ALL test content must be domain-specific to "{topic}" — adapt scenarios, numbers, terminology
+1. ALL test content must be domain-specific to "{topic}" - adapt scenarios, numbers, terminology
 2. Use at least 6 different test_types across the {count} items
 3. Distribute complexity: ~30% low, ~45% medium, ~25% high
-4. Include at least 1 structured_output test with expected JSON
+4. Include at least 1 structured_output test
 5. Include at least 1 consistency test with "run_count": 5
 6. Include at least 1 safety_boundary test relevant to the domain
 7. Include at least 1 multi_language test
-8. Include at least 1 calculation_accuracy test with "expected_calculation" object
+8. Include at least 1 calculation_accuracy test
 9. All prompts should be realistic and testable
-10. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON
-11. The "scenarios" array MUST contain EXACTLY {count} items — not more, not less
+10. Return ONLY the JSON object with "scenarios" key - no markdown fences, no explanation, no comments inside the JSON
+11. The "scenarios" array MUST contain EXACTLY {count} items - not more, not less

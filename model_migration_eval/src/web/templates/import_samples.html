@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Samples – JSON &amp; CSV</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% include '_fluent_head.html' %}
+    <style>
+        pre { position: relative; }
+        .copy-btn {
+            position: absolute; top: 8px; right: 8px;
+            padding: 4px 10px; font-size: 11px; font-weight: 600;
+            background: rgba(255,255,255,.85); border: 1px solid #d1d5db;
+            border-radius: 6px; cursor: pointer; transition: all .15s;
+        }
+        .copy-btn:hover { background: #e0e7ff; border-color: #818cf8; }
+        .copy-btn.copied { background: #d1fae5; border-color: #34d399; color: #065f46; }
+        .tab-active { color: #4f46e5; border-color: #4f46e5; }
+        .tab-inactive { color: #6b7280; border-color: transparent; }
+        .tab-inactive:hover { color: #374151; }
+    </style>
+</head>
+<body class="bg-[#faf9f8] min-h-screen">
+    <main class="max-w-5xl mx-auto px-6 py-8">
+        <!-- Header -->
+        <div class="flex items-center gap-3 mb-1">
+            <a href="/prompts" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-1">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                Back to Prompts
+            </a>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900 mb-1">📄 Import Samples — JSON &amp; CSV</h1>
+        <p class="text-sm text-gray-500 mb-6">Copy these examples to create your own test data files. Each task type requires specific fields. Both JSON and CSV formats are accepted; CSV files are converted to JSON on import.</p>
+
+        <!-- Task Navigation -->
+        <nav class="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto" id="task-nav">
+            <button onclick="showTask('classification')" data-task="classification" class="px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap tab-active">Classification</button>
+            <button onclick="showTask('dialog')" data-task="dialog" class="px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap tab-inactive">Dialog</button>
+            <button onclick="showTask('general')" data-task="general" class="px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap tab-inactive">General</button>
+            <button onclick="showTask('rag')" data-task="rag" class="px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap tab-inactive">RAG</button>
+            <button onclick="showTask('tool_calling')" data-task="tool_calling" class="px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap tab-inactive">Tool Calling</button>
+        </nav>
+
+        <!-- ================================================================ -->
+        <!-- CLASSIFICATION                                                    -->
+        <!-- ================================================================ -->
+        <section id="task-classification">
+            <h2 class="text-lg font-semibold text-gray-800 mb-2">Classification Scenarios</h2>
+            <p class="text-sm text-gray-500 mb-1">The model receives <code class="text-xs bg-gray-100 px-1 rounded">customer_input</code> and must predict category, subcategory, priority and sentiment.</p>
+            <div class="mb-3">
+                <h3 class="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Required fields</h3>
+                <div class="flex flex-wrap gap-1">
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">id</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">customer_input</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">expected_category</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">expected_subcategory</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">expected_priority</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">expected_sentiment</span>
+                    <span class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">context <span class="font-normal">(optional)</span></span>
+                </div>
+            </div>
+
+            <!-- JSON -->
+            <h3 class="text-sm font-semibold text-gray-700 mb-1">JSON format</h3>
+            <pre class="bg-gray-900 text-green-300 rounded-lg p-4 text-xs overflow-x-auto mb-4 leading-relaxed"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><code>[
+  {
+    "id": "CLASS_001",
+    "customer_input": "My bill is almost double what I usually pay. Can you explain these charges?",
+    "expected_category": "billing_inquiry",
+    "expected_subcategory": "unexpected_charges",
+    "expected_priority": "high",
+    "expected_sentiment": "frustrated",
+    "context": "{\"account_tenure_months\": 18, \"billing_cycle\": \"2026-01\"}"
+  },
+  {
+    "id": "CLASS_002",
+    "customer_input": "I have had no mobile signal since last night's storm.",
+    "expected_category": "technical_support",
+    "expected_subcategory": "outage_or_service_disruption",
+    "expected_priority": "critical",
+    "expected_sentiment": "very_angry",
+    "context": "{\"network_type\": \"mobile_4g\", \"outage_ticket_open\": true}"
+  }
+]</code></pre>
+
+            <!-- CSV -->
+            <h3 class="text-sm font-semibold text-gray-700 mb-1">CSV format</h3>
+            <p class="text-xs text-gray-400 mb-1">The <code class="bg-gray-100 px-1 rounded">context</code> field is a JSON string — wrap it in double-quotes and escape inner quotes.</p>
+            <pre class="bg-gray-900 text-green-300 rounded-lg p-4 text-xs overflow-x-auto mb-6 leading-relaxed"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><code>id,customer_input,expected_category,expected_subcategory,expected_priority,expected_sentiment,context
+CLASS_001,"My bill is almost double what I usually pay. Can you explain these charges?",billing_inquiry,unexpected_charges,high,frustrated,"{""account_tenure_months"": 18, ""billing_cycle"": ""2026-01""}"
+CLASS_002,"I have had no mobile signal since last night's storm.",technical_support,outage_or_service_disruption,critical,very_angry,"{""network_type"": ""mobile_4g"", ""outage_ticket_open"": true}"</code></pre>
+        </section>
+
+        <!-- ================================================================ -->
+        <!-- DIALOG                                                            -->
+        <!-- ================================================================ -->
+        <section id="task-dialog" class="hidden">
+            <h2 class="text-lg font-semibold text-gray-800 mb-2">Dialog Scenarios</h2>
+            <p class="text-sm text-gray-500 mb-1">Tests the model's ability to identify context gaps and generate an optimal follow-up in a multi-turn conversation.</p>
+            <div class="mb-3">
+                <h3 class="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Required fields</h3>
+                <div class="flex flex-wrap gap-1">
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">id</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">conversation</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">context_gaps</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">optimal_follow_up</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">follow_up_rules</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">expected_resolution_turns</span>
+                </div>
+            </div>
+
+            <!-- JSON -->
+            <h3 class="text-sm font-semibold text-gray-700 mb-1">JSON format</h3>
+            <pre class="bg-gray-900 text-green-300 rounded-lg p-4 text-xs overflow-x-auto mb-4 leading-relaxed"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><code>[
+  {
+    "id": "DLG_001",
+    "conversation": "[{\"role\": \"customer\", \"message\": \"Hi, my mobile bill is way higher than usual this month.\"}]",
+    "context_gaps": "customer authentication details | account or phone number | billing period",
+    "optimal_follow_up": "I'm sorry about the confusion. Could you provide your account number and the billing month?",
+    "follow_up_rules": "Begin with empathy | Request minimum necessary details | Avoid assuming the cause",
+    "expected_resolution_turns": 2
+  },
+  {
+    "id": "DLG_002",
+    "conversation": "[{\"role\": \"customer\", \"message\": \"Every evening my internet gets super slow.\"}, {\"role\": \"agent\", \"message\": \"I'm sorry to hear about the slowdown.\"}]",
+    "context_gaps": "connection type | modem/router model | Wi-Fi vs wired | speed test results",
+    "optimal_follow_up": "Could you tell me your connection type and run a speed test during the slowdown?",
+    "follow_up_rules": "Clarify technical environment first | Ask for concrete measurements | Keep instructions simple",
+    "expected_resolution_turns": 3
+  }
+]</code></pre>
+
+            <!-- CSV -->
+            <h3 class="text-sm font-semibold text-gray-700 mb-1">CSV format</h3>
+            <p class="text-xs text-gray-400 mb-1">The <code class="bg-gray-100 px-1 rounded">conversation</code> field is a JSON array string — escape inner quotes with <code class="bg-gray-100 px-1 rounded">""</code>.</p>
+            <pre class="bg-gray-900 text-green-300 rounded-lg p-4 text-xs overflow-x-auto mb-6 leading-relaxed"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><code>id,conversation,context_gaps,optimal_follow_up,follow_up_rules,expected_resolution_turns
+DLG_001,"[{""role"": ""customer"", ""message"": ""Hi, my mobile bill is way higher than usual this month.""}]","customer authentication details | account or phone number | billing period","I'm sorry about the confusion. Could you provide your account number and the billing month?","Begin with empathy | Request minimum necessary details | Avoid assuming the cause",2
+DLG_002,"[{""role"": ""customer"", ""message"": ""Every evening my internet gets super slow.""}, {""role"": ""agent"", ""message"": ""I'm sorry to hear about the slowdown.""}]","connection type | modem/router model | Wi-Fi vs wired | speed test results","Could you tell me your connection type and run a speed test during the slowdown?","Clarify technical environment first | Ask for concrete measurements | Keep instructions simple",3</code></pre>
+        </section>
+
+        <!-- ================================================================ -->
+        <!-- GENERAL                                                           -->
+        <!-- ================================================================ -->
+        <section id="task-general" class="hidden">
+            <h2 class="text-lg font-semibold text-gray-800 mb-2">General Capability Tests</h2>
+            <p class="text-sm text-gray-500 mb-1">Free-form prompts that test instruction following, structured output, reasoning, etc.</p>
+            <div class="mb-3">
+                <h3 class="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Required fields</h3>
+                <div class="flex flex-wrap gap-1">
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">id</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">test_type</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">prompt</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">complexity</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">expected_behavior</span>
+                </div>
+            </div>
+
+            <!-- JSON -->
+            <h3 class="text-sm font-semibold text-gray-700 mb-1">JSON format</h3>
+            <pre class="bg-gray-900 text-green-300 rounded-lg p-4 text-xs overflow-x-auto mb-4 leading-relaxed"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><code>[
+  {
+    "id": "GEN_001",
+    "test_type": "instruction_following",
+    "prompt": "A customer writes: \"My data has been slow for 3 days.\"\n\nTask: Draft a reply that:\n1) Acknowledges and apologizes\n2) Asks for three technical details\n3) Offers one immediate workaround\n4) Stays under 150 words",
+    "complexity": "medium",
+    "expected_behavior": "Should follow all four instructions with a professional, empathetic tone."
+  },
+  {
+    "id": "GEN_002",
+    "test_type": "structured_output",
+    "prompt": "A customer wants to change plan. Recommend ONE plan and output ONLY a JSON object with: recommended_plan_name, monthly_price, reasons.",
+    "complexity": "medium",
+    "expected_behavior": "Should output valid JSON matching the requested schema."
+  }
+]</code></pre>
+
+            <!-- CSV -->
+            <h3 class="text-sm font-semibold text-gray-700 mb-1">CSV format</h3>
+            <pre class="bg-gray-900 text-green-300 rounded-lg p-4 text-xs overflow-x-auto mb-6 leading-relaxed"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><code>id,test_type,prompt,complexity,expected_behavior
+GEN_001,instruction_following,"A customer writes: ""My data has been slow for 3 days."" Task: Draft a reply that: 1) Acknowledges and apologizes 2) Asks for three technical details 3) Offers one immediate workaround 4) Stays under 150 words",medium,"Should follow all four instructions with a professional, empathetic tone."
+GEN_002,structured_output,"A customer wants to change plan. Recommend ONE plan and output ONLY a JSON object with: recommended_plan_name, monthly_price, reasons.",medium,Should output valid JSON matching the requested schema.</code></pre>
+        </section>
+
+        <!-- ================================================================ -->
+        <!-- RAG                                                               -->
+        <!-- ================================================================ -->
+        <section id="task-rag" class="hidden">
+            <h2 class="text-lg font-semibold text-gray-800 mb-2">RAG Scenarios</h2>
+            <p class="text-sm text-gray-500 mb-1">Tests retrieval-augmented generation: the model receives a <code class="text-xs bg-gray-100 px-1 rounded">query</code> and a <code class="text-xs bg-gray-100 px-1 rounded">context</code> passage, and must answer faithfully.</p>
+            <div class="mb-3">
+                <h3 class="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Required fields</h3>
+                <div class="flex flex-wrap gap-1">
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">id</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">query</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">context</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">ground_truth</span>
+                </div>
+            </div>
+
+            <!-- JSON -->
+            <h3 class="text-sm font-semibold text-gray-700 mb-1">JSON format</h3>
+            <pre class="bg-gray-900 text-green-300 rounded-lg p-4 text-xs overflow-x-auto mb-4 leading-relaxed"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><code>[
+  {
+    "id": "RAG_001",
+    "query": "What is your refund policy for international orders?",
+    "context": "Our refund policy allows returns within 30 days for domestic orders. For international orders, the window is 45 days. Items must be in original packaging. Shipping costs are non-refundable.",
+    "ground_truth": "International orders can be returned within 45 days. Items must be in original packaging. Shipping costs are non-refundable."
+  },
+  {
+    "id": "RAG_002",
+    "query": "What processor does the ProBook 450 G10 have?",
+    "context": "The ProBook 450 G10 has an Intel Core i7-1355U with 10 cores (2P+8E), 12 threads, and max turbo of 5.0 GHz. It comes with 16GB DDR4-3200 RAM and 512GB SSD.",
+    "ground_truth": "Intel Core i7-1355U with 10 cores, 12 threads, up to 5.0 GHz turbo."
+  }
+]</code></pre>
+
+            <!-- CSV -->
+            <h3 class="text-sm font-semibold text-gray-700 mb-1">CSV format</h3>
+            <pre class="bg-gray-900 text-green-300 rounded-lg p-4 text-xs overflow-x-auto mb-6 leading-relaxed"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><code>id,query,context,ground_truth
+RAG_001,"What is your refund policy for international orders?","Our refund policy allows returns within 30 days for domestic orders. For international orders, the window is 45 days. Items must be in original packaging. Shipping costs are non-refundable.","International orders can be returned within 45 days. Items must be in original packaging. Shipping costs are non-refundable."
+RAG_002,"What processor does the ProBook 450 G10 have?","The ProBook 450 G10 has an Intel Core i7-1355U with 10 cores (2P+8E), 12 threads, and max turbo of 5.0 GHz. It comes with 16GB DDR4-3200 RAM and 512GB SSD.","Intel Core i7-1355U with 10 cores, 12 threads, up to 5.0 GHz turbo."</code></pre>
+        </section>
+
+        <!-- ================================================================ -->
+        <!-- TOOL CALLING                                                      -->
+        <!-- ================================================================ -->
+        <section id="task-tool_calling" class="hidden">
+            <h2 class="text-lg font-semibold text-gray-800 mb-2">Tool Calling Scenarios</h2>
+            <p class="text-sm text-gray-500 mb-1">Tests function/tool calling: the model must pick the right tool(s) and arguments for a given query.</p>
+            <div class="mb-3">
+                <h3 class="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Required fields</h3>
+                <div class="flex flex-wrap gap-1">
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">id</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">query</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">available_tools</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">expected_tool_calls</span>
+                    <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">expected_parameters</span>
+                </div>
+            </div>
+
+            <!-- JSON -->
+            <h3 class="text-sm font-semibold text-gray-700 mb-1">JSON format</h3>
+            <pre class="bg-gray-900 text-green-300 rounded-lg p-4 text-xs overflow-x-auto mb-4 leading-relaxed"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><code>[
+  {
+    "id": "TC_001",
+    "query": "What's the weather like in Madrid right now?",
+    "available_tools": "[{\"type\": \"function\", \"function\": {\"name\": \"get_current_weather\", \"description\": \"Get current weather for a location\", \"parameters\": {\"type\": \"object\", \"properties\": {\"location\": {\"type\": \"string\"}, \"unit\": {\"type\": \"string\", \"enum\": [\"celsius\", \"fahrenheit\"]}}, \"required\": [\"location\"]}}}]",
+    "expected_tool_calls": "get_current_weather",
+    "expected_parameters": "{\"location\": \"Madrid, Spain\", \"unit\": \"celsius\"}"
+  },
+  {
+    "id": "TC_002",
+    "query": "Book a flight from NYC to London and a hotel for 3 nights.",
+    "available_tools": "[{\"type\": \"function\", \"function\": {\"name\": \"search_flights\", \"description\": \"Search flights\", \"parameters\": {\"type\": \"object\", \"properties\": {\"origin\": {\"type\": \"string\"}, \"destination\": {\"type\": \"string\"}}, \"required\": [\"origin\", \"destination\"]}}}, {\"type\": \"function\", \"function\": {\"name\": \"search_hotels\", \"description\": \"Search hotels\", \"parameters\": {\"type\": \"object\", \"properties\": {\"city\": {\"type\": \"string\"}, \"nights\": {\"type\": \"integer\"}}, \"required\": [\"city\"]}}}]",
+    "expected_tool_calls": "search_flights | search_hotels",
+    "expected_parameters": "{\"search_flights\": {\"origin\": \"New York\", \"destination\": \"London\"}, \"search_hotels\": {\"city\": \"London\", \"nights\": 3}}"
+  }
+]</code></pre>
+
+            <!-- CSV -->
+            <h3 class="text-sm font-semibold text-gray-700 mb-1">CSV format</h3>
+            <p class="text-xs text-gray-400 mb-1"><code class="bg-gray-100 px-1 rounded">available_tools</code> and <code class="bg-gray-100 px-1 rounded">expected_parameters</code> contain JSON — escape inner quotes with <code class="bg-gray-100 px-1 rounded">""</code>. Use <code class="bg-gray-100 px-1 rounded">|</code> to separate multiple tool names in <code class="bg-gray-100 px-1 rounded">expected_tool_calls</code>.</p>
+            <pre class="bg-gray-900 text-green-300 rounded-lg p-4 text-xs overflow-x-auto mb-6 leading-relaxed"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><code>id,query,available_tools,expected_tool_calls,expected_parameters
+TC_001,"What's the weather like in Madrid right now?","[{""type"": ""function"", ""function"": {""name"": ""get_current_weather"", ""description"": ""Get current weather"", ""parameters"": {""type"": ""object"", ""properties"": {""location"": {""type"": ""string""}}, ""required"": [""location""]}}}]",get_current_weather,"{""location"": ""Madrid, Spain"", ""unit"": ""celsius""}"
+TC_002,"Book a flight from NYC to London and a hotel for 3 nights.","[{""type"": ""function"", ""function"": {""name"": ""search_flights"", ""description"": ""Search flights"", ""parameters"": {""type"": ""object"", ""properties"": {""origin"": {""type"": ""string""}, ""destination"": {""type"": ""string""}}, ""required"": [""origin"", ""destination""]}}}, {""type"": ""function"", ""function"": {""name"": ""search_hotels"", ""description"": ""Search hotels"", ""parameters"": {""type"": ""object"", ""properties"": {""city"": {""type"": ""string""}, ""nights"": {""type"": ""integer""}}, ""required"": [""city""]}}}]",search_flights | search_hotels,"{""search_flights"": {""origin"": ""New York"", ""destination"": ""London""}, ""search_hotels"": {""city"": ""London"", ""nights"": 3}}"</code></pre>
+        </section>
+
+        <!-- Tips -->
+        <div class="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+            <h3 class="text-sm font-semibold text-indigo-800 mb-1">💡 Tips</h3>
+            <ul class="text-xs text-indigo-700 space-y-1 list-disc list-inside">
+                <li>You don't need all 5 task types — import at least one prompt + one matching data file.</li>
+                <li>CSV files are automatically converted to JSON on import. The canonical storage format is JSON.</li>
+                <li>Fields containing commas, quotes or newlines must be wrapped in double-quotes. Escape inner quotes by doubling them: <code class="bg-indigo-100 px-1 rounded">"" </code>.</li>
+                <li>The <code class="bg-indigo-100 px-1 rounded">id</code> field should be unique within each file (e.g. CLASS_001, DLG_001, RAG_001…).</li>
+                <li>JSON fields embedded in CSV (like <code class="bg-indigo-100 px-1 rounded">context</code>, <code class="bg-indigo-100 px-1 rounded">conversation</code>, <code class="bg-indigo-100 px-1 rounded">available_tools</code>) are stored as strings — they'll be parsed at evaluation time.</li>
+            </ul>
+        </div>
+    </main>
+
+    <script>
+        function showTask(task) {
+            document.querySelectorAll('section[id^="task-"]').forEach(s => s.classList.add('hidden'));
+            document.getElementById('task-' + task).classList.remove('hidden');
+            document.querySelectorAll('#task-nav button').forEach(b => {
+                b.className = b.className.replace(/tab-active|tab-inactive/g, '').trim();
+                b.classList.add(b.dataset.task === task ? 'tab-active' : 'tab-inactive');
+            });
+        }
+
+        function copyBlock(btn) {
+            const code = btn.parentElement.querySelector('code');
+            navigator.clipboard.writeText(code.textContent).then(() => {
+                btn.textContent = '✓ Copied';
+                btn.classList.add('copied');
+                setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+            });
+        }
+    </script>
+</body>
+</html>

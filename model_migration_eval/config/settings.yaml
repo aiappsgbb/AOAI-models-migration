@@ -46,6 +46,13 @@ azure:
       max_tokens: 8192
       temperature: 0.1
       
+    gpt51:
+      deployment_name: "gpt-5.1"
+      model_family: "gpt5"
+      model_version: "2025-01-01"
+      max_tokens: 16384
+      temperature: 0.1
+
     gpt5_reasoning:
       deployment_name: "gpt-5.1"
       model_family: "gpt5"

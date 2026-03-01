@@ -17,7 +17,7 @@ from flask_cors import CORS
 from ..clients.azure_openai import create_client_from_config
 from ..utils.prompt_loader import PromptLoader
 from ..utils.prompt_manager import PromptManager
-from ..utils.data_loader import DataLoader
+from ..utils.data_loader import DataLoader, ensure_flat_schema
 from ..evaluation.metrics import MetricsCalculator
 from ..evaluation.evaluator import ModelEvaluator, MissingPromptsError
 from ..evaluation.comparator import ModelComparator
@@ -241,6 +241,7 @@ def create_app(config_path: str = None) -> Flask:
             perf = _load_perf_settings()
             _evaluator = ModelEvaluator(
                 client,
+                prompt_loader=get_prompt_loader(),
                 max_concurrent=perf.get('max_concurrent_requests', 5),
             )
         return _evaluator
@@ -317,6 +318,11 @@ def create_app(config_path: str = None) -> Flask:
     def prompts_page():
         """Prompt editor/viewer page"""
         return render_template('prompts.html')
+
+    @app.route('/import-samples')
+    def import_samples_page():
+        """JSON & CSV import samples reference page"""
+        return render_template('import_samples.html')
 
     # =========================================================================
     # API Routes
@@ -417,10 +423,11 @@ def create_app(config_path: str = None) -> Flask:
                 'scenarios': [
                     {
                         'id': s.id,
-                        'scenario': s.scenario,
-                        'customer_input': s.customer_input,
+                        'customer_input': s.customer_input[:80] if s.customer_input else '-',
                         'expected_category': s.expected_category,
-                        'expected_priority': s.expected_priority
+                        'expected_subcategory': s.expected_subcategory,
+                        'expected_priority': s.expected_priority,
+                        'expected_sentiment': s.expected_sentiment,
                     }
                     for s in scenarios
                 ]
@@ -439,9 +446,9 @@ def create_app(config_path: str = None) -> Flask:
                 'scenarios': [
                     {
                         'id': s.id,
-                        'scenario': s.scenario,
-                        'category': s.category,
-                        'context_gaps': s.context_gaps
+                        'optimal_follow_up': (s.optimal_follow_up[:80] + '…') if len(s.optimal_follow_up) > 80 else s.optimal_follow_up,
+                        'context_gaps': s.context_gaps,
+                        'expected_resolution_turns': s.expected_resolution_turns,
                     }
                     for s in scenarios
                 ]
@@ -460,9 +467,9 @@ def create_app(config_path: str = None) -> Flask:
                 'scenarios': [
                     {
                         'id': t.id,
-                        'scenario': t.prompt[:80] if t.prompt else '-',
-                        'category': t.test_type,
-                        'complexity': t.complexity
+                        'prompt': (t.prompt[:80] + '…') if t.prompt and len(t.prompt) > 80 else (t.prompt or '-'),
+                        'test_type': t.test_type,
+                        'complexity': t.complexity,
                     }
                     for t in tests
                 ]
@@ -481,9 +488,8 @@ def create_app(config_path: str = None) -> Flask:
                 'scenarios': [
                     {
                         'id': s.id,
-                        'scenario': s.scenario,
-                        'query': s.query[:80] if s.query else '-',
-                        'complexity': s.complexity,
+                        'query': (s.query[:80] + '…') if s.query and len(s.query) > 80 else (s.query or '-'),
+                        'ground_truth': (s.ground_truth[:80] + '…') if s.ground_truth and len(s.ground_truth) > 80 else (s.ground_truth or '-'),
                     }
                     for s in scenarios
                 ]
@@ -504,9 +510,7 @@ def create_app(config_path: str = None) -> Flask:
                 'scenarios': [
                     {
                         'id': s.id,
-                        'scenario': s.scenario,
-                        'query': s.query[:80] if s.query else '-',
-                        'complexity': s.complexity,
+                        'query': (s.query[:80] + '…') if s.query and len(s.query) > 80 else (s.query or '-'),
                         'expected_tool_calls': s.expected_tool_calls,
                     }
                     for s in scenarios
@@ -520,6 +524,7 @@ def create_app(config_path: str = None) -> Flask:
     @app.route('/api/evaluate/single', methods=['POST'])
     def evaluate_single():
         """Evaluate a single prompt against one or both models"""
+        get_prompt_loader()._cache.clear()          # always read fresh from disk
         data = request.get_json() or {}
         run_id = _normalize_run_id(data.get('run_id') if data else None)
         _cleanup_run_logs()
@@ -623,6 +628,7 @@ def create_app(config_path: str = None) -> Flask:
     @app.route('/api/evaluate/batch', methods=['POST'])
     def evaluate_batch():
         """Run batch evaluation on test scenarios"""
+        get_prompt_loader()._cache.clear()          # always read fresh from disk
         data = request.get_json() or {}
         run_id = _normalize_run_id(data.get('run_id') if data else None)
         _cleanup_run_logs()
@@ -693,6 +699,7 @@ def create_app(config_path: str = None) -> Flask:
     @app.route('/api/compare', methods=['POST'])
     def compare_models():
         """Compare two models — runs in background thread, returns 202."""
+        get_prompt_loader()._cache.clear()          # always read fresh from disk
         data = request.get_json() or {}
         run_id = _normalize_run_id(data.get('run_id') if data else None)
         _cleanup_run_logs()
@@ -1254,13 +1261,25 @@ def create_app(config_path: str = None) -> Flask:
         else:
             file_path = Path(app.config['DATA_DIR']) / data_type / filename
 
-        if not file_path.exists():
+        # Try JSON first, fall back to CSV
+        csv_path = file_path.with_suffix('.csv')
+        source_format = 'json'  # track which format was loaded
+
+        if not file_path.exists() and csv_path.exists():
+            file_path = csv_path
+            source_format = 'csv'
+        elif not file_path.exists():
             return jsonify({'data': [], 'file': str(file_path), 'exists': False})
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                items = json.load(f)
-            return jsonify({'data': items, 'count': len(items), 'exists': True})
+            if source_format == 'csv':
+                import csv as _csv
+                with open(file_path, 'r', encoding='utf-8-sig', newline='') as f:
+                    items = list(_csv.DictReader(f))
+            else:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    items = json.load(f)
+            return jsonify({'data': items, 'count': len(items), 'exists': True, 'format': source_format})
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
@@ -1293,6 +1312,9 @@ def create_app(config_path: str = None) -> Flask:
         else:
             file_path = Path(app.config['DATA_DIR']) / data_type / filename
             file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Normalise to flat schema before persisting
+        items = ensure_flat_schema(items, data_type)
 
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
@@ -1395,7 +1417,10 @@ def create_app(config_path: str = None) -> Flask:
         if not prompt_files:
             return jsonify({'error': 'At least one source prompt file is required.'}), 400
 
-        # ── Collect uploaded test data files ──
+        # ── Collect uploaded test data files (JSON or CSV) ──
+        import csv as _csv
+        import io as _io
+
         data_files = {}
         for data_key, field_name in (('classification', 'class_test_data'),
                                       ('dialog', 'dialog_test_data'),
@@ -1404,9 +1429,14 @@ def create_app(config_path: str = None) -> Flask:
                                       ('tool_calling', 'tool_calling_test_data')):
             f = request.files.get(field_name)
             if f and f.filename:
-                raw = json.loads(f.read().decode('utf-8-sig'))
-                if isinstance(raw, dict):
-                    raw = raw.get('scenarios') or next((v for v in raw.values() if isinstance(v, list)), [])
+                text = f.read().decode('utf-8-sig')
+                if f.filename.lower().endswith('.csv'):
+                    reader = _csv.DictReader(_io.StringIO(text))
+                    raw = list(reader)
+                else:
+                    raw = json.loads(text)
+                    if isinstance(raw, dict):
+                        raw = raw.get('scenarios') or next((v for v in raw.values() if isinstance(v, list)), [])
                 data_files[data_key] = raw
 
         if not data_files:

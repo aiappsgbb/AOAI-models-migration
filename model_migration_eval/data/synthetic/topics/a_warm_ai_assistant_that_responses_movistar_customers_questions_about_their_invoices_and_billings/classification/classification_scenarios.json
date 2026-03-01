@@ -1,399 +1,182 @@
 [
   {
     "id": "CLASS_001",
-    "scenario": "request_invoice_pdf_email",
     "customer_input": "Hi, I can’t find my Movistar invoice for January in the app. Could you send me a PDF copy to my email? I need it today for my records.",
     "expected_category": "invoice_copy_and_delivery",
     "expected_subcategory": "resend_invoice_pdf_email",
     "expected_priority": "medium",
     "expected_sentiment": "concerned",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "chat",
-      "invoice_month": "2026-01",
-      "delivery_preference": "email",
-      "app_issue_reported": true
-    },
-    "follow_up_questions_expected": [
-      "Can you confirm the email address where you want the PDF sent?",
-      "Which line number or DNI/NIE is the invoice associated with?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"chat\", \"invoice_month\": \"2026-01\", \"delivery_preference\": \"email\", \"app_issue_reported\": true}"
   },
   {
     "id": "CLASS_002",
-    "scenario": "invoice_not_received_postal_address",
     "customer_input": "I usually receive my bill by post, but nothing arrived this month. I’m worried I’ll miss the due date. Can you check if it was sent and confirm my address?",
     "expected_category": "invoice_copy_and_delivery",
     "expected_subcategory": "missing_postal_invoice_delivery",
     "expected_priority": "high",
     "expected_sentiment": "worried",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "web",
-      "delivery_preference": "postal_mail",
-      "invoice_month": "2026-02",
-      "due_date_known": false
-    },
-    "follow_up_questions_expected": [
-      "Can you share your full name and DNI/NIE so I can locate the account?",
-      "Do you want me to switch you to email/SMS delivery to avoid delays?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"web\", \"delivery_preference\": \"postal_mail\", \"invoice_month\": \"2026-02\", \"due_date_known\": false}"
   },
   {
     "id": "CLASS_003",
-    "scenario": "understand_invoice_sections_and_totals",
     "customer_input": "I’m looking at my Movistar invoice and I don’t understand the difference between 'Cuota mensual' and 'Servicios adicionales'. The total doesn’t match what I expected. Can you explain what each section means?",
     "expected_category": "invoice_breakdown_and_understanding",
     "expected_subcategory": "explain_invoice_sections_and_totals",
     "expected_priority": "low",
     "expected_sentiment": "curious",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "app",
-      "invoice_month": "2026-02",
-      "invoice_format": "digital"
-    },
-    "follow_up_questions_expected": [
-      "Which invoice date or number are you viewing so I explain the exact lines?",
-      "Do you want a breakdown by each service (fiber, mobile lines, TV) or just the total?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"app\", \"invoice_month\": \"2026-02\", \"invoice_format\": \"digital\"}"
   },
   {
     "id": "CLASS_004",
-    "scenario": "vat_and_tax_lines_explanation",
     "customer_input": "My bill shows IVA and some other tax lines and I’m not sure how they’re calculated. The base amount looks different from last month. Can you clarify what taxes are applied and why it changed?",
     "expected_category": "invoice_breakdown_and_understanding",
     "expected_subcategory": "taxes_vat_calculation_explanation",
     "expected_priority": "medium",
     "expected_sentiment": "cautious",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "chat",
-      "invoice_month": "2026-01",
-      "region": "ES"
-    },
-    "follow_up_questions_expected": [
-      "Can you tell me the invoice number or the exact tax lines you see?",
-      "Did you change your plan or add/remove any services since last month?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"chat\", \"invoice_month\": \"2026-01\", \"region\": \"ES\"}"
   },
   {
     "id": "CLASS_005",
-    "scenario": "bill_spike_after_new_service",
     "customer_input": "My Movistar bill jumped from around 55€ to 92€ this month and I didn’t expect that. I recently added a second mobile line, but this seems too high. Can you check what caused the increase?",
     "expected_category": "unexpected_charge_or_high_bill",
     "expected_subcategory": "bill_increase_after_service_change",
     "expected_priority": "high",
     "expected_sentiment": "frustrated",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "chat",
-      "invoice_month": "2026-02",
-      "recent_change": "added_mobile_line",
-      "previous_bill_amount_eur": 55,
-      "current_bill_amount_eur": 92
-    },
-    "follow_up_questions_expected": [
-      "What date did you add the second line so I can check proration and one-time fees?",
-      "Can you confirm the last 4 digits of the bank account or the billing account holder name?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"chat\", \"invoice_month\": \"2026-02\", \"recent_change\": \"added_mobile_line\", \"previous_bill_amount_eur\": 55, \"current_bill_amount_eur\": 92}"
   },
   {
     "id": "CLASS_006",
-    "scenario": "unknown_charge_on_invoice",
     "customer_input": "There’s a charge on my invoice called 'Servicio X' for 9,99€ and I have no idea what it is. I didn’t authorize anything. Please tell me what it is and remove it if possible.",
     "expected_category": "unexpected_charge_or_high_bill",
     "expected_subcategory": "unrecognized_service_charge",
     "expected_priority": "high",
     "expected_sentiment": "angry",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "web",
-      "invoice_month": "2026-01",
-      "charge_amount_eur": 9.99,
-      "charge_label": "Servicio X"
-    },
-    "follow_up_questions_expected": [
-      "Can you share the invoice number and the exact line item description as it appears?",
-      "Is the charge linked to a specific mobile line number on your account?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"web\", \"invoice_month\": \"2026-01\", \"charge_amount_eur\": 9.99, \"charge_label\": \"Servicio X\"}"
   },
   {
     "id": "CLASS_007",
-    "scenario": "confirm_payment_received",
     "customer_input": "I paid my Movistar bill yesterday by bank transfer and I want to make sure it was received. The app still shows 'pending'. Can you confirm the payment status?",
     "expected_category": "payment_status_and_confirmation",
     "expected_subcategory": "confirm_payment_received_pending_status",
     "expected_priority": "medium",
     "expected_sentiment": "concerned",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "app",
-      "payment_method": "bank_transfer",
-      "payment_date": "2026-02-25",
-      "status_shown": "pending"
-    },
-    "follow_up_questions_expected": [
-      "What is the amount paid and the reference/concept used in the transfer?",
-      "Which invoice month or invoice number was the transfer intended to cover?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"app\", \"payment_method\": \"bank_transfer\", \"payment_date\": \"2026-02-25\", \"status_shown\": \"pending\"}"
   },
   {
     "id": "CLASS_008",
-    "scenario": "duplicate_payment_check",
     "customer_input": "I think I may have paid the same invoice twice because I used the app and then my bank also processed a direct debit. Can you check if there’s a duplicate payment? If so, what happens next?",
     "expected_category": "payment_status_and_confirmation",
     "expected_subcategory": "duplicate_payment_verification",
     "expected_priority": "high",
     "expected_sentiment": "worried",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "chat",
-      "payment_methods_involved": [
-        "card_in_app",
-        "direct_debit"
-      ],
-      "invoice_month": "2026-02"
-    },
-    "follow_up_questions_expected": [
-      "Can you confirm the dates and amounts of both payments as shown in your bank/app?",
-      "Do you want the extra amount refunded or applied as a credit to the next invoice?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"chat\", \"payment_methods_involved\": [\"card_in_app\", \"direct_debit\"], \"invoice_month\": \"2026-02\"}"
   },
   {
     "id": "CLASS_009",
-    "scenario": "change_direct_debit_iban",
     "customer_input": "I need to change the bank account for my Movistar direct debit because I closed my old one. I don’t want my next invoice to fail. Can you tell me how to update the IBAN?",
     "expected_category": "payment_method_management",
     "expected_subcategory": "update_direct_debit_iban",
     "expected_priority": "medium",
     "expected_sentiment": "neutral",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "web",
-      "payment_method": "direct_debit",
-      "next_due_date_known": true
-    },
-    "follow_up_questions_expected": [
-      "Is the account holder name the same as the Movistar contract holder?",
-      "When is your next billing due date so we ensure the change applies in time?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"web\", \"payment_method\": \"direct_debit\", \"next_due_date_known\": true}"
   },
   {
     "id": "CLASS_010",
-    "scenario": "add_card_for_one_time_payment",
     "customer_input": "My direct debit is fine, but I want to pay this month’s invoice with a card just once. Is that possible without changing my default payment method? Please guide me.",
     "expected_category": "payment_method_management",
     "expected_subcategory": "one_time_card_payment_without_changing_default",
     "expected_priority": "low",
     "expected_sentiment": "curious",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "app",
-      "default_payment_method": "direct_debit",
-      "requested_payment_method": "card"
-    },
-    "follow_up_questions_expected": [
-      "Which invoice month or amount do you want to pay with the card?",
-      "Do you want the card saved for future payments or used only this time?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"app\", \"default_payment_method\": \"direct_debit\", \"requested_payment_method\": \"card\"}"
   },
   {
     "id": "CLASS_011",
-    "scenario": "direct_debit_returned_bank",
     "customer_input": "My bank returned the Movistar direct debit and now I see a 'devolución' note. I’m worried about extra fees and service cuts. What do I need to do to pay it and avoid problems?",
     "expected_category": "failed_payment_and_bank_return",
     "expected_subcategory": "direct_debit_return_and_repayment_options",
     "expected_priority": "high",
     "expected_sentiment": "worried",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "chat",
-      "payment_method": "direct_debit",
-      "bank_returned": true,
-      "service_status_known": false
-    },
-    "follow_up_questions_expected": [
-      "Do you see any return fee on the invoice or in the payment details?",
-      "Would you like to pay now by card/transfer, and which invoice number is affected?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"chat\", \"payment_method\": \"direct_debit\", \"bank_returned\": true, \"service_status_known\": false}"
   },
   {
     "id": "CLASS_012",
-    "scenario": "card_payment_failed_retry",
     "customer_input": "I tried paying my invoice with my card in the app and it failed twice. The invoice is due today and I don’t want late charges. Can you tell me why it might be failing and what alternatives I have?",
     "expected_category": "failed_payment_and_bank_return",
     "expected_subcategory": "card_payment_failure_troubleshooting_and_alternatives",
     "expected_priority": "critical",
     "expected_sentiment": "frustrated",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "app",
-      "payment_method": "card",
-      "due_today": true,
-      "attempts": 2
-    },
-    "follow_up_questions_expected": [
-      "What error message do you see in the app after the payment attempt?",
-      "Do you want to try another method (Bizum/transfer/direct debit) and which invoice number is due?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"app\", \"payment_method\": \"card\", \"due_today\": true, \"attempts\": 2}"
   },
   {
     "id": "CLASS_013",
-    "scenario": "refund_for_overpayment",
     "customer_input": "I overpaid my Movistar invoice by mistake and now my balance looks negative. Can you refund the extra amount to my bank account? If not, can it be applied to next month?",
     "expected_category": "refunds_and_credits",
     "expected_subcategory": "overpayment_refund_or_credit_request",
     "expected_priority": "medium",
     "expected_sentiment": "concerned",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "web",
-      "issue_type": "overpayment",
-      "preferred_resolution": "refund_or_credit"
-    },
-    "follow_up_questions_expected": [
-      "Can you confirm the invoice number and the amount you believe was overpaid?",
-      "Do you prefer a refund to the original payment method or a credit on the next invoice?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"web\", \"issue_type\": \"overpayment\", \"preferred_resolution\": \"refund_or_credit\"}"
   },
   {
     "id": "CLASS_014",
-    "scenario": "credit_note_not_applied",
     "customer_input": "Support told me I would get a credit for last month’s outage, but this invoice still shows the full amount. I’m getting tired of chasing this. Can you check where the credit is and when it will be applied?",
     "expected_category": "refunds_and_credits",
     "expected_subcategory": "promised_credit_not_applied",
     "expected_priority": "high",
     "expected_sentiment": "angry",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "chat",
-      "issue_type": "service_outage_credit",
-      "previous_case_reference_provided": false
-    },
-    "follow_up_questions_expected": [
-      "Do you have a case/reference number or the date you were promised the credit?",
-      "Which invoice month should the credit have been applied to?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"chat\", \"issue_type\": \"service_outage_credit\", \"previous_case_reference_provided\": false}"
   },
   {
     "id": "CLASS_015",
-    "scenario": "discount_expired_unexpectedly",
     "customer_input": "My bill went up because the 'promo' discount disappeared, but I thought it was for 12 months and it’s only been 6. Can you verify my contract conditions and why the discount ended? I want it corrected if it’s a mistake.",
     "expected_category": "discounts_promotions_and_contract_billing",
     "expected_subcategory": "discount_missing_or_expired_verification",
     "expected_priority": "high",
     "expected_sentiment": "frustrated",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "web",
-      "promotion_type": "monthly_discount",
-      "claimed_promo_duration_months": 12,
-      "months_elapsed": 6
-    },
-    "follow_up_questions_expected": [
-      "Can you confirm the plan name and the date you activated the promotion?",
-      "Do you have the promo confirmation email/SMS or the contract summary available?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"web\", \"promotion_type\": \"monthly_discount\", \"claimed_promo_duration_months\": 12, \"months_elapsed\": 6}"
   },
   {
     "id": "CLASS_016",
-    "scenario": "plan_change_proration_confusion",
     "customer_input": "I changed my Movistar plan mid-month and now the invoice shows two different monthly fees and a partial charge. I’m not sure if I’m being billed twice. Can you explain the proration and confirm it’s correct?",
     "expected_category": "plan_change_proration_and_one_time_fees",
     "expected_subcategory": "mid_cycle_plan_change_proration_explanation",
     "expected_priority": "medium",
     "expected_sentiment": "cautious",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "app",
-      "change_type": "plan_upgrade",
-      "change_mid_cycle": true,
-      "invoice_month": "2026-02"
-    },
-    "follow_up_questions_expected": [
-      "What date did the plan change take effect according to your confirmation?",
-      "Which two plan names appear on the invoice line items?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"app\", \"change_type\": \"plan_upgrade\", \"change_mid_cycle\": true, \"invoice_month\": \"2026-02\"}"
   },
   {
     "id": "CLASS_017",
-    "scenario": "roaming_data_charges_dispute",
     "customer_input": "I just got a huge charge for roaming data from my trip to Morocco, but I barely used my phone. This is shocking and I need it reviewed urgently. Can you tell me what sessions were billed and if there’s any cap or adjustment possible?",
     "expected_category": "roaming_international_and_premium_charges",
     "expected_subcategory": "roaming_data_charges_review_and_dispute",
     "expected_priority": "critical",
     "expected_sentiment": "very_angry",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "chat",
-      "travel_country": "MA",
-      "charge_type": "roaming_data",
-      "invoice_month": "2026-02"
-    },
-    "follow_up_questions_expected": [
-      "Which mobile line traveled and what dates were you in Morocco?",
-      "Do you have roaming enabled/disabled settings or any roaming pack activated during the trip?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"chat\", \"travel_country\": \"MA\", \"charge_type\": \"roaming_data\", \"invoice_month\": \"2026-02\"}"
   },
   {
     "id": "CLASS_018",
-    "scenario": "device_installment_amount_mismatch",
     "customer_input": "My invoice shows a device installment that’s higher than what I signed for when I financed my phone. I’m worried the financing terms changed without notice. Can you check the installment plan and explain the difference?",
     "expected_category": "device_financing_and_installments",
     "expected_subcategory": "installment_amount_mismatch_check",
     "expected_priority": "medium",
     "expected_sentiment": "concerned",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "web",
-      "device_financing": true,
-      "issue_type": "installment_mismatch",
-      "invoice_month": "2026-01"
-    },
-    "follow_up_questions_expected": [
-      "Which device model and financing start date are on your contract?",
-      "What installment amount appears on the invoice and what amount were you expecting?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"web\", \"device_financing\": true, \"issue_type\": \"installment_mismatch\", \"invoice_month\": \"2026-01\"}"
   },
   {
     "id": "CLASS_019",
-    "scenario": "service_restricted_due_to_debt",
     "customer_input": "My line was restricted today and the message says it’s due to unpaid invoices, but I thought everything was paid. I need my service back because I use it for work. Please check the debt status and tell me how to restore service immediately.",
     "expected_category": "collections_debt_and_service_restriction",
     "expected_subcategory": "service_restriction_due_to_alleged_debt",
     "expected_priority": "critical",
     "expected_sentiment": "worried",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "chat",
-      "service_status": "restricted",
-      "use_case": "work_critical",
-      "payment_dispute": true
-    },
-    "follow_up_questions_expected": [
-      "Which line number is restricted and what message or code did you receive?",
-      "Can you confirm the last payment date/method so I can match it to the outstanding invoice?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"chat\", \"service_status\": \"restricted\", \"use_case\": \"work_critical\", \"payment_dispute\": true}"
   },
   {
     "id": "CLASS_020",
-    "scenario": "formal_complaint_and_regulatory_threat",
     "customer_input": "I’ve contacted Movistar three times about incorrect billing and nothing gets fixed. If this isn’t resolved, I will file a complaint with the consumer office and request a formal claim number. Tell me how to escalate and what documentation you need.",
     "expected_category": "complaint_escalation_and_regulatory",
     "expected_subcategory": "formal_complaint_escalation_request",
     "expected_priority": "critical",
     "expected_sentiment": "angry",
-    "context": {
-      "customer_type": "consumer",
-      "channel": "web",
-      "prior_contacts_count": 3,
-      "wants_claim_number": true,
-      "billing_issue_ongoing": true
-    },
-    "follow_up_questions_expected": [
-      "Do you have any previous case/reference numbers from your earlier contacts?",
-      "Which invoice numbers and specific charges are you disputing so we include them in the formal complaint?"
-    ]
+    "context": "{\"customer_type\": \"consumer\", \"channel\": \"web\", \"prior_contacts_count\": 3, \"wants_claim_number\": true, \"billing_issue_ongoing\": true}"
   }
 ]

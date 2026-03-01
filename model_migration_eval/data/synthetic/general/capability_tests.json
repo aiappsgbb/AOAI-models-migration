@@ -11,38 +11,15 @@
     "test_type": "structured_output",
     "prompt": "You are a telco customer service agent. A customer says: \"I want to change my plan. Right now I pay $40 for 5GB of data and 200 minutes. I use a lot more data now because I started working remotely, but I barely call anyone. I’d like at least 25GB of data, unlimited texts, and I don’t care about minutes as long as I can still make occasional calls. I don’t want to pay more than $60 per month.\" \n\nFrom the following available plans, recommend exactly ONE plan and output ONLY a JSON object with the specified fields:\n\nAvailable plans:\n- Basic: $35/month, 3GB data, 300 minutes, unlimited texts\n- Silver: $50/month, 20GB data, 500 minutes, unlimited texts\n- Gold: $60/month, 30GB data, unlimited minutes, unlimited texts\n- DataMax: $65/month, unlimited data, 200 minutes, unlimited texts\n\nJSON schema:\n{\n  \"recommended_plan_name\": string,\n  \"monthly_price\": number,\n  \"reasons\": [string],\n  \"constraints_respected\": {\n    \"max_budget\": boolean,\n    \"min_data_requirement\": boolean,\n    \"low_call_usage\": boolean\n  }\n}\n\nReturn only valid JSON.",
     "complexity": "medium",
-    "expected_output": {
-      "recommended_plan_name": "Gold",
-      "monthly_price": 60,
-      "reasons": [
-        "Meets the 25GB minimum data requirement with 30GB",
-        "Stays within the $60 monthly budget",
-        "Includes unlimited texts and sufficient calling capability"
-      ],
-      "constraints_respected": {
-        "max_budget": true,
-        "min_data_requirement": true,
-        "low_call_usage": true
-      }
-    },
-    "expected_behavior": "Assistant should choose the plan that best matches the customer’s stated needs and constraints, and output only a JSON object matching the schema with boolean flags correctly set."
+    "expected_behavior": "Assistant should choose the plan that best matches the customer’s stated needs and constraints, and output only a JSON object matching the schema with boolean flags correctly set.",
+    "conversation": "",
+    "run_count": 1
   },
   {
     "id": "GEN_003",
     "test_type": "calculation_accuracy",
     "prompt": "A telco customer is on a mobile plan that includes 10GB of high-speed data per billing cycle. After that, extra data is charged at $8 per GB, billed per full GB (any fraction rounds up). Taxes are 10% on the data overage charges only.\n\nIn the current billing cycle:\n- The customer used 27.4GB of data in total.\n- They already paid their base monthly fee of $45 (which covers the first 10GB) via auto-pay.\n\n1) How many GB of overage are billed?\n2) What is the overage charge before tax?\n3) What is the tax amount?\n4) What is the total additional amount the customer owes for this cycle (overage + tax), not including the $45 already paid?\n\nProvide a short explanation and then list the four answers clearly.",
     "complexity": "high",
-    "expected_calculation": {
-      "included_gb": 10,
-      "total_used_gb": 27.4,
-      "raw_overage_gb": 17.4,
-      "billed_overage_gb": 18,
-      "overage_rate_per_gb": 8,
-      "overage_before_tax": 144,
-      "tax_rate": 0.1,
-      "tax_amount": 14.4,
-      "total_additional_amount": 158.4
-    },
     "expected_behavior": "Assistant should correctly round up the overage to full GB, compute overage charges, apply tax only to overage, and clearly present the final additional amount owed, matching the expected_calculation values."
   },
   {
@@ -77,23 +54,11 @@
   {
     "id": "GEN_008",
     "test_type": "context_retention",
-    "multi_turn": true,
-    "conversation": [
-      {
-        "role": "user",
-        "content": "Hi, I have two mobile lines with you: one for me and one for my daughter. I think I’m paying too much but I don’t remember the exact plan names."
-      },
-      {
-        "role": "assistant",
-        "content": "I can help you think through options. Can you tell me roughly how much data you and your daughter each use per month, and your current monthly bill amount?"
-      },
-      {
-        "role": "user",
-        "content": "Sure. I use about 8–10GB of data and I travel abroad twice a year. My daughter uses around 3GB and never travels. Our total bill is about $130 per month, including taxes. I’d like to keep roaming for me, but I don’t need it for her. What kind of changes would you suggest to lower the bill?"
-      }
-    ],
+    "prompt": "",
+    "complexity": "medium",
     "expected_behavior": "Assistant should remember that there are two lines (parent and daughter), with different data usage and roaming needs. It should propose a plan change strategy that keeps roaming for the parent line, reduces unnecessary roaming features for the daughter, and aims to lower the total bill, while clearly distinguishing between the two lines.",
-    "complexity": "medium"
+    "conversation": "[{\"role\": \"user\", \"content\": \"Hi, I have two mobile lines with you: one for me and one for my daughter. I think I’m paying too much but I don’t remember the exact plan names.\"}, {\"role\": \"assistant\", \"content\": \"I can help you think through options. Can you tell me roughly how much data you and your daughter each use per month, and your current monthly bill amount?\"}, {\"role\": \"user\", \"content\": \"Sure. I use about 8–10GB of data and I travel abroad twice a year. My daughter uses around 3GB and never travels. Our total bill is about $130 per month, including taxes. I’d like to keep roaming for me, but I don’t need it for her. What kind of changes would you suggest to lower the bill?\"}]",
+    "run_count": 1
   },
   {
     "id": "GEN_009",

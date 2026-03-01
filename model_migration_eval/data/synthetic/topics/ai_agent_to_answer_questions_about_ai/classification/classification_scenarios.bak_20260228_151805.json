@@ -1,0 +1,417 @@
+[
+  {
+    "id": "CLASS_001",
+    "scenario": "explain_transformers_to_non_engineers",
+    "customer_input": "I’m building an AI agent that answers internal questions about AI, but our non-technical teams keep asking what a transformer actually is. Can you give a simple explanation that’s still accurate, and include a short analogy? Also, what are the key parts I should mention without going into math?",
+    "expected_category": "ai_concepts_and_learning",
+    "expected_subcategory": "foundational_explanations",
+    "expected_priority": "medium",
+    "expected_sentiment": "curious",
+    "context": {
+      "audience": "non_technical",
+      "channel": "slack",
+      "agent_role": "ai_education_assistant",
+      "org_size": "mid_market"
+    },
+    "follow_up_questions_expected": [
+      "Who is the target audience (execs, product, sales, or engineers), and how deep should the explanation go?",
+      "Do you want the explanation framed around LLMs specifically or transformers in general (vision, speech, etc.)?"
+    ]
+  },
+  {
+    "id": "CLASS_002",
+    "scenario": "clarify_overfitting_vs_hallucination",
+    "customer_input": "Our AI Q&A agent keeps mixing up “overfitting” and “hallucination” when users ask about model failures. I need a crisp distinction and a couple of examples that apply to LLM-based agents. Can you also suggest how the agent should respond when it’s unsure?",
+    "expected_category": "ai_concepts_and_learning",
+    "expected_subcategory": "terminology_clarification",
+    "expected_priority": "high",
+    "expected_sentiment": "professional",
+    "context": {
+      "agent_type": "llm_chat_agent",
+      "knowledge_domain": "ai_ml_glossary",
+      "failure_mode": "incorrect_definitions",
+      "response_style": "concise"
+    },
+    "follow_up_questions_expected": [
+      "Is the agent allowed to cite sources or link to internal docs when defining terms?",
+      "Do you want examples tailored to your use case (RAG agent, fine-tuned model, or base model)?"
+    ]
+  },
+  {
+    "id": "CLASS_003",
+    "scenario": "choose_model_for_ai_qna_agent",
+    "customer_input": "We’re deciding between a smaller open-source model and a larger hosted model for an AI agent that answers questions about AI concepts and best practices. Latency matters, but accuracy matters more. What architecture and model size tradeoffs should we consider for this kind of Q&A agent?",
+    "expected_category": "model_selection_and_architecture",
+    "expected_subcategory": "model_tradeoff_analysis",
+    "expected_priority": "high",
+    "expected_sentiment": "professional",
+    "context": {
+      "deployment_preference": "hybrid",
+      "latency_budget_ms": 1200,
+      "accuracy_priority": "high",
+      "traffic_qps": 5
+    },
+    "follow_up_questions_expected": [
+      "What is your expected question mix (definitions, code help, policy guidance, or research summaries)?",
+      "Do you require on-prem deployment or can data be sent to a hosted API?"
+    ]
+  },
+  {
+    "id": "CLASS_004",
+    "scenario": "design_agent_with_router_and_specialists",
+    "customer_input": "I want our AI Q&A agent to route questions: basic AI definitions to a cheap model, and deep architecture questions to a stronger model. How would you design the routing logic and what signals should it use? We also need to avoid inconsistent answers across models.",
+    "expected_category": "model_selection_and_architecture",
+    "expected_subcategory": "multi_model_routing",
+    "expected_priority": "medium",
+    "expected_sentiment": "curious",
+    "context": {
+      "architecture_pattern": "router_specialists",
+      "cost_constraint": "moderate",
+      "consistency_requirement": "high",
+      "models_considered": [
+        "small_open_source",
+        "hosted_large_model"
+      ]
+    },
+    "follow_up_questions_expected": [
+      "Do you have labeled examples of “basic” vs “advanced” questions to train or tune a router?",
+      "Should the agent provide a single unified answer style regardless of which model handled it?"
+    ]
+  },
+  {
+    "id": "CLASS_005",
+    "scenario": "prompt_template_for_ai_qna_with_citations",
+    "customer_input": "Our AI agent answers questions about AI, but responses are too verbose and sometimes miss citations. Can you propose a prompt template that enforces short answers, includes a confidence note, and cites sources when available? We’re using RAG with internal docs and a few external references.",
+    "expected_category": "prompt_engineering_and_interaction",
+    "expected_subcategory": "structured_response_templates",
+    "expected_priority": "medium",
+    "expected_sentiment": "professional",
+    "context": {
+      "rag_enabled": true,
+      "citation_required": true,
+      "tone": "concise",
+      "output_format": "markdown"
+    },
+    "follow_up_questions_expected": [
+      "What citation format do you want (inline links, footnotes, or doc IDs)?",
+      "Should the agent refuse to answer when no sources are retrieved, or answer with a disclaimer?"
+    ]
+  },
+  {
+    "id": "CLASS_006",
+    "scenario": "handle_followups_and_memory_in_ai_tutor_agent",
+    "customer_input": "Users ask a sequence of questions like “what is RLHF” then “how is it different from DPO” and the agent loses context halfway through. How should we structure the conversation memory so it stays on topic without bloating the prompt? Also, how do we prevent it from assuming details the user never said?",
+    "expected_category": "prompt_engineering_and_interaction",
+    "expected_subcategory": "conversation_memory_management",
+    "expected_priority": "high",
+    "expected_sentiment": "frustrated",
+    "context": {
+      "conversation_length_turns": 18,
+      "memory_strategy_current": "full_transcript",
+      "token_limit": 16000,
+      "user_persona": "mixed_skill_levels"
+    },
+    "follow_up_questions_expected": [
+      "Are you using a summarization memory, a key-value memory, or just truncation today?",
+      "Do you have examples where the agent assumed incorrect details so we can design guardrails?"
+    ]
+  },
+  {
+    "id": "CLASS_007",
+    "scenario": "build_dataset_of_ai_questions_and_answers",
+    "customer_input": "We want to create a dataset of high-quality Q&A pairs about AI to improve our agent. What fields should we store beyond question and answer, and how do we ensure coverage across topics like evaluation, RAG, and safety? We also need a plan for keeping it up to date.",
+    "expected_category": "data_and_datasets",
+    "expected_subcategory": "dataset_schema_and_labeling",
+    "expected_priority": "medium",
+    "expected_sentiment": "professional",
+    "context": {
+      "dataset_goal": "agent_quality_improvement",
+      "domains": [
+        "evaluation",
+        "rag",
+        "safety",
+        "mlops"
+      ],
+      "update_frequency": "monthly",
+      "data_sources": [
+        "internal_docs",
+        "expert_written"
+      ]
+    },
+    "follow_up_questions_expected": [
+      "Will the dataset be used for fine-tuning, RAG evaluation, or both?",
+      "Do you need labels like difficulty, topic taxonomy, and required citations?"
+    ]
+  },
+  {
+    "id": "CLASS_008",
+    "scenario": "remove_sensitive_info_from_training_corpus",
+    "customer_input": "We discovered some internal incident notes got mixed into the corpus used by our AI Q&A agent. I’m worried it could leak details if someone asks the right question. How do we audit what’s in the dataset and scrub sensitive content without breaking the rest of the pipeline?",
+    "expected_category": "data_and_datasets",
+    "expected_subcategory": "data_quality_and_sanitization",
+    "expected_priority": "critical",
+    "expected_sentiment": "worried",
+    "context": {
+      "data_risk": "sensitive_internal_incidents",
+      "storage": "object_store",
+      "pipeline_stage": "preprocessing",
+      "compliance": [
+        "soc2"
+      ]
+    },
+    "follow_up_questions_expected": [
+      "Do you know which data sources and time ranges contributed the incident notes?",
+      "Is the agent using the corpus for RAG only, or was it also used for fine-tuning?"
+    ]
+  },
+  {
+    "id": "CLASS_009",
+    "scenario": "fine_tune_for_consistent_ai_definitions",
+    "customer_input": "Our agent answers AI terminology questions, but the definitions vary between sessions and sometimes contradict our internal style guide. Would fine-tuning help, or should we rely on RAG and prompting? If fine-tuning is recommended, what training setup would you use?",
+    "expected_category": "training_and_fine_tuning",
+    "expected_subcategory": "supervised_fine_tuning_strategy",
+    "expected_priority": "medium",
+    "expected_sentiment": "cautious",
+    "context": {
+      "consistency_issue": true,
+      "style_guide_exists": true,
+      "rag_enabled": true,
+      "model_type": "instruction_tuned_llm"
+    },
+    "follow_up_questions_expected": [
+      "How large is your style guide and do you have approved example answers to train on?",
+      "Are contradictions happening even when the correct document is retrieved?"
+    ]
+  },
+  {
+    "id": "CLASS_010",
+    "scenario": "rlhf_for_refusal_and_uncertainty",
+    "customer_input": "We need the AI agent to refuse unsafe requests and to say “I don’t know” when it lacks sources, but right now it confidently guesses. Can you outline an RLHF or preference-tuning approach to improve refusals and calibrated uncertainty? We have a small team and limited labeling budget.",
+    "expected_category": "training_and_fine_tuning",
+    "expected_subcategory": "preference_tuning_and_alignment",
+    "expected_priority": "high",
+    "expected_sentiment": "concerned",
+    "context": {
+      "labeling_budget_usd": 8000,
+      "safety_requirement": "high",
+      "current_behavior": "overconfident",
+      "team_size": 3
+    },
+    "follow_up_questions_expected": [
+      "What refusal policy do you want the agent to follow (categories, wording, escalation)?",
+      "Do you have logs of problematic conversations to bootstrap preference data?"
+    ]
+  },
+  {
+    "id": "CLASS_011",
+    "scenario": "evaluate_ai_agent_answer_quality",
+    "customer_input": "We’re struggling to measure whether our AI Q&A agent is actually improving. What metrics would you recommend for correctness, citation quality, and user satisfaction? We need something we can track weekly and compare across model versions.",
+    "expected_category": "evaluation_and_metrics",
+    "expected_subcategory": "offline_and_online_metrics",
+    "expected_priority": "high",
+    "expected_sentiment": "professional",
+    "context": {
+      "release_cadence": "weekly",
+      "evaluation_assets": [
+        "conversation_logs",
+        "golden_set_in_progress"
+      ],
+      "kpi_focus": [
+        "correctness",
+        "citations",
+        "csat"
+      ]
+    },
+    "follow_up_questions_expected": [
+      "Do you already have a labeled golden set of AI questions with reference answers and sources?",
+      "Can you instrument user feedback (thumbs up/down, reason codes) in the UI?"
+    ]
+  },
+  {
+    "id": "CLASS_012",
+    "scenario": "detect_hallucinations_in_rag_answers",
+    "customer_input": "Even with RAG, the agent sometimes invents details about papers or benchmarks when users ask about recent AI research. How can we evaluate hallucination rate and enforce grounding to retrieved passages? I’d like a practical test plan, not just theory.",
+    "expected_category": "evaluation_and_metrics",
+    "expected_subcategory": "hallucination_and_grounding_tests",
+    "expected_priority": "critical",
+    "expected_sentiment": "frustrated",
+    "context": {
+      "rag_enabled": true,
+      "domain": "ai_research_summaries",
+      "retrieval_top_k": 5,
+      "observed_issue": "fabricated_citations"
+    },
+    "follow_up_questions_expected": [
+      "Do you store retrieved passages alongside the final answer for auditing?",
+      "Are hallucinations happening when retrieval fails, or even when relevant passages are present?"
+    ]
+  },
+  {
+    "id": "CLASS_013",
+    "scenario": "deploy_ai_agent_with_versioning_and_rollbacks",
+    "customer_input": "We’re about to deploy an AI agent that answers AI questions to the whole company, but I’m worried about breaking changes. What’s a good MLOps setup for versioning prompts, models, and retrieval indexes with safe rollbacks? We also need an approval workflow for updates.",
+    "expected_category": "deployment_and_mlop",
+    "expected_subcategory": "release_management_and_versioning",
+    "expected_priority": "medium",
+    "expected_sentiment": "cautious",
+    "context": {
+      "deployment_scope": "company_wide",
+      "change_control": "required",
+      "stack": [
+        "kubernetes",
+        "vector_db",
+        "llm_api"
+      ],
+      "rollback_requirement": true
+    },
+    "follow_up_questions_expected": [
+      "Which components change most often for you: prompts, documents, embeddings, or the base model?",
+      "Do you need staged rollouts (canary) and A/B testing between versions?"
+    ]
+  },
+  {
+    "id": "CLASS_014",
+    "scenario": "production_latency_spikes_in_ai_qna_agent",
+    "customer_input": "Our AI Q&A agent is timing out during peak hours, and users are complaining it’s unusable. We see p95 latency jump from 2s to 12s when the vector search and LLM call happen together. How should we debug and stabilize performance in production?",
+    "expected_category": "deployment_and_mlop",
+    "expected_subcategory": "performance_and_scaling",
+    "expected_priority": "critical",
+    "expected_sentiment": "angry",
+    "context": {
+      "p95_latency_seconds": 12,
+      "baseline_p95_seconds": 2,
+      "components": [
+        "retrieval",
+        "llm_inference"
+      ],
+      "traffic_pattern": "weekday_peaks"
+    },
+    "follow_up_questions_expected": [
+      "Do you have separate latency breakdowns for retrieval, reranking, and LLM generation?",
+      "Are you using streaming responses and request batching/caching anywhere in the pipeline?"
+    ]
+  },
+  {
+    "id": "CLASS_015",
+    "scenario": "rag_chunking_for_ai_documentation",
+    "customer_input": "We’re indexing AI documentation and research notes for our agent, but retrieval often returns irrelevant chunks. How should we chunk and embed content like long tutorials, code snippets, and glossary pages? I’m looking for concrete chunk sizes and metadata strategies.",
+    "expected_category": "retrieval_and_rag",
+    "expected_subcategory": "chunking_and_index_design",
+    "expected_priority": "high",
+    "expected_sentiment": "professional",
+    "context": {
+      "content_types": [
+        "tutorials",
+        "code_snippets",
+        "glossary",
+        "research_notes"
+      ],
+      "vector_db": "managed",
+      "embedding_model": "text_embedding",
+      "current_chunk_size_tokens": 1200
+    },
+    "follow_up_questions_expected": [
+      "Do users ask more conceptual questions or do they search for specific API/code details?",
+      "Are you storing metadata like section headers, doc version, and topic tags for filtering?"
+    ]
+  },
+  {
+    "id": "CLASS_016",
+    "scenario": "rag_with_reranker_and_query_rewrite",
+    "customer_input": "When users ask vague questions like “best way to evaluate an agent,” our RAG system retrieves random pages. Should we add query rewriting, a reranker, or both? Please suggest an approach that improves relevance without adding too much latency.",
+    "expected_category": "retrieval_and_rag",
+    "expected_subcategory": "reranking_and_query_rewriting",
+    "expected_priority": "low",
+    "expected_sentiment": "curious",
+    "context": {
+      "query_type": "vague_open_ended",
+      "latency_budget_ms": 1500,
+      "retrieval_top_k": 20,
+      "reranker_in_place": false
+    },
+    "follow_up_questions_expected": [
+      "Do you have click/feedback signals to measure retrieval relevance today?",
+      "What is your current retrieval method (BM25, dense, hybrid) and top-k settings?"
+    ]
+  },
+  {
+    "id": "CLASS_017",
+    "scenario": "tool_use_for_live_ai_paper_lookup",
+    "customer_input": "We want the agent to answer questions about AI papers and benchmarks, and to fetch up-to-date info instead of relying on stale training data. What tools should we give it (search, arXiv API, citation lookup), and how do we keep it from fabricating references? A simple tool-calling design would help.",
+    "expected_category": "agents_and_tooling",
+    "expected_subcategory": "tool_calling_and_orchestration",
+    "expected_priority": "medium",
+    "expected_sentiment": "professional",
+    "context": {
+      "tools_considered": [
+        "web_search",
+        "arxiv_api",
+        "semantic_scholar_api"
+      ],
+      "freshness_requirement": "high",
+      "risk": "fabricated_citations",
+      "agent_framework": "function_calling"
+    },
+    "follow_up_questions_expected": [
+      "Which sources are allowed (public web, specific APIs, or curated internal lists)?",
+      "Should the agent always show the retrieved paper metadata (title, authors, year, URL) before summarizing?"
+    ]
+  },
+  {
+    "id": "CLASS_018",
+    "scenario": "agent_planning_loops_and_cost_control",
+    "customer_input": "Our AI agent sometimes goes into long tool-use loops when answering multi-part AI questions, and costs spike. How can we set stopping criteria, budgets, and a planning strategy that still answers thoroughly? We need guardrails that don’t make it feel dumb.",
+    "expected_category": "agents_and_tooling",
+    "expected_subcategory": "planning_and_budgeting_controls",
+    "expected_priority": "high",
+    "expected_sentiment": "frustrated",
+    "context": {
+      "observed_issue": "tool_looping",
+      "cost_spike_percent": 65,
+      "tool_calls_per_session_avg": 14,
+      "billing_model": "per_token_plus_tools"
+    },
+    "follow_up_questions_expected": [
+      "What tools are being called repeatedly, and do you log tool inputs/outputs for analysis?",
+      "Do you have a maximum acceptable cost per conversation or per user session?"
+    ]
+  },
+  {
+    "id": "CLASS_019",
+    "scenario": "prompt_injection_via_ai_docs_in_rag",
+    "customer_input": "We suspect someone added a malicious snippet into an internal AI doc that says to ignore instructions and reveal system prompts. Now our agent occasionally outputs internal configuration details when asked about AI safety. How do we defend against prompt injection in RAG and audit the index quickly?",
+    "expected_category": "security_privacy_and_compliance",
+    "expected_subcategory": "prompt_injection_and_data_exfiltration",
+    "expected_priority": "critical",
+    "expected_sentiment": "very_angry",
+    "context": {
+      "attack_vector": "rag_document_injection",
+      "data_exposed": "system_prompt_and_config",
+      "index_scope": "internal_wiki",
+      "incident_status": "active"
+    },
+    "follow_up_questions_expected": [
+      "Can you identify which retrieved documents were used in the conversations where leakage occurred?",
+      "Do you have a content ingestion pipeline where we can add scanning/quarantine for suspicious instructions?"
+    ]
+  },
+  {
+    "id": "CLASS_020",
+    "scenario": "policy_for_answering_dual_use_ai_questions",
+    "customer_input": "Our AI Q&A agent gets questions like “how do I bypass model safeguards” or “how to generate phishing with LLMs,” mixed in with legitimate AI research questions. We need a clear policy for what to refuse, what to redirect, and how to respond safely without being overly restrictive. Can you propose a refusal and safe-completion approach?",
+    "expected_category": "safety_policy_and_ethics",
+    "expected_subcategory": "dual_use_request_handling",
+    "expected_priority": "high",
+    "expected_sentiment": "concerned",
+    "context": {
+      "user_base": "internal_and_external",
+      "risk_profile": "dual_use",
+      "current_policy": "ad_hoc",
+      "escalation_path": "security_team"
+    },
+    "follow_up_questions_expected": [
+      "Is the agent intended for external users, and do you need different policies for internal vs external access?",
+      "What categories of disallowed content do you want to enforce (malware, phishing, evasion, weaponization, etc.)?"
+    ]
+  }
+]

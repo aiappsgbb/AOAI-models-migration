@@ -463,7 +463,8 @@ _build_gpt5_generation_meta_prompt = lambda topic, task, prompt, cats=None: _bui
 
 def validate_and_fix_test_data(data: list, task: str) -> List[str]:
     """Valida que los datos de prueba tengan el esquema esperado por el
-    framework.  Completa campos opcionales que falten.
+    framework (formato plano CSV-compatible).  Completa campos opcionales
+    que falten y normaliza formatos legacy (arrays/dicts → strings).
     Devuelve lista de warnings (vacía = todo OK)."""
 
     warnings: List[str] = []
@@ -473,6 +474,26 @@ def validate_and_fix_test_data(data: list, task: str) -> List[str]:
     if len(data) == 0:
         warnings.append("Los datos de prueba están vacíos.")
         return warnings
+
+    import json as _json
+
+    def _to_json_str(val):
+        if val is None:
+            return ""
+        if isinstance(val, str):
+            return val
+        if isinstance(val, (dict, list)):
+            return _json.dumps(val, ensure_ascii=False)
+        return str(val)
+
+    def _to_pipe(val):
+        if val is None:
+            return ""
+        if isinstance(val, str):
+            return val
+        if isinstance(val, list):
+            return " | ".join(str(v) for v in val)
+        return str(val)
 
     sample = data[0]
 
@@ -484,34 +505,45 @@ def validate_and_fix_test_data(data: list, task: str) -> List[str]:
         for i, item in enumerate(data):
             if "id" not in item:
                 item["id"] = f"CLASS_{i+1:03d}"
-            if "scenario" not in item:
-                item["scenario"] = item.get("id", f"scenario_{i+1}")
             for field in ("expected_subcategory", "expected_priority", "expected_sentiment"):
                 if field not in item:
                     item[field] = ""
-            if "context" not in item:
-                item["context"] = {}
-            if "follow_up_questions_expected" not in item:
-                item["follow_up_questions_expected"] = []
+            # Normalise context: dict → JSON string
+            ctx = item.get("context", "")
+            if isinstance(ctx, dict):
+                item["context"] = _to_json_str(ctx)
+            elif "context" not in item:
+                item["context"] = ""
+            # Remove legacy fields
+            item.pop("scenario", None)
+            item.pop("follow_up_questions_expected", None)
 
     elif task == "dialog":
-        required = {"id", "conversation", "context_gaps"}
+        required = {"id", "conversation"}
         missing = required - set(sample.keys())
         if missing:
             warnings.append(f"Campos obligatorios ausentes en dialog: {missing}")
         for i, item in enumerate(data):
             if "id" not in item:
                 item["id"] = f"DLG_{i+1:03d}"
-            if "scenario" not in item:
-                item["scenario"] = item.get("id", f"scenario_{i+1}")
+            # Normalise conversation: list → JSON string
+            conv = item.get("conversation", "")
+            if isinstance(conv, list):
+                item["conversation"] = _to_json_str(conv)
+            # Normalise pipe-separated fields
+            for field in ("context_gaps", "follow_up_rules"):
+                val = item.get(field, "")
+                if isinstance(val, list):
+                    item[field] = _to_pipe(val)
+                elif field not in item:
+                    item[field] = ""
             if "optimal_follow_up" not in item:
                 item["optimal_follow_up"] = ""
-            if "follow_up_rules" not in item:
-                item["follow_up_rules"] = []
             if "expected_resolution_turns" not in item:
                 item["expected_resolution_turns"] = 2
-            if "category" not in item:
-                item["category"] = "general"
+            # Remove legacy fields
+            item.pop("scenario", None)
+            item.pop("category", None)
 
     elif task == "rag":
         required = {"id", "query", "context", "ground_truth"}
@@ -521,12 +553,10 @@ def validate_and_fix_test_data(data: list, task: str) -> List[str]:
         for i, item in enumerate(data):
             if "id" not in item:
                 item["id"] = f"RAG_{i+1:03d}"
-            if "scenario" not in item:
-                item["scenario"] = item.get("id", f"rag_scenario_{i+1}")
-            if "expected_behavior" not in item:
-                item["expected_behavior"] = "grounded_answer"
-            if "complexity" not in item:
-                item["complexity"] = "medium"
+            # Remove legacy fields
+            item.pop("scenario", None)
+            item.pop("expected_behavior", None)
+            item.pop("complexity", None)
 
     elif task == "tool_calling":
         required = {"id", "query", "available_tools", "expected_tool_calls"}
@@ -536,12 +566,23 @@ def validate_and_fix_test_data(data: list, task: str) -> List[str]:
         for i, item in enumerate(data):
             if "id" not in item:
                 item["id"] = f"TC_{i+1:03d}"
-            if "scenario" not in item:
-                item["scenario"] = item.get("id", f"tool_scenario_{i+1}")
-            if "expected_parameters" not in item:
-                item["expected_parameters"] = {}
-            if "complexity" not in item:
-                item["complexity"] = "medium"
+            # Normalise available_tools: list → JSON string
+            tools = item.get("available_tools", "")
+            if isinstance(tools, list):
+                item["available_tools"] = _to_json_str(tools)
+            # Normalise expected_tool_calls: list → pipe string
+            calls = item.get("expected_tool_calls", "")
+            if isinstance(calls, list):
+                item["expected_tool_calls"] = _to_pipe(calls)
+            # Normalise expected_parameters: dict → JSON string
+            params = item.get("expected_parameters", "")
+            if isinstance(params, dict):
+                item["expected_parameters"] = _to_json_str(params)
+            elif "expected_parameters" not in item:
+                item["expected_parameters"] = ""
+            # Remove legacy fields
+            item.pop("scenario", None)
+            item.pop("complexity", None)
 
     elif task == "general":
         required = {"id", "test_type"}
@@ -553,8 +594,20 @@ def validate_and_fix_test_data(data: list, task: str) -> List[str]:
                 item["id"] = f"GEN_{i+1:03d}"
             if "complexity" not in item:
                 item["complexity"] = "medium"
+            if "expected_behavior" not in item:
+                item["expected_behavior"] = ""
             if "prompt" not in item and "conversation" not in item:
                 warnings.append(f"Item {i} no tiene ni 'prompt' ni 'conversation'.")
+            # Normalise conversation: list → JSON string
+            conv = item.get("conversation")
+            if isinstance(conv, list):
+                item["conversation"] = _to_json_str(conv)
+            elif conv is None:
+                item["conversation"] = ""
+            if "run_count" not in item:
+                item["run_count"] = 1
+            # Remove legacy fields
+            item.pop("expected_output", None)
 
     return warnings
 

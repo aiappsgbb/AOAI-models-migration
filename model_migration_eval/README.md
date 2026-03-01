@@ -26,7 +26,7 @@ This framework automates that process end-to-end:
 
 | Area | Highlights |
 |------|------------|
-| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.2, o-series, etc.) |
+| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.1, GPT-5.2, reasoning variants, etc.) — each with `model_family` for automatic API behaviour |
 | **Multi-Topic** | Switch between self-contained topic archives (prompts + data) without losing anything |
 | **AI Generation** | One-click generation of optimised prompts (4 task types × N models) + 5 test datasets (70 scenarios) tailored to any domain, with dynamic category taxonomy and JSON retry logic |
 | **Topic Import** | Import prompts + test data from disk for any source model (web UI or CLI) — target model prompts are auto-generated and the topic is archived ready to activate |
@@ -82,8 +82,8 @@ model_migration_eval/
 │       └── system_message.txt      #   System message for the data-generation LLM
 │
 ├── data/
-│   ├── synthetic/                  # Active synthetic evaluation datasets
-│   │   ├── classification/         #   Classification scenarios (20)
+│   ├── synthetic/                  # Active synthetic evaluation datasets (JSON or CSV)
+│   │   ├── classification/         #   Classification scenarios (20) — .json + optional .csv
 │   │   ├── dialog/                 #   Follow-up dialog samples (15)
 │   │   ├── general/               #   General capability tests (15)
 │   │   ├── rag/                   #   RAG grounding & retrieval tests (10)
@@ -95,12 +95,16 @@ model_migration_eval/
 │   └── results/                    # Auto-saved evaluation & comparison JSON files
 │
 ├── prompts/                        # ⬅ Prompt templates (editable on disk or via UI)
-│   ├── gpt4/                       #   GPT-4 optimised prompts
+│   ├── gpt4/                       #   GPT-4.1 optimised prompts
 │   │   ├── classification_agent_system.md
 │   │   └── dialog_agent_system.md
-│   ├── gpt5/                       #   GPT-5 optimised prompts
+│   ├── gpt4o/                      #   GPT-4o optimised prompts
+│   ├── gpt41_mini/                 #   GPT-4.1-mini optimised prompts
+│   ├── gpt5/                       #   GPT-5.2 optimised prompts
 │   │   ├── classification_agent_system.md
 │   │   └── dialog_agent_system.md
+│   ├── gpt51/                      #   GPT-5.1 optimised prompts
+│   ├── gpt5_reasoning/             #   GPT-5.1 reasoning (falls back to gpt5/ prompts)
 │   ├── history/                    #   Version history (auto-managed)
 │   │   └── versions.json
 │   └── topics/                     #   ⬅ Archived topic prompts
@@ -130,9 +134,11 @@ model_migration_eval/
 │           ├── compare.html         # Model comparison with charts
 │           ├── results.html         # Results browser with filters & delete
 │           ├── prompts.html         # Prompt Manager (edit, generate, history, data explorer)
-│           └── prompts_V1.html      # Prompt Manager (previous layout version)
+│           ├── prompts_V1.html      # Prompt Manager (previous layout version)
+│           └── import_samples.html  # JSON & CSV import samples reference page
 │
 ├── tools/
+│   ├── add_model.py                 # CLI tool: add a new model (interactive or scripted)
 │   ├── import_topic.py              # CLI tool: import external topic from source prompt + test data
 │   ├── regenerate_all_topics.py     # Regenerate prompts + test data for all archived topics
 │   ├── gpt4_classification_prompt.md # Sample classification prompt for import testing
@@ -190,13 +196,15 @@ azure:
 
   models:
     gpt4:
-      deployment_name: "gpt-4.1"          # Your GPT-4 deployment name
+      deployment_name: "gpt-4.1"          # Your GPT-4.1 deployment name
+      model_family: "gpt4"
       model_version: "2024-08-06"
       max_tokens: 4096
       temperature: 0.1
 
     gpt5:
-      deployment_name: "gpt-5.2"          # Your GPT-5 deployment name
+      deployment_name: "gpt-5.2"          # Your GPT-5.2 deployment name
+      model_family: "gpt5"
       model_version: "2025-01-01"
       max_tokens: 8192
       temperature: 0.1
@@ -239,6 +247,7 @@ The UI follows the **Microsoft Copilot Studio** visual language — a **Fluent 2
 | **Compare** | ⚖️ | `/compare` | Head-to-head comparison of two models with dimension-by-dimension charts |
 | **Results** | 📋 | `/results` | Browse, filter, inspect, and delete all saved evaluation/comparison results |
 | **Prompts** | ✏️ | `/prompts` | Full prompt lifecycle: view, edit, AI-generate, version history, and test data explorer |
+| **Import Samples** | 📄 | `/import-samples` | JSON & CSV sample files for all 5 task types — copyable examples with field reference (opens from the Prompts page "Samples" link) |
 
 ### Verbose Mode
 
@@ -313,7 +322,7 @@ The Prompts page has four sub-tabs:
 | **Version History** | Filter, preview, restore, or delete (single/bulk) any past prompt version |
 | **Test Data** | Browse, create, and edit test scenarios for all 5 evaluation types via **dynamic web forms** — each type gets a purpose-built form with specialised sub-editors (conversation turns, tool definitions, key-value context, tag lists). Toggle to raw JSON view for advanced editing |
 
-Additionally, the left sidebar includes an **📥 Import Topic** panel (see [Importing External Topics](#importing-external-topics) below).
+Additionally, the left sidebar includes an **📥 Import Topic** panel with a **Samples** link that opens a reference page (`/import-samples`) showing copyable JSON and CSV examples for all 5 task types (see [Importing External Topics](#importing-external-topics) below).
 
 ---
 
@@ -413,45 +422,57 @@ If you already have your own system prompt and test data, you can import them di
 #### From the Web UI
 
 1. Go to **Prompts** → sidebar → **📥 Import Topic**.
-2. Enter a **topic name** (e.g. *"Insurance Claims Processing"*).
-3. Upload one or both source model prompts:
+2. Click the **Samples** link next to the heading to see copyable JSON and CSV examples for every task type.
+3. Enter a **topic name** (e.g. *"Insurance Claims Processing"*).
+4. Upload one or more source model prompts:
    - **Classification prompt** (`.txt` / `.md`)
    - **Dialog prompt** (`.txt` / `.md`)
-4. Upload one or more test data files:
-   - **Classification scenarios** (`.json`)
-   - **Dialog scenarios** (`.json`)
-   - **General capability tests** (`.json`)
-5. Select the **generator model** for target prompt creation.
-6. Click **📥 Import Topic**.
+   - **RAG prompt** (`.txt` / `.md`)
+   - **Tool Calling prompt** (`.txt` / `.md`)
+5. Upload one or more test data files (**JSON or CSV**):
+   - **Classification scenarios** (`.json` / `.csv`)
+   - **Dialog scenarios** (`.json` / `.csv`)
+   - **General capability tests** (`.json` / `.csv`)
+   - **RAG scenarios** (`.json` / `.csv`)
+   - **Tool Calling scenarios** (`.json` / `.csv`)
+6. Select the **generator model** for target prompt creation.
+7. Click **📥 Import Topic**.
 
-The system validates the prompt(s) and test data, generates a GPT-5 version for each prompt, and writes everything as an archived topic.  Activate it from the topic selector to start running evaluations.
+> **CSV import:** CSV files are parsed via `csv.DictReader` and automatically converted to JSON on import.  The canonical storage format is always JSON.  See the [Import Samples page](#) (`/import-samples`) for format details and copy-ready examples.
+
+The system validates the prompt(s) and test data, generates optimised prompts **in parallel** for all target models, and writes everything as an archived topic.  Activate it from the topic selector to start running evaluations.
 
 #### From the CLI
 
 Use the standalone `tools/import_topic.py` script:
 
 ```bash
-# Classification prompt + three test data files
+# Classification prompt + three test data files (JSON)
 python tools/import_topic.py \
     --topic "Insurance Claims Processing" \
-    --gpt4-class-prompt my_cls_prompt.txt \
+    --source-class-prompt my_cls_prompt.txt \
     --class-test-data classification_data.json \
     --dialog-test-data dialog_data.json \
     --general-test-data general_data.json
 
+# All 4 prompts + all 5 data files (mix of JSON and CSV)
+python tools/import_topic.py \
+    --topic "Telco Support Agent" \
+    --source-class-prompt cls_prompt.txt \
+    --source-dialog-prompt dlg_prompt.md \
+    --source-rag-prompt rag_prompt.txt \
+    --source-tool-calling-prompt tool_prompt.txt \
+    --class-test-data cls.csv \
+    --dialog-test-data dlg.json \
+    --general-test-data gen.csv \
+    --rag-test-data rag.json \
+    --tool-calling-test-data tc.json
+
 # Dialog prompt only
 python tools/import_topic.py \
     --topic "Hotel Concierge" \
-    --gpt4-dialog-prompt hotel_prompt.txt \
+    --source-dialog-prompt hotel_prompt.txt \
     --dialog-test-data hotel_scenarios.json
-
-# Both prompts
-python tools/import_topic.py \
-    --topic "Retail Support" \
-    --gpt4-class-prompt cls.txt \
-    --gpt4-dialog-prompt dlg.txt \
-    --class-test-data cls.json \
-    --general-test-data gen.json
 ```
 
 **CLI Parameters:**
@@ -459,22 +480,28 @@ python tools/import_topic.py \
 | Parameter | Required | Description |
 |-----------|:--------:|-------------|
 | `--topic` | ✅ | Human-readable topic name |
-| `--gpt4-class-prompt` | ★ | GPT-4 classification system prompt file |
-| `--gpt4-dialog-prompt` | ★ | GPT-4 dialog system prompt file |
-| `--class-test-data` | ★ | Classification scenarios JSON |
-| `--dialog-test-data` | ★ | Dialog scenarios JSON |
-| `--general-test-data` | ★ | General capability tests JSON |
-| `--generator-model` | — | Model for GPT-5 generation (default: `gpt5`) |
+| `--source-class-prompt` | ★ | Source classification system prompt file (`.txt` / `.md`) |
+| `--source-dialog-prompt` | ★ | Source dialog system prompt file |
+| `--source-rag-prompt` | ★ | Source RAG system prompt file |
+| `--source-tool-calling-prompt` | ★ | Source tool-calling system prompt file |
+| `--class-test-data` | ★ | Classification scenarios (`.json` or `.csv`) |
+| `--dialog-test-data` | ★ | Dialog scenarios (`.json` or `.csv`) |
+| `--general-test-data` | ★ | General capability tests (`.json` or `.csv`) |
+| `--rag-test-data` | ★ | RAG scenarios (`.json` or `.csv`) |
+| `--tool-calling-test-data` | ★ | Tool calling scenarios (`.json` or `.csv`) |
+| `--source-model` | — | Source model key (default: `gpt4`) |
+| `--generator-model` | — | Model for target prompt generation (default: `gpt5`) |
+| `--target-models` | — | Comma-separated target model keys (default: all except source) |
 | `--force` | — | Overwrite if topic already exists |
 | `--verbose` | — | Enable debug logging |
 
-> ★ At least one prompt file **and** at least one test data file are required.
+> ★ At least one prompt file **and** at least one test data file are required.  Legacy `--gpt4-*` aliases are still supported.
 
 #### What happens during import
 
-1. Each GPT-4 prompt is validated — if it lacks the output format block required by the evaluation pipeline, it's appended automatically.
-2. A GPT-5 optimised version is generated for each prompt, preserving the same category taxonomy.
-3. Test data is validated and missing optional fields are auto-filled.
+1. Each source prompt is validated — if it lacks the output format block required by the evaluation pipeline, it's appended automatically.
+2. Optimised prompts are generated **in parallel** for each target model, preserving the same category taxonomy and adapting to each model family's best practices.
+3. Test data is validated and missing optional fields are auto-filled.  CSV files are converted to JSON automatically.
 4. Everything is written to the archive structure:
    - `prompts/topics/<slug>/<model>/` — prompt files per model
    - `data/synthetic/topics/<slug>/` — test data by type
@@ -538,11 +565,295 @@ The **Test Data** sub-tab provides a full scenario editor for all 5 evaluation t
 
 ---
 
+## 📐 Test Data Schemas (JSON & CSV)
+
+All test data uses a **flat schema** — no nested objects.  Complex values (conversations, tool definitions, context dictionaries) are stored as **JSON strings** within a single field.  This makes every type directly representable as a CSV row.
+
+### Dual-Format Support
+
+The framework reads both **JSON** and **CSV** files interchangeably:
+
+| Feature | JSON (`.json`) | CSV (`.csv`) |
+|---------|----------------|--------------|
+| **File structure** | Root-level array of objects | Standard CSV with header row |
+| **Complex fields** | JSON strings inside string fields | JSON strings inside quoted CSV cells |
+| **List fields** | Pipe-separated strings (`"a \| b \| c"`) | Pipe-separated strings |
+| **Encoding** | UTF-8 | UTF-8 with BOM (`utf-8-sig`) supported on read |
+| **Priority** | Loaded first if both exist | Automatic fallback if `.json` is missing |
+
+> **Automatic fallback:** The `DataLoader` tries the `.json` file first.  If it doesn't exist, it automatically tries the `.csv` file with the same base name — no configuration needed.
+
+### Legacy Schema Compatibility
+
+If an imported file uses the **old nested schema** (e.g. `context` as a dict instead of a JSON string, `conversation` as a list instead of a JSON string, legacy fields like `scenario`, `category`, `expected_output`), the `DataLoader` **auto-normalises** it to the flat format on load.  This ensures backward compatibility with older topic archives and externally created datasets.
+
+---
+
+### Classification — `classification_scenarios.json` / `.csv`
+
+**Default count:** 20 scenarios
+
+| Field | Type | Required | Default | Description |
+|-------|------|:--------:|---------|-------------|
+| `id` | string | ✅ | — | Unique ID (e.g. `CLASS_001`) |
+| `customer_input` | string | ✅ | — | The customer message to classify |
+| `expected_category` | string | ✅ | — | Expected category code (e.g. `billing_inquiry`) |
+| `expected_subcategory` | string | — | `""` | Expected subcategory (e.g. `unexpected_charges`) |
+| `expected_priority` | string | — | `""` | `low`, `medium`, `high`, or `critical` |
+| `expected_sentiment` | string | — | `""` | Sentiment label (e.g. `frustrated`, `neutral`) |
+| `context` | string | — | `""` | **JSON string** of a dict with contextual metadata |
+
+**JSON example:**
+
+```json
+[
+  {
+    "id": "CLASS_001",
+    "customer_input": "I just received my mobile and home internet bill and it's way higher than expected.",
+    "expected_category": "billing_inquiry",
+    "expected_subcategory": "unexpected_charges",
+    "expected_priority": "high",
+    "expected_sentiment": "frustrated",
+    "context": "{\"account_tenure_months\": 18, \"billing_cycle\": \"2026-01\"}"
+  }
+]
+```
+
+**CSV example:**
+
+```csv
+id,customer_input,expected_category,expected_subcategory,expected_priority,expected_sentiment,context
+CLASS_001,"I just received my mobile and home internet bill and it's way higher than expected.",billing_inquiry,unexpected_charges,high,frustrated,"{""account_tenure_months"": 18, ""billing_cycle"": ""2026-01""}"
+```
+
+> **Note:** In CSV, JSON strings have their inner double quotes doubled (`""`) per CSV escaping rules.
+
+---
+
+### Dialog — `dialog_scenarios.json` / `.csv`
+
+**Default count:** 15 scenarios
+
+| Field | Type | Required | Default | Description |
+|-------|------|:--------:|---------|-------------|
+| `id` | string | ✅ | — | Unique ID (e.g. `DLG_001`) |
+| `conversation` | string | — | `""` | **JSON string** of `[{role, message}, …]` conversation turns |
+| `context_gaps` | string | — | `""` | **Pipe-separated** information gaps (e.g. `"account number \| billing period"`) |
+| `optimal_follow_up` | string | — | `""` | Gold-standard optimal agent follow-up response |
+| `follow_up_rules` | string | — | `""` | **Pipe-separated** rules the follow-up must respect |
+| `expected_resolution_turns` | int | — | `2` | Expected number of turns to resolve the issue |
+
+**JSON example:**
+
+```json
+[
+  {
+    "id": "DLG_001",
+    "conversation": "[{\"role\": \"customer\", \"message\": \"Hi, my mobile bill is way higher than usual.\"}]",
+    "context_gaps": "customer authentication details | account or phone number | billing period in question",
+    "optimal_follow_up": "I'm sorry for the confusion about your bill. To help you, I'll need to verify your account...",
+    "follow_up_rules": "Begin with empathy | Request only the minimum necessary details | Do not assume the issue",
+    "expected_resolution_turns": 2
+  }
+]
+```
+
+**CSV example:**
+
+```csv
+id,conversation,context_gaps,optimal_follow_up,follow_up_rules,expected_resolution_turns
+DLG_001,"[{""role"": ""customer"", ""message"": ""Hi, my mobile bill is way higher than usual.""}]",customer authentication details | account or phone number | billing period in question,"I'm sorry for the confusion about your bill. To help you, I'll need to verify your account...",Begin with empathy | Request only the minimum necessary details | Do not assume the issue,2
+```
+
+---
+
+### General — `capability_tests.json` / `.csv`
+
+**Default count:** 15 scenarios
+
+| Field | Type | Required | Default | Description |
+|-------|------|:--------:|---------|-------------|
+| `id` | string | ✅ | — | Unique ID (e.g. `GEN_001`) |
+| `test_type` | string | — | `""` | Test category: `instruction_following`, `structured_output`, `calculation_accuracy`, `multi_language`, `safety_boundary`, `consistency`, `context_retention`, `reasoning_capability` |
+| `prompt` | string | — | `""` | The test prompt (empty for `context_retention` tests) |
+| `complexity` | string | — | `"medium"` | `low`, `medium`, or `high` |
+| `expected_behavior` | string | — | `""` | Description of expected correct behavior |
+| `conversation` | string | — | `""` | **JSON string** of `[{role, content}, …]` — used for multi-turn `context_retention` tests |
+| `run_count` | int | — | `1` | Number of evaluation runs (>1 for `consistency` tests) |
+
+**JSON example:**
+
+```json
+[
+  {
+    "id": "GEN_001",
+    "test_type": "instruction_following",
+    "prompt": "You are a telco customer support agent. A customer asks about their bill...",
+    "complexity": "medium",
+    "expected_behavior": "Assistant should follow all five instructions precisely.",
+    "conversation": "",
+    "run_count": 1
+  },
+  {
+    "id": "GEN_008",
+    "test_type": "context_retention",
+    "prompt": "",
+    "complexity": "medium",
+    "expected_behavior": "Assistant should remember all details from the previous turns.",
+    "conversation": "[{\"role\": \"user\", \"content\": \"My account is 12345.\"}, {\"role\": \"assistant\", \"content\": \"Got it.\"}, {\"role\": \"user\", \"content\": \"What's my account number?\"}]",
+    "run_count": 1
+  }
+]
+```
+
+---
+
+### RAG — `rag_scenarios.json` / `.csv`
+
+**Default count:** 10 scenarios
+
+| Field | Type | Required | Default | Description |
+|-------|------|:--------:|---------|-------------|
+| `id` | string | ✅ | — | Unique ID (e.g. `RAG_001`) |
+| `query` | string | — | `""` | The user's question |
+| `context` | string | — | `""` | Retrieved context passage (plain text) |
+| `ground_truth` | string | — | `""` | Expected correct answer |
+
+**JSON example:**
+
+```json
+[
+  {
+    "id": "RAG_001",
+    "query": "What is the refund policy for international roaming charges?",
+    "context": "Our refund policy allows refunds for roaming charges disputed within 30 days...",
+    "ground_truth": "International roaming charges can be refunded within 30 days if disputed through the billing portal."
+  }
+]
+```
+
+**CSV example:**
+
+```csv
+id,query,context,ground_truth
+RAG_001,What is the refund policy for international roaming charges?,"Our refund policy allows refunds for roaming charges disputed within 30 days...","International roaming charges can be refunded within 30 days if disputed through the billing portal."
+```
+
+---
+
+### Tool Calling — `tool_calling_scenarios.json` / `.csv`
+
+**Default count:** 10 scenarios
+
+| Field | Type | Required | Default | Description |
+|-------|------|:--------:|---------|-------------|
+| `id` | string | ✅ | — | Unique ID (e.g. `TC_001`) |
+| `query` | string | — | `""` | The user request |
+| `available_tools` | string | — | `""` | **JSON string** of OpenAI-format tool definitions `[{type, function: {name, description, parameters}}, …]` |
+| `expected_tool_calls` | string | — | `""` | **Pipe-separated** function names (e.g. `"search_flights \| search_hotels"`); empty = no tool should be called |
+| `expected_parameters` | string | — | `""` | **JSON string** of expected parameters dict |
+
+**JSON example:**
+
+```json
+[
+  {
+    "id": "TC_001",
+    "query": "What's the weather like in Madrid right now?",
+    "available_tools": "[{\"type\": \"function\", \"function\": {\"name\": \"get_current_weather\", \"description\": \"Get current weather\", \"parameters\": {\"type\": \"object\", \"properties\": {\"location\": {\"type\": \"string\"}, \"unit\": {\"type\": \"string\"}}}}}]",
+    "expected_tool_calls": "get_current_weather",
+    "expected_parameters": "{\"location\": \"Madrid, Spain\", \"unit\": \"celsius\"}"
+  }
+]
+```
+
+**CSV example:**
+
+```csv
+id,query,available_tools,expected_tool_calls,expected_parameters
+TC_001,What's the weather like in Madrid right now?,"[{""type"": ""function"", ""function"": {""name"": ""get_current_weather"", ""description"": ""Get current weather"", ""parameters"": {""type"": ""object"", ""properties"": {""location"": {""type"": ""string""}, ""unit"": {""type"": ""string""}}}}}]",get_current_weather,"{""location"": ""Madrid, Spain"", ""unit"": ""celsius""}"
+```
+
+---
+
+### CSV Encoding & Escaping Rules
+
+| Rule | Details |
+|------|---------|
+| **Encoding** | UTF-8 (`utf-8-sig` supported on read to handle BOM) |
+| **Header row** | Required — column names must match the field names exactly |
+| **Quoting** | Standard CSV — fields containing commas, double quotes, or newlines are wrapped in `"…"` |
+| **Embedded quotes** | Double-quote escaping — `"` inside a field becomes `""` in CSV |
+| **JSON-in-CSV** | JSON strings (`context`, `conversation`, `available_tools`, `expected_parameters`) are stored as-is; the inner `"` characters become `""` |
+| **Pipe-separated** | Fields like `context_gaps`, `follow_up_rules`, `expected_tool_calls` use ` \| ` (space-pipe-space) as delimiter |
+| **Integers** | `expected_resolution_turns` and `run_count` are plain integers — cast on load |
+| **Empty optionals** | Empty string for missing optional text fields |
+| **Column order** | Must match the dataclass field order (see tables above) |
+
+### Field-Format Summary (All Types)
+
+| Field Name | Types | Storage Format |
+|------------|-------|----------------|
+| `id` | All 5 | Plain string |
+| `customer_input` | Classification | Plain string |
+| `expected_category` | Classification | Plain string |
+| `expected_subcategory` | Classification | Plain string |
+| `expected_priority` | Classification | Plain string |
+| `expected_sentiment` | Classification | Plain string |
+| `context` | Classification, RAG | JSON string (classification) / plain text (RAG) |
+| `conversation` | Dialog, General | JSON string of array |
+| `context_gaps` | Dialog | Pipe-separated |
+| `optimal_follow_up` | Dialog | Plain string |
+| `follow_up_rules` | Dialog | Pipe-separated |
+| `expected_resolution_turns` | Dialog | Integer |
+| `test_type` | General | Plain string |
+| `prompt` | General | Plain string |
+| `complexity` | General | Plain string |
+| `expected_behavior` | General | Plain string |
+| `run_count` | General | Integer |
+| `query` | RAG, Tool Calling | Plain string |
+| `ground_truth` | RAG | Plain string |
+| `available_tools` | Tool Calling | JSON string of array |
+| `expected_tool_calls` | Tool Calling | Pipe-separated |
+| `expected_parameters` | Tool Calling | JSON string of dict |
+
+### File Locations
+
+Test data files are stored per-type and per-topic:
+
+```
+data/synthetic/
+├── classification/
+│   ├── classification_scenarios.json   ← Active topic (JSON)
+│   └── classification_scenarios.csv    ← Active topic (CSV alternative)
+├── dialog/
+│   └── dialog_scenarios.json
+├── general/
+│   └── capability_tests.json
+├── rag/
+│   └── rag_scenarios.json
+├── tool_calling/
+│   └── tool_calling_scenarios.json
+└── topics/                             ← Archived topics
+    └── telco_customer_service/
+        ├── classification/
+        │   ├── classification_scenarios.json
+        │   └── classification_scenarios.csv
+        ├── dialog/
+        ├── general/
+        ├── rag/
+        └── tool_calling/
+```
+
+> **Tip:** You can place a `.csv` file alongside (or instead of) the `.json` file for any type in any topic.  The `DataLoader` picks it up automatically.
+
+---
+
 ## ⚙️ Model Configuration
 
 Edit the `models` section in `config/settings.yaml`.  Each key becomes a model name used in the CLI, API, and web UI.
 
-### Example: 3-Model Setup
+### Example: 6-Model Setup
 
 ```yaml
 azure:
@@ -553,18 +864,42 @@ azure:
   models:
     gpt4:
       deployment_name: "gpt-4.1"
+      model_family: "gpt4"
       model_version: "2024-08-06"
       max_tokens: 4096
       temperature: 0.1
 
+    gpt4o:
+      deployment_name: "gpt-4o"
+      model_family: "gpt4"
+      model_version: "2024-08-06"
+      max_tokens: 4096
+      temperature: 0.1
+
+    gpt41_mini:
+      deployment_name: "gpt-4.1-mini"
+      model_family: "gpt4"
+      model_version: "2025-04-14"
+      max_tokens: 16384
+      temperature: 0.1
+
     gpt5:
       deployment_name: "gpt-5.2"
+      model_family: "gpt5"
       model_version: "2025-01-01"
       max_tokens: 8192
       temperature: 0.1
 
+    gpt51:
+      deployment_name: "gpt-5.1"
+      model_family: "gpt5"
+      model_version: "2025-01-01"
+      max_tokens: 16384
+      temperature: 0.1
+
     gpt5_reasoning:
-      deployment_name: "gpt-5"
+      deployment_name: "gpt-5.1"
+      model_family: "gpt5"
       model_version: "2025-01-01"
       max_tokens: 16384
       reasoning_effort: "medium"    # low, medium, high (o-series / gpt-5)
@@ -575,28 +910,180 @@ azure:
 | Parameter | Description | Notes |
 |-----------|-------------|-------|
 | `deployment_name` | Deployment name in Azure AI Foundry | As shown in Azure Portal → Deployments |
+| `model_family` | Prompt-style family grouping | `gpt4` or `gpt5` — determines API behaviour (see below) |
 | `model_version` | Model version string | From deployment details |
 | `max_tokens` | Maximum response tokens | Model-dependent |
-| `temperature` | 0.0–2.0 (lower = more deterministic) | 0.1 recommended for classification |
+| `temperature` | 0.0–2.0 (lower = more deterministic) | 0.1 recommended for evaluation; **omitted for reasoning models** |
+| `top_p` | Nucleus sampling (optional) | **Omitted for reasoning models** |
+| `frequency_penalty` | Repetition penalty (optional) | **Omitted for reasoning models** |
+| `presence_penalty` | Topic penalty (optional) | **Omitted for reasoning models** |
 | `reasoning_effort` | Only for reasoning models | `low` / `medium` / `high` — GPT-5, o1, o3, o4 |
 
-> **Auto-detection:** The client automatically uses `max_completion_tokens` instead of `max_tokens` for models that require it (GPT-5, o1, o3, o4 series).
+### Model Family Behaviour
 
-### Adding Models
+The `model_family` field controls two automatic API-level differences:
 
-The key names are arbitrary.  Add as many as you need:
+| Behaviour | `model_family: "gpt4"` | `model_family: "gpt5"` |
+|-----------|------------------------|------------------------|
+| **Max tokens parameter** | `max_tokens` | `max_completion_tokens` (auto-converted) |
+| **System message role** | `system` | `developer` |
+| **Sampling parameters** | Always sent (temperature, top_p, penalties) | Sent unless `reasoning_effort` is present |
+
+> **Auto-detection:** The client reads `model_family` from the config and automatically converts `max_tokens` → `max_completion_tokens` and `system` → `developer` role for `gpt5` family models.  No manual API changes needed.
+
+### Reasoning vs. Non-Reasoning Models
+
+Two models can share the **same Azure deployment** but behave differently depending on their configuration:
+
+| | Non-reasoning (e.g. `gpt51`) | Reasoning (e.g. `gpt5_reasoning`) |
+|-|-------------------------------|-----------------------------------|
+| **`reasoning_effort`** | Not set | `low` / `medium` / `high` |
+| **`temperature`** | Set (e.g. `0.1`) | Omitted automatically |
+| **Sampling params** | `temperature`, `top_p`, `frequency_penalty`, `presence_penalty` sent | All omitted (API rejects them for reasoning) |
+| **UI label** | Model key as-is (e.g. "gpt51") | Model key + " (reasoning)" suffix |
+| **Usage** | Standard completions | Extended chain-of-thought reasoning with dedicated reasoning tokens |
+
+Example — both use the `gpt-5.1` deployment but with different parameters:
 
 ```yaml
-    baseline:
-      deployment_name: "gpt-4o"
-      max_tokens: 4096
+    gpt51:                          # ← Standard mode
+      deployment_name: "gpt-5.1"
+      model_family: "gpt5"
       temperature: 0.1
 
-    candidate:
-      deployment_name: "gpt-5.2"
-      max_tokens: 16384
+    gpt5_reasoning:                 # ← Reasoning mode (same deployment)
+      deployment_name: "gpt-5.1"
+      model_family: "gpt5"
+      reasoning_effort: "medium"
+```
+
+### Adding a New Model — Step by Step
+
+The fastest way is the **`add_model.py` CLI tool** — it handles everything (YAML config + prompt copy) in one command:
+
+#### Option A — Interactive CLI tool (recommended)
+
+```bash
+python tools/add_model.py
+```
+
+The tool walks you through each step with prompts, shows existing models, recommends the best prompt source, and asks for confirmation before applying changes.
+
+#### Option B — Non-interactive (scriptable)
+
+```bash
+# Standard model
+python tools/add_model.py \
+    --key gpt45 \
+    --deployment "gpt-4.5" \
+    --family gpt4 \
+    --max-tokens 4096 \
+    --temperature 0.1
+
+# Reasoning model (omits temperature, adds reasoning_effort)
+python tools/add_model.py \
+    --key o4_mini \
+    --deployment "o4-mini" \
+    --family gpt5 \
+    --max-tokens 16384 \
+    --reasoning-effort medium
+
+# Specify which model to copy prompts from
+python tools/add_model.py \
+    --key gpt45 \
+    --deployment "gpt-4.5" \
+    --family gpt4 \
+    --copy-prompts-from gpt4o
+
+# Skip prompt copy entirely (rely on fallback chain)
+python tools/add_model.py \
+    --key gpt45 \
+    --deployment "gpt-4.5" \
+    --family gpt4 \
+    --no-prompts
+```
+
+**CLI Parameters:**
+
+| Parameter | Required | Description |
+|-----------|:--------:|-------------|
+| `--key` | ✅ | Internal model key (e.g. `gpt45`, `o4_mini`) — becomes API/CLI name and prompt directory |
+| `--deployment` | ✅ | Azure deployment name as shown in AI Foundry portal |
+| `--family` | ✅ | `gpt4` or `gpt5` — determines API behaviour (see Model Family table above) |
+| `--model-version` | — | Model version string from deployment details |
+| `--max-tokens` | — | Max response tokens (default: 4096 for gpt4, 16384 for gpt5) |
+| `--temperature` | — | 0.0–2.0 (default: 0.1; omitted automatically for reasoning models) |
+| `--reasoning-effort` | — | `low` / `medium` / `high` — makes it a reasoning model |
+| `--copy-prompts-from` | — | Model key to copy prompt files from (auto-detected if omitted) |
+| `--no-prompts` | — | Skip prompt directory creation entirely |
+| `--force` | — | Overwrite if the model key already exists |
+
+**What the tool does:**
+
+1. **Validates** the key is unique and well-formed.
+2. **Inserts** the YAML block into `config/settings.yaml` — positioned after the last model of the same family.
+3. **Auto-detects** the best prompt source (same family, non-reasoning, with existing prompt files).
+4. **Copies** the 4 prompt files (`classification_agent_system.md`, `dialog_agent_system.md`, `rag_agent_system.md`, `tool_calling_agent_system.md`) into `prompts/<key>/`.
+5. **Prints** a summary of all changes.
+
+#### Option C — Manual setup
+
+If you prefer to configure manually, add a model in **2 steps**:
+
+**Step 1 — Add the entry in `config/settings.yaml`:**
+
+```yaml
+    my_new_model:
+      deployment_name: "gpt-4o-mini"   # Your deployment name in Azure AI Foundry
+      model_family: "gpt4"             # "gpt4" or "gpt5"
+      model_version: "2024-07-18"
+      max_tokens: 4096
       temperature: 0.1
 ```
+
+The key name (`my_new_model`) is arbitrary — it becomes the model identifier in the CLI, API, and web UI.  It also determines the prompt directory name.
+
+**Step 2 — Create a prompt directory (recommended):**
+
+Create `prompts/<model_key>/` and add one `.md` file per task type:
+
+```
+prompts/my_new_model/
+├── classification_agent_system.md
+├── dialog_agent_system.md
+├── rag_agent_system.md
+└── tool_calling_agent_system.md
+```
+
+> **Tip:** Copy from an existing model with the same family.  For example, if your new model is GPT-4-family, copy from `prompts/gpt4/`.
+
+If you skip this step, the **prompt fallback chain** kicks in automatically:
+
+```
+prompts/{model_key}/          ← first try (e.g. prompts/my_new_model/)
+prompts/{base_model}/         ← if key ends with _reasoning, strip suffix (e.g. gpt5_reasoning → gpt5)
+prompts/templates/            ← final fallback (generic templates)
+```
+
+#### What happens automatically
+
+Once you add the YAML entry (via the tool or manually) and restart the server:
+
+- **`register_models_from_config()`** reads `settings.yaml` and creates a `ModelConfig` for each entry.
+- The model appears in the **web UI** dropdown (Evaluate, Compare, Dashboard).
+- The **`/api/models`** endpoint includes it (with a `(reasoning)` suffix if the key ends with `_reasoning`).
+- The SDK uses the correct API parameters based on `model_family` and `reasoning_effort` — no code changes needed.
+
+#### Quick reference
+
+| What | Where | Required? |
+|------|-------|:---------:|
+| Model configuration | `config/settings.yaml` → `azure.models.<key>` | ✅ |
+| Prompt templates | `prompts/<key>/` → `{type}_agent_system.md` | Recommended |
+| Code changes | None — registration is automatic | — |
+| Server restart | Required to pick up new YAML entries | ✅ |
+
+> **⚠️ Restart required:** Model registration happens **once at startup** — `register_models_from_config()` reads `settings.yaml` when the app initialises and is **not hot-reloaded**.  After adding or modifying a model entry, stop the server and run `python app.py` again.  On restart, the new model will appear in the logs and in every UI dropdown automatically.
 
 ### Acceptance Thresholds & Migration Readiness
 
@@ -1011,7 +1498,15 @@ python app.py compare --model-a gpt4 --model-b gpt5 --type classification
 python app.py compare --model-a gpt4 --model-b gpt5 --type all
 
 # Import an external topic (source prompt + test data → archived topic with target prompts)
-python tools/import_topic.py --topic "My Topic" --gpt4-class-prompt prompt.txt --class-test-data data.json
+python tools/import_topic.py --topic "My Topic" --source-class-prompt prompt.txt --class-test-data data.json
+
+# Add a new model (interactive — asks questions step by step)
+python tools/add_model.py
+
+# Add a new model (non-interactive — all parameters on the command line)
+python tools/add_model.py --key gpt45 --deployment "gpt-4.5" --family gpt4
+python tools/add_model.py --key o4_mini --deployment "o4-mini" --family gpt5 --reasoning-effort medium
+python tools/add_model.py --key gpt45 --deployment "gpt-4.5" --family gpt4 --copy-prompts-from gpt4o
 ```
 
 > **Note:** The CLI `evaluate` and `compare` subcommands currently support `classification`, `dialog`, `general`, and `all`.  RAG and tool calling evaluations are available via the **web UI** and **REST API** only.
@@ -1302,4 +1797,4 @@ MIT License
 
 ---
 
-*Last Updated: February 2026*
+*Last Updated: March 2026*

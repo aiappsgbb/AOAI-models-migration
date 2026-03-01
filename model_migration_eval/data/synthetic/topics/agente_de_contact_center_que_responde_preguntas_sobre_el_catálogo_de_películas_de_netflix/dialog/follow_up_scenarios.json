@@ -1,154 +1,42 @@
 [
   {
     "id": "DLG_001",
-    "scenario": "find_movie_by_partial_title",
-    "conversation": [
-      {
-        "role": "customer",
-        "message": "Hola, estoy buscando una peli en Netflix que creo que se llama algo como \"La última noche\" o \"Última noche\". No la encuentro."
-      },
-      {
-        "role": "agent",
-        "message": "¡Con gusto te ayudo a ubicarla! Para afinar la búsqueda, ¿recuerdas algún actor/actriz, el país o idioma, el año aproximado, o alguna escena específica? También dime en qué país estás usando Netflix y en qué perfil la buscas."
-      },
-      {
-        "role": "customer",
-        "message": "Estoy en México, perfil de adulto. Creo que era española y salía una pareja en un hotel, pero no recuerdo actores."
-      }
-    ],
-    "context_gaps": [
-      "título exacto (puede variar por región o traducción)",
-      "año aproximado o elenco para desambiguar",
-      "si es película o serie/miniserie",
-      "dispositivo/app usada para buscar (móvil/TV/web) y si hay filtros activos"
-    ],
+    "conversation": "[{\"role\": \"customer\", \"message\": \"Hola, estoy buscando una peli en Netflix que creo que se llama algo como \\\"La última noche\\\" o \\\"Última noche\\\". No la encuentro.\"}, {\"role\": \"agent\", \"message\": \"¡Con gusto te ayudo a ubicarla! Para afinar la búsqueda, ¿recuerdas algún actor/actriz, el país o idioma, el año aproximado, o alguna escena específica? También dime en qué país estás usando Netflix y en qué perfil la buscas.\"}, {\"role\": \"customer\", \"message\": \"Estoy en México, perfil de adulto. Creo que era española y salía una pareja en un hotel, pero no recuerdo actores.\"}]",
+    "context_gaps": "título exacto (puede variar por región o traducción) | año aproximado o elenco para desambiguar | si es película o serie/miniserie | dispositivo/app usada para buscar (móvil/TV/web) y si hay filtros activos",
     "optimal_follow_up": "Gracias, con esos datos ya podemos acotar. En Netflix México a veces el título cambia (por ejemplo, puede aparecer con otro nombre en español o con el título original). Para encontrarla más rápido:\n\n1) Confírmame si era película (1–2 horas) o una serie/miniserie.\n2) ¿Recuerdas si era thriller/suspenso, drama romántico u otro género?\n3) Prueba esta búsqueda dentro de Netflix: escribe solo \"noche\" o \"última\" y luego entra a \"Explorar por idiomas\" → \"Español (España)\" (si te aparece esa opción). También puedes buscar por género: \"Thrillers\" o \"Dramas\".\n\nSi me dices el género y si era película o serie, te propongo 3–5 coincidencias probables disponibles en México y te indico cómo identificarlas por sinopsis/portada. Si no aparece ninguna coincidencia, también revisamos si pudo salir del catálogo recientemente en tu región.",
-    "follow_up_rules": [
-      "Pedir datos mínimos para desambiguar (tipo de contenido, género, idioma, año/actores/escena).",
-      "Confirmar país/región porque el catálogo y los títulos localizados cambian.",
-      "Ofrecer pasos concretos de búsqueda dentro de la app (palabras clave, idioma, categorías) antes de concluir que no está disponible."
-    ],
-    "expected_resolution_turns": 2,
-    "category": "title_search_and_discovery"
+    "follow_up_rules": "Pedir datos mínimos para desambiguar (tipo de contenido, género, idioma, año/actores/escena). | Confirmar país/región porque el catálogo y los títulos localizados cambian. | Ofrecer pasos concretos de búsqueda dentro de la app (palabras clave, idioma, categorías) antes de concluir que no está disponible.",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_002",
-    "scenario": "recommend_movie_like_recent_watch",
-    "conversation": [
-      {
-        "role": "customer",
-        "message": "Acabé de ver \"Puñales por la espalda\" y quiero algo parecido en Netflix, pero que no sea muy violento. ¿Qué me recomiendas?"
-      }
-    ],
-    "context_gaps": [
-      "país/región del cliente (disponibilidad varía)",
-      "preferencias de idioma/subtítulos",
-      "tolerancia a temas sensibles (sangre, armas, crimen explícito)",
-      "si busca película o serie y duración aproximada"
-    ],
+    "conversation": "[{\"role\": \"customer\", \"message\": \"Acabé de ver \\\"Puñales por la espalda\\\" y quiero algo parecido en Netflix, pero que no sea muy violento. ¿Qué me recomiendas?\"}]",
+    "context_gaps": "país/región del cliente (disponibilidad varía) | preferencias de idioma/subtítulos | tolerancia a temas sensibles (sangre, armas, crimen explícito) | si busca película o serie y duración aproximada",
     "optimal_follow_up": "Claro, te recomiendo opciones tipo misterio con humor/giros, pero con violencia moderada. Antes, para acertar con tu catálogo: ¿en qué país usas Netflix y prefieres película o serie?\n\nMientras me confirmas, aquí van sugerencias “estilo whodunit” y más ligeras (si están disponibles en tu región):\n- Misterios con tono ligero/ingenioso (investigación, giros, poco gore).\n- Comedias negras con crimen más sugerido que explícito.\n\nSi me dices: (1) tu país, (2) si quieres algo más cómico o más serio, y (3) si toleras escenas de asesinato fuera de cámara, te paso 5 títulos concretos del catálogo de tu región y te indico por qué se parecen (misterio, elenco coral, giros) y el nivel de violencia aproximado.",
-    "follow_up_rules": [
-      "Solicitar región antes de listar títulos como disponibles.",
-      "Ajustar recomendaciones a restricciones del cliente (violencia, tono, duración).",
-      "Ofrecer un conjunto corto de opciones y explicar el criterio de similitud."
-    ],
-    "expected_resolution_turns": 2,
-    "category": "recommendations"
+    "follow_up_rules": "Solicitar región antes de listar títulos como disponibles. | Ajustar recomendaciones a restricciones del cliente (violencia, tono, duración). | Ofrecer un conjunto corto de opciones y explicar el criterio de similitud.",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_003",
-    "scenario": "availability_by_country_and_expiry",
-    "conversation": [
-      {
-        "role": "customer",
-        "message": "Ayer vi \"Interstellar\" en Netflix y hoy ya no me sale. ¿La quitaron?"
-      },
-      {
-        "role": "agent",
-        "message": "Puedo revisarlo contigo. ¿En qué país estás y en qué perfil lo buscaste? También dime si cambiaste de red (por ejemplo, VPN) o de dispositivo desde ayer."
-      },
-      {
-        "role": "customer",
-        "message": "Estoy en Argentina, mismo perfil. Cambié de Wi‑Fi, pero no uso VPN. En el celular sí aparece, en la TV no."
-      }
-    ],
-    "context_gaps": [
-      "si la TV tiene la app actualizada o sesión en el mismo perfil",
-      "si hay diferencias de perfil (edad) o restricciones",
-      "si el título fue retirado o si es un problema de caché/búsqueda en el dispositivo",
-      "si la TV está conectada a una cuenta distinta"
-    ],
+    "conversation": "[{\"role\": \"customer\", \"message\": \"Ayer vi \\\"Interstellar\\\" en Netflix y hoy ya no me sale. ¿La quitaron?\"}, {\"role\": \"agent\", \"message\": \"Puedo revisarlo contigo. ¿En qué país estás y en qué perfil lo buscaste? También dime si cambiaste de red (por ejemplo, VPN) o de dispositivo desde ayer.\"}, {\"role\": \"customer\", \"message\": \"Estoy en Argentina, mismo perfil. Cambié de Wi‑Fi, pero no uso VPN. En el celular sí aparece, en la TV no.\"}]",
+    "context_gaps": "si la TV tiene la app actualizada o sesión en el mismo perfil | si hay diferencias de perfil (edad) o restricciones | si el título fue retirado o si es un problema de caché/búsqueda en el dispositivo | si la TV está conectada a una cuenta distinta",
     "optimal_follow_up": "Gracias, eso suena más a un tema de dispositivo/app que a retiro del catálogo, porque si te aparece en el celular en el mismo país, el título sigue disponible para tu cuenta.\n\nProbemos estos pasos en la TV:\n1) Confirma que la TV esté en el mismo perfil donde lo viste (a veces cambia al último perfil usado).\n2) Cierra sesión y vuelve a iniciarla en la TV (o reinicia la app). Si tu TV lo permite: Ajustes → Obtener ayuda → Recargar Netflix / Cerrar sesión.\n3) Actualiza la app de Netflix en la TV y reinicia el dispositivo.\n4) En la búsqueda, prueba escribir solo \"Inter\" o busca desde \"Películas\" → \"Ciencia ficción\" (a veces la búsqueda tarda en indexar).\n\nSi después de esto sigue sin aparecer solo en la TV, dime el modelo de tu TV/dispositivo (Smart TV, Roku, Fire TV, etc.) y la versión de la app si la ves en “Obtener ayuda”. Con eso te indico el paso exacto para limpiar caché o reinstalar, y verificamos si la TV está conectada a otra cuenta por error.",
-    "follow_up_rules": [
-      "Distinguir entre problema de disponibilidad regional y problema de dispositivo cuando el título aparece en otro equipo.",
-      "Guiar con pasos de troubleshooting específicos para la app/dispositivo antes de concluir retiro del catálogo.",
-      "Solicitar datos técnicos mínimos (modelo del dispositivo, versión de app) si persiste."
-    ],
-    "expected_resolution_turns": 3,
-    "category": "availability_and_catalog"
+    "follow_up_rules": "Distinguir entre problema de disponibilidad regional y problema de dispositivo cuando el título aparece en otro equipo. | Guiar con pasos de troubleshooting específicos para la app/dispositivo antes de concluir retiro del catálogo. | Solicitar datos técnicos mínimos (modelo del dispositivo, versión de app) si persiste.",
+    "expected_resolution_turns": 3
   },
   {
     "id": "DLG_004",
-    "scenario": "movie_metadata_age_rating_and_language",
-    "conversation": [
-      {
-        "role": "customer",
-        "message": "¿Me puedes decir la clasificación por edad y si \"El viaje de Chihiro\" está en español latino o solo subtitulada?"
-      },
-      {
-        "role": "agent",
-        "message": "Sí, te lo confirmo. Para darte la info exacta, ¿en qué país estás usando Netflix y en qué perfil lo verías (infantil/adulto)? La clasificación y los audios disponibles pueden variar por región."
-      },
-      {
-        "role": "customer",
-        "message": "Estoy en Chile y sería en el perfil infantil."
-      }
-    ],
-    "context_gaps": [
-      "región exacta para confirmar audios/subtítulos disponibles",
-      "si el cliente se refiere a audio español (LatAm) vs español (España)",
-      "si el perfil infantil tiene restricciones adicionales por clasificación",
-      "dispositivo (algunos muestran lista de audios de forma distinta)"
-    ],
+    "conversation": "[{\"role\": \"customer\", \"message\": \"¿Me puedes decir la clasificación por edad y si \\\"El viaje de Chihiro\\\" está en español latino o solo subtitulada?\"}, {\"role\": \"agent\", \"message\": \"Sí, te lo confirmo. Para darte la info exacta, ¿en qué país estás usando Netflix y en qué perfil lo verías (infantil/adulto)? La clasificación y los audios disponibles pueden variar por región.\"}, {\"role\": \"customer\", \"message\": \"Estoy en Chile y sería en el perfil infantil.\"}]",
+    "context_gaps": "región exacta para confirmar audios/subtítulos disponibles | si el cliente se refiere a audio español (LatAm) vs español (España) | si el perfil infantil tiene restricciones adicionales por clasificación | dispositivo (algunos muestran lista de audios de forma distinta)",
     "optimal_follow_up": "Perfecto, en Chile puedo orientarte y además te explico cómo verificarlo dentro del título (porque audios/subtítulos pueden cambiar por licencia y por dispositivo).\n\n1) Clasificación por edad: en la ficha del título (antes de reproducir) verás la clasificación local. Si estás en perfil infantil, si la clasificación excede el límite del perfil, puede no aparecer o no permitir reproducción.\n2) Idiomas: entra al título → “Audio y subtítulos” (o el ícono de diálogo durante la reproducción) y revisa si aparece “Español (Latinoamérica)” como audio. Si no está, normalmente tendrás “Japonés” con subtítulos en español.\n\nSi me confirmas qué dispositivo usas (TV, Android, iPhone, web) y si el título te aparece en el perfil infantil, te indico exactamente dónde ver la clasificación en ese dispositivo y qué opciones de audio/subtítulos deberían mostrarse en tu región.",
-    "follow_up_rules": [
-      "Pedir país y perfil porque clasificación y opciones de idioma pueden variar.",
-      "No afirmar audios específicos como garantizados sin verificación regional; ofrecer cómo comprobarlo en la app.",
-      "Considerar restricciones del perfil infantil y explicar su impacto en visibilidad/reproducción."
-    ],
-    "expected_resolution_turns": 2,
-    "category": "movie_details_and_metadata"
+    "follow_up_rules": "Pedir país y perfil porque clasificación y opciones de idioma pueden variar. | No afirmar audios específicos como garantizados sin verificación regional; ofrecer cómo comprobarlo en la app. | Considerar restricciones del perfil infantil y explicar su impacto en visibilidad/reproducción.",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_005",
-    "scenario": "kids_profile_cant_find_movie_due_to_maturity",
-    "conversation": [
-      {
-        "role": "customer",
-        "message": "En el perfil de mi hijo no aparece \"Harry Potter\" pero en el mío sí. ¿Cómo lo habilito?"
-      },
-      {
-        "role": "agent",
-        "message": "Te ayudo. Esto suele pasar por la clasificación por edad del perfil infantil. ¿Qué edad tiene tu hijo y qué configuración de “Restricciones de visualización” tiene ese perfil? ¿Estás usando PIN de perfil o controles parentales?"
-      },
-      {
-        "role": "customer",
-        "message": "Tiene 10. El perfil está como \"Niños\" y sí tengo PIN para el perfil de adulto."
-      }
-    ],
-    "context_gaps": [
-      "país/región (la clasificación del título puede variar)",
-      "nivel de madurez configurado en el perfil infantil",
-      "si el título específico está marcado con una clasificación superior al límite",
-      "si el cliente quiere permitir solo ese título o ampliar el rango general"
-    ],
+    "conversation": "[{\"role\": \"customer\", \"message\": \"En el perfil de mi hijo no aparece \\\"Harry Potter\\\" pero en el mío sí. ¿Cómo lo habilito?\"}, {\"role\": \"agent\", \"message\": \"Te ayudo. Esto suele pasar por la clasificación por edad del perfil infantil. ¿Qué edad tiene tu hijo y qué configuración de “Restricciones de visualización” tiene ese perfil? ¿Estás usando PIN de perfil o controles parentales?\"}, {\"role\": \"customer\", \"message\": \"Tiene 10. El perfil está como \\\"Niños\\\" y sí tengo PIN para el perfil de adulto.\"}]",
+    "context_gaps": "país/región (la clasificación del título puede variar) | nivel de madurez configurado en el perfil infantil | si el título específico está marcado con una clasificación superior al límite | si el cliente quiere permitir solo ese título o ampliar el rango general",
     "optimal_follow_up": "Entendido. Si en tu perfil de adulto sí aparece y en el de “Niños” no, casi seguro es por el nivel de madurez permitido en ese perfil.\n\nOpciones para habilitarlo (sin quitar controles):\n1) Ajustar el nivel de madurez del perfil infantil: desde un navegador ve a Netflix.com → Cuenta → Perfiles y control parental → el perfil de tu hijo → “Restricciones de visualización” y sube el nivel de clasificación permitido (te pedirá la contraseña de la cuenta).\n2) Si prefieres no ampliar todo el catálogo, usa “Bloqueo de títulos” para permitir/bloquear títulos específicos (según disponibilidad de esa función en tu región). También puedes mantener el perfil infantil y crear un perfil adicional con un nivel de madurez intermedio.\n3) Mantén el PIN en el perfil adulto para que no cambie de perfil sin permiso.\n\nDime tu país y si quieres permitir solo esa saga o ampliar el rango general para su edad; con eso te indico el ajuste recomendado y qué impacto tendrá en lo que verá en el perfil.",
-    "follow_up_rules": [
-      "Explicar que la diferencia entre perfiles suele deberse a controles parentales y clasificación por edad.",
-      "Dar pasos concretos en la ruta de Cuenta → Perfiles → Restricciones, indicando que requiere contraseña.",
-      "Ofrecer alternativas seguras (perfil intermedio, bloqueo por títulos, mantener PIN) según preferencia del cliente."
-    ],
-    "expected_resolution_turns": 2,
-    "category": "account_profile_and_controls"
+    "follow_up_rules": "Explicar que la diferencia entre perfiles suele deberse a controles parentales y clasificación por edad. | Dar pasos concretos en la ruta de Cuenta → Perfiles → Restricciones, indicando que requiere contraseña. | Ofrecer alternativas seguras (perfil intermedio, bloqueo por títulos, mantener PIN) según preferencia del cliente.",
+    "expected_resolution_turns": 2
   }
 ]

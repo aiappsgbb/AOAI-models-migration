@@ -106,9 +106,7 @@ def _general_to_jsonl(raw_results: List[Dict]) -> List[Dict]:
     for r in raw_results:
         responses = r.get("responses", [])
         response = responses[0] if responses else ""
-        # expected_output can be a dict (e.g. expected JSON schema) —
-        # always coerce to string so the JSONL schema stays uniform.
-        ground_truth = r.get("expected_output") or r.get("expected_behavior") or ""
+        ground_truth = r.get("expected_behavior") or ""
         rows.append({
             "query": _ensure_string(r.get("prompt", "")),
             "response": _ensure_string(response),

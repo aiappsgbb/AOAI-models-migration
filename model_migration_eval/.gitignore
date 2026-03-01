@@ -45,3 +45,5 @@ OLD/
 prompts/history/*.md
 *.ps1
 *.bat
+tests/
+*.ini

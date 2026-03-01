@@ -1,74 +1,50 @@
 [
   {
     "id": "RAG_001",
-    "scenario": "refund_policy_query",
     "query": "What is your refund policy for international orders?",
     "context": "Our refund policy allows returns within 30 days of purchase for domestic orders. For international orders, the return window is extended to 45 days. Items must be in original packaging. Shipping costs are non-refundable for international returns. A restocking fee of 15% applies to opened electronics.",
-    "ground_truth": "International orders can be returned within 45 days. Items must be in original packaging. Shipping costs are non-refundable, and a 15% restocking fee applies to opened electronics.",
-    "expected_behavior": "Response should be grounded in the provided context, mentioning the 45-day window and non-refundable shipping costs.",
-    "complexity": "medium"
+    "ground_truth": "International orders can be returned within 45 days. Items must be in original packaging. Shipping costs are non-refundable, and a 15% restocking fee applies to opened electronics."
   },
   {
     "id": "RAG_002",
-    "scenario": "technical_specs_lookup",
     "query": "What are the processor specs for the ProBook 450 G10?",
     "context": "The ProBook 450 G10 features an Intel Core i7-1355U processor with 10 cores (2 Performance + 8 Efficient), 12 threads, and a max turbo frequency of 5.0 GHz. It comes with 16GB DDR4-3200 RAM (expandable to 32GB) and a 512GB PCIe NVMe SSD. The display is 15.6-inch FHD IPS anti-glare.",
-    "ground_truth": "The ProBook 450 G10 has an Intel Core i7-1355U processor with 10 cores (2P+8E), 12 threads, and up to 5.0 GHz turbo frequency.",
-    "expected_behavior": "Response should accurately cite processor specifications from the context without hallucinating additional specs.",
-    "complexity": "low"
+    "ground_truth": "The ProBook 450 G10 has an Intel Core i7-1355U processor with 10 cores (2P+8E), 12 threads, and up to 5.0 GHz turbo frequency."
   },
   {
     "id": "RAG_003",
-    "scenario": "medical_guidelines_retrieval",
     "query": "What is the recommended dosage of ibuprofen for adults with mild pain?",
     "context": "For adults and children 12 years and older: take 200mg to 400mg of ibuprofen every 4 to 6 hours as needed. Do not exceed 1200mg in 24 hours unless directed by a doctor. Take with food or milk to reduce stomach irritation. Patients with kidney disease should consult their doctor before use.",
-    "ground_truth": "Adults should take 200-400mg every 4-6 hours, not exceeding 1200mg per day. Should be taken with food or milk.",
-    "expected_behavior": "Response should be strictly grounded in the provided medical context, not adding external medical advice.",
-    "complexity": "medium"
+    "ground_truth": "Adults should take 200-400mg every 4-6 hours, not exceeding 1200mg per day. Should be taken with food or milk."
   },
   {
     "id": "RAG_004",
-    "scenario": "legal_clause_interpretation",
     "query": "Can the landlord enter the premises without notice?",
     "context": "Section 12.3 - Right of Entry: The Landlord may enter the Premises upon providing at least 24 hours written notice to the Tenant, except in cases of emergency where immediate entry is permitted. Entry must occur between 9:00 AM and 6:00 PM on business days unless the Tenant consents to alternative times. The Landlord may not enter solely for inspection purposes more than once per calendar month.",
-    "ground_truth": "The landlord must provide 24 hours written notice before entry, except in emergencies. Entry is limited to 9AM-6PM on business days and no more than once monthly for inspections.",
-    "expected_behavior": "Response should precisely cite the lease terms including the emergency exception and time restrictions.",
-    "complexity": "high"
+    "ground_truth": "The landlord must provide 24 hours written notice before entry, except in emergencies. Entry is limited to 9AM-6PM on business days and no more than once monthly for inspections."
   },
   {
     "id": "RAG_005",
-    "scenario": "financial_product_comparison",
     "query": "What are the interest rates for your savings accounts?",
     "context": "Standard Savings Account: 0.50% APY, no minimum balance. Premium Savings: 2.15% APY, requires $10,000 minimum balance. High-Yield Money Market: 3.25% APY, requires $25,000 minimum balance, limited to 6 withdrawals per month. Certificate of Deposit (12-month): 4.10% APY, early withdrawal penalty of 90 days interest.",
-    "ground_truth": "Savings accounts range from 0.50% APY (Standard, no minimum) to 2.15% APY (Premium, $10K minimum). High-Yield Money Market offers 3.25% APY with $25K minimum. 12-month CD offers 4.10% APY.",
-    "expected_behavior": "Response should present all account options from context without inventing additional products.",
-    "complexity": "medium"
+    "ground_truth": "Savings accounts range from 0.50% APY (Standard, no minimum) to 2.15% APY (Premium, $10K minimum). High-Yield Money Market offers 3.25% APY with $25K minimum. 12-month CD offers 4.10% APY."
   },
   {
     "id": "RAG_006",
-    "scenario": "hr_policy_vacation",
     "query": "How many vacation days do I get after 3 years of service?",
     "context": "Vacation Policy v4.2: Employees accrue paid time off based on tenure. 0-1 years: 10 days/year. 1-3 years: 15 days/year. 3-5 years: 20 days/year. 5-10 years: 25 days/year. 10+ years: 30 days/year. Unused days may carry over up to a maximum of 5 days. Accrual begins on the first day of employment. Part-time employees receive prorated benefits.",
-    "ground_truth": "After 3 years of service, employees receive 20 vacation days per year, with up to 5 unused days carrying over.",
-    "expected_behavior": "Response should correctly identify the 3-5 year tier and mention the carryover limit.",
-    "complexity": "low"
+    "ground_truth": "After 3 years of service, employees receive 20 vacation days per year, with up to 5 unused days carrying over."
   },
   {
     "id": "RAG_007",
-    "scenario": "product_troubleshooting",
     "query": "My SmartHome Hub won't connect to WiFi after the firmware update.",
     "context": "Known Issues - Firmware v3.2.1: Some SmartHome Hub devices may lose WiFi connectivity after updating. Resolution: 1) Press and hold the reset button for 10 seconds until the LED turns amber. 2) Wait 2 minutes for the device to restart. 3) Go to Settings > Network > WiFi Setup and re-enter your network credentials. 4) If the issue persists, roll back to firmware v3.1.8 via Settings > System > Firmware > Rollback. Note: Rolling back will remove features added in v3.2.1 including Matter protocol support.",
-    "ground_truth": "This is a known issue with firmware v3.2.1. Try resetting (hold reset 10s), then reconfigure WiFi. If it persists, roll back to v3.1.8, though this removes Matter protocol support.",
-    "expected_behavior": "Response should reference the known issue and provide the exact troubleshooting steps from the context.",
-    "complexity": "medium"
+    "ground_truth": "This is a known issue with firmware v3.2.1. Try resetting (hold reset 10s), then reconfigure WiFi. If it persists, roll back to v3.1.8, though this removes Matter protocol support."
   },
   {
     "id": "RAG_008",
-    "scenario": "contradictory_context",
     "query": "What is the maximum file upload size?",
     "context": "FAQ Section: The maximum file upload size is 25MB for free accounts and 100MB for premium accounts. API Documentation v2.3: File uploads are limited to 50MB per request regardless of account type. The batch upload endpoint supports files up to 500MB. Release Notes (Jan 2026): Increased free tier upload limit to 50MB, premium to 200MB.",
-    "ground_truth": "Based on the most recent release notes (Jan 2026), free accounts support up to 50MB and premium up to 200MB. The API batch endpoint supports up to 500MB.",
-    "expected_behavior": "Response should identify the conflicting information and prioritize the most recent source (release notes).",
-    "complexity": "high"
+    "ground_truth": "Based on the most recent release notes (Jan 2026), free accounts support up to 50MB and premium up to 200MB. The API batch endpoint supports up to 500MB."
   }
 ]

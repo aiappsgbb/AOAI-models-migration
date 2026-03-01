@@ -1,47 +1,32 @@
 [
   {
     "id": "RAG_001",
-    "scenario": "buscar_pelicula_por_titulo_y_disponibilidad",
     "query": "¿La película \"La Última Noche\" está disponible en Netflix España y en qué idiomas puedo verla?",
     "context": "Extracto del catálogo interno (ES) actualizado el 2026-02-10: \"La Última Noche\" (2023) aparece como disponible en Netflix España. Ficha de audio/subtítulos: audio en español (ES) e inglés; subtítulos en español (ES), inglés y portugués. Nota: la disponibilidad puede variar por región, pero este registro corresponde a ES.",
-    "ground_truth": "\"La Última Noche\" está disponible en Netflix España. Puedes verla con audio en español e inglés, y con subtítulos en español, inglés y portugués.",
-    "expected_behavior": "Debe basarse únicamente en el contexto recuperado para confirmar disponibilidad en España y enumerar los idiomas de audio y subtítulos, sin añadir idiomas o regiones no mencionadas.",
-    "complexity": "low"
+    "ground_truth": "\"La Última Noche\" está disponible en Netflix España. Puedes verla con audio en español e inglés, y con subtítulos en español, inglés y portugués."
   },
   {
     "id": "RAG_002",
-    "scenario": "recomendacion_por_genero_y_duracion",
     "query": "Busco una comedia romántica de menos de 100 minutos que esté en Netflix México. ¿Qué opciones tienes y cuál es la más corta?",
     "context": "Guía de atención al cliente - Catálogo MX (actualización 2026-01-28). Comedias románticas disponibles en Netflix México: \"Cita a Ciegas\" (2019) duración 1 h 32 min; audio: español, subtítulos: español/inglés. \"Amor en 90\" (2021) duración 1 h 29 min; audio: español e inglés, subtítulos: español/inglés. \"Beso de Verano\" (2018) duración 1 h 41 min; audio: español, subtítulos: español.",
-    "ground_truth": "Opciones de comedia romántica de menos de 100 minutos en Netflix México: \"Cita a Ciegas\" (1 h 32 min) y \"Amor en 90\" (1 h 29 min). La más corta es \"Amor en 90\" con 1 h 29 min.",
-    "expected_behavior": "Debe filtrar por género, región (México) y duración (<100 min) usando el contexto, listar solo las que cumplen y comparar duraciones para identificar la más corta.",
-    "complexity": "medium"
+    "ground_truth": "Opciones de comedia romántica de menos de 100 minutos en Netflix México: \"Cita a Ciegas\" (1 h 32 min) y \"Amor en 90\" (1 h 29 min). La más corta es \"Amor en 90\" con 1 h 29 min."
   },
   {
     "id": "RAG_003",
-    "scenario": "contexto_insuficiente_para_fecha_de_salida",
     "query": "¿Cuándo se va de Netflix Argentina la película \"Horizonte Rojo\"? Quiero saber el día exacto.",
     "context": "FAQ interna de catálogo (AR) - sección \"Títulos con licencia\": \"Horizonte Rojo\" figura como disponible actualmente en Netflix Argentina bajo licencia de terceros. El documento indica que algunos títulos pueden salir del catálogo con aviso en la ficha del título dentro de la app, pero no incluye fechas de salida en este listado. Recomendación operativa: si el cliente necesita la fecha exacta, confirmar si aparece el aviso \"Disponible hasta\" en la página del título.",
-    "ground_truth": "No se puede determinar el día exacto de salida con la información proporcionada; el documento solo indica que está disponible actualmente y que la fecha exacta, si existe, se muestra como aviso \"Disponible hasta\" en la ficha del título dentro de la app.",
-    "expected_behavior": "Debe reconocer que el contexto no contiene una fecha concreta, evitar inventarla y orientar al usuario a revisar el aviso \"Disponible hasta\" en la app, tal como indica el contexto.",
-    "complexity": "medium"
+    "ground_truth": "No se puede determinar el día exacto de salida con la información proporcionada; el documento solo indica que está disponible actualmente y que la fecha exacta, si existe, se muestra como aviso \"Disponible hasta\" en la ficha del título dentro de la app."
   },
   {
     "id": "RAG_004",
-    "scenario": "resolver_contradiccion_sobre_disponibilidad_regional",
     "query": "Me dicen cosas distintas: ¿\"El Tren de Medianoche\" está en Netflix Chile o no? Necesito una respuesta clara.",
     "context": "Documento A (Catálogo CL, 2026-02-01): \"El Tren de Medianoche\" (2020) - Estado: Disponible en Netflix Chile. Calidad máxima: HD. Documento B (Boletín de licencias CL, 2026-02-20): \"El Tren de Medianoche\" - Estado: No disponible en Netflix Chile (licencia expirada el 2026-02-18). Nota del boletín: \"Priorizar el boletín de licencias cuando haya discrepancias con el catálogo\".",
-    "ground_truth": "Según el boletín de licencias más reciente, \"El Tren de Medianoche\" no está disponible en Netflix Chile porque la licencia expiró el 2026-02-18; el boletín indica que debe priorizarse cuando hay discrepancias.",
-    "expected_behavior": "Debe detectar la contradicción, aplicar la regla de prioridad indicada en el contexto (boletín de licencias) y dar una respuesta única y justificada sin mezclar estados.",
-    "complexity": "high"
+    "ground_truth": "Según el boletín de licencias más reciente, \"El Tren de Medianoche\" no está disponible en Netflix Chile porque la licencia expiró el 2026-02-18; el boletín indica que debe priorizarse cuando hay discrepancias."
   },
   {
     "id": "RAG_005",
-    "scenario": "comparar_versiones_y_accesibilidad",
     "query": "Quiero ver \"Sombras del Pasado\" con audiodescripción y subtítulos para sordos. ¿Está disponible en Netflix Colombia y en qué versión (cine o extendida)?",
     "context": "Ficha de título - Netflix Colombia (CO) - 2026-02-15: \"Sombras del Pasado\" (2017) disponible. Versiones: \"Versión de cine\" (1 h 48 min) y \"Versión extendida\" (2 h 05 min). Accesibilidad: la versión de cine incluye audiodescripción en español y subtítulos para sordos y personas con dificultades auditivas (SDH) en español; la versión extendida no incluye audiodescripción y solo tiene subtítulos estándar en español e inglés.",
-    "ground_truth": "Sí, está disponible en Netflix Colombia. Para audiodescripción y subtítulos SDH debes elegir la \"Versión de cine\" (1 h 48 min), que incluye audiodescripción en español y SDH en español; la versión extendida no tiene audiodescripción y no ofrece SDH.",
-    "expected_behavior": "Debe usar el contexto para confirmar disponibilidad en Colombia, distinguir entre versiones y mapear correctamente qué opciones de accesibilidad tiene cada una, recomendando la versión que cumple los requisitos del usuario.",
-    "complexity": "high"
+    "ground_truth": "Sí, está disponible en Netflix Colombia. Para audiodescripción y subtítulos SDH debes elegir la \"Versión de cine\" (1 h 48 min), que incluye audiodescripción en español y SDH en español; la versión extendida no tiene audiodescripción y no ofrece SDH."
   }
 ]

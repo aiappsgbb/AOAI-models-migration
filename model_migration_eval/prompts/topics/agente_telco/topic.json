@@ -1,0 +1,15 @@
+{
+  "topic": "Agente Telco",
+  "slug": "agente_telco",
+  "models": [
+    "gpt4",
+    "gpt41_mini",
+    "gpt4o",
+    "gpt5",
+    "gpt51",
+    "gpt5_reasoning"
+  ],
+  "archived_at": "2026-03-01T01:26:23.889487",
+  "prompts_updated_at": "2026-03-01T01:20:20.979425",
+  "data_generated_at": "2026-03-01T01:20:20.979425"
+}

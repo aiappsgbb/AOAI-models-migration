@@ -1,24 +1,27 @@
 Generate exactly {count} realistic classification test scenarios for the topic: "{topic}".
 
 Return a JSON object with a single key "scenarios" containing an array.
-Each element MUST have this exact schema:
+Each element MUST have this exact schema (7 flat fields, CSV-compatible):
 {{
   "scenarios": [
     {{
       "id": "CLASS_001",
-      "scenario": "short_snake_case",
       "customer_input": "Realistic customer message (2-4 sentences)",
       "expected_category": "readable_snake_case",
       "expected_subcategory": "descriptive_subcategory",
       "expected_priority": "low|medium|high|critical",
       "expected_sentiment": "VALUE",
-      "context": {{}},
-      "follow_up_questions_expected": ["question1", "question2"]
+      "context": "{{\"key1\": \"value1\", \"key2\": \"value2\"}}"
     }}
   ]
 }}
 
 {category_block}
+
+FIELD RULES:
+- "context" is a JSON string (a stringified dict of domain-specific metadata).
+  Example: "{{\"account_tenure_months\": 18, \"plan\": \"premium\"}}"
+  - do NOT use a raw object; it MUST be a JSON-encoded string.
 
 SENTIMENT VALUES (use exactly one of these):
   very_angry, angry, frustrated, concerned, worried, neutral, curious, cautious, positive, professional
@@ -29,7 +32,6 @@ IMPORTANT RULES:
 3. Distribute priorities evenly: ~20% critical, ~30% high, ~30% medium, ~20% low
 4. Mix sentiments realistically using ONLY the values listed above
 5. Customer inputs must be natural, varied in tone and length
-6. Context fields should contain domain-specific metadata
-7. Follow-up questions should be relevant and specific to the scenario
-8. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON
-9. The "scenarios" array MUST contain EXACTLY {count} items — not more, not less
+6. Context fields should contain domain-specific metadata as a JSON string
+7. Return ONLY the JSON object with "scenarios" key - no markdown fences, no explanation, no comments inside the JSON
+8. The "scenarios" array MUST contain EXACTLY {count} items - not more, not less
