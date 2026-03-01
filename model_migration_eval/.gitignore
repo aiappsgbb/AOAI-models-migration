@@ -47,3 +47,4 @@ prompts/history/*.md
 *.bat
 tests/
 *.ini
+data/users/

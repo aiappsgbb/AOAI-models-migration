@@ -621,6 +621,9 @@ def write_archived_topic(
     topic_name: str,
     prompts_map: Dict[str, Any],
     test_data_map: Dict[str, list],
+    *,
+    prompts_topics_dir: Path = None,
+    data_topics_dir: Path = None,
 ) -> Path:
     """Write an archived topic into the solution structure.
 
@@ -635,6 +638,10 @@ def write_archived_topic(
               (one directory per model key).
         test_data_map: Up to 5 keys (classification, dialog, general,
             rag, tool_calling) → list of scenario dicts.
+        prompts_topics_dir: Override the default ``prompts/topics/``
+            base directory (used for per-user isolation).
+        data_topics_dir: Override the default ``data/synthetic/topics/``
+            base directory (used for per-user isolation).
 
     Estructura creada:
         prompts/topics/{slug}/
@@ -645,8 +652,8 @@ def write_archived_topic(
         └── {task}/{data_filename}.json      (por cada tipo de datos)
     """
 
-    prompt_topic_dir = PROMPTS_TOPICS_DIR / slug
-    data_topic_dir   = DATA_TOPICS_DIR / slug
+    prompt_topic_dir = (prompts_topics_dir or PROMPTS_TOPICS_DIR) / slug
+    data_topic_dir   = (data_topics_dir or DATA_TOPICS_DIR) / slug
 
     all_models: set = set()
 

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In — Model Migration Evaluator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% include '_fluent_head.html' %}
+    <style>
+        .code-input {
+            width: 48px; height: 56px;
+            text-align: center; font-size: 24px; font-weight: 700;
+            border: 2px solid var(--border-default);
+            border-radius: 8px; background: var(--surface-card);
+            transition: border-color .15s, box-shadow .15s;
+            caret-color: var(--brand-primary);
+        }
+        .code-input:focus {
+            outline: none;
+            border-color: var(--brand-primary);
+            box-shadow: 0 0 0 2px var(--brand-lighter);
+        }
+        .fade-in { animation: fadeIn .3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .spinner { border: 3px solid var(--border-default); border-top-color: var(--brand-primary); border-radius: 50%; width: 20px; height: 20px; animation: spin .6s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-[#faf9f8] min-h-screen flex items-center justify-center">
+
+<div class="w-full max-w-md mx-auto px-4">
+    <!-- Logo / brand -->
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-brand-500 mb-4">
+            <svg class="h-7 w-7 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+        </div>
+        <h1 class="text-xl font-semibold text-neutral-900">Model Migration Evaluator</h1>
+        <p class="text-sm text-neutral-600 mt-1">Sign in to access your workspace</p>
+    </div>
+
+    <!-- Card -->
+    <div class="fluent-card p-8">
+
+        <!-- ═══ Step 1: Email ═══ -->
+        <div id="step-email">
+            <h2 class="text-lg font-semibold text-neutral-900 mb-1">Sign in</h2>
+            <p class="text-sm text-neutral-600 mb-6">Enter your email to receive a verification code</p>
+
+            <form id="email-form" onsubmit="return requestCode(event)">
+                <label class="fluent-label" for="email-input">Email address</label>
+                <input id="email-input" type="email" required autocomplete="email"
+                       class="fluent-input mb-4" placeholder="you@example.com">
+
+                <div id="email-error" class="text-sm text-red-600 mb-3 hidden"></div>
+
+                <button id="email-btn" type="submit"
+                        class="fluent-btn-primary w-full h-10 flex items-center justify-center gap-2">
+                    <span id="email-btn-text">Send verification code</span>
+                    <span id="email-btn-spinner" class="spinner hidden"></span>
+                </button>
+            </form>
+        </div>
+
+        <!-- ═══ Step 2: OTP Code ═══ -->
+        <div id="step-code" class="hidden fade-in">
+            <h2 class="text-lg font-semibold text-neutral-900 mb-1">Check your email</h2>
+            <p class="text-sm text-neutral-600 mb-1">
+                We sent a 6-digit code to <strong id="sent-to-email" class="text-neutral-800"></strong>
+            </p>
+            <p class="text-xs text-neutral-500 mb-6">The code expires in 5 minutes</p>
+
+            <form id="code-form" onsubmit="return verifyCode(event)">
+                <div class="flex justify-center gap-3 mb-4">
+                    <input class="code-input" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="0" autocomplete="one-time-code">
+                    <input class="code-input" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="1">
+                    <input class="code-input" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="2">
+                    <input class="code-input" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="3">
+                    <input class="code-input" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="4">
+                    <input class="code-input" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="5">
+                </div>
+
+                <div id="code-error" class="text-sm text-red-600 mb-3 hidden text-center"></div>
+
+                <button id="code-btn" type="submit"
+                        class="fluent-btn-primary w-full h-10 flex items-center justify-center gap-2">
+                    <span id="code-btn-text">Verify</span>
+                    <span id="code-btn-spinner" class="spinner hidden"></span>
+                </button>
+            </form>
+
+            <div class="flex items-center justify-between mt-4 text-sm">
+                <button onclick="backToEmail()" class="text-brand-600 hover:text-brand-700 font-medium">
+                    ← Use a different email
+                </button>
+                <button id="resend-btn" onclick="resendCode()" class="text-brand-600 hover:text-brand-700 font-medium">
+                    Resend code
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <p class="text-xs text-neutral-500 text-center mt-6">
+        No password needed — sign in with your email address.
+    </p>
+</div>
+
+<script>
+const codeInputs = document.querySelectorAll('.code-input');
+
+// Auto-advance and paste support for code inputs
+codeInputs.forEach((inp, i) => {
+    inp.addEventListener('input', () => {
+        inp.value = inp.value.replace(/\D/g, '').slice(0, 1);
+        if (inp.value && i < codeInputs.length - 1) codeInputs[i + 1].focus();
+        // Auto-submit when all filled
+        if (getCode().length === 6) document.getElementById('code-form').requestSubmit();
+    });
+    inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !inp.value && i > 0) codeInputs[i - 1].focus();
+    });
+    inp.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const pasted = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+        pasted.split('').forEach((ch, j) => { if (codeInputs[j]) codeInputs[j].value = ch; });
+        if (pasted.length === 6) document.getElementById('code-form').requestSubmit();
+        else if (pasted.length > 0) codeInputs[Math.min(pasted.length, 5)].focus();
+    });
+});
+
+function getCode() {
+    return Array.from(codeInputs).map(i => i.value).join('');
+}
+
+async function requestCode(e) {
+    e.preventDefault();
+    const email = document.getElementById('email-input').value.trim();
+    if (!email) return;
+
+    const btn = document.getElementById('email-btn');
+    const errEl = document.getElementById('email-error');
+    btn.disabled = true;
+    document.getElementById('email-btn-text').textContent = 'Sending…';
+    document.getElementById('email-btn-spinner').classList.remove('hidden');
+    errEl.classList.add('hidden');
+
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email}),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            errEl.textContent = data.error || 'Failed to send code';
+            errEl.classList.remove('hidden');
+            return;
+        }
+        // If server authenticated directly (code_verification off), redirect now
+        if (data.status === 'authenticated') {
+            window.location.href = data.redirect || '/';
+            return;
+        }
+        // Switch to step 2 (OTP code entry)
+        document.getElementById('sent-to-email').textContent = email;
+        document.getElementById('step-email').classList.add('hidden');
+        document.getElementById('step-code').classList.remove('hidden');
+        codeInputs[0].focus();
+    } catch (err) {
+        errEl.textContent = 'Network error. Please try again.';
+        errEl.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        document.getElementById('email-btn-text').textContent = 'Send verification code';
+        document.getElementById('email-btn-spinner').classList.add('hidden');
+    }
+}
+
+async function verifyCode(e) {
+    e.preventDefault();
+    const email = document.getElementById('email-input').value.trim();
+    const code = getCode();
+    if (code.length !== 6) return;
+
+    const btn = document.getElementById('code-btn');
+    const errEl = document.getElementById('code-error');
+    btn.disabled = true;
+    document.getElementById('code-btn-text').textContent = 'Verifying…';
+    document.getElementById('code-btn-spinner').classList.remove('hidden');
+    errEl.classList.add('hidden');
+
+    try {
+        const res = await fetch('/api/auth/verify', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email, code}),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            errEl.textContent = data.error || 'Verification failed';
+            errEl.classList.remove('hidden');
+            // Clear inputs
+            codeInputs.forEach(i => i.value = '');
+            codeInputs[0].focus();
+            return;
+        }
+        // Success — redirect to dashboard
+        window.location.href = data.redirect || '/';
+    } catch (err) {
+        errEl.textContent = 'Network error. Please try again.';
+        errEl.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        document.getElementById('code-btn-text').textContent = 'Verify';
+        document.getElementById('code-btn-spinner').classList.add('hidden');
+    }
+}
+
+function backToEmail() {
+    document.getElementById('step-code').classList.add('hidden');
+    document.getElementById('step-email').classList.remove('hidden');
+    codeInputs.forEach(i => i.value = '');
+    document.getElementById('email-input').focus();
+}
+
+async function resendCode() {
+    const email = document.getElementById('email-input').value.trim();
+    if (!email) return;
+    const btn = document.getElementById('resend-btn');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+        await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email}),
+        });
+        btn.textContent = 'Code sent ✓';
+        setTimeout(() => { btn.textContent = 'Resend code'; btn.disabled = false; }, 3000);
+    } catch {
+        btn.textContent = 'Resend code';
+        btn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>

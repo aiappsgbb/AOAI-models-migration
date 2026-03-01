@@ -43,6 +43,7 @@ This framework automates that process end-to-end:
 | **Results Persistence** | Evaluations and comparisons auto-save to disk — browse, filter, inspect, and delete from the UI |
 | **Verbose Logging** | Rich narrative verbose mode with colour-coded entries (step/ok/warn/err/detail/head) and timestamped progress feed |
 | **Foundry Control Plane** | Optional LLM-as-judge evaluation via Microsoft Foundry Runtime — coherence, fluency, relevance, task adherence, intent resolution — with results visible in the Foundry dashboard |
+| **Multi-User Auth** | Email + OTP authentication with per-user content isolation — each user gets their own prompts, test data, and results |
 | **Copilot Studio UI** | Fluent 2 design system inspired by Microsoft Copilot Studio — top header bar, collapsible sidebar, brand-blue palette, flat controls, Segoe UI typography |
 | **Auto-Detection** | SDK automatically uses `max_completion_tokens` for newer-generation and o-series models |
 
@@ -82,7 +83,13 @@ model_migration_eval/
 │       └── system_message.txt      #   System message for the data-generation LLM
 │
 ├── data/
-│   ├── synthetic/                  # Active synthetic evaluation datasets (JSON or CSV)
+│   ├── auth.db                      # SQLite user database (auto-created)
+│   ├── users/                      # ⬅ Per-user isolated content
+│   │   └── <user_id>/              #   e.g. angels_at_microsoft_com
+│   │       ├── prompts/            #   User's prompt templates
+│   │       ├── synthetic/          #   User's test data
+│   │       └── results/            #   User's evaluation results
+│   ├── synthetic/                  # Shared/seed synthetic datasets (copied to new users)
 │   │   ├── classification/         #   Classification scenarios (20) — .json + optional .csv
 │   │   ├── dialog/                 #   Follow-up dialog samples (15)
 │   │   ├── general/               #   General capability tests (15)
@@ -92,7 +99,7 @@ model_migration_eval/
 │   │       ├── red_sea_diving_travel/
 │   │       ├── specialized_agent_.../  # aeronautics
 │   │       └── telco_customer_service/
-│   └── results/                    # Auto-saved evaluation & comparison JSON files
+│   └── results/                    # Legacy shared results (migrated to per-user)
 │
 ├── prompts/                        # ⬅ Prompt templates (editable on disk or via UI)
 │   ├── gpt4/                       #   GPT-4.1 optimised prompts
@@ -113,6 +120,13 @@ model_migration_eval/
 │       └── telco_customer_service/
 │
 ├── src/
+│   ├── auth/                        # ⬅ Multi-user authentication module
+│   │   ├── models.py               #   User dataclass
+│   │   ├── user_store.py           #   SQLite-backed user store
+│   │   ├── code_manager.py         #   OTP code generation & verification
+│   │   ├── email_sender.py         #   Email backends (SMTP / console)
+│   │   ├── session.py              #   Flask session middleware & public routes
+│   │   └── user_context.py         #   Per-user directory layout & seeding
 │   ├── clients/
 │   │   └── azure_openai.py         # Azure OpenAI client (sync/async/streaming)
 │   ├── evaluation/
@@ -128,7 +142,8 @@ model_migration_eval/
 │       ├── routes.py               # Flask API routes (1500+ lines, 50+ routes)
 │       └── templates/
 │           ├── _fluent_head.html    # Fluent 2 design system (CSS tokens, Tailwind config, component classes)
-│           ├── _sidebar.html        # Top header bar + collapsible left sidebar navigation
+│           ├── _sidebar.html        # Top header bar + collapsible left sidebar + user menu
+│           ├── login.html           # Email + OTP two-step login page
 │           ├── index.html           # Dashboard — quick single-prompt test
 │           ├── evaluate.html        # Batch evaluator with verbose mode
 │           ├── compare.html         # Model comparison with charts
@@ -140,6 +155,7 @@ model_migration_eval/
 ├── tools/
 │   ├── add_model.py                 # CLI tool: add a new model (interactive or scripted)
 │   ├── import_topic.py              # CLI tool: import external topic from source prompt + test data
+│   ├── migrate_to_multiuser.py      # Migrate existing data to a user's namespace
 │   ├── regenerate_all_topics.py     # Regenerate prompts + test data for all archived topics
 │   ├── gpt4_classification_prompt.md # Sample classification prompt for import testing
 │   ├── gpt4_dialog_prompt.txt       # Sample dialog prompt for import testing
@@ -182,6 +198,13 @@ Edit `.env` and set your Azure OpenAI credentials:
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_API_KEY=your-api-key-here
 FOUNDRY_PROJECT_ENDPOINT=https://your-hub.services.ai.azure.com/api/projects/your-project  # Optional
+
+# Authentication SMTP (optional — see "Authentication" section below)
+SMTP_HOST=smtp.office365.com
+SMTP_USERNAME=noreply@yourdomain.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM_EMAIL=noreply@yourdomain.com
+FLASK_SECRET_KEY=          # Random hex string; auto-generated if empty
 ```
 
 ### 2. Configure Models
@@ -234,8 +257,8 @@ The UI follows the **Microsoft Copilot Studio** visual language — a **Fluent 2
 
 | Element | Description |
 |---------|-------------|
-| **Top header bar** | 48 px, light grey (`#F0F0F0`), brand logo, app title, active topic badge, and "Azure OpenAI" environment label |
-| **Left sidebar** | Icon-only rail (48 px) that expands to 220 px on hover; 5 navigation links + Settings gear; active page indicated by a 3 px blue accent bar |
+| **Top header bar** | 48 px, light grey (`#F0F0F0`), brand logo, app title, active topic badge, and **user menu** (email + dropdown with Sign out) |
+| **Left sidebar** | Icon-only rail (48 px) that expands to 220 px on hover; 5 navigation links + user info + Sign out + Settings gear; active page indicated by a 3 px blue accent bar |
 | **Content area** | Offset by header + sidebar; neutral surface background (`#FAF9F8`); Fluent cards, inputs, badges, and buttons throughout |
 
 ### Tab Overview
@@ -323,6 +346,186 @@ The Prompts page has four sub-tabs:
 | **Test Data** | Browse, create, and edit test scenarios for all 5 evaluation types via **dynamic web forms** — each type gets a purpose-built form with specialised sub-editors (conversation turns, tool definitions, key-value context, tag lists). Toggle to raw JSON view for advanced editing |
 
 Additionally, the left sidebar includes an **📥 Import Topic** panel with a **Samples** link that opens a reference page (`/import-samples`) showing copyable JSON and CSV examples for all 5 task types (see [Importing External Topics](#importing-external-topics) below).
+
+---
+
+## 🔐 Authentication & Multi-User Isolation
+
+The framework supports **per-user authentication** with email + OTP (one-time password) codes. Each authenticated user gets an isolated workspace with their own prompts, test data, and evaluation results.
+
+### How It Works
+
+The login flow depends on the `code_verification` setting:
+
+**With `code_verification: true`** (default — full OTP flow):
+
+1. User enters their **email address** on the login page.
+2. A **6-digit OTP code** is sent to that email (via SMTP or printed to the console in dev mode).
+3. User enters the code → a **session cookie** is created (default: 8 hours).
+4. On first login, the user's **isolated directory** is created and seeded with the shared prompt templates and test data.
+5. All subsequent operations (evaluations, comparisons, prompt edits, topic management) read from and write to the user's own namespace.
+
+**With `code_verification: false`** (email-only — no OTP):
+
+1. User enters their **email address** on the login page.
+2. The session is created **immediately** — no code is generated or sent.
+3. This is ideal for **demos, workshops, and development** where SMTP isn't available or OTP friction is undesirable.
+4. Per-user isolation still applies — each email gets its own workspace.
+
+### Per-User Directory Layout
+
+```
+data/users/<user_id>/
+├── prompts/
+│   ├── gpt4/                    # Active prompt templates per model
+│   ├── gpt4o/
+│   ├── gpt5/
+│   ├── history/                 # User's own version history (starts empty)
+│   └── topics/                  # Archived topics
+├── synthetic/
+│   ├── classification/          # Test scenarios
+│   ├── dialog/
+│   ├── general/
+│   ├── rag/
+│   ├── tool_calling/
+│   └── topics/                  # Archived topic data
+└── results/                     # Evaluation & comparison results
+```
+
+The `user_id` is derived from the email: `angels@microsoft.com` → `angels_at_microsoft_com`.
+
+### Initial Content for New Users
+
+On first login, a new user receives:
+- ✅ **All active prompt templates** (every configured model × 4 task types)
+- ✅ **All archived topics** (prompts + test data)
+- ✅ **All synthetic test data** (classification, dialog, general, RAG, tool calling)
+- ❌ **No version history** — starts clean, only tracks the user's own changes
+- ❌ **No evaluation results** — starts empty
+
+### Configuring Authentication
+
+Authentication is configured in `config/settings.yaml` under the `auth:` section:
+
+```yaml
+auth:
+  # Email provider: "smtp" or "console" (console prints codes to stdout for dev)
+  email_provider: "console"
+
+  # Code verification: when false, users authenticate with just their email
+  # (no OTP code is generated or sent). Useful for dev/demo environments.
+  code_verification: true
+
+  # Session lifetime (default: 8 hours)
+  session_ttl_seconds: 28800
+
+  # OTP code settings (only used when code_verification is true)
+  code_length: 6
+  code_ttl_seconds: 300   # 5 minutes
+  max_attempts: 3
+
+  # SMTP settings (used when email_provider is "smtp" and code_verification is true)
+  smtp:
+    host: "${SMTP_HOST}"             # e.g. smtp.office365.com
+    port: 587
+    username: "${SMTP_USERNAME}"     # e.g. noreply@yourdomain.com
+    password: "${SMTP_PASSWORD}"     # App password or SMTP credential
+    use_tls: true
+    sender: "${SMTP_FROM_EMAIL}"     # Sender address (defaults to username)
+```
+
+### Development Mode (Console)
+
+By default, `email_provider` is set to `"console"`.  OTP codes are **printed to stdout and the application log** instead of being emailed.  This is ideal for local development — no SMTP configuration needed:
+
+```
+==================================================
+  [DEV] OTP code for angels@microsoft.com: 482917
+==================================================
+```
+
+### Production Mode (SMTP)
+
+To send real emails, set `email_provider: "smtp"` and configure the SMTP connection.  Add the credentials to your `.env` file:
+
+```dotenv
+SMTP_HOST=smtp.office365.com
+SMTP_USERNAME=noreply@yourdomain.com
+SMTP_PASSWORD=your-app-password-here
+SMTP_FROM_EMAIL=noreply@yourdomain.com
+```
+
+Then update `settings.yaml`:
+
+```yaml
+auth:
+  email_provider: "smtp"   # ← change from "console" to "smtp"
+```
+
+#### SMTP Provider Examples
+
+| Provider | Host | Port | Notes |
+|----------|------|------|-------|
+| **Microsoft 365** | `smtp.office365.com` | 587 | Use an App Password (requires MFA) or OAuth-enabled SMTP |
+| **Gmail** | `smtp.gmail.com` | 587 | Use an [App Password](https://myaccount.google.com/apppasswords) (requires 2FA enabled) |
+| **SendGrid** | `smtp.sendgrid.net` | 587 | Username is `apikey`, password is your SendGrid API key |
+| **Amazon SES** | `email-smtp.<region>.amazonaws.com` | 587 | Use IAM SMTP credentials |
+| **Custom / On-prem** | Your SMTP server | 25/587 | Set `use_tls: false` if not supported |
+
+#### Microsoft 365 Setup (Step by Step)
+
+1. **Create a shared mailbox** (e.g. `noreply@yourdomain.com`) in Microsoft 365 Admin Center, or use an existing mailbox.
+2. **Enable SMTP AUTH** for the mailbox: Exchange Admin → Mailbox → Mail flow → ☑ *Authenticated SMTP*.
+3. If the account has **MFA enabled**, create an App Password: [https://mysignins.microsoft.com/security-info](https://mysignins.microsoft.com/security-info) → Add method → App password.
+4. Set the environment variables:
+   ```dotenv
+   SMTP_HOST=smtp.office365.com
+   SMTP_USERNAME=noreply@yourdomain.com
+   SMTP_PASSWORD=<the-app-password>
+   SMTP_FROM_EMAIL=noreply@yourdomain.com
+   ```
+5. Change `email_provider` to `"smtp"` in `settings.yaml`.
+6. Restart the server and test login.
+
+#### Gmail Setup (Step by Step)
+
+1. Enable **2-Step Verification** on the Google account: [https://myaccount.google.com/security](https://myaccount.google.com/security).
+2. Generate an **App Password**: [https://myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) → Select *Mail* → Generate.
+3. Set the environment variables:
+   ```dotenv
+   SMTP_HOST=smtp.gmail.com
+   SMTP_USERNAME=yourname@gmail.com
+   SMTP_PASSWORD=<the-16-char-app-password>
+   SMTP_FROM_EMAIL=yourname@gmail.com
+   ```
+4. Change `email_provider` to `"smtp"` in `settings.yaml`.
+
+### Migrating Existing Data to a User
+
+If you have existing prompts, test data, and results from before enabling multi-user mode, use the migration tool to copy them into a user's namespace:
+
+```bash
+# Dry-run first (shows what would be copied)
+python tools/migrate_to_multiuser.py --email user@example.com --dry-run
+
+# Execute the migration
+python tools/migrate_to_multiuser.py --email user@example.com
+```
+
+This copies `prompts/`, `data/synthetic/`, and `data/results/` into `data/users/<user_id>/` and creates the user record in the auth database.
+
+### Session & Security
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `code_verification` | `true` | When `false`, users sign in with just their email (no OTP code sent) |
+| `session_ttl_seconds` | 28800 (8h) | How long a session cookie remains valid |
+| `code_length` | 6 | Number of digits in the OTP code |
+| `code_ttl_seconds` | 300 (5 min) | How long an OTP code remains valid |
+| `max_attempts` | 3 | Max OTP verification attempts before the code is invalidated |
+| `FLASK_SECRET_KEY` | Auto-generated | Set via env var for persistence across restarts (recommended for production) |
+
+OTP codes are **SHA-256 hashed** before storage.  The auth database (`data/auth.db`) uses SQLite with thread-safe per-thread connections.
 
 ---
 
@@ -1519,6 +1722,16 @@ Results are automatically saved to `data/results/` as JSON files.
 
 All endpoints are available at `http://127.0.0.1:<port>/api/`.
 
+### Authentication
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/login` | Login page (email + OTP) |
+| `POST` | `/api/auth/login` | Step 1: send OTP code to email |
+| `POST` | `/api/auth/verify` | Step 2: verify OTP code, create session |
+| `POST` | `/api/auth/logout` | Clear session |
+| `GET` | `/api/auth/me` | Get current authenticated user info |
+
 ### Health & Configuration
 
 | Method | Endpoint | Description |
@@ -1757,6 +1970,10 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 
 | Class | Module | Purpose |
 |-------|--------|---------|
+| `UserStore` | `src.auth.user_store` | SQLite-backed user store — get_or_create, email-to-slug conversion |
+| `CodeManager` | `src.auth.code_manager` | OTP generation (SHA-256 hashed), verification with TTL and attempt limits |
+| `EmailSender` | `src.auth.email_sender` | Abstract email backend — `SmtpEmailSender` (production) + `ConsoleEmailSender` (dev) |
+| `UserContext` | `src.auth.user_context` | Per-user directory layout, path resolution, and first-login seeding |
 | `AzureOpenAIClient` | `src.clients.azure_openai` | Wraps the OpenAI SDK — connection management, chat completions, streaming |
 | `ModelEvaluator` | `src.evaluation.evaluator` | Runs classification/dialog/general/RAG/tool_calling evaluations against a single model |
 | `EvaluationResult` | `src.evaluation.evaluator` | Dataclass container for evaluation output — serialises to/from JSON |
@@ -1776,7 +1993,7 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 | Frontend | Tailwind CSS (CDN) + Fluent 2 design system + Chart.js |
 | AI API | Azure OpenAI SDK (`openai` package) |
 | Config | YAML + `.env` with variable substitution |
-| Storage | File-based JSON (no database required) |
+| Storage | File-based JSON for data + SQLite for user auth (`data/auth.db`) |
 | Caching | `diskcache` for API responses |
 
 ---

@@ -16,6 +16,9 @@ pyyaml>=6.0.1
 # Evaluation & Metrics
 scikit-learn>=1.3.0
 
+# Tokenizer (prompt health analysis)
+tiktoken>=0.7.0
+
 # Async Support
 httpx>=0.26.0
 

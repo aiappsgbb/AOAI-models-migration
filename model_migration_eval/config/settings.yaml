@@ -207,3 +207,31 @@ web:
     origins:
       - "http://localhost:3000"
       - "http://127.0.0.1:5000"
+
+# =============================================================================
+# Authentication Settings
+# =============================================================================
+auth:
+  # Email provider: "smtp" or "console" (console prints codes to stdout for dev)
+  email_provider: "smtp"
+
+  # Code verification: when false, users authenticate with just their email
+  # (no OTP code is generated or sent). Useful for dev/demo environments.
+  code_verification: false
+
+  # Session lifetime in seconds (default: 8 hours)
+  session_ttl_seconds: 28800
+
+  # OTP code settings
+  code_length: 6
+  code_ttl_seconds: 300   # 5 minutes
+  max_attempts: 3
+
+  # SMTP settings (used when email_provider is "smtp")
+  smtp:
+    host: "${SMTP_HOST}"             # e.g. smtp.office365.com or smtp.gmail.com
+    port: 587
+    username: "${SMTP_USERNAME}"     # e.g. noreply@yourdomain.com
+    password: "${SMTP_PASSWORD}"     # App password or SMTP credential
+    use_tls: true
+    sender: "${SMTP_FROM_EMAIL}"     # Sender address (defaults to username if empty)

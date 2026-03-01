@@ -10,6 +10,21 @@
     },
     "webImageName": {
       "value": "${SERVICE_WEB_IMAGE_NAME}"
+    },
+    "smtpHost": {
+      "value": "${SMTP_HOST}"
+    },
+    "smtpUsername": {
+      "value": "${SMTP_USERNAME}"
+    },
+    "smtpPassword": {
+      "value": "${SMTP_PASSWORD}"
+    },
+    "smtpFromEmail": {
+      "value": "${SMTP_FROM_EMAIL}"
+    },
+    "flaskSecretKey": {
+      "value": "${FLASK_SECRET_KEY}"
     }
   }
 }

@@ -46,6 +46,13 @@ def setup_logging(level: str = "INFO"):
 def run_web_server(host: str = "127.0.0.1", port: int = 5000, debug: bool = False):
     """Run the Flask web application"""
     app = create_app(config_path="config/settings.yaml")
+
+    # Configure session lifetime from settings
+    from datetime import timedelta
+    auth_cfg = app.config.get('SETTINGS', {}).get('auth', {})
+    ttl = int(auth_cfg.get('session_ttl_seconds', 28800))  # default 8h
+    app.permanent_session_lifetime = timedelta(seconds=ttl)
+
     print(f"""
 ╔═══════════════════════════════════════════════════════════╗
 ║     Azure OpenAI Model Migration Evaluation Framework     ║

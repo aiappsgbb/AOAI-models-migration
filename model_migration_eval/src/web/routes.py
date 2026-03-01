@@ -11,9 +11,14 @@ import contextvars
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, g
 from flask_cors import CORS
 
+from ..auth.user_store import UserStore
+from ..auth.code_manager import CodeManager
+from ..auth.email_sender import create_email_sender
+from ..auth.user_context import UserContext
+from ..auth.session import is_public_route
 from ..clients.azure_openai import create_client_from_config
 from ..utils.prompt_loader import PromptLoader
 from ..utils.prompt_manager import PromptManager
@@ -47,6 +52,7 @@ def create_app(config_path: str = None) -> Flask:
     
     # Store configuration
     app.config['CONFIG_PATH'] = config_path or 'config/settings.yaml'
+    # Legacy global paths (kept for seeding new users from shared data)
     app.config['DATA_DIR'] = 'data/synthetic'
     app.config['RESULTS_DIR'] = 'data/results'
 
@@ -57,14 +63,32 @@ def create_app(config_path: str = None) -> Flask:
             app.config['SETTINGS'] = _yaml_init.safe_load(_f_init) or {}
     except Exception:
         app.config['SETTINGS'] = {}
-    
-    # Lazy-loaded client
+
+    # ── Auth infrastructure ──────────────────────────────────────────
+    import os as _os
+    import secrets as _secrets
+    app.secret_key = _os.environ.get('FLASK_SECRET_KEY') or _secrets.token_hex(32)
+
+    _auth_cfg = app.config['SETTINGS'].get('auth', {})
+    _code_verification = _auth_cfg.get('code_verification', True)
+    _user_store = UserStore(db_path='data/auth.db')
+    _code_manager = CodeManager(
+        db_path='data/auth.db',
+        code_length=int(_auth_cfg.get('code_length', 6)),
+        ttl_seconds=int(_auth_cfg.get('code_ttl_seconds', 300)),
+        max_attempts=int(_auth_cfg.get('max_attempts', 3)),
+    )
+    _email_sender = create_email_sender(app.config['SETTINGS'])
+
+    # Per-user instance caches  (user_id → instance)
+    _user_data_loaders: dict = {}
+    _user_prompt_loaders: dict = {}
+    _user_prompt_managers: dict = {}
+    _user_evaluators: dict = {}
+    _user_comparators: dict = {}
+
+    # Lazy-loaded client (shared across all users — same Azure endpoint)
     _client = None
-    _evaluator = None
-    _comparator = None
-    _data_loader = None
-    _prompt_loader = None
-    _prompt_manager = None
     _metrics_calc = None
     _foundry_evaluator = None
     _foundry_checked = False
@@ -74,6 +98,25 @@ def create_app(config_path: str = None) -> Flask:
     _run_logs_lock = threading.Lock()
     _run_logs_max_lines = 2000
     _run_logs_ttl_sec = 3600
+
+    # ── Verbose-log masking (hide sensitive endpoints from UI) ───────
+    import re as _re
+    _mask_patterns: list = []   # [(compiled_regex, replacement), ...]
+    for _env_key in ('AZURE_OPENAI_ENDPOINT', 'FOUNDRY_PROJECT_ENDPOINT'):
+        _val = _os.environ.get(_env_key, '').strip().rstrip('/')
+        if _val:
+            _mask_patterns.append(
+                (_re.compile(_re.escape(_val), _re.IGNORECASE), f'<{_env_key}>'))
+    # Sort longest patterns first so FOUNDRY_PROJECT_ENDPOINT (which is a
+    # longer URL that starts with the AZURE_OPENAI_ENDPOINT prefix) is
+    # replaced before the shorter one can partially match.
+    _mask_patterns.sort(key=lambda pair: len(pair[1]), reverse=True)
+
+    def _mask_verbose_message(msg: str) -> str:
+        """Replace sensitive endpoint URLs with placeholders for verbose UI."""
+        for pattern, replacement in _mask_patterns:
+            msg = pattern.sub(replacement, msg)
+        return msg
     _current_run_id = contextvars.ContextVar("current_run_id", default=None)
 
     # Async comparison jobs storage
@@ -187,6 +230,134 @@ def create_app(config_path: str = None) -> Flask:
 
     _install_run_log_handler_once()
     
+    # ── Helper: get current user context from request ────────────────
+
+    def _get_user_context() -> UserContext:
+        """Return the UserContext for the currently authenticated user.
+
+        Built once per request and cached in ``flask.g``.
+        """
+        ctx = getattr(g, '_user_context', None)
+        if ctx is not None:
+            return ctx
+        user_id = session.get('user_id')
+        if not user_id:
+            raise RuntimeError('Not authenticated')
+        ctx = UserContext(user_id=user_id, base_dir='data/users')
+        g._user_context = ctx
+        return ctx
+
+    # ── Auth middleware ───────────────────────────────────────────────
+
+    @app.before_request
+    def _require_authentication():
+        """Reject unauthenticated requests (except public routes)."""
+        if is_public_route(request.path):
+            return None
+        user_id = session.get('user_id')
+        if not user_id:
+            if request.path.startswith('/api/'):
+                return jsonify({'error': 'Authentication required'}), 401
+            return redirect('/login')
+        # Make user info available to templates
+        g.user_id = user_id
+        g.user_email = session.get('user_email', '')
+
+    @app.context_processor
+    def _inject_user():
+        """Inject user info into all templates."""
+        return {
+            'user_id': getattr(g, 'user_id', None),
+            'user_email': getattr(g, 'user_email', ''),
+        }
+
+    # ── Auth routes ──────────────────────────────────────────────────
+
+    @app.route('/login')
+    def login_page():
+        if session.get('user_id'):
+            return redirect('/')
+        return render_template('login.html')
+
+    @app.route('/api/auth/login', methods=['POST'])
+    def auth_login():
+        """Step 1: send OTP code to email (or directly authenticate if code_verification is off)."""
+        data = request.get_json() or {}
+        email = (data.get('email') or '').strip().lower()
+        if not email or '@' not in email:
+            return jsonify({'error': 'A valid email address is required'}), 400
+
+        # Skip OTP — authenticate immediately with just the email
+        if not _code_verification:
+            user = _user_store.get_or_create(email)
+            _user_store.update_last_login(user.id)
+            uctx = UserContext(user_id=user.id, base_dir='data/users')
+            model_keys = list(app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys())
+            uctx.ensure_dirs(model_keys=model_keys)
+            if not uctx.is_initialised or not any(uctx.prompts_dir.glob('*/*.md')):
+                uctx.seed_from_shared(
+                    shared_prompts='prompts',
+                    shared_data='data/synthetic',
+                )
+            session.permanent = True
+            session['user_id'] = user.id
+            session['user_email'] = user.email
+            return jsonify({'status': 'authenticated', 'user_id': user.id, 'redirect': '/'})
+
+        code = _code_manager.generate(email)
+        sent = _email_sender.send_code(email, code)
+        if not sent:
+            return jsonify({'error': 'Failed to send email. Please try again.'}), 500
+        return jsonify({'status': 'code_sent', 'email': email})
+
+    @app.route('/api/auth/verify', methods=['POST'])
+    def auth_verify():
+        """Step 2: verify OTP code, create session."""
+        data = request.get_json() or {}
+        email = (data.get('email') or '').strip().lower()
+        code = (data.get('code') or '').strip()
+        if not email or not code:
+            return jsonify({'error': 'Email and code are required'}), 400
+
+        ok, msg = _code_manager.verify(email, code)
+        if not ok:
+            return jsonify({'error': msg}), 401
+
+        # Get or create user
+        user = _user_store.get_or_create(email)
+        _user_store.update_last_login(user.id)
+
+        # Bootstrap user directory on first login
+        uctx = UserContext(user_id=user.id, base_dir='data/users')
+        model_keys = list(app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys())
+        uctx.ensure_dirs(model_keys=model_keys)
+        if not uctx.is_initialised or not any((uctx.prompts_dir).glob('*//*.md')):
+            uctx.seed_from_shared(
+                shared_prompts='prompts',
+                shared_data='data/synthetic',
+            )
+
+        # Create session
+        session.permanent = True
+        session['user_id'] = user.id
+        session['user_email'] = user.email
+
+        return jsonify({'status': 'authenticated', 'user_id': user.id, 'redirect': '/'})
+
+    @app.route('/api/auth/logout', methods=['POST'])
+    def auth_logout():
+        session.clear()
+        return jsonify({'status': 'logged_out'})
+
+    @app.route('/api/auth/me')
+    def auth_me():
+        uid = session.get('user_id')
+        if not uid:
+            return jsonify({'authenticated': False}), 401
+        return jsonify({'authenticated': True, 'user_id': uid, 'email': session.get('user_email', '')})
+
+    # ── Per-user instance factories ──────────────────────────────────
+
     def get_client():
         nonlocal _client
         if _client is None:
@@ -196,34 +367,38 @@ def create_app(config_path: str = None) -> Flask:
                 app.logger.error(f"Failed to create client: {e}")
                 return None
         return _client
-    
-    def get_data_loader():
-        nonlocal _data_loader
-        if _data_loader is None:
-            _data_loader = DataLoader(app.config['DATA_DIR'])
-        return _data_loader
-    
-    def get_prompt_loader():
-        nonlocal _prompt_loader
-        if _prompt_loader is None:
-            _prompt_loader = PromptLoader()
-        return _prompt_loader
-    
-    def get_prompt_manager():
-        nonlocal _prompt_manager
-        if _prompt_manager is None:
-            _prompt_manager = PromptManager(
-                data_dir=app.config['DATA_DIR'],
+
+    def get_data_loader() -> DataLoader:
+        uctx = _get_user_context()
+        uid = uctx.user_id
+        if uid not in _user_data_loaders:
+            _user_data_loaders[uid] = DataLoader(str(uctx.data_dir))
+        return _user_data_loaders[uid]
+
+    def get_prompt_loader() -> PromptLoader:
+        uctx = _get_user_context()
+        uid = uctx.user_id
+        if uid not in _user_prompt_loaders:
+            _user_prompt_loaders[uid] = PromptLoader(str(uctx.prompts_dir))
+        return _user_prompt_loaders[uid]
+
+    def get_prompt_manager() -> PromptManager:
+        uctx = _get_user_context()
+        uid = uctx.user_id
+        if uid not in _user_prompt_managers:
+            _user_prompt_managers[uid] = PromptManager(
+                prompts_dir=str(uctx.prompts_dir),
+                data_dir=str(uctx.data_dir),
                 config=app.config.get('SETTINGS', {}),
             )
-        return _prompt_manager
-    
+        return _user_prompt_managers[uid]
+
     def get_metrics_calc():
         nonlocal _metrics_calc
         if _metrics_calc is None:
             _metrics_calc = MetricsCalculator()
         return _metrics_calc
-    
+
     def _load_perf_settings() -> dict:
         """Read performance settings from config file."""
         try:
@@ -235,33 +410,36 @@ def create_app(config_path: str = None) -> Flask:
             return {}
 
     def get_evaluator():
-        nonlocal _evaluator
+        uctx = _get_user_context()
+        uid = uctx.user_id
         client = get_client()
-        if client and _evaluator is None:
+        if client and uid not in _user_evaluators:
             perf = _load_perf_settings()
-            _evaluator = ModelEvaluator(
+            _user_evaluators[uid] = ModelEvaluator(
                 client,
                 prompt_loader=get_prompt_loader(),
                 max_concurrent=perf.get('max_concurrent_requests', 5),
             )
-        return _evaluator
-        
+        return _user_evaluators.get(uid)
+
     def get_comparator():
-        nonlocal _comparator
+        uctx = _get_user_context()
+        uid = uctx.user_id
         client = get_client()
-        if client and _comparator is None:
+        if client and uid not in _user_comparators:
             perf = _load_perf_settings()
-            _comparator = ModelComparator(
+            _user_comparators[uid] = ModelComparator(
                 client,
                 evaluator=get_evaluator(),
                 foundry_evaluator=get_foundry_evaluator(),
                 parallel_models=perf.get('parallel_models', True),
                 config_path=app.config.get('CONFIG_PATH', 'config/settings.yaml'),
             )
-        elif _comparator is not None:
-            # Keep Foundry evaluator refreshed/config-aware
-            _comparator.foundry_evaluator = get_foundry_evaluator()
-        return _comparator
+        else:
+            comp = _user_comparators.get(uid)
+            if comp is not None:
+                comp.foundry_evaluator = get_foundry_evaluator()
+        return _user_comparators.get(uid)
 
     def get_foundry_evaluator():
         """Lazy-load the Foundry evaluator from settings.yaml config."""
@@ -357,6 +535,15 @@ def create_app(config_path: str = None) -> Flask:
             slice_entries = entries[offset:]
             buff['last_access'] = time.time()
             _run_logs[rid] = buff
+
+        # Mask sensitive endpoints before sending to the UI
+        if _mask_patterns:
+            masked = []
+            for entry in slice_entries:
+                e = dict(entry)
+                e['message'] = _mask_verbose_message(e.get('message', ''))
+                masked.append(e)
+            slice_entries = masked
 
         return jsonify({
             'run_id': rid,
@@ -669,7 +856,8 @@ def create_app(config_path: str = None) -> Flask:
 
             # Auto-save results to disk
             try:
-                result.save(app.config['RESULTS_DIR'])
+                uctx = _get_user_context()
+                result.save(str(uctx.results_dir))
                 app.logger.info(f"Auto-saved {evaluation_type} result for {model_name}")
             except Exception as save_err:
                 app.logger.warning(f"Failed to auto-save result: {save_err}")
@@ -718,7 +906,9 @@ def create_app(config_path: str = None) -> Flask:
             _unregister_job()
             return jsonify({'error': 'Comparator not available', 'run_id': run_id}), 500
 
-        results_dir = app.config['RESULTS_DIR']
+        results_dir = str(_get_user_context().results_dir)
+        # Capture user_id for background thread
+        _bg_user_id = session.get('user_id')
 
         # Register job as running
         with _compare_jobs_lock:
@@ -731,6 +921,8 @@ def create_app(config_path: str = None) -> Flask:
 
         def _bg_compare():
             """Background worker — sets run_id context so logs stream correctly."""
+            # Restore user context for this thread
+            _uctx = UserContext(user_id=_bg_user_id, base_dir='data/users')
             token = _current_run_id.set(run_id)
             try:
                 report = comparator.compare_models(
@@ -950,6 +1142,13 @@ def create_app(config_path: str = None) -> Flask:
             _unregister_job()
             return jsonify({'error': 'Client not configured'}), 500
 
+        # Capture user references for background thread
+        _bg_user_id_gen = session.get('user_id')
+        _bg_user_data_dir = str(_get_user_context().data_dir)
+        _bg_prompt_manager = get_prompt_manager()
+        _bg_prompt_loader = get_prompt_loader()
+        _bg_data_loader = get_data_loader()
+
         with _generate_jobs_lock:
             _generate_jobs[run_id] = {
                 'status': 'running',
@@ -962,20 +1161,18 @@ def create_app(config_path: str = None) -> Flask:
             """Background worker for prompt + test data generation."""
             token = _current_run_id.set(run_id)
             try:
-                manager = get_prompt_manager()
+                manager = _bg_prompt_manager
                 results = manager.generate_prompts(
                     topic=topic,
                     client=client,
                     generator_model=generator_model,
-                    data_dir=app.config['DATA_DIR'],
+                    data_dir=_bg_user_data_dir,
                     target_models=target_models,
                     data_counts=data_counts,
                 )
                 # Invalidate caches so new content is picked up
-                loader = get_prompt_loader()
-                loader._cache.clear()
-                dl = get_data_loader()
-                dl.clear_cache()
+                _bg_prompt_loader._cache.clear()
+                _bg_data_loader.clear_cache()
                 payload = {
                     'status': 'generated',
                     'topic': topic,
@@ -1050,6 +1247,12 @@ def create_app(config_path: str = None) -> Flask:
             _unregister_job()
             return jsonify({'error': 'Client not configured'}), 500
 
+        # Capture user references for background thread
+        _bg_user_id_regen = session.get('user_id')
+        _bg_user_data_dir_regen = str(_get_user_context().data_dir)
+        _bg_prompt_manager_regen = get_prompt_manager()
+        _bg_data_loader_regen = get_data_loader()
+
         # Register job as running
         with _regenerate_jobs_lock:
             _regenerate_jobs[run_id] = {
@@ -1063,11 +1266,11 @@ def create_app(config_path: str = None) -> Flask:
             """Background worker for test data regeneration."""
             token = _current_run_id.set(run_id)
             try:
-                manager = get_prompt_manager()
+                manager = _bg_prompt_manager_regen
                 result = manager.regenerate_test_data(
                     client=client,
                     generator_model=generator_model,
-                    data_dir=app.config['DATA_DIR'],
+                    data_dir=_bg_user_data_dir_regen,
                     topic=topic,
                     data_counts=data_counts,
                 )
@@ -1077,8 +1280,7 @@ def create_app(config_path: str = None) -> Flask:
                         _regenerate_jobs[run_id]['error'] = result['error']
                     return
                 # Invalidate data loader cache
-                dl = get_data_loader()
-                dl.clear_cache()
+                _bg_data_loader_regen.clear_cache()
                 payload = {'status': 'regenerated', 'data': result, 'run_id': run_id}
                 with _regenerate_jobs_lock:
                     _regenerate_jobs[run_id]['status'] = 'completed'
@@ -1116,7 +1318,7 @@ def create_app(config_path: str = None) -> Flask:
     @app.route('/api/results')
     def list_results():
         """List saved evaluation results"""
-        results_dir = Path(app.config['RESULTS_DIR'])
+        results_dir = Path(str(_get_user_context().results_dir))
         if not results_dir.exists():
             return jsonify({'results': []})
             
@@ -1146,7 +1348,7 @@ def create_app(config_path: str = None) -> Flask:
         safe_name = Path(filename).name
         if safe_name != filename or '..' in filename:
             return jsonify({'error': 'Invalid filename'}), 400
-        results_dir = Path(app.config['RESULTS_DIR'])
+        results_dir = Path(str(_get_user_context().results_dir))
         file_path = results_dir / safe_name
         if not file_path.exists() or not file_path.suffix == '.json':
             return jsonify({'error': 'Result not found'}), 404
@@ -1164,7 +1366,7 @@ def create_app(config_path: str = None) -> Flask:
         if safe_name != filename or '..' in filename:
             return jsonify({'error': 'Invalid filename'}), 400
             
-        results_dir = Path(app.config['RESULTS_DIR'])
+        results_dir = Path(str(_get_user_context().results_dir))
         file_path = results_dir / safe_name
         
         if not file_path.exists() or not file_path.suffix == '.json':
@@ -1186,7 +1388,7 @@ def create_app(config_path: str = None) -> Flask:
         """Return counts per data-type for the active set and every archived topic."""
         manager = get_prompt_manager()
         data_files = manager._DATA_FILES          # classification, dialog, general
-        data_dir = Path(app.config['DATA_DIR'])
+        data_dir = Path(str(_get_user_context().data_dir))
         topics_dir = data_dir / 'topics'
 
         def _count(base_dir: Path) -> dict:
@@ -1257,9 +1459,9 @@ def create_app(config_path: str = None) -> Flask:
         if topic_slug:
             if not _re.match(r'^[\w]+$', topic_slug):
                 return jsonify({'error': 'Invalid topic slug'}), 400
-            file_path = Path(app.config['DATA_DIR']) / 'topics' / topic_slug / data_type / filename
+            file_path = Path(str(_get_user_context().data_dir)) / 'topics' / topic_slug / data_type / filename
         else:
-            file_path = Path(app.config['DATA_DIR']) / data_type / filename
+            file_path = Path(str(_get_user_context().data_dir)) / data_type / filename
 
         # Try JSON first, fall back to CSV
         csv_path = file_path.with_suffix('.csv')
@@ -1307,10 +1509,10 @@ def create_app(config_path: str = None) -> Flask:
         if topic_slug:
             if not _re.match(r'^[\w]+$', topic_slug):
                 return jsonify({'error': 'Invalid topic slug'}), 400
-            file_path = Path(app.config['DATA_DIR']) / 'topics' / topic_slug / data_type / filename
+            file_path = Path(str(_get_user_context().data_dir)) / 'topics' / topic_slug / data_type / filename
             file_path.parent.mkdir(parents=True, exist_ok=True)
         else:
-            file_path = Path(app.config['DATA_DIR']) / data_type / filename
+            file_path = Path(str(_get_user_context().data_dir)) / data_type / filename
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Normalise to flat schema before persisting
@@ -1443,7 +1645,7 @@ def create_app(config_path: str = None) -> Flask:
             return jsonify({'error': 'At least one test data file is required.'}), 400
 
         # ── Check existing ──
-        topics_dir = Path('prompts') / 'topics' / slug
+        topics_dir = _get_user_context().topics_dir / slug
         if topics_dir.exists() and not force:
             return jsonify({'error': f'Topic "{slug}" already exists. Enable "Overwrite" to replace it.'}), 409
 
@@ -1513,11 +1715,14 @@ def create_app(config_path: str = None) -> Flask:
 
         # ── Write archived topic ──
         app.logger.info(f'Import topic: writing archived topic "{slug}"…')
+        uctx = _get_user_context()
         write_archived_topic(
             slug=slug,
             topic_name=topic_name,
             prompts_map=prompts_map,
             test_data_map=data_files,
+            prompts_topics_dir=uctx.topics_dir,
+            data_topics_dir=uctx.data_topics_dir,
         )
 
         # ── Invalidate caches ──
@@ -1585,7 +1790,7 @@ def create_app(config_path: str = None) -> Flask:
     @app.route('/api/topics/activate', methods=['POST'])
     def activate_topic():
         """Switch to a previously archived topic."""
-        nonlocal _evaluator, _comparator, _topic_switching
+        nonlocal _topic_switching
         data = request.get_json()
         slug = data.get('slug', '')
         if not slug:
@@ -1596,14 +1801,15 @@ def create_app(config_path: str = None) -> Flask:
                 _topic_switching = True
             manager = get_prompt_manager()
             meta = manager.activate_topic(slug)
-            # Invalidate ALL caches so new content is picked up
+            # Invalidate per-user caches so new content is picked up
+            uid = session.get('user_id')
             loader = get_prompt_loader()
             loader._cache.clear()
             dl = get_data_loader()
             dl.clear_cache()
             # Evaluator and comparator hold references to old prompt/data loaders
-            _evaluator = None
-            _comparator = None
+            _user_evaluators.pop(uid, None)
+            _user_comparators.pop(uid, None)
             return jsonify({'status': 'activated', 'topic': meta})
         except RuntimeError as e:
             return jsonify({'error': str(e)}), 409
@@ -1689,7 +1895,7 @@ def create_app(config_path: str = None) -> Flask:
         result_filename = data.get('result_filename')
         if result_filename:
             safe_name = Path(result_filename).name
-            file_path = Path(app.config['RESULTS_DIR']) / safe_name
+            file_path = Path(str(_get_user_context().results_dir)) / safe_name
             if not file_path.exists():
                 _current_run_id.reset(token)
                 return jsonify({'error': f'Result file not found: {safe_name}', 'run_id': run_id}), 404
@@ -1723,7 +1929,7 @@ def create_app(config_path: str = None) -> Flask:
             if result_filename and result.get('foundry_scores'):
                 try:
                     safe = Path(result_filename).name
-                    fpath = Path(app.config['RESULTS_DIR']) / safe
+                    fpath = Path(str(_get_user_context().results_dir)) / safe
                     if fpath.exists():
                         with open(fpath, 'r', encoding='utf-8') as f:
                             saved = json.load(f)

@@ -27,6 +27,7 @@ COPY . .
 RUN mkdir -p logs data/results data/synthetic/classification \
     data/synthetic/dialog data/synthetic/general \
     data/synthetic/topics \
+    data/users \
     prompts/history prompts/topics
 
 # Expose the Flask port

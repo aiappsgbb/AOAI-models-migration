@@ -26,6 +26,23 @@ param location string
 @description('Container image name for the web service. Set automatically by azd.')
 param webImageName string = ''
 
+@description('SMTP host for authentication emails. Leave empty for console-mode (OTP printed to stdout).')
+param smtpHost string = ''
+
+@description('SMTP username for authentication emails.')
+param smtpUsername string = ''
+
+@secure()
+@description('SMTP password (stored as Container Apps secret).')
+param smtpPassword string = ''
+
+@description('SMTP sender email address.')
+param smtpFromEmail string = ''
+
+@secure()
+@description('Flask session signing key (stored as Container Apps secret). Auto-generated if empty.')
+param flaskSecretKey string = ''
+
 // ── Derived names ──────────────────────────────────────────────────────────
 var resourceSuffix = take(uniqueString(subscription().id, environmentName, location), 6)
 var envNameLower = replace(toLower(environmentName), '_', '-')
@@ -136,6 +153,26 @@ var containerImage = !empty(webImageName)
   ? webImageName
   : 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
+// Build env vars: base + optional SMTP/auth (values come from @secure params)
+var baseEnv = [
+  { name: 'PYTHONUNBUFFERED', value: '1' }
+  { name: 'AZURE_OPENAI_ENDPOINT', value: aiServices.outputs.endpoint }
+  { name: 'FOUNDRY_PROJECT_ENDPOINT', value: aiServices.outputs.projectEndpoint }
+  { name: 'AZURE_CLIENT_ID', value: webIdentity.outputs.clientId }
+  { name: 'AZURE_TENANT_ID', value: tenant().tenantId }
+  { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: monitoring.outputs.applicationInsightsConnectionString }
+]
+var smtpEnv = empty(smtpHost) ? [] : [
+  { name: 'SMTP_HOST', value: smtpHost }
+  { name: 'SMTP_USERNAME', value: smtpUsername }
+  { name: 'SMTP_PASSWORD', value: smtpPassword }
+  { name: 'SMTP_FROM_EMAIL', value: smtpFromEmail }
+]
+var authEnv = empty(flaskSecretKey) ? [] : [
+  { name: 'FLASK_SECRET_KEY', value: flaskSecretKey }
+]
+var containerEnv = concat(baseEnv, smtpEnv, authEnv)
+
 module web 'br/public:avm/res/app/container-app:0.10.0' = {
   name: 'web-container-app'
   scope: rg
@@ -177,14 +214,7 @@ module web 'br/public:avm/res/app/container-app:0.10.0' = {
       {
         image: containerImage
         name: 'main'
-        env: [
-          { name: 'PYTHONUNBUFFERED', value: '1' }
-          { name: 'AZURE_OPENAI_ENDPOINT', value: aiServices.outputs.endpoint }
-          { name: 'FOUNDRY_PROJECT_ENDPOINT', value: aiServices.outputs.projectEndpoint }
-          { name: 'AZURE_CLIENT_ID', value: webIdentity.outputs.clientId }
-          { name: 'AZURE_TENANT_ID', value: tenant().tenantId }
-          { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: monitoring.outputs.applicationInsightsConnectionString }
-        ]
+        env: containerEnv
         resources: {
           cpu: json('1.0')
           memory: '2.0Gi'
