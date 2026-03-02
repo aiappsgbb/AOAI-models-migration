@@ -212,12 +212,17 @@ web:
 # Authentication Settings
 # =============================================================================
 auth:
-  # Email provider: "smtp" or "console" (console prints codes to stdout for dev)
-  email_provider: "smtp"
+  # Email provider: "smtp", "msgraph" or "console"
+  # (console prints codes to stdout for dev)
+  # ➜ Controlled via env var AUTH_EMAIL_PROVIDER (default: "console").
+  #   Change from Azure Portal → Container App → Environment variables.
+  email_provider: "${AUTH_EMAIL_PROVIDER}"
 
   # Code verification: when false, users authenticate with just their email
   # (no OTP code is generated or sent). Useful for dev/demo environments.
-  code_verification: false
+  # ➜ Controlled via env var AUTH_CODE_VERIFICATION (default: true).
+  #   Change from Azure Portal → Container App → Environment variables.
+  code_verification: "${AUTH_CODE_VERIFICATION}"
 
   # Session lifetime in seconds (default: 8 hours)
   session_ttl_seconds: 28800
@@ -235,3 +240,11 @@ auth:
     password: "${SMTP_PASSWORD}"     # App password or SMTP credential
     use_tls: true
     sender: "${SMTP_FROM_EMAIL}"     # Sender address (defaults to username if empty)
+
+  # Microsoft Graph API settings (used when email_provider is "msgraph")
+  # Requires Azure AD app with Mail.Send application permission.
+  # Auth via DefaultAzureCredential (Managed Identity in Azure, az login locally).
+  msgraph:
+    sender: "${MSGRAPH_FROM_EMAIL}"    # Mailbox to send from (e.g. noreply@yourdomain.com)
+    tenant_id: "${AZURE_TENANT_ID}"    # Optional — Azure AD tenant ID
+    client_id: "${AZURE_CLIENT_ID}"    # Optional — App/Managed Identity client ID

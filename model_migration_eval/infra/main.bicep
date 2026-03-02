@@ -39,6 +39,12 @@ param smtpPassword string = ''
 @description('SMTP sender email address.')
 param smtpFromEmail string = ''
 
+@description('Auth code verification: "true" for full OTP flow, "false" for email-only sign-in. Overrides settings.yaml.')
+param authCodeVerification string = ''
+
+@description('Auth email provider: "smtp" for real emails, "console" for stdout (dev). Overrides settings.yaml.')
+param authEmailProvider string = ''
+
 @secure()
 @description('Flask session signing key (stored as Container Apps secret). Auto-generated if empty.')
 param flaskSecretKey string = ''
@@ -171,7 +177,13 @@ var smtpEnv = empty(smtpHost) ? [] : [
 var authEnv = empty(flaskSecretKey) ? [] : [
   { name: 'FLASK_SECRET_KEY', value: flaskSecretKey }
 ]
-var containerEnv = concat(baseEnv, smtpEnv, authEnv)
+var codeVerifEnv = empty(authCodeVerification) ? [] : [
+  { name: 'AUTH_CODE_VERIFICATION', value: authCodeVerification }
+]
+var emailProviderEnv = empty(authEmailProvider) ? [] : [
+  { name: 'AUTH_EMAIL_PROVIDER', value: authEmailProvider }
+]
+var containerEnv = concat(baseEnv, smtpEnv, authEnv, codeVerifEnv, emailProviderEnv)
 
 module web 'br/public:avm/res/app/container-app:0.10.0' = {
   name: 'web-container-app'

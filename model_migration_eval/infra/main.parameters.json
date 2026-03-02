@@ -23,6 +23,12 @@
     "smtpFromEmail": {
       "value": "${SMTP_FROM_EMAIL}"
     },
+    "authCodeVerification": {
+      "value": "${AUTH_CODE_VERIFICATION}"
+    },
+    "authEmailProvider": {
+      "value": "${AUTH_EMAIL_PROVIDER}"
+    },
     "flaskSecretKey": {
       "value": "${FLASK_SECRET_KEY}"
     }

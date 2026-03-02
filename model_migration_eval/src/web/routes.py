@@ -70,7 +70,23 @@ def create_app(config_path: str = None) -> Flask:
     app.secret_key = _os.environ.get('FLASK_SECRET_KEY') or _secrets.token_hex(32)
 
     _auth_cfg = app.config['SETTINGS'].get('auth', {})
-    _code_verification = _auth_cfg.get('code_verification', True)
+    # Environment variable override: AUTH_CODE_VERIFICATION ("true"/"false")
+    # takes precedence over settings.yaml → auth.code_verification.
+    # This allows changing the setting from the Azure Portal (Container App env vars)
+    # without rebuilding the image.
+    _cv_env = _os.environ.get('AUTH_CODE_VERIFICATION', '').strip().lower()
+    if _cv_env in ('true', '1', 'yes'):
+        _code_verification = True
+    elif _cv_env in ('false', '0', 'no'):
+        _code_verification = False
+    else:
+        _cv_yaml = _auth_cfg.get('code_verification', True)
+        # If the YAML value is an unresolved placeholder like "${...}", default to True
+        if isinstance(_cv_yaml, str):
+            _cv_yaml_lower = _cv_yaml.strip().lower()
+            _code_verification = _cv_yaml_lower not in ('false', '0', 'no') and not _cv_yaml_lower.startswith('${')
+        else:
+            _code_verification = bool(_cv_yaml)
     _user_store = UserStore(db_path='data/auth.db')
     _code_manager = CodeManager(
         db_path='data/auth.db',
