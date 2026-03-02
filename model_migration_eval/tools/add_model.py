@@ -72,7 +72,7 @@ PROMPT_FILES = [
     "tool_calling_agent_system.md",
 ]
 
-VALID_FAMILIES = ["gpt4", "gpt5"]
+VALID_FAMILIES = ["gpt4", "gpt5", "mistral"]
 VALID_REASONING_EFFORTS = ["low", "medium", "high"]
 
 

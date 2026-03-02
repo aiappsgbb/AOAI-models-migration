@@ -44,6 +44,24 @@ FAMILY_GUIDANCE: dict[str, str] = {
         "- Use <system_configuration> blocks for model params\n"
         "- Use max_completion_tokens instead of max_tokens"
     ),
+    "mistral": (
+        "Mistral family — base best practices:\n"
+        "- Use explicit, detailed system prompts — Mistral models follow\n"
+        "  well-structured instructions closely\n"
+        "- Provide clear Chain-of-Thought (CoT) instructions when multi-step\n"
+        "  reasoning is needed — Mistral benefits from explicit reasoning guidance\n"
+        "- Use standard 'system' role and 'max_tokens' (NOT developer role,\n"
+        "  NOT max_completion_tokens)\n"
+        "- Include concrete examples (few-shot) — 2-3 high-quality examples\n"
+        "  significantly improve output consistency\n"
+        "- Be explicit about output format (JSON schema, Markdown structure)\n"
+        "  — include a complete example of the expected output\n"
+        "- Keep instructions focused and well-organized with clear section\n"
+        "  headings — avoid burying critical rules in long paragraphs\n"
+        "- Use temperature=0.1 and seed for reproducibility\n"
+        "- Mistral excels at multilingual tasks — you can instruct in one\n"
+        "  language and request output in another"
+    ),
 }
 
 
@@ -154,6 +172,28 @@ MODEL_GUIDANCE: dict[str, str] = {
         "- Optimal for production workloads needing top-tier quality"
     ),
 
+    # ── Mistral family ─────────────────────────────────────────────────
+    "Mistral-Large-3": (
+        "\nModel-specific guidance (Mistral-Large-3):\n"
+        "- Flagship model of the Mistral family — 128 K-token context window\n"
+        "- Excellent instruction following, strong at classification, extraction,\n"
+        "  and structured output tasks (JSON mode)\n"
+        "- Strong multilingual capabilities across European and Asian languages\n"
+        "  — ideal for multilingual classification and dialog\n"
+        "- Function/tool calling support with parallel tool invocation\n"
+        "- Very good at code generation and analytical reasoning\n"
+        "- Explicit Chain-of-Thought prompting improves complex tasks —\n"
+        "  unlike GPT-5 models, do NOT rely on implicit reasoning\n"
+        "- Include 2-3 concrete few-shot examples for best results —\n"
+        "  Mistral is an excellent few-shot learner\n"
+        "- Structured outputs: always specify the complete JSON schema\n"
+        "  with field types and constraints in the system prompt\n"
+        "- Use clear section headers (##) to organize long prompts —\n"
+        "  Mistral respects Markdown structure well\n"
+        "- Competitive cost-performance ratio — good alternative to GPT-4.1\n"
+        "  for high-volume production workloads"
+    ),
+
     # ── o-series reasoning models ─────────────────────────────────────
     "o1": (
         "\nModel-specific guidance (o1 — reasoning model):\n"
@@ -193,11 +233,13 @@ def resolve_model_family(
     model_key: str,
     model_family: Optional[str] = None,
 ) -> str:
-    """Return ``'gpt4'`` or ``'gpt5'`` family string for a model key."""
+    """Return ``'gpt4'``, ``'gpt5'``, or ``'mistral'`` family string for a model key."""
     if model_family:
         return model_family
     if any(x in model_key.lower() for x in ("gpt5", "o1", "o3", "o4", "reasoning")):
         return "gpt5"
+    if any(x in model_key.lower() for x in ("mistral",)):
+        return "mistral"
     return "gpt4"
 
 

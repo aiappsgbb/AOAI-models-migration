@@ -400,6 +400,7 @@ class MetricsCalculator:
             cost_rates = {
                 'gpt4': {'input': 0.0025, 'output': 0.01, 'cached_input': 0.00125},
                 'gpt5': {'input': 0.005, 'output': 0.02, 'cached_input': 0.0025, 'reasoning': 0.015},
+                'mistral': {'input': 0.002, 'output': 0.006, 'cached_input': 0.001},
             }
             rates = cost_rates.get(model_name, next(iter(cost_rates.values()), {}))
             for d in token_data:
@@ -840,9 +841,22 @@ class MetricsCalculator:
                 or 'unknown'
             )
             # Unwrap nested dicts — some models return {"category": {"name": "..."}}
+            # Mistral may return {"category": {"category_code": "…", "subcategory_code": "…", …}}
+            _cat_dict_fallback_sub = None
             if isinstance(raw_cat, dict):
-                raw_cat = (raw_cat.get('name') or raw_cat.get('code')
-                           or raw_cat.get('primary_category') or str(raw_cat))
+                # Try to pull subcategory from the nested dict before flattening
+                _cat_dict_fallback_sub = (
+                    raw_cat.get('subcategory_code')
+                    or raw_cat.get('subcategory')
+                    or raw_cat.get('primary_subcategory')
+                )
+                raw_cat = (
+                    raw_cat.get('name') or raw_cat.get('code')
+                    or raw_cat.get('category_code')
+                    or raw_cat.get('primary_category')
+                    or raw_cat.get('primary_category_code')
+                    or str(raw_cat)
+                )
 
             # --- Subcategory ------------------------------------------------
             raw_sub = (
@@ -851,11 +865,13 @@ class MetricsCalculator:
                 or parsed.get('primary_subcategory')
                 or parsed.get('subcategory_code')
                 or parsed.get('subcategory')
+                or _cat_dict_fallback_sub  # from nested category dict (Mistral)
                 or ''
             )
             # Unwrap nested dicts — some models return {"subcategory": {"name": "..."}}
             if isinstance(raw_sub, dict):
                 raw_sub = (raw_sub.get('name') or raw_sub.get('code')
+                           or raw_sub.get('subcategory_code')
                            or raw_sub.get('subcategory') or str(raw_sub))
 
             # --- Priority (some prompts use "priority_level") ---------------

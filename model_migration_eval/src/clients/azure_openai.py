@@ -52,7 +52,7 @@ class ModelConfig:
     seed: Optional[int] = None
     reasoning_effort: Optional[str] = None  # o-series / reasoning models only
     use_max_completion_tokens: Optional[bool] = None  # Auto-detected if None
-    model_family: Optional[str] = None  # "gpt4" or "gpt5" — determines prompt style guidelines
+    model_family: Optional[str] = None  # "gpt4", "gpt5", or "mistral" — determines prompt style guidelines
     
 
 @dataclass
@@ -435,6 +435,22 @@ class AzureOpenAIClient:
         # Auto-replace 'system' → 'developer' for newer-generation models
         if self._is_new_generation_model(config):
             messages = self._apply_developer_role(messages)
+
+        # Mistral models require the last message to be 'user' or 'tool'.
+        # Dialog scenarios may end with an 'assistant' message (partial agent
+        # acknowledgment), which OpenAI models accept as "continue from here"
+        # but Mistral rejects (error 3230).  Append a minimal user
+        # continuation prompt so the model generates the full response.
+        if (
+            config.model_family == 'mistral'
+            and messages
+            and messages[-1].get('role') == 'assistant'
+        ):
+            messages = list(messages)  # shallow copy — don't mutate caller's list
+            messages.append({
+                'role': 'user',
+                'content': 'Continue with your complete response.',
+            })
 
         request_params = {
             'model': config.deployment_name,

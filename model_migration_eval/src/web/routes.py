@@ -434,6 +434,7 @@ def create_app(config_path: str = None) -> Flask:
             _user_evaluators[uid] = ModelEvaluator(
                 client,
                 prompt_loader=get_prompt_loader(),
+                data_loader=get_data_loader(),
                 max_concurrent=perf.get('max_concurrent_requests', 5),
             )
         return _user_evaluators.get(uid)
@@ -1146,6 +1147,9 @@ def create_app(config_path: str = None) -> Flask:
         generator_model = data.get('generator_model', 'gpt5')
         target_models = data.get('target_models')  # Optional list of model keys
         data_counts = data.get('data_counts')       # Optional {type: int} overrides
+        scope = data.get('scope', 'all')            # "all" | "prompts_only" | "data_only"
+        if scope not in ('all', 'prompts_only', 'data_only'):
+            scope = 'all'
         if not topic:
             return jsonify({'error': 'topic is required'}), 400
         try:
@@ -1185,6 +1189,7 @@ def create_app(config_path: str = None) -> Flask:
                     data_dir=_bg_user_data_dir,
                     target_models=target_models,
                     data_counts=data_counts,
+                    scope=scope,
                 )
                 # Invalidate caches so new content is picked up
                 _bg_prompt_loader._cache.clear()
@@ -1192,6 +1197,7 @@ def create_app(config_path: str = None) -> Flask:
                 payload = {
                     'status': 'generated',
                     'topic': topic,
+                    'scope': scope,
                     'prompts': results.get('prompts', {}),
                     'data': results.get('data', {}),
                     'run_id': run_id,

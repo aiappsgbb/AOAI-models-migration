@@ -60,6 +60,13 @@ azure:
       max_tokens: 16384
       reasoning_effort: "medium"  # low, medium, high
 
+    mistral_large_3:
+      deployment_name: "Mistral-Large-3"
+      model_family: "mistral"
+      model_version: "2025-03-01"
+      max_tokens: 8192
+      temperature: 0.1
+
 # =============================================================================
 # Microsoft Foundry Control Plane Evaluation (optional)
 # =============================================================================

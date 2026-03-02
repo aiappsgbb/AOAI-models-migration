@@ -669,7 +669,7 @@
                     if (['templates', 'history', 'topics'].includes(model)) continue;
                     const mInfo = availableModels.find(m => m.name === model) || {};
                     const mFamily = mInfo.model_family || 'gpt4';
-                    const headColor = mFamily === 'gpt5' ? 'text-purple-700' : 'text-blue-700';
+                    const headColor = mFamily === 'gpt5' ? 'text-purple-700' : mFamily === 'mistral' ? 'text-amber-700' : 'text-blue-700';
                     const section = document.createElement('div');
                     section.innerHTML = `
                         <h3 class="font-medium ${headColor} mb-2">${displayName(model) || model.toUpperCase()}</h3>
@@ -733,9 +733,9 @@
                 importTargets.innerHTML = availableModels.map(m => {
                     const checked = m.name !== srcVal ? 'checked' : '';
                     const familyLabel = (m.model_family || 'gpt4').toUpperCase();
-                    const familyBadge = m.model_family === 'gpt5'
-                        ? `<span class="ml-1 text-[9px] bg-purple-100 text-purple-700 px-1 rounded">${familyLabel}</span>`
-                        : `<span class="ml-1 text-[9px] bg-blue-100 text-blue-700 px-1 rounded">${familyLabel}</span>`;
+                    const familyBadgeColors = { gpt5: 'bg-purple-100 text-purple-700', mistral: 'bg-amber-100 text-amber-700' };
+                    const badgeClasses = familyBadgeColors[m.model_family] || 'bg-blue-100 text-blue-700';
+                    const familyBadge = `<span class="ml-1 text-[9px] ${badgeClasses} px-1 rounded">${familyLabel}</span>`;
                     return `<label class="flex items-center text-xs cursor-pointer whitespace-nowrap">
                         <input type="checkbox" class="import-target-cb h-3.5 w-3.5 text-indigo-600 rounded border-gray-300" value="${m.name}" ${checked}>
                         <span class="ml-1">${m.display_name || m.deployment}</span>${familyBadge}
@@ -776,6 +776,7 @@
                     const familyInfo = {
                         gpt4: { color: 'blue-600', traits: ['Explicit CoT instructions', 'Detailed formatting rules', 'More verbose examples'] },
                         gpt5: { color: 'purple-500', traits: ['Leverage native reasoning', 'Streamlined structure', 'YAML/JSON schemas'] },
+                        mistral: { color: 'amber-600', traits: ['Explicit CoT + few-shot examples', 'Strong multilingual capability', 'Detailed JSON schema in prompt'] },
                     };
                     keyDiffContainer.innerHTML = Object.entries(families).map(([fam, models]) => {
                         const info = familyInfo[fam] || familyInfo.gpt4;
@@ -845,7 +846,7 @@
                 const badge = $('prompt-model');
                 badge.textContent = displayName(model);
                 const mFamily = (availableModels.find(m => m.name === model) || {}).model_family;
-                badge.className = `px-3 py-1 rounded-full text-sm font-medium ${mFamily === 'gpt5' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`;
+                badge.className = `px-3 py-1 rounded-full text-sm font-medium ${mFamily === 'gpt5' ? 'bg-purple-100 text-purple-800' : mFamily === 'mistral' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`;
                 $('prompt-readonly').innerHTML = `<pre class="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-lg overflow-auto max-h-[700px]">${esc(data.content)}</pre>`;
                 $('btn-toggle-edit').classList.remove('hidden');
                 // Pre-fill editor
@@ -1206,15 +1207,35 @@
                         </div>
                         ${t.active ? `
                         <div class="mt-2 pt-2 border-t border-green-200">
-                            <button onclick="event.stopPropagation(); regenerateActiveTopic('${escJs(t.topic)}')"
-                                    id="btn-regen-topic"
-                                    class="w-full fluent-btn-secondary text-xs py-1.5 px-3 flex items-center justify-center">
-                                <svg class="h-4 w-4 mr-1.5 hidden animate-spin" id="regen-topic-spinner" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-                                </svg>
-                                🔄 Regenerar Prompts + Datos
-                            </button>
+                            <div class="relative" id="regen-dropdown-wrapper">
+                                <div class="flex">
+                                    <button onclick="event.stopPropagation(); regenerateActiveTopic('${escJs(t.topic)}', 'all')"
+                                            id="btn-regen-topic"
+                                            class="flex-1 fluent-btn-secondary text-xs py-1.5 px-3 flex items-center justify-center rounded-r-none border-r-0">
+                                        <svg class="h-4 w-4 mr-1.5 hidden animate-spin" id="regen-topic-spinner" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                                        </svg>
+                                        🔄 Regenerate All
+                                    </button>
+                                    <button onclick="event.stopPropagation(); toggleRegenDropdown()"
+                                            id="btn-regen-dropdown-toggle"
+                                            class="fluent-btn-secondary text-xs py-1.5 px-2 rounded-l-none border-l border-gray-300"
+                                            title="More regeneration options">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                </div>
+                                <div id="regen-dropdown-menu" class="hidden absolute right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                                    <button onclick="event.stopPropagation(); closeRegenDropdown(); regenerateActiveTopic('${escJs(t.topic)}', 'prompts_only')"
+                                            class="w-full text-left text-xs px-3 py-2 hover:bg-blue-50 flex items-center">
+                                        <span class="mr-2">📝</span> Prompts Only
+                                    </button>
+                                    <button onclick="event.stopPropagation(); closeRegenDropdown(); regenerateActiveTopic('${escJs(t.topic)}', 'data_only')"
+                                            class="w-full text-left text-xs px-3 py-2 hover:bg-blue-50 flex items-center border-t border-gray-100">
+                                        <span class="mr-2">📊</span> Test Data Only
+                                    </button>
+                                </div>
+                            </div>
                             <div id="regen-topic-status" class="mt-1 text-xs"></div>
                         </div>` : ''}
                     </div>
@@ -1271,17 +1292,43 @@
             }
         }
 
-        async function regenerateActiveTopic(topicName) {
-            if (!confirm(`Regenerar prompts y datos de test para "${topicName}"?\n\nEsto sobrescribirá los prompts y datos actuales del tema activo.`)) return;
+        function toggleRegenDropdown() {
+            const menu = $('regen-dropdown-menu');
+            menu.classList.toggle('hidden');
+        }
+        function closeRegenDropdown() {
+            const menu = $('regen-dropdown-menu');
+            if (menu) menu.classList.add('hidden');
+        }
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const wrapper = document.getElementById('regen-dropdown-wrapper');
+            if (wrapper && !wrapper.contains(e.target)) closeRegenDropdown();
+        });
+
+        async function regenerateActiveTopic(topicName, scope = 'all') {
+            const scopeLabels = {
+                all: 'prompts and test data',
+                prompts_only: 'prompts only (no data)',
+                data_only: 'test data only (no prompts)',
+            };
+            const scopeProgress = {
+                all: 'Regenerating prompts + data',
+                prompts_only: 'Regenerating prompts',
+                data_only: 'Regenerating test data',
+            };
+            if (!confirm(`Regenerate ${scopeLabels[scope]} for "${topicName}"?\n\nThis will overwrite the current content.`)) return;
 
             const btn = $('btn-regen-topic');
             const spinner = $('regen-topic-spinner');
             const statusEl = $('regen-topic-status');
+            const toggleBtn = $('btn-regen-dropdown-toggle');
             const generatorModel = $('regen-model').value || $('gen-model').value;
 
             btn.disabled = true;
+            if (toggleBtn) toggleBtn.disabled = true;
             if (spinner) spinner.classList.remove('hidden');
-            statusEl.innerHTML = '<span class="text-blue-600">⏳ Regenerando prompts + datos… puede tardar 2-4 minutos.</span>';
+            statusEl.innerHTML = `<span class="text-blue-600">⏳ ${scopeProgress[scope]}… may take 2-4 minutes.</span>`;
             const t0 = performance.now();
 
             try {
@@ -1290,7 +1337,7 @@
                 const resp = await fetch('/api/prompts/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ topic: topicName, generator_model: generatorModel, data_counts: dataCounts }),
+                    body: JSON.stringify({ topic: topicName, generator_model: generatorModel, data_counts: dataCounts, scope: scope }),
                 });
                 const kickoff = await resp.json();
                 if (!resp.ok) throw new Error(kickoff.error || 'Unknown error');
@@ -1305,7 +1352,7 @@
                         try {
                             dotCount++;
                             const elapsed = ((performance.now() - t0) / 1000).toFixed(0);
-                            statusEl.innerHTML = `<span class="text-blue-600">⏳ Regenerando prompts + datos… ${elapsed}s${'.'.repeat((dotCount % 3) + 1)}</span>`;
+                            statusEl.innerHTML = `<span class="text-blue-600">⏳ ${scopeProgress[scope]}… ${elapsed}s${'.'.repeat((dotCount % 3) + 1)}</span>`;
                             const sr = await fetch(`/api/prompts/generate/${runId}/status`);
                             const sj = await sr.json();
                             if (sj.status === 'completed') {
@@ -1323,6 +1370,8 @@
                     }, POLL_MS);
                 });
 
+                // 3. Build result summary based on scope
+                const elapsed = ((performance.now() - t0) / 1000).toFixed(0);
                 const promptCount = Object.values(data.prompts || {}).reduce((n, obj) => n + Object.keys(obj).length, 0);
                 const dataInfo = data.data || {};
                 const dataParts = [];
@@ -1332,8 +1381,15 @@
                 if (dataInfo.rag) dataParts.push(`${dataInfo.rag.count || 0} rag`);
                 if (dataInfo.tool_calling) dataParts.push(`${dataInfo.tool_calling.count || 0} tool_calling`);
 
-                const elapsed = ((performance.now() - t0) / 1000).toFixed(0);
-                statusEl.innerHTML = `<span class="text-green-600">✅ ${promptCount} prompts + ${dataParts.join(', ')} datos regenerados (${elapsed}s)</span>`;
+                let summary = '';
+                if (scope === 'prompts_only') {
+                    summary = `${promptCount} prompts regenerated`;
+                } else if (scope === 'data_only') {
+                    summary = dataParts.join(', ') + ' data regenerated';
+                } else {
+                    summary = `${promptCount} prompts + ${dataParts.join(', ')} data regenerated`;
+                }
+                statusEl.innerHTML = `<span class="text-green-600">✅ ${summary} (${elapsed}s)</span>`;
 
                 // Reload everything
                 viewLoaded = { single: false, compare: false, history: false, data: false };
@@ -1343,6 +1399,7 @@
                 statusEl.innerHTML = `<span class="text-red-600">❌ ${escapeHtml(err.message)}</span>`;
             } finally {
                 btn.disabled = false;
+                if (toggleBtn) toggleBtn.disabled = false;
                 if (spinner) spinner.classList.add('hidden');
             }
         }

@@ -112,6 +112,30 @@ def _extract_categories_from_prompt(prompt_text: str) -> List[str]:
 
     lines = prompt_text.splitlines()
 
+    # Helper: detect whether a line is a taxonomy-section heading.
+    # Supports both Markdown headings (starting with #) and plain-text
+    # ALL-CAPS headings like ``TELCO TAXONOMY (CATEGORIES AND SUBCATEGORIES)``.
+    _TAXONOMY_KW_RE = re.compile(r'(categor|taxonom|classif)', re.IGNORECASE)
+    _EXCLUSION_KW_RE = re.compile(
+        r'(priorid|priority|sentim|output|format|ejemplo|example|instruc|entity|risk|follow)',
+        re.IGNORECASE)
+    _SUB_ONLY_RE = re.compile(r'(secondary|sub\s*categor)', re.IGNORECASE)
+    _SUB_EXCEPTION_RE = re.compile(
+        r'(taxonom|categor[ií](as?|es)\s+(y|and|e|principal)|primary\s+categor)',
+        re.IGNORECASE)
+    # Plain-text heading: ALL-CAPS line (≥ 60 % uppercase letters,
+    # at least 10 chars, no leading ``-``/``*`` bullets).
+    _ALLCAPS_HEADING_RE = re.compile(r'^[A-Z][A-Z0-9 _()&,/—–-]{9,}$')
+
+    def _is_heading(stripped: str) -> bool:
+        """Return True if the line looks like a section heading."""
+        if stripped.startswith('#'):
+            return True
+        # Plain-text ALLCAPS heading (common in LLM-generated prompts)
+        if _ALLCAPS_HEADING_RE.match(stripped):
+            return True
+        return False
+
     # ── Strategy 1: Markdown tables ───────────────────────────────
     # Look for tables inside sections whose heading mentions categories
     # / taxonomy.  Detect the code column flexibly.
@@ -123,28 +147,27 @@ def _extract_categories_from_prompt(prompt_text: str) -> List[str]:
     for line in lines:
         stripped = line.strip()
 
-        # Detect section headings
-        if stripped.startswith('#'):
+        # Detect section headings (# Markdown OR ALLCAPS plain text)
+        if _is_heading(stripped):
             heading_lower = stripped.lower()
             # Check EXCLUSION keywords first — these sections look like
             # taxonomy tables (snake_case codes) but are NOT categories.
             # Must be tested BEFORE the inclusion check because headings
             # like "SENTIMENT CLASSIFICATION" match both patterns.
-            is_excluded = bool(re.search(
-                r'(priorid|priority|sentim|output|format|ejemplo|example|instruc|entity|risk|follow)',
-                heading_lower))
+            is_excluded = bool(_EXCLUSION_KW_RE.search(heading_lower))
             # A heading like "subcategorías por categoría" is purely about
             # subcategories — skip.  But "categorías y subcategorías" or
             # "taxonomía de categorías" IS a taxonomy section, so only
             # reject when the heading is EXCLUSIVELY about subcategories.
-            # NOTE: The exception regex must cover BOTH English and Spanish:
+            # NOTE: The exception regex must cover English, Spanish, and Portuguese:
             #   English: "categories and subcategories", "primary categories"
             #   Spanish: "categorías y subcategorías"
-            is_sub_only = bool(re.search(r'(secondary|sub\s*categor)', heading_lower)) \
-                and not re.search(r'(taxonom|categor[ií](as?|es)\s+(y|and|principal)|primary\s+categor)', heading_lower)
+            #   Portuguese: "categorias e subcategorias"
+            is_sub_only = bool(_SUB_ONLY_RE.search(heading_lower)) \
+                and not _SUB_EXCEPTION_RE.search(heading_lower)
             if is_excluded or is_sub_only:
                 in_taxonomy_section = False
-            elif re.search(r'(categor|taxonom|classif)', heading_lower):
+            elif _TAXONOMY_KW_RE.search(heading_lower):
                 in_taxonomy_section = True
             in_table = False
             cat_col_idx = None
@@ -272,17 +295,15 @@ def _extract_categories_from_prompt(prompt_text: str) -> List[str]:
         list_indent: Optional[int] = None
         for line in lines:
             stripped = line.strip()
-            if stripped.startswith('#'):
+            if _is_heading(stripped):
                 heading_lower = stripped.lower()
                 # Same heading logic as Strategy 1: check exclusion first
-                is_excluded = bool(re.search(
-                    r'(priorid|priority|sentim|output|format|entity|risk|follow|ejemplo|example|instruc)',
-                    heading_lower))
-                is_sub_only = bool(re.search(r'(secondary|sub\s*categor)', heading_lower)) \
-                    and not re.search(r'(taxonom|categor[ií]as?\s+(y|and|principal))', heading_lower)
+                is_excluded = bool(_EXCLUSION_KW_RE.search(heading_lower))
+                is_sub_only = bool(_SUB_ONLY_RE.search(heading_lower)) \
+                    and not _SUB_EXCEPTION_RE.search(heading_lower)
                 if is_excluded or is_sub_only:
                     in_tax = False
-                elif re.search(r'(categor|taxonom|classif)', heading_lower):
+                elif _TAXONOMY_KW_RE.search(heading_lower):
                     in_tax = True
                     list_indent = None
                 continue
@@ -301,6 +322,43 @@ def _extract_categories_from_prompt(prompt_text: str) -> List[str]:
             m2 = re.match(r'^\s*[-*]\s+\**([a-z][a-z0-9_]{2,})\**\s*$', line)
             if m2 and list_indent is not None:
                 pass  # already handled above
+
+    # ── Strategy 4: Sub-heading category codes ────────────────────
+    # Some prompts list categories as numbered sub-headings inside a
+    # taxonomy section, e.g.:
+    #   ## 2) Taxonomia (Categorias, …)
+    #   ### 2.1 customer_support (atendimento_geral)
+    #   ### 2.2 billing_and_payments (cobrança_e_pagamentos)
+    # Detect these when no previous strategy extracted categories.
+    if not categories:
+        _SUBHEADING_CODE_RE = re.compile(
+            r'^#{2,4}\s+'              # 2-4 leading #
+            r'(?:\d[\d.\)]*\s+)?'      # optional numbering like "2.1 " or "2) "
+            r'([a-z][a-z0-9_]{2,})'    # the snake_case category code
+            r'(?:\s*\(.*\))?'          # optional parenthesised description
+            r'\s*$'
+        )
+        in_tax = False
+        for line in lines:
+            stripped = line.strip()
+            if _is_heading(stripped):
+                heading_lower = stripped.lower()
+                is_excluded = bool(_EXCLUSION_KW_RE.search(heading_lower))
+                is_sub_only = bool(_SUB_ONLY_RE.search(heading_lower)) \
+                    and not _SUB_EXCEPTION_RE.search(heading_lower)
+                if is_excluded or is_sub_only:
+                    in_tax = False
+                elif _TAXONOMY_KW_RE.search(heading_lower):
+                    in_tax = True
+                # Sub-headings INSIDE a taxonomy section may also contain
+                # the code — try to extract from the heading itself.
+                if in_tax and stripped.startswith('#'):
+                    m = _SUBHEADING_CODE_RE.match(stripped)
+                    if m:
+                        _add(m.group(1))
+                continue
+            if not in_tax:
+                continue
 
     return categories
 
@@ -1079,6 +1137,7 @@ class PromptManager:
         semaphore: asyncio.Semaphore,
         model_family: Optional[str] = None,
         deployment_name: Optional[str] = None,
+        task_hint: Optional[str] = None,
     ) -> Tuple[str, str, str]:
         """Generate a single prompt asynchronously.
 
@@ -1090,7 +1149,7 @@ class PromptManager:
             target_model=target_model,
             task=task,
             reference_snippet=reference_snippet,
-            shared_categories=shared_categories if task == "classification" else None,
+            shared_categories=shared_categories if task in ("classification", "dialog") else None,
             model_family=model_family,
             deployment_name=deployment_name,
         )
@@ -1283,12 +1342,16 @@ class PromptManager:
         data_dir: str = "data/synthetic",
         target_models: Optional[List[str]] = None,
         data_counts: Optional[Dict[str, int]] = None,
+        scope: str = "all",
     ) -> Dict[str, Any]:
         """
-        Use an AI model to generate optimised prompts **and** matching
+        Use an AI model to generate optimised prompts **and/or** matching
         synthetic test data for a given topic.
 
         Args:
+            scope: What to regenerate — ``"all"`` (prompts + data),
+                ``"prompts_only"`` (Steps 1-3), or ``"data_only"``
+                (Step 4 only, reuses existing categories).
             target_models: Optional list of model keys to generate prompts
                 for.  When *None*, uses all model directories currently
                 present under ``prompts/``.
@@ -1331,6 +1394,74 @@ class PromptManager:
 
         result: Dict[str, Any] = {"prompts": {m: {} for m in models}, "data": {}}
 
+        # ── data_only shortcut: skip Steps 0-3, jump to Step 4 ───────
+        if scope == "data_only":
+            logger.info("== scope=data_only — skipping prompt generation, generating data only ==")
+            # Extract categories from existing active classification prompts
+            canonical_categories: List[str] = []
+            _cats_by_model: Dict[str, List[str]] = {}
+            for m in models:
+                cls_prompt = self.get_active_prompt(m, "classification_agent_system") or ""
+                if cls_prompt:
+                    cats = _extract_categories_from_prompt(cls_prompt)
+                    if cats:
+                        _cats_by_model[m] = cats
+            if len(_cats_by_model) >= 2:
+                all_sets = [set(c) for c in _cats_by_model.values()]
+                common_set = all_sets[0]
+                for s in all_sets[1:]:
+                    common_set &= s
+                first_cats = list(_cats_by_model.values())[0]
+                common = [c for c in first_cats if c in common_set]
+                canonical_categories = common if common else first_cats
+            elif _cats_by_model:
+                canonical_categories = list(_cats_by_model.values())[0]
+            if canonical_categories:
+                logger.info(f"data_only: extracted {len(canonical_categories)} categories from existing prompts")
+
+            # Jump to Step 4 — reuse the data generation block below
+            # (the scope != "prompts_only" guard will run it)
+            # We still need data_dir set for the Step 4 block
+            # Skip straight past Steps 0-3 by using a local goto via
+            # the same Step 4 code at the bottom of this method.
+            data_path = Path(data_dir)
+            _dc = data_counts or {}
+            _cfg_dc = self._config.get("evaluation", {}).get("test_data_counts", {})
+            data_generators = [
+                ("classification", self._build_classification_data_prompt, _dc.get("classification", _cfg_dc.get("classification", 20))),
+                ("dialog",         self._build_dialog_data_prompt,         _dc.get("dialog",         _cfg_dc.get("dialog", 15))),
+                ("general",        self._build_general_data_prompt,        _dc.get("general",        _cfg_dc.get("general", 15))),
+                ("rag",            self._build_rag_data_prompt,            _dc.get("rag",            _cfg_dc.get("rag", 10))),
+                ("tool_calling",   self._build_tool_calling_data_prompt,   _dc.get("tool_calling",   _cfg_dc.get("tool_calling", 10))),
+            ]
+            MAX_DATA_RETRIES = 2
+
+            async def _step4_only():
+                sem = asyncio.Semaphore(_MAX_CONCURRENT_LLM)
+                tasks = [
+                    self._async_generate_one_data(
+                        client, generator_model, topic,
+                        dt, builder, count, canonical_categories,
+                        data_path, MAX_DATA_RETRIES, sem,
+                    )
+                    for dt, builder, count in data_generators
+                ]
+                return await asyncio.gather(*tasks, return_exceptions=True)
+
+            step4_results = self._run_async(_step4_only())
+            for item in step4_results:
+                if isinstance(item, Exception):
+                    logger.error(f"[parallel] Data generation exception: {item}")
+                    continue
+                data_type, data_result = item
+                result["data"][data_type] = data_result
+
+            self._save_topic_metadata(topic, data_generated=True)
+            self.archive_current_topic()
+            elapsed = time.time() - overall_t0
+            logger.info(f"== Data-only generation complete in {elapsed:.1f}s ==")
+            return result
+
         # ── 0. Archive current topic before overwriting ───────────────
         current = self.get_topic_metadata().get("topic", "")
         if current and _slugify(current) != _slugify(topic):
@@ -1342,12 +1473,24 @@ class PromptManager:
         reference = self.get_active_prompt(canonical, "classification_agent_system") or ""
         reference_snippet = reference[:2000] if reference else "(no existing prompt)"
 
+        # When regenerating prompts only, preserve existing categories so
+        # new prompts stay aligned with the current test data.
+        preserved_categories: Optional[List[str]] = None
+        if scope == "prompts_only" and reference:
+            preserved_categories = _extract_categories_from_prompt(reference)
+            if preserved_categories:
+                logger.info(
+                    f"scope=prompts_only: preserving {len(preserved_categories)} "
+                    f"categories from existing prompt: {preserved_categories}"
+                )
+
         canonical_family = model_families.get(canonical, "gpt4")
         canonical_deployment = model_deployments.get(canonical)
         canonical_cls_result = self._run_async(
             self._async_generate_one_prompt(
                 client, generator_model, topic,
-                canonical, "classification", reference_snippet, None,
+                canonical, "classification", reference_snippet,
+                preserved_categories,          # None when scope!="prompts_only"
                 asyncio.Semaphore(_MAX_CONCURRENT_LLM),
                 model_family=canonical_family,
                 deployment_name=canonical_deployment,
@@ -1372,6 +1515,10 @@ class PromptManager:
                     f"Extracted {len(extracted)} categories from {canonical} "
                     f"classification prompt: {extracted}"
                 )
+        # Fallback: if extraction from new prompt failed, keep preserved ones
+        if not shared_categories and preserved_categories:
+            shared_categories = preserved_categories
+            logger.info("Using preserved categories as fallback for shared_categories")
 
         # ── 2. Generate remaining prompts in PARALLEL ─────────────────
         n_remaining = len(models) * 4 - 1  # total minus the one already done
@@ -1397,13 +1544,14 @@ class PromptManager:
                         ref = self.get_active_prompt(tgt_model, prompt_type) or ""
                         ref_snippet = ref[:2000] if ref else "(no existing prompt)"
 
-                    cats = shared_categories if task == "classification" else None
+                    cats = shared_categories if task in ("classification", "dialog") else None
                     tasks.append(
                         self._async_generate_one_prompt(
                             client, generator_model, topic,
                             tgt_model, task, ref_snippet, cats, sem,
                             model_family=family,
                             deployment_name=deployment,
+                            task_hint=task,
                         )
                     )
             return await asyncio.gather(*tasks, return_exceptions=True)
@@ -1513,48 +1661,52 @@ class PromptManager:
             logger.warning("Could not extract categories from classification prompts — data generator will invent its own")
 
         # ── 4. Generate ALL synthetic test data in PARALLEL ───────────
-        logger.info("== Step 4/4: Generating 5 data types in parallel ==")
-        data_path = Path(data_dir)
-        _dc = data_counts or {}
-        _cfg_dc = self._config.get("evaluation", {}).get("test_data_counts", {})
-        data_generators = [
-            ("classification", self._build_classification_data_prompt, _dc.get("classification", _cfg_dc.get("classification", 20))),
-            ("dialog",         self._build_dialog_data_prompt,         _dc.get("dialog",         _cfg_dc.get("dialog", 15))),
-            ("general",        self._build_general_data_prompt,        _dc.get("general",        _cfg_dc.get("general", 15))),
-            ("rag",            self._build_rag_data_prompt,            _dc.get("rag",            _cfg_dc.get("rag", 10))),
-            ("tool_calling",   self._build_tool_calling_data_prompt,   _dc.get("tool_calling",   _cfg_dc.get("tool_calling", 10))),
-        ]
-        MAX_DATA_RETRIES = 2
-
-        async def _step4():
-            sem = asyncio.Semaphore(_MAX_CONCURRENT_LLM)
-            tasks = [
-                self._async_generate_one_data(
-                    client, generator_model, topic,
-                    dt, builder, count, canonical_categories,
-                    data_path, MAX_DATA_RETRIES, sem,
-                )
-                for dt, builder, count in data_generators
+        if scope != "prompts_only":
+            logger.info("== Step 4/4: Generating 5 data types in parallel ==")
+            data_path = Path(data_dir)
+            _dc = data_counts or {}
+            _cfg_dc = self._config.get("evaluation", {}).get("test_data_counts", {})
+            data_generators = [
+                ("classification", self._build_classification_data_prompt, _dc.get("classification", _cfg_dc.get("classification", 20))),
+                ("dialog",         self._build_dialog_data_prompt,         _dc.get("dialog",         _cfg_dc.get("dialog", 15))),
+                ("general",        self._build_general_data_prompt,        _dc.get("general",        _cfg_dc.get("general", 15))),
+                ("rag",            self._build_rag_data_prompt,            _dc.get("rag",            _cfg_dc.get("rag", 10))),
+                ("tool_calling",   self._build_tool_calling_data_prompt,   _dc.get("tool_calling",   _cfg_dc.get("tool_calling", 10))),
             ]
-            return await asyncio.gather(*tasks, return_exceptions=True)
+            MAX_DATA_RETRIES = 2
 
-        step4_results = self._run_async(_step4())
+            async def _step4():
+                sem = asyncio.Semaphore(_MAX_CONCURRENT_LLM)
+                tasks = [
+                    self._async_generate_one_data(
+                        client, generator_model, topic,
+                        dt, builder, count, canonical_categories,
+                        data_path, MAX_DATA_RETRIES, sem,
+                    )
+                    for dt, builder, count in data_generators
+                ]
+                return await asyncio.gather(*tasks, return_exceptions=True)
 
-        for item in step4_results:
-            if isinstance(item, Exception):
-                logger.error(f"[parallel] Data generation exception: {item}")
-                continue
-            data_type, data_result = item
-            result["data"][data_type] = data_result
+            step4_results = self._run_async(_step4())
 
-        # Mark data as freshly generated
-        self._save_topic_metadata(topic, data_generated=True)
+            for item in step4_results:
+                if isinstance(item, Exception):
+                    logger.error(f"[parallel] Data generation exception: {item}")
+                    continue
+                data_type, data_result = item
+                result["data"][data_type] = data_result
+
+            # Mark data as freshly generated
+            self._save_topic_metadata(topic, data_generated=True)
+        else:
+            logger.info("== Step 4/4: SKIPPED (scope=prompts_only) ==")
 
         # Archive the newly generated topic so it's recoverable
         self.archive_current_topic()
 
         elapsed = time.time() - overall_t0
-        logger.info(f"== Generation complete in {elapsed:.1f}s (parallel pipeline) ==")
+        scope_label = {"all": "prompts + data", "prompts_only": "prompts only", "data_only": "data only"}.get(scope, scope)
+        logger.info(f"== Generation complete ({scope_label}) in {elapsed:.1f}s (parallel pipeline) ==")
 
         return result
 
@@ -1665,26 +1817,50 @@ Create {task_description.get(task, task)}
 {reference_snippet}
 
 {requirements}
-{self._shared_categories_block(shared_categories)}
+{self._categories_block(shared_categories, task)}
 """
 
     @staticmethod
-    def _shared_categories_block(categories: Optional[List[str]]) -> str:
-        """Return an extra requirement block forcing the prompt to reuse given categories."""
+    def _categories_block(categories: Optional[List[str]], task: str = "classification") -> str:
+        """Return a category constraint block adapted to the task type.
+
+        - **classification**: strict — the prompt MUST use these exact codes.
+        - **dialog**: soft — the prompt should cover all these domain areas
+          in its conversation handling, but need not list them as codes.
+        - **other tasks**: no block (categories are irrelevant).
+        """
         if not categories:
             return ""
+
         cat_list = '\n'.join(f'  - {c}' for c in categories)
-        return (
-            f"\n## MANDATORY CATEGORY TAXONOMY (CRITICAL — DO NOT CHANGE)\n"
-            f"You MUST use EXACTLY these primary category codes.\n"
-            f"Copy each code CHARACTER-BY-CHARACTER — do NOT rename, paraphrase,\n"
-            f"merge, split, abbreviate, or invent new categories:\n\n"
-            f"{cat_list}\n\n"
-            f"These are the ONLY valid primary_category values.\n"
-            f"You may freely create subcategories, descriptions, and examples\n"
-            f"adapted to this model's style, but the primary category codes\n"
-            f"MUST be identical to the list above.\n"
-        )
+
+        if task == "classification":
+            return (
+                f"\n## MANDATORY CATEGORY TAXONOMY (CRITICAL — DO NOT CHANGE)\n"
+                f"You MUST use EXACTLY these primary category codes.\n"
+                f"Copy each code CHARACTER-BY-CHARACTER — do NOT rename, paraphrase,\n"
+                f"merge, split, abbreviate, or invent new categories:\n\n"
+                f"{cat_list}\n\n"
+                f"These are the ONLY valid primary_category values.\n"
+                f"You may freely create subcategories, descriptions, and examples\n"
+                f"adapted to this model's style, but the primary category codes\n"
+                f"MUST be identical to the list above.\n"
+            )
+
+        if task == "dialog":
+            return (
+                f"\n## DOMAIN CATEGORIES REFERENCE\n"
+                f"The following categories represent the key areas of this domain.\n"
+                f"The conversation agent MUST be capable of handling inquiries,\n"
+                f"follow-ups, and escalation flows for ALL of these areas:\n\n"
+                f"{cat_list}\n\n"
+                f"Ensure the prompt's conversation patterns, follow-up question\n"
+                f"templates, and escalation rules cover every area listed above.\n"
+                f"You do NOT need to list them as formal category codes, but the\n"
+                f"agent's behaviour must naturally handle all these domain topics.\n"
+            )
+
+        return ""  # Other tasks (rag, tool_calling) don't need categories
 
     # ── Meta-prompt builders for synthetic data ───────────────────────
 
