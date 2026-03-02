@@ -1,12 +1,12 @@
 # Azure OpenAI Model Migration Evaluation Framework
 
-A comprehensive evaluation framework for migrating production systems between any Azure OpenAI model generations (e.g. GPT-4o → GPT-4.1, GPT-4.1 → GPT-5.2, or any configured pair).  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **5 scenario types** (classification, dialog, general, RAG, and tool calling), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
+A comprehensive evaluation framework for migrating production systems between any Azure OpenAI model generations **and Azure AI Marketplace models** (e.g. GPT-4o → GPT-4.1, GPT-4.1 → GPT-5.2, GPT-4.1 → Mistral-Large-3, or any configured pair).  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **5 scenario types** (classification, dialog, general, RAG, and tool calling), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
 
 ---
 
 ## 🎯 Overview
 
-When you upgrade or switch a model deployment in Azure AI Foundry — from GPT-4o to GPT-4.1, or from GPT-4.1 to GPT-5.2, for example — you need to answer questions like:
+When you upgrade or switch a model deployment in Azure AI Foundry — from GPT-4o to GPT-4.1, from GPT-4.1 to GPT-5.2, or even to a Marketplace model like Mistral-Large-3, for example — you need to answer questions like:
 
 - *"Does the new model still classify tickets correctly?"*
 - *"Is latency better or worse?"*
@@ -26,9 +26,9 @@ This framework automates that process end-to-end:
 
 | Area | Highlights |
 |------|------------|
-| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.1, GPT-5.2, reasoning variants, etc.) — each with `model_family` for automatic API behaviour |
+| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.1, GPT-5.2, Mistral-Large-3, reasoning variants, etc.) — each with `model_family` for automatic API behaviour |
 | **Multi-Topic** | Switch between self-contained topic archives (prompts + data) without losing anything |
-| **AI Generation** | One-click generation of optimised prompts (4 task types × N models) + 5 test datasets (70 scenarios) tailored to any domain, with dynamic category taxonomy and JSON retry logic |
+| **AI Generation** | One-click generation of optimised prompts (4 task types × N models) + 5 test datasets (70 scenarios) tailored to any domain, with dynamic category taxonomy, JSON retry logic, and **selective regeneration** (prompts only, test data only, or both) |
 | **Topic Import** | Import prompts + test data from disk for any source model (web UI or CLI) — target model prompts are auto-generated and the topic is archived ready to activate |
 | **Classification** | Accuracy, F1, precision, recall, subcategory/priority/sentiment accuracy, confidence calibration, confusion matrix |
 | **Dialog** | Follow-up quality, context coverage, rule compliance, empathy score, optimal similarity, resolution efficiency, consistency |
@@ -112,6 +112,7 @@ model_migration_eval/
 │   │   └── dialog_agent_system.md
 │   ├── gpt51/                      #   GPT-5.1 optimised prompts
 │   ├── gpt5_reasoning/             #   GPT-5.1 reasoning (falls back to gpt5/ prompts)
+│   ├── mistral/                    #   Mistral-Large-3 optimised prompts
 │   ├── history/                    #   Version history (auto-managed)
 │   │   └── versions.json
 │   └── topics/                     #   ⬅ Archived topic prompts
@@ -231,9 +232,16 @@ azure:
       model_version: "2025-01-01"
       max_tokens: 8192
       temperature: 0.1
+
+    mistral_large_3:
+      deployment_name: "Mistral-Large-3"   # Azure AI Marketplace deployment
+      model_family: "mistral"
+      model_version: "2025-03-01"
+      max_tokens: 8192
+      temperature: 0.1
 ```
 
-You can add as many models as you need (see [Model Configuration](#-model-configuration) below).
+You can add as many models as you need — including Azure AI Marketplace models like Mistral (see [Model Configuration](#-model-configuration) below).
 
 ### 3. Launch the Web Interface
 
@@ -341,7 +349,7 @@ The Prompts page has four sub-tabs:
 | Sub-Tab | Purpose |
 |---------|---------|
 | **View / Edit** | Read and edit the active prompt template for any model/type combination |
-| **✨ AI Generate** | Generate all 8 prompts (4 types × 2 models) + 5 test datasets for a new topic in one click |
+| **✨ AI Generate** | Generate prompts (4 types × N configured models) + 5 test datasets for a new topic — with a **Regenerate** dropdown to selectively regenerate only prompts, only test data, or both |
 | **Version History** | Filter, preview, restore, or delete (single/bulk) any past prompt version |
 | **Test Data** | Browse, create, and edit test scenarios for all 5 evaluation types via **dynamic web forms** — each type gets a purpose-built form with specialised sub-editors (conversation turns, tool definitions, key-value context, tag lists). Toggle to raw JSON view for advanced editing |
 
@@ -380,6 +388,7 @@ data/users/<user_id>/
 │   ├── gpt4/                    # Active prompt templates per model
 │   ├── gpt4o/
 │   ├── gpt5/
+│   ├── mistral/                 # Marketplace model prompts
 │   ├── history/                 # User's own version history (starts empty)
 │   └── topics/                  # Archived topics
 ├── synthetic/
@@ -556,6 +565,18 @@ Topics are self-contained packages of prompts + test data.  The system supports:
 
 When prompts and test data were generated for different topics, the system detects the mismatch.  The Evaluate page shows a warning with a button to **regenerate** test data for the current topic.
 
+### Selective Regeneration
+
+For an active topic, the **Regenerate** dropdown on the AI Generate panel offers three options:
+
+| Option | Scope | What it does |
+|--------|-------|-------------|
+| **🔄 Regenerate All** | `all` | Regenerates both prompts (all models × 4 types) and all 5 test datasets |
+| **📝 Prompts Only** | `prompts_only` | Regenerates only the prompt templates — test data is left untouched. Classification and dialog categories from the existing prompts are **preserved** so that test data remains consistent |
+| **📊 Test Data Only** | `data_only` | Regenerates only the 5 test datasets — prompt templates are left untouched. Categories are extracted from the current prompts so that test data matches |
+
+> **Category coupling:** Classification has **strong coupling** — test-data category codes must match the prompt's taxonomy verbatim.  Dialog has **soft coupling** — categories serve as a reference for scenario diversity.  General, RAG, and Tool Calling have **no coupling** — they can be regenerated independently without risk.
+
 ---
 
 ## ✏️ Prompt Management
@@ -594,7 +615,22 @@ The entire file content is sent as the `system` message.  Changes take effect on
 
 Generation runs **asynchronously** in a background thread (HTTP 202 + polling) — the UI shows an elapsed-time counter and animated progress.  This avoids ACA Envoy proxy timeout limits on long-running requests.
 
-This generates in one go:
+#### Regeneration Scope
+
+For topics that already exist, the **🔄 Regenerate** dropdown button (next to the Generate button) lets you choose what to regenerate:
+
+- **🔄 Regenerate All** — Recreates both prompts and test data (default).
+- **📝 Prompts Only** — Regenerates prompt templates while keeping test data untouched.  The system extracts categories from the existing prompts **before** overwriting them, then passes those categories to the generator so new prompts remain consistent with the existing test data.
+- **📊 Test Data Only** — Regenerates test datasets while keeping prompts untouched.  Categories are read from the current prompts so that new test scenarios match the prompt taxonomy.
+
+This is particularly useful when:
+- You want to iterate on **prompt quality** without losing carefully curated test data.
+- You need to **refresh test scenarios** (e.g. add variety) without changing prompts that are already fine-tuned.
+- You added a **new model** and want to generate its prompts without regenerating all test data.
+
+#### Full Generation Output
+
+A full generation (scope `all`) produces:
 
 | Output | Description |
 |--------|-------------|
@@ -606,6 +642,10 @@ This generates in one go:
 | `gpt5/dialog_agent_system.md` | Dialog prompt optimised for GPT-5 |
 | `gpt5/rag_agent_system.md` | RAG prompt optimised for GPT-5 |
 | `gpt5/tool_calling_agent_system.md` | Tool calling prompt optimised for GPT-5 |
+| `mistral/classification_agent_system.md` | Classification prompt optimised for Mistral (structured examples, few-shot) |
+| `mistral/dialog_agent_system.md` | Dialog prompt optimised for Mistral |
+| `mistral/rag_agent_system.md` | RAG prompt optimised for Mistral |
+| `mistral/tool_calling_agent_system.md` | Tool calling prompt optimised for Mistral |
 | `data/synthetic/classification/*.json` | 20 classification scenarios with categories, sentiments, priorities |
 | `data/synthetic/dialog/*.json` | 15 multi-turn dialog scenarios |
 | `data/synthetic/general/*.json` | 15 general capability tests |
@@ -1056,7 +1096,7 @@ data/synthetic/
 
 Edit the `models` section in `config/settings.yaml`.  Each key becomes a model name used in the CLI, API, and web UI.
 
-### Example: 6-Model Setup
+### Example: 7-Model Setup (Azure OpenAI + Marketplace)
 
 ```yaml
 azure:
@@ -1106,14 +1146,23 @@ azure:
       model_version: "2025-01-01"
       max_tokens: 16384
       reasoning_effort: "medium"    # low, medium, high (o-series / gpt-5)
+
+    mistral_large_3:
+      deployment_name: "Mistral-Large-3"    # Azure AI Marketplace model
+      model_family: "mistral"
+      model_version: "2025-03-01"
+      max_tokens: 8192
+      temperature: 0.1
 ```
+
+> **Marketplace models:** Mistral-Large-3 (and other Marketplace models) are deployed via the [Azure AI Foundry Model Catalog](https://ai.azure.com/explore/models) and use the **same Azure OpenAI endpoint and API key** — no additional infrastructure or credentials required.
 
 ### Parameters
 
 | Parameter | Description | Notes |
 |-----------|-------------|-------|
 | `deployment_name` | Deployment name in Azure AI Foundry | As shown in Azure Portal → Deployments |
-| `model_family` | Prompt-style family grouping | `gpt4` or `gpt5` — determines API behaviour (see below) |
+| `model_family` | Prompt-style family grouping | `gpt4`, `gpt5`, or `mistral` — determines API behaviour (see below) |
 | `model_version` | Model version string | From deployment details |
 | `max_tokens` | Maximum response tokens | Model-dependent |
 | `temperature` | 0.0–2.0 (lower = more deterministic) | 0.1 recommended for evaluation; **omitted for reasoning models** |
@@ -1124,15 +1173,17 @@ azure:
 
 ### Model Family Behaviour
 
-The `model_family` field controls two automatic API-level differences:
+The `model_family` field controls automatic API-level differences:
 
-| Behaviour | `model_family: "gpt4"` | `model_family: "gpt5"` |
-|-----------|------------------------|------------------------|
-| **Max tokens parameter** | `max_tokens` | `max_completion_tokens` (auto-converted) |
-| **System message role** | `system` | `developer` |
-| **Sampling parameters** | Always sent (temperature, top_p, penalties) | Sent unless `reasoning_effort` is present |
+| Behaviour | `model_family: "gpt4"` | `model_family: "gpt5"` | `model_family: "mistral"` |
+|-----------|------------------------|------------------------|---------------------------|
+| **Max tokens parameter** | `max_tokens` | `max_completion_tokens` (auto-converted) | `max_tokens` |
+| **System message role** | `system` | `developer` | `system` |
+| **Sampling parameters** | Always sent (temperature, top_p, penalties) | Sent unless `reasoning_effort` is present | Always sent |
+| **Last-message guard** | Not needed | Not needed | Auto-appends a minimal `user` message if the last message is not `user` or `tool` (prevents Mistral error 3230) |
+| **Prompt style** | Explicit chain-of-thought, verbose rules | Native reasoning, concise | Detailed instructions, structured examples, few-shot |
 
-> **Auto-detection:** The client reads `model_family` from the config and automatically converts `max_tokens` → `max_completion_tokens` and `system` → `developer` role for `gpt5` family models.  No manual API changes needed.
+> **Auto-detection:** The client reads `model_family` from the config and automatically converts `max_tokens` → `max_completion_tokens` and `system` → `developer` role for `gpt5` family models, and applies the last-message guard for `mistral` family models.  No manual API changes needed.
 
 ### Reasoning vs. Non-Reasoning Models
 
@@ -1191,6 +1242,13 @@ python tools/add_model.py \
     --max-tokens 16384 \
     --reasoning-effort medium
 
+# Azure AI Marketplace model (e.g. Mistral-Large-3)
+python tools/add_model.py \
+    --key mistral_large_3 \
+    --deployment "Mistral-Large-3" \
+    --family mistral \
+    --max-tokens 8192
+
 # Specify which model to copy prompts from
 python tools/add_model.py \
     --key gpt45 \
@@ -1212,7 +1270,7 @@ python tools/add_model.py \
 |-----------|:--------:|-------------|
 | `--key` | ✅ | Internal model key (e.g. `gpt45`, `o4_mini`) — becomes API/CLI name and prompt directory |
 | `--deployment` | ✅ | Azure deployment name as shown in AI Foundry portal |
-| `--family` | ✅ | `gpt4` or `gpt5` — determines API behaviour (see Model Family table above) |
+| `--family` | ✅ | `gpt4`, `gpt5`, or `mistral` — determines API behaviour (see Model Family table above) |
 | `--model-version` | — | Model version string from deployment details |
 | `--max-tokens` | — | Max response tokens (default: 4096 for gpt4, 16384 for gpt5) |
 | `--temperature` | — | 0.0–2.0 (default: 0.1; omitted automatically for reasoning models) |
@@ -1238,7 +1296,7 @@ If you prefer to configure manually, add a model in **2 steps**:
 ```yaml
     my_new_model:
       deployment_name: "gpt-4o-mini"   # Your deployment name in Azure AI Foundry
-      model_family: "gpt4"             # "gpt4" or "gpt5"
+      model_family: "gpt4"             # "gpt4", "gpt5", or "mistral"
       model_version: "2024-07-18"
       max_tokens: 4096
       temperature: 0.1
@@ -1548,7 +1606,7 @@ The deployment uses a **User-Assigned Managed Identity** instead of API keys or 
 | [Azure CLI (`az`)](https://aka.ms/installazurecliwindows) | ✅ | `winget install Microsoft.AzureCLI` |
 | [Docker Desktop](https://www.docker.com/products/docker-desktop/) | ✅ | Required to build the container image |
 | Azure subscription with **Contributor** role | ✅ | — |
-| Azure OpenAI resource with model deployments | ✅ | Any supported models (GPT-4o, GPT-4.1, GPT-5.2, etc.) |
+| Azure OpenAI resource with model deployments | ✅ | Azure OpenAI models (GPT-4o, GPT-4.1, GPT-5.2, etc.) and/or Azure AI Marketplace models (Mistral-Large-3, etc.) |
 
 ### Step 1 — Authenticate
 
@@ -1709,6 +1767,7 @@ python tools/add_model.py
 # Add a new model (non-interactive — all parameters on the command line)
 python tools/add_model.py --key gpt45 --deployment "gpt-4.5" --family gpt4
 python tools/add_model.py --key o4_mini --deployment "o4-mini" --family gpt5 --reasoning-effort medium
+python tools/add_model.py --key mistral_large_3 --deployment "Mistral-Large-3" --family mistral
 python tools/add_model.py --key gpt45 --deployment "gpt-4.5" --family gpt4 --copy-prompts-from gpt4o
 ```
 
@@ -1772,7 +1831,7 @@ All endpoints are available at `http://127.0.0.1:<port>/api/`.
 | `GET` | `/api/prompts` | List all available prompt templates |
 | `GET` | `/api/prompts/<model>/<type>` | Read a specific prompt's content |
 | `PUT` | `/api/prompts/<model>/<type>` | Save/update a prompt (creates version snapshot) |
-| `POST` | `/api/prompts/generate` | AI-generate all prompts + matching test data — returns HTTP 202, runs asynchronously in background |
+| `POST` | `/api/prompts/generate` | AI-generate prompts + test data — accepts optional `scope` parameter (`"all"`, `"prompts_only"`, `"data_only"`) — returns HTTP 202, runs asynchronously in background |
 | `GET` | `/api/prompts/generate/<run_id>/status` | Poll generation job progress — returns result payload when complete |
 | `GET` | `/api/prompts/health` | Prompt health analysis — checks consistency and completeness |
 
@@ -1974,14 +2033,14 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 | `CodeManager` | `src.auth.code_manager` | OTP generation (SHA-256 hashed), verification with TTL and attempt limits |
 | `EmailSender` | `src.auth.email_sender` | Abstract email backend — `SmtpEmailSender` (production) + `ConsoleEmailSender` (dev) |
 | `UserContext` | `src.auth.user_context` | Per-user directory layout, path resolution, and first-login seeding |
-| `AzureOpenAIClient` | `src.clients.azure_openai` | Wraps the OpenAI SDK — connection management, chat completions, streaming |
+| `AzureOpenAIClient` | `src.clients.azure_openai` | Wraps the OpenAI SDK — connection management, chat completions, streaming.  Supports Azure OpenAI and Marketplace models (Mistral) via `model_family`-based routing |
 | `ModelEvaluator` | `src.evaluation.evaluator` | Runs classification/dialog/general/RAG/tool_calling evaluations against a single model |
 | `EvaluationResult` | `src.evaluation.evaluator` | Dataclass container for evaluation output — serialises to/from JSON |
 | `ModelComparator` | `src.evaluation.comparator` | Compares evaluation results between two models with significance analysis |
 | `ComparisonReport` | `src.evaluation.comparator` | Dataclass for comparison output — dimensions, winner, recommendations |
 | `MetricsCalculator` | `src.evaluation.metrics` | Computes classification metrics (accuracy, F1, kappa, confusion matrix, calibration), dialog quality metrics (rule compliance, empathy, optimal similarity, resolution efficiency), RAG metrics (groundedness, relevance), tool calling metrics (tool selection accuracy, parameter accuracy), latency & cost analytics, and consistency scoring.  Includes case-insensitive category normalisation with alias support |
 | `FoundryEvaluator` | `src.evaluation.foundry_evaluator` | Submits evaluation data to Microsoft Foundry Control Plane for LLM-as-judge quality evaluation.  Handles JSONL export (with type-specific converters for all 5 eval types), dataset upload, evaluation creation, run polling, and automatic retry with safety evaluator fallback |
-| `PromptManager` | `src.utils.prompt_manager` | Prompt editing, versioning, AI generation (8 prompts + 5 datasets with JSON sanitisation & retry), topic archival, data sync, synthetic data regeneration |
+| `PromptManager` | `src.utils.prompt_manager` | Prompt editing, versioning, AI generation (4 task types × N models + 5 datasets with JSON sanitisation & retry), topic archival, data sync, synthetic data regeneration |
 | `PromptLoader` | `src.utils.prompt_loader` | Template loading from disk with in-memory caching |
 | `DataLoader` | `src.utils.data_loader` | Loads synthetic test scenarios from JSON files |
 
