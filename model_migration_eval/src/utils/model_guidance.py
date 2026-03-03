@@ -62,6 +62,23 @@ FAMILY_GUIDANCE: dict[str, str] = {
         "- Mistral excels at multilingual tasks — you can instruct in one\n"
         "  language and request output in another"
     ),
+    "gemini": (
+        "Gemini family — base best practices:\n"
+        "- Use explicit Chain-of-Thought (CoT) instructions for complex\n"
+        "  multi-step reasoning — Gemini benefits from step-by-step guidance\n"
+        "- Provide detailed, well-structured system prompts with clear\n"
+        "  section headings and formatting rules\n"
+        "- Include 2-3 concrete few-shot examples for best consistency\n"
+        "- Use standard 'system' role and 'max_tokens' (NOT developer role,\n"
+        "  NOT max_completion_tokens)\n"
+        "- Gemini supports reasoning_effort (none/low/medium/high) for\n"
+        "  controlling reasoning depth — use when applicable\n"
+        "- Be explicit about output format (JSON schema, Markdown) —\n"
+        "  include a complete example of the expected output\n"
+        "- Do NOT rely on 'seed' parameter — not supported by Gemini\n"
+        "- Gemini excels at multilingual and multimodal tasks\n"
+        "- Use temperature=0.1 for reproducibility"
+    ),
 }
 
 
@@ -194,6 +211,26 @@ MODEL_GUIDANCE: dict[str, str] = {
         "  for high-volume production workloads"
     ),
 
+    # ── Gemini family ───────────────────────────────────────────────────
+    "gemini-3-flash-preview": (
+        "\nModel-specific guidance (Gemini 3 Flash Preview):\n"
+        "- Fast, cost-effective model from Google — optimised for low-latency\n"
+        "  inference with strong quality\n"
+        "- 1 M-token context window — can process very large inputs\n"
+        "- Multimodal capable (text, images, audio, video) — mention when\n"
+        "  relevant to the task\n"
+        "- Strong structured output support — use response_format with\n"
+        "  json_object mode for reliable JSON generation\n"
+        "- Function/tool calling support with parallel tool invocation\n"
+        "- Supports reasoning_effort (none/low/medium/high) for controlling\n"
+        "  inference depth — useful for complex analytical tasks\n"
+        "- Explicit CoT prompting improves complex tasks — do NOT rely on\n"
+        "  implicit reasoning like GPT-5 models\n"
+        "- Include concrete few-shot examples (2-3) for best results\n"
+        "- Competitive cost-performance ratio — good alternative for\n"
+        "  high-volume production workloads"
+    ),
+
     # ── o-series reasoning models ─────────────────────────────────────
     "o1": (
         "\nModel-specific guidance (o1 — reasoning model):\n"
@@ -233,13 +270,15 @@ def resolve_model_family(
     model_key: str,
     model_family: Optional[str] = None,
 ) -> str:
-    """Return ``'gpt4'``, ``'gpt5'``, or ``'mistral'`` family string for a model key."""
+    """Return ``'gpt4'``, ``'gpt5'``, ``'mistral'``, or ``'gemini'`` family string for a model key."""
     if model_family:
         return model_family
     if any(x in model_key.lower() for x in ("gpt5", "o1", "o3", "o4", "reasoning")):
         return "gpt5"
     if any(x in model_key.lower() for x in ("mistral",)):
         return "mistral"
+    if any(x in model_key.lower() for x in ("gemini",)):
+        return "gemini"
     return "gpt4"
 
 

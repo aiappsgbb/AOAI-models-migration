@@ -310,11 +310,10 @@ def create_app(config_path: str = None) -> Flask:
             uctx = UserContext(user_id=user.id, base_dir='data/users')
             model_keys = list(app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys())
             uctx.ensure_dirs(model_keys=model_keys)
-            if not uctx.is_initialised or not any(uctx.prompts_dir.glob('*/*.md')):
-                uctx.seed_from_shared(
-                    shared_prompts='prompts',
-                    shared_data='data/synthetic',
-                )
+            uctx.seed_from_shared(
+                shared_prompts='prompts',
+                shared_data='data/synthetic',
+            )
             session.permanent = True
             session['user_id'] = user.id
             session['user_email'] = user.email
@@ -347,11 +346,10 @@ def create_app(config_path: str = None) -> Flask:
         uctx = UserContext(user_id=user.id, base_dir='data/users')
         model_keys = list(app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys())
         uctx.ensure_dirs(model_keys=model_keys)
-        if not uctx.is_initialised or not any((uctx.prompts_dir).glob('*//*.md')):
-            uctx.seed_from_shared(
-                shared_prompts='prompts',
-                shared_data='data/synthetic',
-            )
+        uctx.seed_from_shared(
+            shared_prompts='prompts',
+            shared_data='data/synthetic',
+        )
 
         # Create session
         session.permanent = True
@@ -753,13 +751,11 @@ def create_app(config_path: str = None) -> Flask:
             
         prompt_loader = get_prompt_loader()
         metrics_calc = get_metrics_calc()
-        results = {}
-        
-        for model_name in models_to_test:
+
+        # --- Helper: evaluate one model (runs inside a thread) ----------
+        def _eval_one_model(model_name: str):
             if model_name not in client.models:
-                results[model_name] = {'error': f'Model {model_name} not configured'}
-                continue
-                
+                return model_name, {'error': f'Model {model_name} not configured'}
             try:
                 if evaluation_type == 'classification':
                     messages = prompt_loader.load_classification_prompt(
@@ -788,19 +784,18 @@ def create_app(config_path: str = None) -> Flask:
                     )
                     response_format = None
                 else:
-                    # general
                     messages = prompt_loader.load_general_prompt(
                         model=model_name,
                         prompt=customer_input
                     )
                     response_format = None
-                    
+
                 completion = client.complete(
                     messages=messages,
                     model_name=model_name,
                     response_format=response_format
                 )
-                
+
                 result = {
                     'response': completion.content,
                     'latency': completion.metrics.total_time,
@@ -813,17 +808,26 @@ def create_app(config_path: str = None) -> Flask:
                     },
                     'cost': _estimate_cost(model_name, completion.metrics),
                 }
-                
+
                 if evaluation_type == 'classification':
                     result['parsed'] = metrics_calc.extract_classification_from_response(
                         completion.content
                     )
-                    
-                results[model_name] = result
-                
+
+                return model_name, result
+
             except Exception as e:
-                results[model_name] = {'error': str(e)}
-                
+                return model_name, {'error': str(e)}
+
+        # --- Dispatch all models in parallel ----------------------------
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        results = {}
+        with ThreadPoolExecutor(max_workers=max(len(models_to_test), 1)) as pool:
+            futures = {pool.submit(_eval_one_model, m): m for m in models_to_test}
+            for future in as_completed(futures):
+                model_name, result = future.result()
+                results[model_name] = result
+
         try:
             return jsonify(results)
         finally:
@@ -2013,6 +2017,7 @@ def create_app(config_path: str = None) -> Flask:
             'gpt41_mini': {'input': 0.0004, 'output': 0.0016, 'cached_input': 0.0001},
             'gpt5':     {'input': 0.005,  'output': 0.02,  'cached_input': 0.0025, 'reasoning': 0.015},
             'gpt5_reasoning': {'input': 0.005, 'output': 0.02, 'cached_input': 0.0025, 'reasoning': 0.015},
+            'gemini3_flash': {'input': 0.00015, 'output': 0.0006, 'cached_input': 0.0000375},
         }
         r = rates.get(model_name, next(iter(rates.values()), {}))
         pt = getattr(metrics, 'prompt_tokens', 0) or 0

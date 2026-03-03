@@ -31,6 +31,9 @@
     },
     "flaskSecretKey": {
       "value": "${FLASK_SECRET_KEY}"
+    },
+    "geminiApiKey": {
+      "value": "${GEMINI_API_KEY}"
     }
   }
 }

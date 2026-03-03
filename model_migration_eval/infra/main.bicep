@@ -49,6 +49,10 @@ param authEmailProvider string = ''
 @description('Flask session signing key (stored as Container Apps secret). Auto-generated if empty.')
 param flaskSecretKey string = ''
 
+@secure()
+@description('Google Gemini API key for Gemini model evaluations (optional). Get from https://aistudio.google.com/')
+param geminiApiKey string = ''
+
 // ── Derived names ──────────────────────────────────────────────────────────
 var resourceSuffix = take(uniqueString(subscription().id, environmentName, location), 6)
 var envNameLower = replace(toLower(environmentName), '_', '-')
@@ -183,7 +187,10 @@ var codeVerifEnv = empty(authCodeVerification) ? [] : [
 var emailProviderEnv = empty(authEmailProvider) ? [] : [
   { name: 'AUTH_EMAIL_PROVIDER', value: authEmailProvider }
 ]
-var containerEnv = concat(baseEnv, smtpEnv, authEnv, codeVerifEnv, emailProviderEnv)
+var geminiEnv = empty(geminiApiKey) ? [] : [
+  { name: 'GEMINI_API_KEY', value: geminiApiKey }
+]
+var containerEnv = concat(baseEnv, smtpEnv, authEnv, codeVerifEnv, emailProviderEnv, geminiEnv)
 
 module web 'br/public:avm/res/app/container-app:0.10.0' = {
   name: 'web-container-app'

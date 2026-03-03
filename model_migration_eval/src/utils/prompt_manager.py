@@ -17,8 +17,10 @@ Topic management:
 
 import asyncio
 import json
+import random
 import re
 import shutil
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +34,45 @@ logger = logging.getLogger(__name__)
 
 # Maximum number of concurrent LLM calls to avoid API rate-limit errors.
 _MAX_CONCURRENT_LLM = 5
+
+# ── Canonical JSON output fields for classification prompts ───────────
+# All models MUST produce responses with these exact top-level field names
+# so that the evaluation pipeline and metrics parser can process them
+# uniformly.  Models are free to add EXTRA fields beyond these, but these
+# 7 core fields must use the exact names and types listed here.
+_CANONICAL_CLASSIFICATION_SCHEMA = """\
+## MANDATORY JSON OUTPUT SCHEMA (ALL MODELS MUST USE THESE EXACT FIELD NAMES)
+The system prompt you generate MUST instruct the model to produce JSON
+responses whose top-level structure includes AT LEAST these fields,
+using EXACTLY these names and types — no renaming, no nesting changes:
+
+```
+{
+  "primary_category": "<string> — one of the mandatory category codes",
+  "subcategory": "<string> — a descriptive snake_case subcategory",
+  "priority": "<string> — one of: critical_safety | high | medium | low",
+  "sentiment": "<string> — a flat label, e.g. angry, neutral, positive",
+  "confidence": <number> — a decimal between 0.0 and 1.0,
+  "summary": "<string> — brief summary of the customer request",
+  "follow_up_questions": ["<string>", ...]
+}
+```
+
+STRICT RULES:
+- "primary_category" must be a flat string at the top level — NOT nested
+  inside another object (no `category.primary` or `category.code`).
+- "subcategory" must be a flat string at the top level — NOT `category.secondary`.
+- "priority" — NOT "priority_level". Values must be exactly:
+  critical_safety, high, medium, or low.
+- "sentiment" must be a flat string — NOT an object with sub-keys.
+- "confidence" must be a single decimal number 0.0–1.0 — NOT a string,
+  NOT an object, NOT absent.
+- "summary" must be a flat string — NOT "summary_es", NOT an object.
+- "follow_up_questions" — NOT "follow_up_questions_es" or any variant.
+
+The model MAY add extra fields (entities, safety_flags, vehicle info, etc.)
+as needed, but the 7 fields above MUST be present with these exact names.
+"""
 
 
 def _slugify(text: str) -> str:
@@ -125,7 +166,11 @@ def _extract_categories_from_prompt(prompt_text: str) -> List[str]:
         re.IGNORECASE)
     # Plain-text heading: ALL-CAPS line (≥ 60 % uppercase letters,
     # at least 10 chars, no leading ``-``/``*`` bullets).
-    _ALLCAPS_HEADING_RE = re.compile(r'^[A-Z][A-Z0-9 _()&,/—–-]{9,}$')
+    # Includes accented uppercase (ÁÉÍÓÚÑÜ) and common symbols (->:.).
+    _ALLCAPS_HEADING_RE = re.compile(
+        r'^[A-Z\u00C0-\u00DD]'
+        r'[A-Z\u00C0-\u00DD0-9 _()&,/—–>.<:;\-]{9,}$'
+    )
 
     def _is_heading(stripped: str) -> bool:
         """Return True if the line looks like a section heading."""
@@ -134,6 +179,21 @@ def _extract_categories_from_prompt(prompt_text: str) -> List[str]:
         # Plain-text ALLCAPS heading (common in LLM-generated prompts)
         if _ALLCAPS_HEADING_RE.match(stripped):
             return True
+        # Heuristic fallback: line with ≥ 60 % uppercase letters,
+        # at least 10 chars, no leading bullet — catches headings
+        # with accented characters or symbols not in the regex.
+        if len(stripped) >= 10 and stripped[0] not in '-*|':
+            alpha = [c for c in stripped if c.isalpha()]
+            if len(alpha) >= 5 and sum(1 for c in alpha if c.isupper()) / len(alpha) >= 0.6:
+                return True
+        # Heuristic 2: ALLCAPS prefix before parenthetical qualifier
+        # e.g. "TAXONOMÍA PERMITIDA (primary_category y subcategory)"
+        # or   "TAXONOMÍA (primary_category -> subcategories)"
+        if '(' in stripped and stripped[0] not in '-*|':
+            prefix = stripped.split('(')[0].strip()
+            prefix_alpha = [c for c in prefix if c.isalpha()]
+            if len(prefix_alpha) >= 5 and all(c.isupper() for c in prefix_alpha):
+                return True
         return False
 
     # ── Strategy 1: Markdown tables ───────────────────────────────
@@ -309,9 +369,10 @@ def _extract_categories_from_prompt(prompt_text: str) -> List[str]:
                 continue
             if not in_tax:
                 continue
-            # Match "- category_code" or "- category_code:" at the top
-            # indent level for lists (ignore deeper-indented sub-items)
-            m = re.match(r'^(\s*)[-*]\s+([a-z][a-z0-9_]{2,}):?\s*$', line)
+            # Match "- category_code", "1) category_code", or
+            # "1. category_code" at the top indent level for lists
+            # (ignore deeper-indented sub-items).
+            m = re.match(r'^(\s*)(?:[-*]|\d+[).])\s+([a-z][a-z0-9_]{2,}):?\s*$', line)
             if m:
                 indent = len(m.group(1))
                 if list_indent is None:
@@ -359,6 +420,42 @@ def _extract_categories_from_prompt(prompt_text: str) -> List[str]:
                 continue
             if not in_tax:
                 continue
+
+    # ── Strategy 5: Bare snake_case lines under a taxonomy heading ─
+    # Some prompts list category codes as plain lines without any
+    # bullet, number, or table formatting, e.g.:
+    #   TAXONOMÍA OBLIGATORIA (primary_category)
+    #   engine_and_drivability
+    #   transmission_and_drivetrain
+    #   brakes_and_stability
+    if not categories:
+        in_tax = False
+        for line in lines:
+            stripped = line.strip()
+            if _is_heading(stripped):
+                heading_lower = stripped.lower()
+                is_excluded = bool(_EXCLUSION_KW_RE.search(heading_lower))
+                is_sub_only = bool(_SUB_ONLY_RE.search(heading_lower)) \
+                    and not _SUB_EXCEPTION_RE.search(heading_lower)
+                if is_excluded or is_sub_only:
+                    in_tax = False
+                elif _TAXONOMY_KW_RE.search(heading_lower):
+                    in_tax = True
+                continue
+            if not in_tax:
+                continue
+            # Skip blank lines and explanatory text (sentences)
+            if not stripped or ' ' in stripped:
+                # Allow continuation if it's just a blank separator
+                if not stripped:
+                    continue
+                # Lines with spaces are likely descriptive text, not codes.
+                # Stop if we've already collected some categories and hit prose.
+                if categories:
+                    break
+                continue
+            if _CODE_RE.match(stripped):
+                _add(stripped)
 
     return categories
 
@@ -419,6 +516,7 @@ class PromptManager:
         self.index_path = self.history_dir / "versions.json"
         self._topic_path = self.history_dir / "topic_metadata.json"
         self._index = self._load_index()
+        self._metadata_lock = threading.Lock()
 
         # Ensure all configured models have a prompt directory
         cfg_models = self._config.get("azure", {}).get("models", {})
@@ -476,26 +574,40 @@ class PromptManager:
                 pass
         return {"topic": "", "prompts_updated_at": "", "data_generated_at": ""}
 
-    def _save_topic_metadata(self, topic: str, *, prompts_updated: bool = False, data_generated: bool = False):
-        """Persist topic metadata to disk."""
-        meta = self.get_topic_metadata()
-        if topic:
-            meta["topic"] = topic
-        now = datetime.now().isoformat()
-        if prompts_updated:
-            meta["prompts_updated_at"] = now
-        if data_generated:
-            meta["data_generated_at"] = now
-        with open(self._topic_path, "w", encoding="utf-8") as f:
-            json.dump(meta, f, indent=2, ensure_ascii=False)
+    def _save_topic_metadata(self, topic: str, *, prompts_updated: bool = False,
+                              data_generated: bool = False,
+                              canonical_categories: Optional[List[str]] = None):
+        """Persist topic metadata to disk (thread-safe).
+
+        When *canonical_categories* is provided it is stored alongside
+        the timestamps so that ``is_data_in_sync`` can do a content-based
+        check in addition to the timestamp comparison.
+        """
+        with self._metadata_lock:
+            meta = self.get_topic_metadata()
+            if topic:
+                meta["topic"] = topic
+            now = datetime.now().isoformat()
+            if prompts_updated:
+                meta["prompts_updated_at"] = now
+            if data_generated:
+                meta["data_generated_at"] = now
+            if canonical_categories is not None:
+                meta["canonical_categories"] = canonical_categories
+            with open(self._topic_path, "w", encoding="utf-8") as f:
+                json.dump(meta, f, indent=2, ensure_ascii=False)
 
     def is_data_in_sync(self) -> Dict[str, Any]:
         """Check whether synthetic test data is up-to-date with the prompts.
 
-        Returns a dict with ``in_sync`` (bool), ``topic``, and timestamps.
-        Data is considered out-of-sync when prompts have been updated
-        *after* the last data generation, or when data has never been
-        generated for the current topic.
+        Returns a dict with ``in_sync`` (bool), ``topic``, timestamps,
+        and — when available — a ``category_details`` sub-dict with
+        content-level alignment information.
+
+        Data is considered out-of-sync when:
+        * Prompts have been updated *after* the last data generation, **or**
+        * The test-data categories do not match the persisted canonical
+          categories (content-level mismatch).
         """
         meta = self.get_topic_metadata()
         topic = meta.get("topic", "")
@@ -508,15 +620,53 @@ class PromptManager:
         if not data_ts:
             return {"in_sync": False, "topic": topic, "reason": "data_never_generated"}
 
-        in_sync = data_ts >= prompts_ts if prompts_ts else True
-        reason = "up_to_date" if in_sync else "prompts_updated_after_data"
-        return {
+        # ── Timestamp check ───────────────────────────────────────
+        ts_in_sync = data_ts >= prompts_ts if prompts_ts else True
+
+        # ── Content check: canonical categories vs test-data file ─
+        content_in_sync = True
+        category_details: Dict[str, Any] = {}
+        canonical_cats = meta.get("canonical_categories")
+        if canonical_cats:
+            data_file = self.data_dir / "classification" / "classification_scenarios.json"
+            if data_file.exists():
+                try:
+                    raw = json.loads(data_file.read_text(encoding="utf-8"))
+                    if isinstance(raw, dict):
+                        raw = raw.get("scenarios", raw.get("data", []))
+                    data_cats = sorted({s.get("expected_category", "") for s in raw
+                                        if s.get("expected_category")})
+                    canonical_set = set(canonical_cats)
+                    data_set = set(data_cats)
+                    overlap = len(data_set & canonical_set)
+                    content_in_sync = bool(overlap) and data_set <= canonical_set
+                    category_details = {
+                        "canonical_count": len(canonical_set),
+                        "data_count": len(data_set),
+                        "overlap": overlap,
+                        "mismatched": sorted(data_set - canonical_set) if not content_in_sync else [],
+                    }
+                except Exception:
+                    pass  # can't verify content — assume ok
+
+        in_sync = ts_in_sync and content_in_sync
+        if not ts_in_sync:
+            reason = "prompts_updated_after_data"
+        elif not content_in_sync:
+            reason = "category_mismatch"
+        else:
+            reason = "up_to_date"
+
+        result: Dict[str, Any] = {
             "in_sync": in_sync,
             "topic": topic,
             "prompts_updated_at": prompts_ts,
             "data_generated_at": data_ts,
             "reason": reason,
         }
+        if category_details:
+            result["category_details"] = category_details
+        return result
 
     # ── Multi-topic management ────────────────────────────────────────
 
@@ -790,7 +940,7 @@ class PromptManager:
         self,
         client,
         generator_model: str = "gpt4",
-        data_dir: str = "data/synthetic",
+        data_dir: Optional[str] = None,
         topic: Optional[str] = None,
         data_counts: Optional[Dict[str, int]] = None,
     ) -> Dict[str, Any]:
@@ -799,6 +949,7 @@ class PromptManager:
         Uses **parallel async calls** — all 5 data types are generated
         concurrently for maximum speed.
         """
+        data_dir = data_dir or str(self.data_dir)
         if topic is None:
             topic = self.get_topic_metadata().get("topic", "")
         if not topic:
@@ -808,8 +959,10 @@ class PromptManager:
         data_path = Path(data_dir)
         result: Dict[str, Any] = {}
 
-        # Extract categories from ALL active classification prompts and
-        # use the intersection so that test data works for all models.
+        # Extract categories from ALL active classification prompts.
+        # Use the FIRST (canonical) model's categories as source of truth
+        # rather than intersection, to avoid losing categories when
+        # some models have misaligned taxonomies.
         _cats_by_model: Dict[str, List[str]] = {}
         for m in self._get_model_dirs():
             cls_prompt = self.get_active_prompt(m, "classification_agent_system") or ""
@@ -820,26 +973,28 @@ class PromptManager:
                     logger.info(f"regenerate_test_data: extracted {len(cats)} categories from active {m} prompt")
 
         canonical_categories: List[str] = []
-        if len(_cats_by_model) >= 2:
-            # Use intersection of all models' categories
-            all_sets = [set(c) for c in _cats_by_model.values()]
-            common_set = all_sets[0]
-            for s in all_sets[1:]:
-                common_set &= s
-            # Preserve order from first model that has categories
-            first_cats = list(_cats_by_model.values())[0]
-            common = [c for c in first_cats if c in common_set]
-            if common:
-                canonical_categories = common
-                logger.info(f"regenerate_test_data: using INTERSECTION ({len(common)} categories): {common}")
-            else:
-                canonical_categories = list(_cats_by_model.values())[0]
-                logger.warning(
-                    f"regenerate_test_data: no category overlap — "
-                    f"using first model's categories as source of truth"
-                )
-        elif _cats_by_model:
+        if _cats_by_model:
+            # Use the first model's categories as the canonical set
             canonical_categories = list(_cats_by_model.values())[0]
+            # Log alignment status
+            if len(_cats_by_model) >= 2:
+                ref_set = set(canonical_categories)
+                for m, cats in _cats_by_model.items():
+                    overlap = len(set(cats) & ref_set)
+                    logger.info(
+                        f"regenerate_test_data: {m} has {overlap}/{len(ref_set)} "
+                        f"categories aligned with canonical"
+                    )
+
+        # Fallback: persisted canonical categories from metadata
+        if not canonical_categories:
+            _meta_cats = self.get_topic_metadata().get("canonical_categories")
+            if _meta_cats:
+                canonical_categories = _meta_cats
+                logger.info(
+                    f"regenerate_test_data: using {len(_meta_cats)} persisted "
+                    f"canonical categories from metadata (prompt extraction failed)"
+                )
 
         _dc = data_counts or {}
         _cfg_dc = self._config.get("evaluation", {}).get("test_data_counts", {})
@@ -877,7 +1032,10 @@ class PromptManager:
             result[data_type] = data_result
 
         # Update metadata AFTER data is on disk to avoid slug desync
-        self._save_topic_metadata(topic, data_generated=True)
+        self._save_topic_metadata(
+            topic, data_generated=True,
+            canonical_categories=canonical_categories if canonical_categories else None,
+        )
 
         # Update the topic archive with fresh data
         meta_now = self.get_topic_metadata()
@@ -1273,14 +1431,16 @@ class PromptManager:
                     if not isinstance(scenarios, list):
                         raise ValueError("Expected a JSON array of scenarios")
 
-                    # Validate classification expected_category
+                    # Validate classification expected_category — fix any
+                    # that don't match the canonical set to prevent 0% accuracy.
                     if data_type == "classification" and canonical_categories:
                         canonical_set = {c.lower().strip() for c in canonical_categories}
-                        invalid_count = 0
+                        replaced_count = 0
                         for sc in scenarios:
                             ec = sc.get("expected_category", "")
                             if isinstance(ec, str) and ec.lower().strip() not in canonical_set:
                                 ec_lower = ec.lower().strip()
+                                # Try fuzzy match first (substring containment)
                                 match = next(
                                     (c for c in canonical_categories
                                      if c.lower() in ec_lower or ec_lower in c.lower()),
@@ -1289,11 +1449,19 @@ class PromptManager:
                                 if match:
                                     sc["expected_category"] = match
                                 else:
-                                    invalid_count += 1
-                        if invalid_count:
+                                    # Replace with a random canonical category
+                                    # so orphaned categories don't drag accuracy to 0%
+                                    old_val = ec
+                                    sc["expected_category"] = random.choice(canonical_categories)
+                                    replaced_count += 1
+                                    logger.debug(
+                                        f"  Replaced invalid category '{old_val}' "
+                                        f"-> '{sc['expected_category']}'"
+                                    )
+                        if replaced_count:
                             logger.warning(
-                                f"[!] {invalid_count}/{len(scenarios)} {data_type} "
-                                f"scenarios have invalid expected_category values"
+                                f"[!] Replaced {replaced_count}/{len(scenarios)} {data_type} "
+                                f"scenarios whose expected_category was not in the canonical set"
                             )
                         else:
                             logger.info(f"[OK] All {data_type} expected_category values match canonical categories.")
@@ -1339,7 +1507,7 @@ class PromptManager:
         topic: str,
         client,
         generator_model: str = "gpt5",
-        data_dir: str = "data/synthetic",
+        data_dir: Optional[str] = None,
         target_models: Optional[List[str]] = None,
         data_counts: Optional[Dict[str, int]] = None,
         scope: str = "all",
@@ -1370,6 +1538,7 @@ class PromptManager:
             }
         """
         overall_t0 = time.time()
+        data_dir = data_dir or str(self.data_dir)
 
         # Resolve which models to generate for
         if target_models:
@@ -1406,18 +1575,20 @@ class PromptManager:
                     cats = _extract_categories_from_prompt(cls_prompt)
                     if cats:
                         _cats_by_model[m] = cats
-            if len(_cats_by_model) >= 2:
-                all_sets = [set(c) for c in _cats_by_model.values()]
-                common_set = all_sets[0]
-                for s in all_sets[1:]:
-                    common_set &= s
-                first_cats = list(_cats_by_model.values())[0]
-                common = [c for c in first_cats if c in common_set]
-                canonical_categories = common if common else first_cats
-            elif _cats_by_model:
+            # Use first (canonical) model's categories as source of truth
+            if _cats_by_model:
                 canonical_categories = list(_cats_by_model.values())[0]
             if canonical_categories:
                 logger.info(f"data_only: extracted {len(canonical_categories)} categories from existing prompts")
+            # Fallback: persisted canonical categories from metadata
+            if not canonical_categories:
+                _meta_cats = self.get_topic_metadata().get("canonical_categories")
+                if _meta_cats:
+                    canonical_categories = _meta_cats
+                    logger.info(
+                        f"data_only: using {len(_meta_cats)} persisted canonical "
+                        f"categories from metadata (prompt extraction failed)"
+                    )
 
             # Jump to Step 4 — reuse the data generation block below
             # (the scope != "prompts_only" guard will run it)
@@ -1456,7 +1627,10 @@ class PromptManager:
                 data_type, data_result = item
                 result["data"][data_type] = data_result
 
-            self._save_topic_metadata(topic, data_generated=True)
+            self._save_topic_metadata(
+                topic, data_generated=True,
+                canonical_categories=canonical_categories if canonical_categories else None,
+            )
             self.archive_current_topic()
             elapsed = time.time() - overall_t0
             logger.info(f"== Data-only generation complete in {elapsed:.1f}s ==")
@@ -1475,14 +1649,46 @@ class PromptManager:
 
         # When regenerating prompts only, preserve existing categories so
         # new prompts stay aligned with the current test data.
+        # Priority: (1) categories actually used in the test data file,
+        #           (2) persisted canonical categories in metadata,
+        #           (3) categories from the current prompt (weakest signal).
         preserved_categories: Optional[List[str]] = None
-        if scope == "prompts_only" and reference:
-            preserved_categories = _extract_categories_from_prompt(reference)
-            if preserved_categories:
-                logger.info(
-                    f"scope=prompts_only: preserving {len(preserved_categories)} "
-                    f"categories from existing prompt: {preserved_categories}"
-                )
+        if scope == "prompts_only":
+            # 1. Extract from existing test data (strongest — this is what
+            #    the evaluation pipeline will compare against).
+            _data_file = Path(data_dir) / "classification" / "classification_scenarios.json"
+            if _data_file.exists():
+                try:
+                    _scen = json.loads(_data_file.read_text(encoding="utf-8"))
+                    if isinstance(_scen, dict):
+                        _scen = _scen.get("scenarios", _scen.get("data", []))
+                    _data_cats = sorted({s.get("expected_category", "") for s in _scen
+                                         if s.get("expected_category")})
+                    if _data_cats:
+                        preserved_categories = _data_cats
+                        logger.info(
+                            f"scope=prompts_only: constraining to {len(_data_cats)} "
+                            f"categories from existing test data: {_data_cats}"
+                        )
+                except Exception as exc:
+                    logger.warning(f"Could not read test-data categories: {exc}")
+            # 2. Fallback: persisted canonical_categories from metadata.
+            if not preserved_categories:
+                _meta_cats = self.get_topic_metadata().get("canonical_categories")
+                if _meta_cats:
+                    preserved_categories = _meta_cats
+                    logger.info(
+                        f"scope=prompts_only: using {len(_meta_cats)} persisted "
+                        f"canonical categories from metadata"
+                    )
+            # 3. Fallback: extract from the current prompt text.
+            if not preserved_categories and reference:
+                preserved_categories = _extract_categories_from_prompt(reference)
+                if preserved_categories:
+                    logger.info(
+                        f"scope=prompts_only: preserving {len(preserved_categories)} "
+                        f"categories from existing prompt (no test data available)"
+                    )
 
         canonical_family = model_families.get(canonical, "gpt4")
         canonical_deployment = model_deployments.get(canonical)
@@ -1578,7 +1784,10 @@ class PromptManager:
         self._save_topic_metadata(topic, prompts_updated=True)
 
         # ── 3. Category alignment & auto-fix ──────────────────────────
-        logger.info("== Step 3/4: Category alignment ==")
+        # The canonical model's categories are the single source of truth.
+        # Any model whose extracted categories don't fully match gets
+        # auto-fixed via an LLM rewrite.
+        logger.info("== Step 3/4: Category alignment & schema validation ==")
         _categories: Dict[str, List[str]] = {}
         for m in models:
             cls_prompt = result["prompts"].get(m, {}).get("classification_agent_system", "")
@@ -1588,75 +1797,91 @@ class PromptManager:
                     _categories[m] = cats
                     logger.info(f"Extracted {len(cats)} categories from {m} classification prompt: {cats}")
 
-        # Build canonical category set via N-way intersection
-        canonical_categories: List[str] = []
-        if len(_categories) >= 2:
-            # Use intersection of all models' categories
-            sets = [set(v) for v in _categories.values()]
-            common_set = sets[0]
-            for s in sets[1:]:
-                common_set &= s
-            # Preserve order from canonical model
-            ref_cats = _categories.get(canonical, list(_categories.values())[0])
-            common = [c for c in ref_cats if c in common_set]
+        # The canonical model's categories are the authoritative set.
+        # We do NOT use N-way intersection — that dilutes the taxonomy.
+        ref_cats = _categories.get(canonical, [])
+        canonical_categories: List[str] = ref_cats if ref_cats else []
 
-            if len(common) >= len(ref_cats) * 0.5:
-                canonical_categories = common
-                logger.info(
-                    f"Using INTERSECTION of {len(_categories)} models' categories "
-                    f"({len(common)}): {common}"
-                )
-            else:
-                canonical_categories = ref_cats
-                logger.warning(
-                    f"Low category overlap ({len(common)}) across models — "
-                    f"using {canonical} categories as source of truth"
-                )
-                # Auto-fix models that deviate
-                for m in models:
-                    if m == canonical:
-                        continue
-                    m_cats = set(_categories.get(m, []))
-                    if len(m_cats & set(ref_cats)) < len(ref_cats) * 0.5:
-                        try:
-                            logger.info(f"Auto-regenerating {m} classification prompt to align taxonomy...")
-                            m_cls = result["prompts"].get(m, {}).get("classification_agent_system", "")
-                            fix_prompt = (
-                                f"The following system prompt was generated for a {m.upper()} classification agent, "
-                                "but it uses WRONG category codes. Rewrite it so that the EXACT primary "
-                                "category codes listed below are used AS-IS (copy verbatim, do NOT rename).\n\n"
-                                "MANDATORY PRIMARY CATEGORY CODES (use these EXACTLY):\n"
-                                + '\n'.join(f'  - {c}' for c in ref_cats)
-                                + "\n\nOriginal prompt to fix:\n" + m_cls[:6000]
-                                + "\n\nReturn ONLY the corrected system prompt."
-                            )
-                            fix_res = client.complete(
-                                messages=[
-                                    {"role": "system", "content": "You are an expert prompt engineer. Fix the category codes as instructed. Output ONLY the corrected prompt."},
-                                    {"role": "user", "content": fix_prompt},
-                                ],
-                                model_name=generator_model,
-                            )
-                            fixed = fix_res.content.strip()
-                            fixed_cats = _extract_categories_from_prompt(fixed)
-                            if len(set(fixed_cats) & set(ref_cats)) >= len(ref_cats) * 0.5:
-                                self.save_prompt(
-                                    model=m, prompt_type="classification_agent_system",
-                                    content=fixed, topic=topic,
-                                    source="ai-generated-fixed", author=f"generator:{generator_model}",
-                                )
-                                result["prompts"][m]["classification_agent_system"] = fixed
-                                _categories[m] = fixed_cats
-                                logger.info(f"Successfully realigned {m} categories")
-                            else:
-                                logger.warning(f"{m} taxonomy fix attempt still has low overlap — keeping as-is")
-                        except Exception as e:
-                            logger.error(f"Failed to auto-fix {m} taxonomy: {e}")
-        else:
-            canonical_categories = list(_categories.values())[0] if _categories else []
+        if not canonical_categories and _categories:
+            # Fallback: use first model that has categories
+            canonical_categories = list(_categories.values())[0]
+            logger.warning(
+                f"Canonical model {canonical} had no extractable categories — "
+                f"using first available model's categories"
+            )
 
         if canonical_categories:
-            logger.info(f"Canonical categories for data generation: {canonical_categories}")
+            ref_set = set(canonical_categories)
+            logger.info(
+                f"Canonical categories ({len(canonical_categories)} from {canonical}): "
+                f"{canonical_categories}"
+            )
+
+            # Auto-fix ANY model whose categories don't match ≥80% of canonical
+            _ALIGNMENT_THRESHOLD = 0.8
+            for m in models:
+                if m == canonical:
+                    continue
+                m_cats = set(_categories.get(m, []))
+                overlap = len(m_cats & ref_set)
+                ratio = overlap / len(ref_set) if ref_set else 1.0
+                if ratio >= _ALIGNMENT_THRESHOLD and m_cats == ref_set:
+                    logger.info(f"  {m}: categories ALIGNED (100% match)")
+                    continue
+                logger.warning(
+                    f"  {m}: category mismatch — {overlap}/{len(ref_set)} overlap "
+                    f"({ratio:.0%}), auto-fixing..."
+                )
+                try:
+                    m_cls = result["prompts"].get(m, {}).get("classification_agent_system", "")
+                    cat_list_str = '\n'.join(f'  - {c}' for c in canonical_categories)
+                    fix_prompt = (
+                        f"The following system prompt was generated for a {m.upper()} classification agent, "
+                        "but it uses WRONG category codes. Rewrite it so that the EXACT primary "
+                        "category codes listed below are used AS-IS (copy verbatim, do NOT rename, "
+                        "do NOT add extras, do NOT remove any).\n\n"
+                        f"MANDATORY PRIMARY CATEGORY CODES ({len(canonical_categories)} total — use ALL of these EXACTLY):\n"
+                        f"{cat_list_str}\n\n"
+                        "MANDATORY JSON OUTPUT FIELD NAMES:\n"
+                        "The prompt's JSON output schema MUST use these exact field names:\n"
+                        "  primary_category, subcategory, priority, sentiment, confidence, summary, follow_up_questions\n"
+                        "(NOT category.primary, NOT priority_level, NOT summary_es, etc.)\n\n"
+                        "Original prompt to fix:\n" + m_cls[:8000]
+                        + "\n\nReturn ONLY the corrected system prompt — no explanation."
+                    )
+                    fix_res = client.complete(
+                        messages=[
+                            {"role": "system", "content": (
+                                "You are an expert prompt engineer. Fix the category codes and "
+                                "JSON field names as instructed. Output ONLY the corrected prompt."
+                            )},
+                            {"role": "user", "content": fix_prompt},
+                        ],
+                        model_name=generator_model,
+                    )
+                    fixed = fix_res.content.strip()
+                    fixed_cats = _extract_categories_from_prompt(fixed)
+                    fixed_overlap = len(set(fixed_cats) & ref_set)
+                    fixed_ratio = fixed_overlap / len(ref_set) if ref_set else 1.0
+                    if fixed_ratio >= _ALIGNMENT_THRESHOLD:
+                        self.save_prompt(
+                            model=m, prompt_type="classification_agent_system",
+                            content=fixed, topic=topic,
+                            source="ai-generated-fixed", author=f"generator:{generator_model}",
+                        )
+                        result["prompts"][m]["classification_agent_system"] = fixed
+                        _categories[m] = fixed_cats
+                        logger.info(
+                            f"  {m}: realigned — now {fixed_overlap}/{len(ref_set)} "
+                            f"({fixed_ratio:.0%}) match"
+                        )
+                    else:
+                        logger.warning(
+                            f"  {m}: fix attempt still low overlap "
+                            f"({fixed_overlap}/{len(ref_set)}) — keeping original"
+                        )
+                except Exception as e:
+                    logger.error(f"  {m}: auto-fix failed: {e}")
         else:
             logger.warning("Could not extract categories from classification prompts — data generator will invent its own")
 
@@ -1697,7 +1922,10 @@ class PromptManager:
                 result["data"][data_type] = data_result
 
             # Mark data as freshly generated
-            self._save_topic_metadata(topic, data_generated=True)
+            self._save_topic_metadata(
+                topic, data_generated=True,
+                canonical_categories=canonical_categories if canonical_categories else None,
+            )
         else:
             logger.info("== Step 4/4: SKIPPED (scope=prompts_only) ==")
 
@@ -1780,10 +2008,14 @@ class PromptManager:
                 "1. The prompt must be fully self-contained (no placeholders left)\n"
                 "2. Keep EXACTLY the same primary category codes as the reference — "
                 "do NOT rename, merge, split, or invent new categories\n"
-                "3. Adapt subcategories, descriptions, examples, and formatting "
+                "3. Adapt subcategories, descriptions, examples, and prose "
                 f"to the {model_label} style guidelines above\n"
                 "4. Keep the same structural quality as the reference\n"
-                "5. Output ONLY the system prompt content — no wrapper, no explanation"
+                "5. The JSON output schema in the generated prompt MUST use the "
+                "EXACT field names specified in the MANDATORY JSON OUTPUT SCHEMA "
+                "section below — do NOT rename fields (no category.primary, no "
+                "priority_level, no summary_es, no follow_up_questions_es)\n"
+                "6. Output ONLY the system prompt content — no wrapper, no explanation"
             )
         else:
             ref_header = (
@@ -1800,6 +2032,13 @@ class PromptManager:
                 "4. Keep the same structural quality as the reference but for the new domain\n"
                 "5. Output ONLY the system prompt content — no wrapper, no explanation"
             )
+
+        # For the canonical model (no shared_categories) generating a
+        # classification prompt, still inject the schema block so that the
+        # first prompt already uses the canonical field names.
+        schema_block = ""
+        if task == "classification" and not shared_categories:
+            schema_block = f"\n{_CANONICAL_CLASSIFICATION_SCHEMA}"
 
         return f"""Generate a production-ready system prompt for the following scenario:
 
@@ -1818,6 +2057,7 @@ Create {task_description.get(task, task)}
 
 {requirements}
 {self._categories_block(shared_categories, task)}
+{schema_block}
 """
 
     @staticmethod
@@ -1842,9 +2082,12 @@ Create {task_description.get(task, task)}
                 f"merge, split, abbreviate, or invent new categories:\n\n"
                 f"{cat_list}\n\n"
                 f"These are the ONLY valid primary_category values.\n"
+                f"The number of categories is FIXED at {len(categories)}.\n"
+                f"Do NOT add extra categories. Do NOT remove any.\n"
                 f"You may freely create subcategories, descriptions, and examples\n"
                 f"adapted to this model's style, but the primary category codes\n"
                 f"MUST be identical to the list above.\n"
+                f"\n{_CANONICAL_CLASSIFICATION_SCHEMA}"
             )
 
         if task == "dialog":

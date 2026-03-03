@@ -6,7 +6,8 @@
     "gpt41_mini",
     "gpt4o",
     "gpt5",
-    "gpt5_reasoning"
+    "gpt5_reasoning",
+    "gemini3_flash"
   ],
   "archived_at": "2026-02-28T17:29:00.663218",
   "prompts_updated_at": "2026-02-27T12:21:28.988875",

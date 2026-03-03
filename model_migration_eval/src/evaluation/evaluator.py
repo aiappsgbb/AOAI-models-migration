@@ -21,6 +21,7 @@ import logging
 
 from ..clients.azure_openai import AzureOpenAIClient, CompletionResult
 from ..utils.prompt_loader import PromptLoader
+from ..utils.prompt_manager import _extract_categories_from_prompt
 from ..utils.data_loader import (
     DataLoader, 
     ClassificationScenario, 
@@ -132,6 +133,43 @@ class ModelEvaluator:
         self.consistency_runs = consistency_runs
         self.max_concurrent = max(1, max_concurrent)
 
+    def _get_model_semaphore(self, model_name: str) -> "asyncio.Semaphore":
+        """Return a semaphore respecting the per-model concurrency limit.
+
+        If the model's ``ModelConfig.max_concurrent`` is set, the effective
+        limit is ``min(global, per-model)`` so that low-RPM backends like
+        Gemini free-tier don't exhaust their quota.
+        """
+        limit = self.max_concurrent
+        if model_name in self.client.models:
+            model_limit = self.client.models[model_name].max_concurrent
+            if model_limit is not None:
+                limit = min(limit, model_limit)
+        return asyncio.Semaphore(max(1, limit))
+
+    def _should_measure_consistency(
+        self, model_name: str, measure_consistency: bool
+    ) -> bool:
+        """Decide whether consistency runs should actually execute.
+
+        Returns *False* (auto-disabling consistency) when the model uses a
+        rate-limited backend such as Gemini free-tier, where the extra
+        requests would quickly exhaust the daily quota.  For all other
+        backends the caller's original ``measure_consistency`` flag is
+        honoured.
+        """
+        if not measure_consistency:
+            return False
+        config = self.client.models.get(model_name)
+        if config is not None and getattr(config, "backend", "azure") == "gemini":
+            logger.info(
+                "[SKIP-CONSISTENCY] Consistency runs auto-disabled for '%s' "
+                "(backend=gemini, rate-limited).",
+                model_name,
+            )
+            return False
+        return True
+
     def _check_prompts_exist(self, model_name: str, evaluation_type: str) -> None:
         """Pre-check that the required prompt template exists for a model.
 
@@ -185,17 +223,41 @@ class ModelEvaluator:
         execute in parallel within the same semaphore.
         """
         self._check_prompts_exist(model_name, 'classification')
+        measure_consistency = self._should_measure_consistency(model_name, measure_consistency)
 
         scenarios = scenarios or self.data_loader.load_classification_scenarios()
         
-        logger.info(f"=== Classification evaluation: model={model_name}, scenarios={len(scenarios)}, concurrency={self.max_concurrent} ===")
+        sem = self._get_model_semaphore(model_name)
+        _effective = sem._value
+        logger.info(f"=== Classification evaluation: model={model_name}, scenarios={len(scenarios)}, concurrency={_effective} ===")
         test_cats = sorted(set(s.expected_category for s in scenarios))
         logger.info(f"Test data categories ({len(test_cats)}): {test_cats}")
         try:
-            cls_prompt_path = Path(f"prompts/{model_name}/classification_agent_system.md")
+            cls_prompt_path = Path(self.prompt_loader.prompts_dir) / model_name / "classification_agent_system.md"
             if cls_prompt_path.exists():
-                first_line = cls_prompt_path.read_text(encoding="utf-8").splitlines()[0][:100]
-                logger.info(f"Active classification prompt: {first_line}")
+                _prompt_text = cls_prompt_path.read_text(encoding="utf-8")
+                first_line = _prompt_text.splitlines()[0][:100]
+                logger.info(f"Active classification prompt ({cls_prompt_path.parent.parent.name}): {first_line}")
+                # ── Category alignment check ────────────────────────
+                prompt_cats = _extract_categories_from_prompt(_prompt_text)
+                if prompt_cats:
+                    prompt_set = set(prompt_cats)
+                    data_set = set(test_cats)
+                    mismatched = sorted(data_set - prompt_set)
+                    if mismatched:
+                        logger.warning(
+                            "[CATEGORY MISMATCH] %d test-data categories "
+                            "not in %s's prompt taxonomy: %s. "
+                            "Accuracy for these will be ~0%%. "
+                            "Regenerate test data to realign.",
+                            len(mismatched), model_name, mismatched,
+                        )
+                    else:
+                        logger.info(
+                            "[OK] All %d test-data categories found "
+                            "in %s's prompt taxonomy",
+                            len(data_set), model_name,
+                        )
         except Exception:
             pass
 
@@ -205,8 +267,6 @@ class ModelEvaluator:
             timestamp=datetime.now().isoformat(),
             scenarios_tested=len(scenarios)
         )
-        
-        sem = asyncio.Semaphore(self.max_concurrent)
 
         async def _process_one(scenario: ClassificationScenario) -> Optional[Dict]:
             """Process a single scenario + optional consistency runs."""
@@ -375,19 +435,20 @@ class ModelEvaluator:
         - Cost & token analytics (cost per request, cache hit rate, reasoning %)
         """
         self._check_prompts_exist(model_name, 'dialog')
+        measure_consistency = self._should_measure_consistency(model_name, measure_consistency)
 
         scenarios = scenarios or self.data_loader.load_dialog_scenarios()
         
-        logger.info(f"=== Dialog evaluation: model={model_name}, scenarios={len(scenarios)}, concurrency={self.max_concurrent} ===")
-        
+        sem = self._get_model_semaphore(model_name)
+        _effective = sem._value
+        logger.info(f"=== Dialog evaluation: model={model_name}, scenarios={len(scenarios)}, concurrency={_effective} ===")
+
         result = EvaluationResult(
             model_name=model_name,
             evaluation_type="dialog",
             timestamp=datetime.now().isoformat(),
             scenarios_tested=len(scenarios)
         )
-        
-        sem = asyncio.Semaphore(self.max_concurrent)
 
         async def _process_one(scenario: DialogScenario) -> Optional[Dict]:
             try:
@@ -578,7 +639,9 @@ class ModelEvaluator:
         """
         test_cases = test_cases or self.data_loader.load_general_tests()
         
-        logger.info(f"=== General evaluation: model={model_name}, test_cases={len(test_cases)}, concurrency={self.max_concurrent} ===")
+        sem = self._get_model_semaphore(model_name)
+        _effective = sem._value
+        logger.info(f"=== General evaluation: model={model_name}, test_cases={len(test_cases)}, concurrency={_effective} ===")
 
         result = EvaluationResult(
             model_name=model_name,
@@ -586,8 +649,6 @@ class ModelEvaluator:
             timestamp=datetime.now().isoformat(),
             scenarios_tested=len(test_cases)
         )
-        
-        sem = asyncio.Semaphore(self.max_concurrent)
 
         async def _process_one(test: GeneralTestCase) -> Optional[Dict]:
             try:
@@ -697,12 +758,15 @@ class ModelEvaluator:
         - Consistency / reproducibility
         """
         self._check_prompts_exist(model_name, 'rag')
+        measure_consistency = self._should_measure_consistency(model_name, measure_consistency)
 
         scenarios = scenarios or self.data_loader.load_rag_scenarios()
 
+        sem = self._get_model_semaphore(model_name)
+        _effective = sem._value
         logger.info(
             f"=== RAG evaluation: model={model_name}, scenarios={len(scenarios)}, "
-            f"concurrency={self.max_concurrent} ==="
+            f"concurrency={_effective} ==="
         )
 
         result = EvaluationResult(
@@ -711,8 +775,6 @@ class ModelEvaluator:
             timestamp=datetime.now().isoformat(),
             scenarios_tested=len(scenarios),
         )
-
-        sem = asyncio.Semaphore(self.max_concurrent)
 
         async def _process_one(scenario: RAGScenario) -> Optional[Dict]:
             try:
@@ -867,12 +929,15 @@ class ModelEvaluator:
         - Consistency / reproducibility
         """
         self._check_prompts_exist(model_name, 'tool_calling')
+        measure_consistency = self._should_measure_consistency(model_name, measure_consistency)
 
         scenarios = scenarios or self.data_loader.load_tool_calling_scenarios()
 
+        sem = self._get_model_semaphore(model_name)
+        _effective = sem._value
         logger.info(
             f"=== Tool Calling evaluation: model={model_name}, scenarios={len(scenarios)}, "
-            f"concurrency={self.max_concurrent} ==="
+            f"concurrency={_effective} ==="
         )
 
         result = EvaluationResult(
@@ -881,8 +946,6 @@ class ModelEvaluator:
             timestamp=datetime.now().isoformat(),
             scenarios_tested=len(scenarios),
         )
-
-        sem = asyncio.Semaphore(self.max_concurrent)
 
         async def _process_one(scenario: ToolCallingScenario) -> Optional[Dict]:
             try:

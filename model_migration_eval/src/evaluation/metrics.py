@@ -809,6 +809,7 @@ class MetricsCalculator:
         - Nested style:  {"classification": {"category": "…", …}, …}
         - Flat style:    {"primary_category": "…", "subcategory": "…", …}
         - Simple style:  {"category": "…", "subcategory": "…", …}
+        - Gemini style:  {"classification": {"primary": "…", "secondary": "…", …}}
 
         Args:
             response: Raw model response (str or dict)
@@ -835,9 +836,11 @@ class MetricsCalculator:
             raw_cat = (
                 classification.get('primary_category')
                 or classification.get('category')
+                or classification.get('primary')  # Gemini {primary/secondary}
                 or parsed.get('primary_category')
                 or parsed.get('primary_category_code')
                 or parsed.get('category')
+                or parsed.get('primary')  # Gemini flat {primary/secondary}
                 or 'unknown'
             )
             # Unwrap nested dicts — some models return {"category": {"name": "..."}}
@@ -845,16 +848,19 @@ class MetricsCalculator:
             _cat_dict_fallback_sub = None
             if isinstance(raw_cat, dict):
                 # Try to pull subcategory from the nested dict before flattening
+                # Gemini may return {"primary": "…", "secondary": "…"}
                 _cat_dict_fallback_sub = (
                     raw_cat.get('subcategory_code')
                     or raw_cat.get('subcategory')
                     or raw_cat.get('primary_subcategory')
+                    or raw_cat.get('secondary')  # Gemini {primary/secondary} style
                 )
                 raw_cat = (
                     raw_cat.get('name') or raw_cat.get('code')
                     or raw_cat.get('category_code')
                     or raw_cat.get('primary_category')
                     or raw_cat.get('primary_category_code')
+                    or raw_cat.get('primary')  # Gemini {primary/secondary} style
                     or str(raw_cat)
                 )
 
@@ -862,9 +868,11 @@ class MetricsCalculator:
             raw_sub = (
                 classification.get('primary_subcategory')
                 or classification.get('subcategory')
+                or classification.get('secondary')  # Gemini {primary/secondary}
                 or parsed.get('primary_subcategory')
                 or parsed.get('subcategory_code')
                 or parsed.get('subcategory')
+                or parsed.get('secondary')  # Gemini flat {primary/secondary}
                 or _cat_dict_fallback_sub  # from nested category dict (Mistral)
                 or ''
             )
@@ -916,6 +924,27 @@ class MetricsCalculator:
                             or raw_conf.get('confidence')
                             or raw_conf.get('primary_category')
                             or 0.0)
+            # Fallback: extract average confidence from likely_causes array
+            # (Gemini automotive prompts put confidence only in likely_causes)
+            if not raw_conf:
+                likely_causes = parsed.get('likely_causes') or classification.get('likely_causes') or []
+                if isinstance(likely_causes, list) and likely_causes:
+                    cause_confs = [
+                        c.get('confidence', 0) for c in likely_causes
+                        if isinstance(c, dict) and isinstance(c.get('confidence'), (int, float))
+                    ]
+                    if cause_confs:
+                        raw_conf = max(cause_confs)  # use highest cause confidence
+            # Map textual confidence ("high", "medium", "low") to numeric
+            _CONF_TEXT_MAP = {
+                'very_high': 0.95, 'very high': 0.95,
+                'high': 0.85,
+                'medium': 0.65, 'moderate': 0.65,
+                'low': 0.35,
+                'very_low': 0.15, 'very low': 0.15,
+            }
+            if isinstance(raw_conf, str):
+                raw_conf = _CONF_TEXT_MAP.get(raw_conf.strip().lower(), raw_conf)
             # Ensure numeric — some models may return strings like "0.95"
             try:
                 raw_conf = float(raw_conf)

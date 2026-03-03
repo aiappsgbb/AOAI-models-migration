@@ -72,7 +72,7 @@ PROMPT_FILES = [
     "tool_calling_agent_system.md",
 ]
 
-VALID_FAMILIES = ["gpt4", "gpt5", "mistral"]
+VALID_FAMILIES = ["gpt4", "gpt5", "mistral", "gemini"]
 VALID_REASONING_EFFORTS = ["low", "medium", "high"]
 
 
@@ -494,8 +494,15 @@ Examples:
     if interactive:
         print(f"\n  {dim('gpt4 → uses max_tokens + system role')}")
         print(f"  {dim('gpt5 → uses max_completion_tokens + developer role')}")
-        family = ask_choice("Model family", VALID_FAMILIES,
-                            default="gpt5" if "5" in deployment or "o1" in deployment or "o3" in deployment or "o4" in deployment else "gpt4")
+        print(f"  {dim('mistral → uses max_tokens + system role (Marketplace)')}")
+        print(f"  {dim('gemini → uses max_tokens + system role (Google AI)')}")
+        _auto = (
+            "gpt5" if any(x in deployment.lower() for x in ("gpt-5", "gpt5", "o1", "o3", "o4")) else
+            "mistral" if "mistral" in deployment.lower() else
+            "gemini" if "gemini" in deployment.lower() else
+            "gpt4"
+        )
+        family = ask_choice("Model family", VALID_FAMILIES, default=_auto)
     else:
         family = args.family
         if not family:

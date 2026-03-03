@@ -1,12 +1,12 @@
 # Azure OpenAI Model Migration Evaluation Framework
 
-A comprehensive evaluation framework for migrating production systems between any Azure OpenAI model generations **and Azure AI Marketplace models** (e.g. GPT-4o → GPT-4.1, GPT-4.1 → GPT-5.2, GPT-4.1 → Mistral-Large-3, or any configured pair).  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **5 scenario types** (classification, dialog, general, RAG, and tool calling), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
+A comprehensive evaluation framework for migrating production systems between any Azure OpenAI model generations **and external models** (Azure AI Marketplace, Google Gemini) (e.g. GPT-4o → GPT-4.1, GPT-4.1 → GPT-5.2, GPT-4.1 → Mistral-Large-3, GPT-4.1 → Gemini 3 Flash, or any configured pair).  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **5 scenario types** (classification, dialog, general, RAG, and tool calling), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
 
 ---
 
 ## 🎯 Overview
 
-When you upgrade or switch a model deployment in Azure AI Foundry — from GPT-4o to GPT-4.1, from GPT-4.1 to GPT-5.2, or even to a Marketplace model like Mistral-Large-3, for example — you need to answer questions like:
+When you upgrade or switch a model deployment in Azure AI Foundry — from GPT-4o to GPT-4.1, from GPT-4.1 to GPT-5.2, or even to a Marketplace model like Mistral-Large-3 or an external model like Gemini 3 Flash, for example — you need to answer questions like:
 
 - *"Does the new model still classify tickets correctly?"*
 - *"Is latency better or worse?"*
@@ -26,7 +26,7 @@ This framework automates that process end-to-end:
 
 | Area | Highlights |
 |------|------------|
-| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.1, GPT-5.2, Mistral-Large-3, reasoning variants, etc.) — each with `model_family` for automatic API behaviour |
+| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.1, GPT-5.2, Mistral-Large-3, Gemini 3 Flash, reasoning variants, etc.) — each with `model_family` for automatic API behaviour |
 | **Multi-Topic** | Switch between self-contained topic archives (prompts + data) without losing anything |
 | **AI Generation** | One-click generation of optimised prompts (4 task types × N models) + 5 test datasets (70 scenarios) tailored to any domain, with dynamic category taxonomy, JSON retry logic, and **selective regeneration** (prompts only, test data only, or both) |
 | **Topic Import** | Import prompts + test data from disk for any source model (web UI or CLI) — target model prompts are auto-generated and the topic is archived ready to activate |
@@ -113,6 +113,7 @@ model_migration_eval/
 │   ├── gpt51/                      #   GPT-5.1 optimised prompts
 │   ├── gpt5_reasoning/             #   GPT-5.1 reasoning (falls back to gpt5/ prompts)
 │   ├── mistral/                    #   Mistral-Large-3 optimised prompts
+│   ├── gemini3_flash/              #   Gemini 3 Flash optimised prompts
 │   ├── history/                    #   Version history (auto-managed)
 │   │   └── versions.json
 │   └── topics/                     #   ⬅ Archived topic prompts
@@ -239,9 +240,20 @@ azure:
       model_version: "2025-03-01"
       max_tokens: 8192
       temperature: 0.1
+
+    gemini3_flash:
+      deployment_name: "gemini-3-flash-preview"  # Google Gemini (OpenAI-compat)
+      model_family: "gemini"
+      backend: "gemini"
+      model_version: "2025-06-01"
+      max_tokens: 8192
+      temperature: 0.1
+
+gemini:
+  api_key: "${GEMINI_API_KEY}"              # Get from https://aistudio.google.com/
 ```
 
-You can add as many models as you need — including Azure AI Marketplace models like Mistral (see [Model Configuration](#-model-configuration) below).
+You can add as many models as you need — including Azure AI Marketplace models like Mistral and external models like Gemini (see [Model Configuration](#-model-configuration) below).
 
 ### 3. Launch the Web Interface
 
@@ -389,6 +401,7 @@ data/users/<user_id>/
 │   ├── gpt4o/
 │   ├── gpt5/
 │   ├── mistral/                 # Marketplace model prompts
+│   ├── gemini3_flash/           # Gemini model prompts
 │   ├── history/                 # User's own version history (starts empty)
 │   └── topics/                  # Archived topics
 ├── synthetic/
@@ -646,6 +659,10 @@ A full generation (scope `all`) produces:
 | `mistral/dialog_agent_system.md` | Dialog prompt optimised for Mistral |
 | `mistral/rag_agent_system.md` | RAG prompt optimised for Mistral |
 | `mistral/tool_calling_agent_system.md` | Tool calling prompt optimised for Mistral |
+| `gemini3_flash/classification_agent_system.md` | Classification prompt optimised for Gemini (explicit CoT, structured output) |
+| `gemini3_flash/dialog_agent_system.md` | Dialog prompt optimised for Gemini |
+| `gemini3_flash/rag_agent_system.md` | RAG prompt optimised for Gemini |
+| `gemini3_flash/tool_calling_agent_system.md` | Tool calling prompt optimised for Gemini |
 | `data/synthetic/classification/*.json` | 20 classification scenarios with categories, sentiments, priorities |
 | `data/synthetic/dialog/*.json` | 15 multi-turn dialog scenarios |
 | `data/synthetic/general/*.json` | 15 general capability tests |
@@ -1096,7 +1113,7 @@ data/synthetic/
 
 Edit the `models` section in `config/settings.yaml`.  Each key becomes a model name used in the CLI, API, and web UI.
 
-### Example: 7-Model Setup (Azure OpenAI + Marketplace)
+### Example: 8-Model Setup (Azure OpenAI + Marketplace + Gemini)
 
 ```yaml
 azure:
@@ -1153,16 +1170,30 @@ azure:
       model_version: "2025-03-01"
       max_tokens: 8192
       temperature: 0.1
+
+    gemini3_flash:
+      deployment_name: "gemini-3-flash-preview"  # Google Gemini model
+      model_family: "gemini"
+      backend: "gemini"                     # routes to Gemini OpenAI-compat API
+      model_version: "2025-06-01"
+      max_tokens: 8192
+      temperature: 0.1
+
+gemini:
+  api_key: "${GEMINI_API_KEY}"              # Get from https://aistudio.google.com/
 ```
 
 > **Marketplace models:** Mistral-Large-3 (and other Marketplace models) are deployed via the [Azure AI Foundry Model Catalog](https://ai.azure.com/explore/models) and use the **same Azure OpenAI endpoint and API key** — no additional infrastructure or credentials required.
+
+> **Gemini models:** Gemini models use Google’s [OpenAI-compatible API](https://ai.google.dev/gemini-api/docs/openai).  Set `backend: "gemini"` in the model entry and configure `GEMINI_API_KEY` (from [AI Studio](https://aistudio.google.com/)).  The framework routes requests automatically through the correct endpoint.
 
 ### Parameters
 
 | Parameter | Description | Notes |
 |-----------|-------------|-------|
-| `deployment_name` | Deployment name in Azure AI Foundry | As shown in Azure Portal → Deployments |
-| `model_family` | Prompt-style family grouping | `gpt4`, `gpt5`, or `mistral` — determines API behaviour (see below) |
+| `deployment_name` | Deployment name in Azure AI Foundry (or model name for Gemini) | As shown in Azure Portal → Deployments |
+| `model_family` | Prompt-style family grouping | `gpt4`, `gpt5`, `mistral`, or `gemini` — determines API behaviour (see below) |
+| `backend` | API backend to use | `azure` (default) or `gemini` — `gemini` routes to Google’s OpenAI-compat endpoint |
 | `model_version` | Model version string | From deployment details |
 | `max_tokens` | Maximum response tokens | Model-dependent |
 | `temperature` | 0.0–2.0 (lower = more deterministic) | 0.1 recommended for evaluation; **omitted for reasoning models** |
@@ -1175,15 +1206,16 @@ azure:
 
 The `model_family` field controls automatic API-level differences:
 
-| Behaviour | `model_family: "gpt4"` | `model_family: "gpt5"` | `model_family: "mistral"` |
-|-----------|------------------------|------------------------|---------------------------|
-| **Max tokens parameter** | `max_tokens` | `max_completion_tokens` (auto-converted) | `max_tokens` |
-| **System message role** | `system` | `developer` | `system` |
-| **Sampling parameters** | Always sent (temperature, top_p, penalties) | Sent unless `reasoning_effort` is present | Always sent |
-| **Last-message guard** | Not needed | Not needed | Auto-appends a minimal `user` message if the last message is not `user` or `tool` (prevents Mistral error 3230) |
-| **Prompt style** | Explicit chain-of-thought, verbose rules | Native reasoning, concise | Detailed instructions, structured examples, few-shot |
+| Behaviour | `model_family: "gpt4"` | `model_family: "gpt5"` | `model_family: "mistral"` | `model_family: "gemini"` |
+|-----------|------------------------|------------------------|---------------------------|-------------------------|
+| **Max tokens parameter** | `max_tokens` | `max_completion_tokens` (auto-converted) | `max_tokens` | `max_tokens` |
+| **System message role** | `system` | `developer` | `system` | `system` |
+| **Sampling parameters** | Always sent (temperature, top_p, penalties) | Sent unless `reasoning_effort` is present | Always sent | Always sent |
+| **Seed parameter** | Sent if configured | Sent if configured | Sent if configured | **Not sent** (unsupported) |
+| **Last-message guard** | Not needed | Not needed | Auto-appends a minimal `user` message if the last message is not `user` or `tool` (prevents Mistral error 3230) | Not needed |
+| **Prompt style** | Explicit chain-of-thought, verbose rules | Native reasoning, concise | Detailed instructions, structured examples, few-shot | Explicit CoT, few-shot examples, structured output |
 
-> **Auto-detection:** The client reads `model_family` from the config and automatically converts `max_tokens` → `max_completion_tokens` and `system` → `developer` role for `gpt5` family models, and applies the last-message guard for `mistral` family models.  No manual API changes needed.
+> **Auto-detection:** The client reads `model_family` and `backend` from the config and automatically converts `max_tokens` → `max_completion_tokens` and `system` → `developer` role for `gpt5` family models, applies the last-message guard for `mistral` family models, and routes requests to the Gemini OpenAI-compatible endpoint for `gemini` backend models.  No manual API changes needed.
 
 ### Reasoning vs. Non-Reasoning Models
 
@@ -1249,6 +1281,13 @@ python tools/add_model.py \
     --family mistral \
     --max-tokens 8192
 
+# Google Gemini model (e.g. Gemini 3 Flash)
+python tools/add_model.py \
+    --key gemini3_flash \
+    --deployment "gemini-3-flash-preview" \
+    --family gemini \
+    --max-tokens 8192
+
 # Specify which model to copy prompts from
 python tools/add_model.py \
     --key gpt45 \
@@ -1270,7 +1309,7 @@ python tools/add_model.py \
 |-----------|:--------:|-------------|
 | `--key` | ✅ | Internal model key (e.g. `gpt45`, `o4_mini`) — becomes API/CLI name and prompt directory |
 | `--deployment` | ✅ | Azure deployment name as shown in AI Foundry portal |
-| `--family` | ✅ | `gpt4`, `gpt5`, or `mistral` — determines API behaviour (see Model Family table above) |
+| `--family` | ✅ | `gpt4`, `gpt5`, `mistral`, or `gemini` — determines API behaviour (see Model Family table above) |
 | `--model-version` | — | Model version string from deployment details |
 | `--max-tokens` | — | Max response tokens (default: 4096 for gpt4, 16384 for gpt5) |
 | `--temperature` | — | 0.0–2.0 (default: 0.1; omitted automatically for reasoning models) |
@@ -2033,7 +2072,7 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 | `CodeManager` | `src.auth.code_manager` | OTP generation (SHA-256 hashed), verification with TTL and attempt limits |
 | `EmailSender` | `src.auth.email_sender` | Abstract email backend — `SmtpEmailSender` (production) + `ConsoleEmailSender` (dev) |
 | `UserContext` | `src.auth.user_context` | Per-user directory layout, path resolution, and first-login seeding |
-| `AzureOpenAIClient` | `src.clients.azure_openai` | Wraps the OpenAI SDK — connection management, chat completions, streaming.  Supports Azure OpenAI and Marketplace models (Mistral) via `model_family`-based routing |
+| `AzureOpenAIClient` | `src.clients.azure_openai` | Wraps the OpenAI SDK — connection management, chat completions, streaming.  Supports Azure OpenAI, Marketplace models (Mistral), and Google Gemini via `model_family` + `backend`-based routing |
 | `ModelEvaluator` | `src.evaluation.evaluator` | Runs classification/dialog/general/RAG/tool_calling evaluations against a single model |
 | `EvaluationResult` | `src.evaluation.evaluator` | Dataclass container for evaluation output — serialises to/from JSON |
 | `ModelComparator` | `src.evaluation.comparator` | Compares evaluation results between two models with significance analysis |

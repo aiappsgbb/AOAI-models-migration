@@ -7,7 +7,8 @@
     "gpt4o",
     "gpt5",
     "gpt51",
-    "gpt5_reasoning"
+    "gpt5_reasoning",
+    "gemini3_flash"
   ],
   "archived_at": "2026-03-01T11:01:42.282798",
   "prompts_updated_at": "2026-02-15T17:15:10.387486",

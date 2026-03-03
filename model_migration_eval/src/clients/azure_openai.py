@@ -5,6 +5,7 @@ Provides unified interface for Azure OpenAI model interactions across generation
 
 import os
 import json
+import random
 import time
 import asyncio
 import hashlib
@@ -25,7 +26,7 @@ except ImportError:
 
 import yaml
 import httpx
-from openai import AzureOpenAI, AsyncAzureOpenAI
+from openai import AzureOpenAI, AsyncAzureOpenAI, OpenAI, AsyncOpenAI
 from openai.types.chat import ChatCompletion
 import diskcache
 
@@ -52,7 +53,9 @@ class ModelConfig:
     seed: Optional[int] = None
     reasoning_effort: Optional[str] = None  # o-series / reasoning models only
     use_max_completion_tokens: Optional[bool] = None  # Auto-detected if None
-    model_family: Optional[str] = None  # "gpt4", "gpt5", or "mistral" — determines prompt style guidelines
+    model_family: Optional[str] = None  # "gpt4", "gpt5", "mistral", or "gemini" — determines prompt style guidelines
+    backend: str = "azure"  # "azure" for Azure OpenAI, "gemini" for Google Gemini OpenAI-compat API
+    max_concurrent: Optional[int] = None  # Per-model concurrency limit (None → use global default)
     
 
 @dataclass
@@ -245,6 +248,11 @@ class AzureOpenAIClient:
         # Cache setup
         self._cache: Optional[diskcache.Cache] = None
 
+        # Gemini OpenAI-compatible clients (lazy — created on first Gemini model use)
+        self._gemini_client: Optional[OpenAI] = None
+        self._gemini_async_client: Optional[AsyncOpenAI] = None
+        self._gemini_api_key: Optional[str] = None
+
     # ------------------------------------------------------------------
     # Runtime auth fallback: Entra ID 401 → API key
     # ------------------------------------------------------------------
@@ -311,6 +319,55 @@ class AzureOpenAIClient:
             )
             logger.info("Azure OpenAI client: recreated with API key (fallback from Entra ID)")
             return True
+
+    # ------------------------------------------------------------------
+    # Gemini client (lazy initialization)
+    # ------------------------------------------------------------------
+    _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+    def _ensure_gemini_clients(self) -> None:
+        """Lazily create the Gemini OpenAI-compatible clients.
+
+        Called automatically when a request targets a model with
+        ``backend='gemini'``.  The API key comes from either
+        :meth:`create_client_from_config` (``gemini.api_key`` in
+        settings.yaml) or the ``GEMINI_API_KEY`` env var.
+        """
+        if self._gemini_client is not None:
+            return
+
+        api_key = self._gemini_api_key or os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "Gemini API key is required for Gemini-backend models. "
+                "Set GEMINI_API_KEY env var or configure gemini.api_key in settings.yaml."
+            )
+
+        self._gemini_client = OpenAI(
+            base_url=self._GEMINI_BASE_URL,
+            api_key=api_key,
+            timeout=300.0,
+            max_retries=0,  # Our complete_async wrapper handles retries
+            http_client=httpx.Client(
+                limits=httpx.Limits(
+                    max_connections=10,
+                    max_keepalive_connections=0,
+                ),
+            ),
+        )
+        self._gemini_async_client = AsyncOpenAI(
+            base_url=self._GEMINI_BASE_URL,
+            api_key=api_key,
+            timeout=300.0,
+            max_retries=0,  # Our complete_async wrapper handles retries
+            http_client=httpx.AsyncClient(
+                limits=httpx.Limits(
+                    max_connections=20,
+                    max_keepalive_connections=10,
+                ),
+            ),
+        )
+        logger.info("Gemini client: initialised (OpenAI-compatible endpoint)")
         
     def _resolve_env_var(self, value: str) -> str:
         """Resolve environment variable references like ${VAR_NAME}"""
@@ -330,6 +387,7 @@ class AzureOpenAIClient:
             
         models_config = config.get('azure', {}).get('models', {})
         for name, params in models_config.items():
+            # ModelConfig accepts 'backend' from YAML (defaults to "azure")
             self.register_model(name, ModelConfig(**params))
             
     def enable_caching(self, cache_dir: str = ".cache/prompts"):
@@ -386,6 +444,68 @@ class AzureOpenAIClient:
         cache_str = json.dumps(cache_data, sort_keys=True)
         return hashlib.sha256(cache_str.encode()).hexdigest()
     
+    def _is_gemini_backend(self, config: ModelConfig) -> bool:
+        """Check if this model uses the Gemini OpenAI-compatible backend."""
+        return config.backend == "gemini"
+
+    @staticmethod
+    def _parse_retry_after(exc: Exception, default: float = 4.0) -> float:
+        """Extract retry delay (seconds) from a 429 error response.
+
+        Supports:
+        - ``Retry-After`` HTTP header (Azure OpenAI)
+        - Gemini ``retryDelay`` in the JSON error body (e.g. ``"22s"``)
+
+        Falls back to *default* when the delay cannot be determined.
+        """
+        # 1. HTTP header (Azure OpenAI / standard)
+        try:
+            resp = getattr(exc, 'response', None)
+            if resp is not None:
+                header = resp.headers.get('retry-after') or resp.headers.get('Retry-After')
+                if header:
+                    return float(header)
+        except (ValueError, AttributeError):
+            pass
+        # 2. Gemini JSON body: {"error": {"details": [{"retryDelay": "22s"}]}}
+        try:
+            body = getattr(exc, 'body', None)
+            if isinstance(body, dict):
+                for detail in body.get('error', {}).get('details', []):
+                    rd = detail.get('retryDelay', '')
+                    if isinstance(rd, str) and rd.endswith('s'):
+                        return float(rd[:-1])
+        except (ValueError, AttributeError, TypeError):
+            pass
+        return default
+
+    @staticmethod
+    def _is_daily_quota_exhausted(exc: Exception) -> bool:
+        """Detect whether a 429 error is a *daily* quota limit (not a
+        transient per-minute rate-limit).
+
+        Gemini free-tier errors include a ``QuotaFailure`` detail whose
+        ``quotaId`` contains ``PerDay``.  Retrying these is pointless
+        until the next calendar day, so we fail fast instead.
+        """
+        try:
+            body = getattr(exc, 'body', None)
+            if isinstance(body, dict):
+                for detail in body.get('error', {}).get('details', []):
+                    qid = ''
+                    # QuotaFailure block
+                    for v in detail.get('violations', []):
+                        qid = v.get('quotaId', '')
+                        if 'PerDay' in qid:
+                            return True
+                    # Also check the message itself
+                msg = body.get('error', {}).get('message', '')
+                if 'quota' in msg.lower() and ('per day' in msg.lower() or 'PerDay' in msg):
+                    return True
+        except (AttributeError, TypeError):
+            pass
+        return False
+
     def _is_new_generation_model(self, config: ModelConfig) -> bool:
         """Check if this is a newer-generation model (GPT-5.x, o-series, or model-router).
         
@@ -432,8 +552,11 @@ class AzureOpenAIClient:
         **kwargs
     ) -> Dict[str, Any]:
         """Build request parameters dict, handling model-specific differences."""
+        is_gemini = self._is_gemini_backend(config)
+
         # Auto-replace 'system' → 'developer' for newer-generation models
-        if self._is_new_generation_model(config):
+        # (Gemini uses standard 'system' role — skip the swap)
+        if not is_gemini and self._is_new_generation_model(config):
             messages = self._apply_developer_role(messages)
 
         # Mistral models require the last message to be 'user' or 'tool'.
@@ -457,9 +580,10 @@ class AzureOpenAIClient:
             'messages': messages,
         }
         
-        # Use max_completion_tokens for newer models, max_tokens for older ones
+        # Use max_completion_tokens for newer Azure models, max_tokens for older
+        # ones and Gemini (Gemini always uses max_tokens)
         token_limit = kwargs.get('max_tokens', config.max_tokens)
-        if self._needs_max_completion_tokens(config):
+        if not is_gemini and self._needs_max_completion_tokens(config):
             request_params['max_completion_tokens'] = token_limit
         else:
             request_params['max_tokens'] = token_limit
@@ -467,17 +591,22 @@ class AzureOpenAIClient:
         # Sampling parameters — reasoning models (those with reasoning_effort)
         # only accept the default temperature=1 and reject top_p /
         # frequency_penalty / presence_penalty, so we omit them entirely.
+        # Gemini also rejects frequency_penalty and presence_penalty
+        # (not part of its API surface).
         reasoning_effort = kwargs.get('reasoning_effort', config.reasoning_effort)
         if not reasoning_effort:
             request_params['temperature'] = kwargs.get('temperature', config.temperature)
             request_params['top_p'] = kwargs.get('top_p', config.top_p)
-            request_params['frequency_penalty'] = kwargs.get('frequency_penalty', config.frequency_penalty)
-            request_params['presence_penalty'] = kwargs.get('presence_penalty', config.presence_penalty)
+            if not is_gemini:
+                request_params['frequency_penalty'] = kwargs.get('frequency_penalty', config.frequency_penalty)
+                request_params['presence_penalty'] = kwargs.get('presence_penalty', config.presence_penalty)
         
         # Optional parameters
-        seed = kwargs.get('seed', config.seed)
-        if seed is not None:
-            request_params['seed'] = seed
+        # Gemini does not document 'seed' support — omit to avoid errors
+        if not is_gemini:
+            seed = kwargs.get('seed', config.seed)
+            if seed is not None:
+                request_params['seed'] = seed
             
         if response_format:
             request_params['response_format'] = response_format
@@ -545,8 +674,15 @@ class AzureOpenAIClient:
         )
         
         try:
+            # Select the correct client based on model backend
+            if self._is_gemini_backend(config):
+                self._ensure_gemini_clients()
+                active_client = self._gemini_client
+            else:
+                active_client = self.client
+
             # Make the API call
-            response = self.client.chat.completions.create(**request_params)
+            response = active_client.chat.completions.create(**request_params)
             
             # Extract content — SDK v2 may return a parsed dict with
             # response_format={"type": "json_object"}, so normalise to str.
@@ -578,9 +714,13 @@ class AzureOpenAIClient:
             return result
 
         except Exception as e:
-            # --- Runtime auth fallback: 401 → API key ---
+            # --- Runtime auth fallback: 401 → API key (Azure only) ---
             from openai import AuthenticationError
-            if isinstance(e, AuthenticationError) and self._fallback_to_api_key():
+            if (
+                not self._is_gemini_backend(config)
+                and isinstance(e, AuthenticationError)
+                and self._fallback_to_api_key()
+            ):
                 logger.info("Retrying request with API key after Entra ID 401…")
                 # Reset metrics for the retry
                 metrics = RequestMetrics(
@@ -628,41 +768,28 @@ class AzureOpenAIClient:
             **kwargs
         )
             
-        metrics = RequestMetrics(
-            request_id=f"{model_name}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}",
-            model=config.deployment_name,
-            start_time=time.time()
-        )
-        
-        try:
-            response = await self.async_client.chat.completions.create(**request_params)
-            raw_content = response.choices[0].message.content if response.choices else ""
-            if isinstance(raw_content, dict):
-                content = json.dumps(raw_content, ensure_ascii=False)
-            elif raw_content is None:
-                content = ""
-            else:
-                content = raw_content
-            metrics.finalize(completion=response)
-            self.metrics_history.append(metrics)
-            
-            return CompletionResult(
-                content=content,
-                metrics=metrics,
-                raw_response=response
+        # Gemini free tier is very restrictive (≈20 RPD) and often returns
+        # 429/503.  We retry generously with exponential backoff + jitter
+        # for ALL transient HTTP errors (429, 500, 502, 503, 504).
+        _MAX_TRANSIENT_RETRIES = 6
+        _TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
+
+        for _attempt in range(_MAX_TRANSIENT_RETRIES + 1):
+            metrics = RequestMetrics(
+                request_id=f"{model_name}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}",
+                model=config.deployment_name,
+                start_time=time.time()
             )
-        except Exception as e:
-            # --- Runtime auth fallback: 401 → API key ---
-            from openai import AuthenticationError
-            if isinstance(e, AuthenticationError) and self._fallback_to_api_key():
-                logger.info("Retrying async request with API key after Entra ID 401…")
-                metrics = RequestMetrics(
-                    request_id=metrics.request_id + "_retry",
-                    model=config.deployment_name,
-                    start_time=time.time(),
-                )
-                request_params["model"] = config.deployment_name
-                response = await self.async_client.chat.completions.create(**request_params)
+
+            try:
+                # Select the correct async client based on model backend
+                if self._is_gemini_backend(config):
+                    self._ensure_gemini_clients()
+                    active_client = self._gemini_async_client
+                else:
+                    active_client = self.async_client
+
+                response = await active_client.chat.completions.create(**request_params)
                 raw_content = response.choices[0].message.content if response.choices else ""
                 if isinstance(raw_content, dict):
                     content = json.dumps(raw_content, ensure_ascii=False)
@@ -672,10 +799,79 @@ class AzureOpenAIClient:
                     content = raw_content
                 metrics.finalize(completion=response)
                 self.metrics_history.append(metrics)
-                return CompletionResult(content=content, metrics=metrics, raw_response=response)
-            metrics.finalize(error=str(e))
-            self.metrics_history.append(metrics)
-            raise
+
+                return CompletionResult(
+                    content=content,
+                    metrics=metrics,
+                    raw_response=response
+                )
+            except Exception as e:
+                # --- Transient errors (429/5xx) → retry with backoff + jitter ---
+                from openai import APIStatusError
+                _status = getattr(e, 'status_code', None)
+                if (
+                    isinstance(e, APIStatusError)
+                    and _status in _TRANSIENT_STATUS_CODES
+                    and _attempt < _MAX_TRANSIENT_RETRIES
+                ):
+                    # Daily quota exhausted (e.g. Gemini free-tier 20 RPD)
+                    # → retrying is pointless, fail immediately.
+                    if _status == 429 and self._is_daily_quota_exhausted(e):
+                        _quota_msg = (
+                            f"Daily quota exhausted for '{model_name}'. "
+                            f"The Gemini free tier allows ~20 requests/day. "
+                            f"Wait until tomorrow or upgrade to a paid plan."
+                        )
+                        logger.error(_quota_msg)
+                        metrics.finalize(error=_quota_msg)
+                        self.metrics_history.append(metrics)
+                        raise RuntimeError(_quota_msg) from e
+
+                    # Try to honour the server's suggested retry delay
+                    _default_wait = min(2 ** _attempt * 2, 120)
+                    wait = self._parse_retry_after(e, default=_default_wait)
+                    # Add jitter (±25 %) to avoid thundering-herd on resume
+                    wait = wait * (0.75 + random.random() * 0.5)
+                    logger.warning(
+                        "%s (HTTP %s) for %s (attempt %d/%d). "
+                        "Retrying in %.1fs…",
+                        type(e).__name__, _status,
+                        model_name, _attempt + 1, _MAX_TRANSIENT_RETRIES,
+                        wait,
+                    )
+                    metrics.finalize(error=str(e))
+                    self.metrics_history.append(metrics)
+                    await asyncio.sleep(wait)
+                    continue
+
+                # --- Runtime auth fallback: 401 → API key (Azure only) ---
+                from openai import AuthenticationError
+                if (
+                    not self._is_gemini_backend(config)
+                    and isinstance(e, AuthenticationError)
+                    and self._fallback_to_api_key()
+                ):
+                    logger.info("Retrying async request with API key after Entra ID 401…")
+                    metrics = RequestMetrics(
+                        request_id=metrics.request_id + "_retry",
+                        model=config.deployment_name,
+                        start_time=time.time(),
+                    )
+                    request_params["model"] = config.deployment_name
+                    response = await self.async_client.chat.completions.create(**request_params)
+                    raw_content = response.choices[0].message.content if response.choices else ""
+                    if isinstance(raw_content, dict):
+                        content = json.dumps(raw_content, ensure_ascii=False)
+                    elif raw_content is None:
+                        content = ""
+                    else:
+                        content = raw_content
+                    metrics.finalize(completion=response)
+                    self.metrics_history.append(metrics)
+                    return CompletionResult(content=content, metrics=metrics, raw_response=response)
+                metrics.finalize(error=str(e))
+                self.metrics_history.append(metrics)
+                raise
             
     def stream_complete(
         self,
@@ -711,7 +907,14 @@ class AzureOpenAIClient:
         first_token = True
         
         try:
-            stream = self.client.chat.completions.create(**request_params)
+            # Select the correct client based on model backend
+            if self._is_gemini_backend(config):
+                self._ensure_gemini_clients()
+                active_client = self._gemini_client
+            else:
+                active_client = self.client
+
+            stream = active_client.chat.completions.create(**request_params)
             
             for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta.content:
@@ -790,10 +993,19 @@ def create_client_from_config(config_path: str = "config/settings.yaml") -> Azur
     client = AzureOpenAIClient(config_path=config_path)
     client.register_models_from_config(config_path)
     
-    # Load cache settings
+    # Load full config for additional settings
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
-        
+
+    # Gemini API key (optional — only needed if Gemini models are configured)
+    gemini_config = config.get('gemini', {})
+    gemini_api_key = gemini_config.get('api_key')
+    if gemini_api_key:
+        resolved = client._resolve_env_var(gemini_api_key) or os.getenv('GEMINI_API_KEY')
+        if resolved:
+            client._gemini_api_key = resolved
+
+    # Cache settings
     cache_config = config.get('caching', {})
     if cache_config.get('enabled', False):
         client.enable_caching(cache_config.get('cache_dir', '.cache/prompts'))
