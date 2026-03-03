@@ -26,6 +26,7 @@ COPY . .
 # Create required directories that may not exist in a fresh clone
 RUN mkdir -p logs data/results data/synthetic/classification \
     data/synthetic/dialog data/synthetic/general \
+    data/synthetic/rag data/synthetic/tool_calling \
     data/synthetic/topics \
     data/users \
     prompts/history prompts/topics

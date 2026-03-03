@@ -201,6 +201,9 @@ AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_API_KEY=your-api-key-here
 FOUNDRY_PROJECT_ENDPOINT=https://your-hub.services.ai.azure.com/api/projects/your-project  # Optional
 
+# Google Gemini (optional — only needed if using Gemini models)
+GEMINI_API_KEY=            # Get from https://aistudio.google.com/
+
 # Authentication SMTP (optional — see "Authentication" section below)
 SMTP_HOST=smtp.office365.com
 SMTP_USERNAME=noreply@yourdomain.com
@@ -1201,6 +1204,7 @@ gemini:
 | `frequency_penalty` | Repetition penalty (optional) | **Omitted for reasoning models** |
 | `presence_penalty` | Topic penalty (optional) | **Omitted for reasoning models** |
 | `reasoning_effort` | Only for reasoning models | `low` / `medium` / `high` — GPT-5, o1, o3, o4 |
+| `max_concurrent` | Max parallel API calls for this model (optional) | Default: `5`. Set to `1` for rate-limited models like Gemini free tier |
 
 ### Model Family Behaviour
 
@@ -1242,6 +1246,22 @@ Example — both use the `gpt-5.1` deployment but with different parameters:
       model_family: "gpt5"
       reasoning_effort: "medium"
 ```
+
+### Gemini Limitations & Behaviour
+
+Google Gemini models are accessed via the [OpenAI-compatible endpoint](https://ai.google.dev/gemini-api/docs/openai) and have specific behaviour differences you should be aware of:
+
+| Aspect | Detail |
+|--------|--------|
+| **Rate limits (free tier)** | ~15 RPM / ~20 RPD — the free API key is severely rate-limited. Set `max_concurrent: 1` to send requests sequentially |
+| **Retry with backoff** | Transient errors (429, 500, 502, 503, 504) trigger up to 6 retries with exponential backoff (2 → 4 → 8 → 16 → 32 → 64 s) plus jitter, capped at 120 s per wait |
+| **Daily quota detection** | When the daily quota (`PerDay`) is exhausted, the system detects it immediately and fails fast with a clear message instead of retrying |
+| **SDK retries disabled** | The OpenAI SDK's built-in `max_retries` is set to `0` for Gemini clients to avoid double-retry (SDK retries × app retries) |
+| **Consistency runs skipped** | Consistency/reproducibility measurements (multiple runs per scenario) are **automatically disabled** for Gemini models to conserve the limited daily quota |
+| **Seed parameter** | Not sent — Gemini does not support the `seed` parameter |
+| **Prompt seeding** | Gemini prompt templates are seeded from shared prompts on first user login, just like all other models |
+
+> **Tip:** For production workloads, upgrade to a [paid Gemini API plan](https://ai.google.dev/pricing) which provides significantly higher rate limits (up to 2,000 RPM).
 
 ### Adding a New Model — Step by Step
 
