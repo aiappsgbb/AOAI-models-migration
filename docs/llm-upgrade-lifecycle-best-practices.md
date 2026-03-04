@@ -30,17 +30,16 @@ The pace is fast: GA models are guaranteed for **12 months minimum**, with an ad
 
 ## 3. Understanding the Model Lifecycle Timeline
 
-```
-Model Launch (GA)
-    │
-    ├── 12 months ──► Deprecation (no new customers)
-    │
-    ├── up to 18 months ──► Retirement (existing customers)
-    │                        ↳ Standard deployments may auto-upgrade ~3 weeks before retirement
-    │                        ↳ Provisioned / Global Standard may get extended timelines
-    │
-    └── Replacement model available (N+1) for side-by-side comparison
-         ↳ Customers get 60 days to try the new GA model before any auto-upgrades begin
+```mermaid
+graph TD
+    GA["<b>Model Launch (GA)</b>"]
+    GA -->|"12 months"| DEP["<b>Deprecation</b><br/>No new customers"]
+    GA -->|"up to 18 months"| RET["<b>Retirement</b><br/>Existing customers"]
+    GA --> REPL["<b>Replacement model (N+1)</b><br/>Available for side-by-side comparison"]
+
+    RET -.- NOTE1["Standard deployments may auto-upgrade<br/>~3 weeks before retirement"]
+    RET -.- NOTE2["Provisioned / Global Standard<br/>may get extended timelines"]
+    REPL -.- NOTE3["Customers get 60 days to try<br/>the new GA model before auto-upgrades"]
 ```
 
 **Preview models** follow an accelerated timeline: 90–120 day "not sooner than" retirement, with 30 days' notice before upgrades.
@@ -585,18 +584,15 @@ with (
 
 The core workflow for a model upgrade evaluation:
 
-```
-┌──────────────┐    ┌──────────────┐
-│ Golden Dataset│───▶│  Model A     │──▶ eval_results_A.json
-│  (JSONL)     │    │  (current)   │
-│              │    └──────────────┘
-│              │    ┌──────────────┐
-│              │───▶│  Model B     │──▶ eval_results_B.json
-│              │    │  (candidate) │
-└──────────────┘    └──────────────┘
-                           │
-                    Compare metrics
-                    Flag regressions
+```mermaid
+graph LR
+    DS["<b>Golden Dataset</b><br/>(JSONL)"]
+    DS -->|"inference"| MA["<b>Model A</b><br/>(current)"]
+    DS -->|"inference"| MB["<b>Model B</b><br/>(candidate)"]
+    MA --> RA["eval_results_A.json"]
+    MB --> RB["eval_results_B.json"]
+    RA --> CMP["<b>Compare metrics</b><br/>Flag regressions"]
+    RB --> CMP
 ```
 
 **Steps:**
