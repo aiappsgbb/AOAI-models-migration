@@ -43,7 +43,6 @@ OLD/
 .dockerignore
 *.pptx
 prompts/history/*.md
-*.ps1
 *.bat
 tests/
 *.ini

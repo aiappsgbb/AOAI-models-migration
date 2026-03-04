@@ -156,6 +156,7 @@ model_migration_eval/
 │
 ├── tools/
 │   ├── add_model.py                 # CLI tool: add a new model (interactive or scripted)
+│   ├── assign_foundry_roles.ps1     # Grant Reader + Azure AI User to workshop attendees (batch)
 │   ├── import_topic.py              # CLI tool: import external topic from source prompt + test data
 │   ├── migrate_to_multiuser.py      # Migrate existing data to a user's namespace
 │   ├── regenerate_all_topics.py     # Regenerate prompts + test data for all archived topics
@@ -538,6 +539,59 @@ python tools/migrate_to_multiuser.py --email user@example.com
 ```
 
 This copies `prompts/`, `data/synthetic/`, and `data/results/` into `data/users/<user_id>/` and creates the user record in the auth database.
+
+### Granting Foundry Access to Workshop Attendees
+
+If you run workshops or demos where attendees need to **view evaluation results in the Azure AI Foundry portal** (https://ai.azure.com), you can pre-provision their permissions with the `assign_foundry_roles.ps1` script.
+
+The script assigns two roles on the AI Services resource:
+
+| Role | Purpose |
+|------|---------|
+| **Reader** | ARM read-only access (see the project in Azure Portal) |
+| **Azure AI User** | Data-plane read access (browse evaluations, runs, assets in Foundry) |
+
+**Prerequisites:**
+- Azure CLI (`az`) logged in with **Owner** or **User Access Administrator** on the target resource.
+- `FOUNDRY_PROJECT_ENDPOINT` set in `.env` (the script auto-derives the resource scope from it).
+
+#### Single user
+
+```powershell
+.\tools\assign_foundry_roles.ps1 -Email "user@microsoft.com"
+```
+
+#### Multiple users (comma-separated)
+
+```powershell
+.\tools\assign_foundry_roles.ps1 -Email "user1@ms.com","user2@ms.com","user3@ms.com"
+```
+
+#### From a file (one email per line)
+
+Create a text file with one email per line.  Blank lines and `#` comments are ignored:
+
+```text
+# Workshop attendees - 2026-03-04
+riccardo.chiodaroli@microsoft.com
+jane.doe@microsoft.com
+john.smith@microsoft.com
+```
+
+```powershell
+.\tools\assign_foundry_roles.ps1 -File attendees.txt
+```
+
+The script resolves each user in Azure AD by display-name search (works for both native and guest `#EXT#` accounts), assigns both roles, and prints a summary at the end:
+
+```
+  =========================================================
+  Results: 3 succeeded, 0 failed (of 3 total)
+  [OK] Succeeded: riccardo.chiodaroli@microsoft.com, jane.doe@microsoft.com, john.smith@microsoft.com
+  =========================================================
+```
+
+> **Note:** This script requires your own `az login` session — it cannot run from the application's Service Principal because the SP may lack admin-consented Graph API permissions needed to resolve user identities.
 
 ### Session & Security
 
