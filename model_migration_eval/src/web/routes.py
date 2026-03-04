@@ -1356,12 +1356,24 @@ def create_app(config_path: str = None) -> Flask:
                 model_display = data.get('model_name', 'unknown')
                 if model_display == 'unknown' and 'model_a' in data:
                     model_display = f"{data['model_a']} vs {data.get('model_b', '?')}"
-                results.append({
+                entry = {
                     'filename': file.name,
                     'model': model_display,
                     'type': data.get('evaluation_type', 'unknown'),
-                    'timestamp': data.get('timestamp', '')
-                })
+                    'timestamp': data.get('timestamp', ''),
+                }
+                # Include Foundry report URLs when available
+                if data.get('foundry_report_url'):
+                    entry['foundry_report_url'] = data['foundry_report_url']
+                fm = data.get('foundry_meta') or {}
+                urls = {}
+                for key in ('model_a', 'model_b'):
+                    url = (fm.get(key) or {}).get('report_url')
+                    if url:
+                        urls[key] = url
+                if urls:
+                    entry['foundry_urls'] = urls
+                results.append(entry)
             except (json.JSONDecodeError, OSError) as e:
                 app.logger.debug(f"Skipping unreadable result file {file.name}: {e}")
                 continue

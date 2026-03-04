@@ -54,22 +54,24 @@ This framework automates that process end-to-end:
 ```
 model_migration_eval/
 ├── app.py                          # Main entry point (CLI + web server)
-├── start.bat                       # Quick-launch script (Windows)
 ├── requirements.txt                # Python dependencies
 ├── .env.example                    # Environment variables template
 ├── .gitignore                      # Git ignore rules
 ├── Dockerfile                      # Container image (Python 3.13-slim + Flask)
-├── .dockerignore                   # Files excluded from Docker build context
 ├── azure.yaml                      # Azure Developer CLI (azd) project definition
 ├── deploy.ps1                      # Alternative deployment script (Docker Desktop or Azure)
+├── run_azd_up.bat                  # Quick-launch script for azd up (Windows)
+├── pytest.ini                      # Pytest configuration
 │
 ├── infra/                          # ⬅ Bicep infrastructure-as-code (used by azd)
 │   ├── main.bicep                  #   Entry point — AVM pattern modules
 │   ├── main.parameters.json        #   Parameters populated by azd environment
 │   └── modules/
 │       ├── acr-access.bicep        #   AcrPull role assignment
-│       ├── openai-access.bicep     #   Cognitive Services OpenAI User role
-│       └── foundry-access.bicep    #   Azure AI Developer role (Foundry)
+│       ├── foundry-access.bicep    #   OpenAI + Foundry + Storage RBAC roles
+│       ├── foundry-resource.bicep  #   AI Services account + model deployments + Foundry project
+│       ├── openai-access.bicep     #   Cognitive Services OpenAI User role (legacy)
+│       └── openai-resource.bicep   #   Azure OpenAI account (legacy — replaced by foundry-resource)
 │
 ├── config/
 │   ├── settings.yaml               # Azure credentials & model definitions
@@ -112,7 +114,7 @@ model_migration_eval/
 │   │   └── dialog_agent_system.md
 │   ├── gpt51/                      #   GPT-5.1 optimised prompts
 │   ├── gpt5_reasoning/             #   GPT-5.1 reasoning (falls back to gpt5/ prompts)
-│   ├── mistral/                    #   Mistral-Large-3 optimised prompts
+│   ├── mistral_large_3/            #   Mistral-Large-3 optimised prompts
 │   ├── gemini3_flash/              #   Gemini 3 Flash optimised prompts
 │   ├── history/                    #   Version history (auto-managed)
 │   │   └── versions.json
@@ -151,21 +153,25 @@ model_migration_eval/
 │           ├── compare.html         # Model comparison with charts
 │           ├── results.html         # Results browser with filters & delete
 │           ├── prompts.html         # Prompt Manager (edit, generate, history, data explorer)
-│           ├── prompts_V1.html      # Prompt Manager (previous layout version)
 │           └── import_samples.html  # JSON & CSV import samples reference page
 │
 ├── tools/
 │   ├── add_model.py                 # CLI tool: add a new model (interactive or scripted)
 │   ├── assign_foundry_roles.ps1     # Grant Reader + Azure AI User to workshop attendees (batch)
+│   ├── generate_csv_samples.py      # Generate CSV sample files for all 5 task types
+│   ├── generate_gemini_prompts.py   # Generate Gemini-optimised prompt templates
 │   ├── import_topic.py              # CLI tool: import external topic from source prompt + test data
+│   ├── migrate_test_data.py         # Migrate test data between schema versions
 │   ├── migrate_to_multiuser.py      # Migrate existing data to a user's namespace
 │   ├── regenerate_all_topics.py     # Regenerate prompts + test data for all archived topics
-│   ├── gpt4_classification_prompt.md # Sample classification prompt for import testing
-│   ├── gpt4_dialog_prompt.txt       # Sample dialog prompt for import testing
-│   ├── test_data_classification.json # Sample classification test data for import testing
-│   ├── test_data_dialog.json        # Sample dialog test data for import testing
-│   ├── test_data_general.json       # Sample general test data for import testing
-│   └── test_import.bat              # Quick-launch script for import testing
+│   ├── test_import.bat              # Quick-launch script for import testing
+│   └── import_test/                 # ⬅ Sample files for import testing
+│       ├── prompt_gpt4_classification.md
+│       ├── prompt_gpt4_dialog.txt
+│       ├── prompt_gpt4_rag.md
+│       ├── prompt_gpt4_tool_calling.md
+│       ├── samples_json/            #   JSON samples (all 5 task types)
+│       └── samples_csv/             #   CSV samples (all 5 task types)
 │
 ├── docs/
 │   ├── migration_guide.md          # Comprehensive model migration guide
@@ -404,7 +410,7 @@ data/users/<user_id>/
 │   ├── gpt4/                    # Active prompt templates per model
 │   ├── gpt4o/
 │   ├── gpt5/
-│   ├── mistral/                 # Marketplace model prompts
+│   ├── mistral_large_3/         # Marketplace model prompts
 │   ├── gemini3_flash/           # Gemini model prompts
 │   ├── history/                 # User's own version history (starts empty)
 │   └── topics/                  # Archived topics
@@ -712,10 +718,10 @@ A full generation (scope `all`) produces:
 | `gpt5/dialog_agent_system.md` | Dialog prompt optimised for GPT-5 |
 | `gpt5/rag_agent_system.md` | RAG prompt optimised for GPT-5 |
 | `gpt5/tool_calling_agent_system.md` | Tool calling prompt optimised for GPT-5 |
-| `mistral/classification_agent_system.md` | Classification prompt optimised for Mistral (structured examples, few-shot) |
-| `mistral/dialog_agent_system.md` | Dialog prompt optimised for Mistral |
-| `mistral/rag_agent_system.md` | RAG prompt optimised for Mistral |
-| `mistral/tool_calling_agent_system.md` | Tool calling prompt optimised for Mistral |
+| `mistral_large_3/classification_agent_system.md` | Classification prompt optimised for Mistral (structured examples, few-shot) |
+| `mistral_large_3/dialog_agent_system.md` | Dialog prompt optimised for Mistral |
+| `mistral_large_3/rag_agent_system.md` | RAG prompt optimised for Mistral |
+| `mistral_large_3/tool_calling_agent_system.md` | Tool calling prompt optimised for Mistral |
 | `gemini3_flash/classification_agent_system.md` | Classification prompt optimised for Gemini (explicit CoT, structured output) |
 | `gemini3_flash/dialog_agent_system.md` | Dialog prompt optimised for Gemini |
 | `gemini3_flash/rag_agent_system.md` | RAG prompt optimised for Gemini |
@@ -1686,8 +1692,10 @@ The Bicep templates are located in the `infra/` folder:
 | `infra/main.bicep` | Entry point — orchestrates all resources using [Azure Verified Modules (AVM)](https://azure.github.io/Azure-Verified-Modules/) |
 | `infra/main.parameters.json` | Parameter file — values are populated from `azd` environment variables |
 | `infra/modules/acr-access.bicep` | Assigns the **AcrPull** role to the managed identity on the Container Registry |
-| `infra/modules/openai-access.bicep` | Assigns **Cognitive Services OpenAI User** role on the Azure OpenAI account |
-| `infra/modules/foundry-access.bicep` | Assigns **Azure AI Developer** role on the AI Foundry project |
+| `infra/modules/foundry-resource.bicep` | Creates the **AI Services account** (kind: AIServices) with model deployments + Foundry project |
+| `infra/modules/foundry-access.bicep` | Assigns **OpenAI + Foundry + Storage RBAC roles** to the managed identity |
+| `infra/modules/openai-access.bicep` | Assigns **Cognitive Services OpenAI User** role (legacy — superseded by foundry-access) |
+| `infra/modules/openai-resource.bicep` | Creates an Azure OpenAI account (legacy — superseded by foundry-resource) |
 
 ### What Gets Deployed
 

@@ -485,25 +485,76 @@ class AzureOpenAIClient:
         transient per-minute rate-limit).
 
         Gemini free-tier errors include a ``QuotaFailure`` detail whose
-        ``quotaId`` contains ``PerDay``.  Retrying these is pointless
-        until the next calendar day, so we fail fast instead.
+        ``quotaId`` contains ``PerDay``.  The error can also surface as
+        ``metadata.quota_limit`` containing ``PerDay``, a ``retryDelay``
+        of 86 400 s, or simply ``"Resource has been exhausted"`` without
+        granular details via the OpenAI-compatible endpoint.
+
+        Retrying these is pointless until the next calendar day, so we
+        fail fast instead.
         """
         try:
             body = getattr(exc, 'body', None)
             if isinstance(body, dict):
-                for detail in body.get('error', {}).get('details', []):
-                    qid = ''
-                    # QuotaFailure block
+                error_obj = body.get('error', {})
+                if not isinstance(error_obj, dict):
+                    error_obj = {}
+                details = error_obj.get('details', [])
+                if not isinstance(details, list):
+                    details = []
+
+                for detail in details:
+                    if not isinstance(detail, dict):
+                        continue
+                    # 1. QuotaFailure violations with PerDay quotaId
                     for v in detail.get('violations', []):
-                        qid = v.get('quotaId', '')
-                        if 'PerDay' in qid:
+                        if 'PerDay' in (v.get('quotaId', '') if isinstance(v, dict) else ''):
                             return True
-                    # Also check the message itself
-                msg = body.get('error', {}).get('message', '')
-                if 'quota' in msg.lower() and ('per day' in msg.lower() or 'PerDay' in msg):
-                    return True
+                    # 2. ErrorInfo metadata with PerDay quota_limit
+                    meta = detail.get('metadata', {})
+                    if isinstance(meta, dict) and 'PerDay' in meta.get('quota_limit', ''):
+                        return True
+                    # 3. RetryInfo with very long delay (>= 1 h → daily quota)
+                    retry_delay = detail.get('retryDelay', '')
+                    if isinstance(retry_delay, str) and retry_delay.endswith('s'):
+                        try:
+                            if float(retry_delay[:-1]) >= 3600:
+                                return True
+                        except ValueError:
+                            pass
+
+                # 4. Check message for explicit "per day" / "PerDay" mentions
+                msg = error_obj.get('message', '')
+                if isinstance(msg, str):
+                    ml = msg.lower()
+                    if 'quota' in ml and ('per day' in ml or 'PerDay' in msg):
+                        return True
+
+                # 5. Deep search: serialise the full body and look for PerDay
+                #    anywhere in the structure (catches any nested format).
+                try:
+                    if 'PerDay' in json.dumps(body):
+                        return True
+                except (TypeError, ValueError):
+                    pass
+
+                # 6. Gemini "Resource has been exhausted" via OpenAI-compat
+                #    endpoint — often lacks granular details.  Combined with
+                #    RESOURCE_EXHAUSTED status this is the daily limit.
+                if isinstance(msg, str):
+                    ml = msg.lower()
+                    if ('resource' in ml and 'exhausted' in ml) or \
+                       error_obj.get('status') == 'RESOURCE_EXHAUSTED':
+                        return True
+
         except (AttributeError, TypeError):
             pass
+
+        # 7. Last resort: check the stringified exception
+        exc_str = str(exc).lower()
+        if 'resource' in exc_str and 'exhausted' in exc_str:
+            return True
+
         return False
 
     def _is_new_generation_model(self, config: ModelConfig) -> bool:

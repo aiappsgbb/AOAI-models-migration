@@ -151,6 +151,8 @@
                 const typeLabel = isComparison ? 'comparison' : result.type;
                 const modelLabel = isComparison ? result.model : displayName(result.model);
                 const dateStr = result.timestamp ? new Date(result.timestamp).toLocaleString() : 'Unknown date';
+                const hasFoundry = result.foundry_report_url || (result.foundry_urls && Object.keys(result.foundry_urls).length > 0);
+                const foundryBadge = hasFoundry ? '<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800" title="Foundry LLM-as-Judge evaluation available">☁️ Foundry</span>' : '';
                 
                 card.innerHTML = `
                     <div class="flex items-center justify-between">
@@ -158,6 +160,7 @@
                             <div class="flex items-center space-x-3">
                                 <span class="font-medium text-gray-800">${esc(modelLabel)}</span>
                                 <span class="px-2 py-1 text-xs rounded-full ${typeColor}">${typeLabel}</span>
+                                ${foundryBadge}
                             </div>
                             <p class="text-sm text-gray-500 mt-1">${dateStr}</p>
                         </div>
@@ -233,6 +236,39 @@
                             </div>
                         </div>
                     `;
+                    // Foundry report links for comparisons
+                    const fMeta = data.foundry_meta || {};
+                    const fUrlA = (fMeta.model_a || {}).report_url;
+                    const fUrlB = (fMeta.model_b || {}).report_url;
+                    if (fUrlA || fUrlB) {
+                        html += `<div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                            <h4 class="font-medium text-purple-800 mb-2">☁️ Foundry LLM-as-Judge Reports</h4>
+                            <div class="flex flex-wrap gap-3">`;
+                        if (fUrlA) html += `<a href="${fUrlA}" target="_blank" class="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors">📊 ${displayName(data.model_a)} report</a>`;
+                        if (fUrlB) html += `<a href="${fUrlB}" target="_blank" class="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors">📊 ${displayName(data.model_b)} report</a>`;
+                        html += `</div></div>`;
+                    }
+                    // Foundry aggregated scores side-by-side for comparisons
+                    const fScA = (data.foundry_scores_a || {}).aggregated;
+                    const fScB = (data.foundry_scores_b || {}).aggregated;
+                    if (fScA || fScB) {
+                        const allMetrics = [...new Set([...Object.keys(fScA || {}), ...Object.keys(fScB || {})])];
+                        if (allMetrics.length) {
+                            html += `<div><h4 class="font-medium text-gray-800 mb-3">☁️ Foundry LLM-as-Judge Scores</h4><div class="overflow-x-auto"><table class="min-w-full text-sm divide-y divide-gray-200"><thead class="bg-gray-50"><tr>`;
+                            html += `<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Metric</th>`;
+                            html += `<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">${displayName(data.model_a)}</th>`;
+                            html += `<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">${displayName(data.model_b)}</th>`;
+                            html += `</tr></thead><tbody class="divide-y divide-gray-200">`;
+                            for (const m of allMetrics) {
+                                const label = m.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                const vA = fScA ? fScA[m] : null;
+                                const vB = fScB ? fScB[m] : null;
+                                const fmt = v => (typeof v === 'number') ? (v * 100).toFixed(1) + '%' : (v ?? '-');
+                                html += `<tr><td class="px-3 py-2 font-medium">${label}</td><td class="px-3 py-2">${fmt(vA)}</td><td class="px-3 py-2">${fmt(vB)}</td></tr>`;
+                            }
+                            html += `</tbody></table></div></div>`;
+                        }
+                    }
                     if (data.dimensions && data.dimensions.length) {
                         html += '<div><h4 class="font-medium text-gray-800 mb-3">Dimensions</h4><div class="overflow-x-auto"><table class="min-w-full text-sm divide-y divide-gray-200"><thead class="bg-gray-50"><tr>';
                         html += '<th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Dimension</th>';
@@ -290,6 +326,28 @@
                         </div>
                     `;
                     
+                    // Foundry report link for evaluations
+                    if (data.foundry_report_url) {
+                        html += `<div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                            <h4 class="font-medium text-purple-800 mb-2">☁️ Foundry LLM-as-Judge Report</h4>
+                            <a href="${data.foundry_report_url}" target="_blank" class="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors">📊 Open in Foundry Control Plane</a>
+                        </div>`;
+                    }
+                    // Foundry aggregated scores for evaluations
+                    const fScores = (data.foundry_scores || {}).aggregated;
+                    if (fScores && Object.keys(fScores).length) {
+                        html += `<div><h4 class="font-medium text-gray-800 mb-3">☁️ Foundry LLM-as-Judge Scores</h4><div class="grid grid-cols-4 gap-4 text-sm">`;
+                        for (const [metric, score] of Object.entries(fScores)) {
+                            const label = metric.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            const pct = typeof score === 'number' ? (score * 100).toFixed(1) + '%' : score;
+                            const color = (typeof score === 'number' && score >= 0.8) ? 'green' : (typeof score === 'number' && score >= 0.5) ? 'yellow' : 'red';
+                            html += `<div class="bg-purple-50 p-3 rounded-lg text-center">
+                                <p class="text-gray-500 text-xs">${label}</p>
+                                <p class="font-bold text-purple-700">${pct}</p>
+                            </div>`;
+                        }
+                        html += `</div></div>`;
+                    }
                     if (data.classification_metrics) {
                         const cm = data.classification_metrics;
                         html += `<div>
