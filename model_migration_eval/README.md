@@ -319,12 +319,20 @@ Each entry is timestamped.  For **classification**, each scenario shows expected
 
 ### Dashboard (`/`)
 
+<p align="center">
+  <img src="docs/demos/02_dashboard.gif" alt="Dashboard quick test demo" width="800">
+</p>
+
 - Enter a user prompt or pick a pre-loaded test scenario.
 - Select one or two models from the configured list.
 - Get instant responses with latency and token usage.
 - Quick health check to verify Azure connectivity.
 
 ### Evaluate (`/evaluate`)
+
+<p align="center">
+  <img src="docs/demos/03_evaluation.gif" alt="Batch evaluation with verbose mode demo" width="800">
+</p>
 
 1. Select a **model** and **evaluation type** (classification, dialog, general, RAG, or tool calling).
 2. Optionally enable **☑ Verbose** for detailed narrative logging and/or **☑ Include Foundry LLM-as-judge** for LLM-quality evaluation via Microsoft Foundry.
@@ -346,6 +354,10 @@ Each metric card has an **ⓘ info tooltip** button explaining what the metric m
 
 ### Compare (`/compare`)
 
+<p align="center">
+  <img src="docs/demos/04_comparison.gif" alt="Head-to-head model comparison demo" width="800">
+</p>
+
 1. Select **Model A** (baseline) and **Model B** (candidate), plus the evaluation type.
 2. Optionally enable **☑ Verbose** and/or **☑ Include Foundry LLM-as-judge**.
 3. Click **▶ Run Comparison** — the comparison runs **asynchronously** in a background thread while the UI polls for progress (avoids ACA Envoy proxy timeout limits).
@@ -354,6 +366,10 @@ Each metric card has an **ⓘ info tooltip** button explaining what the metric m
 6. Comparisons are **auto-saved** to `data/results/`.
 
 ### Results (`/results`)
+
+<p align="center">
+  <img src="docs/demos/05_results.gif" alt="Results browser demo" width="800">
+</p>
 
 - Lists all saved evaluation and comparison JSON files, sorted newest first.
 - **Filter** by type: Classification, Dialog, General, or Comparison.
@@ -382,6 +398,10 @@ Additionally, the left sidebar includes an **📥 Import Topic** panel with a **
 ## 🔐 Authentication & Multi-User Isolation
 
 The framework supports **per-user authentication** with email + OTP (one-time password) codes. Each authenticated user gets an isolated workspace with their own prompts, test data, and evaluation results.
+
+<p align="center">
+  <img src="docs/demos/01_login.gif" alt="Login and authentication demo" width="800">
+</p>
 
 ### How It Works
 
@@ -684,6 +704,10 @@ The entire file content is sent as the `system` message.  Changes take effect on
 
 ### AI-Powered Generation
 
+<p align="center">
+  <img src="docs/demos/08_generation.gif" alt="AI-powered prompt and test data generation demo" width="800">
+</p>
+
 1. Go to **Prompts** → **✨ AI Generate**.
 2. Enter a **topic** (e.g. *"Soporte técnico de telecomunicaciones"*, *"Paris 7-day travel itinerary"*).
 3. Select the **generator model**.
@@ -739,6 +763,10 @@ All content is domain-adapted and coherent — the test data exercises the exact
 **Externalised meta-prompt templates:**  The meta-prompts that instruct the generator LLM how to build test data are stored as editable `.txt` files in `config/data_gen_prompts/` (one per type, plus a `system_message.txt`).  Templates use `{count}`, `{topic}`, and `{category_block}` placeholders.  If a template file is missing, a built-in fallback is used automatically.
 
 ### Importing External Topics
+
+<p align="center">
+  <img src="docs/demos/07_import_topic.gif" alt="Import external topic demo" width="800">
+</p>
 
 If you already have your own system prompt and test data, you can import them directly — the framework will generate optimised prompts for the target models automatically and create an archived topic ready to activate.
 
@@ -861,6 +889,10 @@ From the **Version History** tab you can:
 - **🗑️ Delete** individual versions or **bulk-delete** a selection.
 
 ### Test Data Explorer
+
+<p align="center">
+  <img src="docs/demos/06_test_data_explorer.gif" alt="Test Data Explorer demo" width="800">
+</p>
 
 The **Test Data** sub-tab provides a full scenario editor for all 5 evaluation types.  Each type has a **purpose-built web form** instead of raw JSON editing:
 
