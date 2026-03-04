@@ -21,33 +21,17 @@ The Azure AI Foundry Evals API (v2, via `azure-ai-projects >= 2.0.0b3`) separate
 
 All runs under the same eval are visible in the Foundry portal on a single page, with built-in statistical comparison.
 
-```
-                ┌──────────────────────────────────────────────┐
-                │         Eval Definition (created once)       │
-                │                                              │
-                │  Testing criteria:                           │
-                │    • builtin.coherence                       │
-                │    • builtin.groundedness                    │
-                │    • builtin.relevance                       │
-                │                                              │
-                │  Data schema:                                │
-                │    query, response, context, ground_truth    │
-                └──────────────┬───────────────────────────────┘
-                               │
-          ┌────────────────────┼────────────────────┐
-          │                    │                    │
-     ┌────▼─────┐        ┌────▼─────┐        ┌────▼─────┐
-     │  Run #1  │        │  Run #2  │        │  Run #3  │
-     │ gpt-4o   │        │ gpt-4.1  │        │ gpt-5.1  │
-     │ Jan 2026 │        │ Mar 2026 │        │ Jun 2026 │
-     └──────────┘        └──────────┘        └──────────┘
-          │                    │                    │
-          ▼                    ▼                    ▼
-    ┌───────────────────────────────────────────────────┐
-    │        Foundry Portal — Single Eval Page          │
-    │  All runs listed with pass rates per metric       │
-    │  Select 2+ runs → Compare → stat-sig analysis     │
-    └───────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    EVAL["<b>Eval Definition (created once)</b><br/><br/>Testing criteria:<br/>• builtin.coherence<br/>• builtin.groundedness<br/>• builtin.relevance<br/><br/>Data schema:<br/>query, response, context, ground_truth"]
+
+    EVAL --> RUN1["<b>Run #1</b><br/>gpt-4o<br/>Jan 2026"]
+    EVAL --> RUN2["<b>Run #2</b><br/>gpt-4.1<br/>Mar 2026"]
+    EVAL --> RUN3["<b>Run #3</b><br/>gpt-5.1<br/>Jun 2026"]
+
+    RUN1 --> PORTAL["<b>Foundry Portal — Single Eval Page</b><br/>All runs listed with pass rates per metric<br/>Select 2+ runs → Compare → stat-sig analysis"]
+    RUN2 --> PORTAL
+    RUN3 --> PORTAL
 ```
 
 ## What the Portal Shows
