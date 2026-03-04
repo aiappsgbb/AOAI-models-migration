@@ -156,7 +156,7 @@ def adapt_params(model_name: str, params: dict) -> dict:
 | GPT-5.2 | Reasoning | `none`, `low`, `medium`, `high` | `none` |
 | o-series (o1, o3, o4-mini) | Reasoning | `low`, `medium`, `high` | `medium` |
 
-> **Important:** `reasoning_effort="none"` is only supported on GPT-5.1. GPT-5, GPT-5-mini, and GPT-5-nano minimum is `"minimal"`, which still incurs reasoning tokens and added latency.
+> **Important:** `reasoning_effort="none"` is only supported from GPT-5.1 onwards (GPT-5.1 and GPT-5.2). GPT-5, GPT-5-mini, and GPT-5-nano minimum is `"minimal"`, which still incurs reasoning tokens and added latency.
 
 ### 5. System Role for Reasoning Models
 
