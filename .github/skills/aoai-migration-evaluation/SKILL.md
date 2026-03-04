@@ -568,6 +568,134 @@ jobs:
     └─────────────────────────────────────────────────┘
 ```
 
+### Tracking Metrics Across Model Generations in One Place (v2 Eval Reuse)
+
+The v2 Evals API separates **eval definitions** from **runs**. This means you can create a single eval definition once — encoding your testing criteria, data schema, and pass/fail thresholds — and then create a new **run** each time you evaluate a different model or a new dataset snapshot. All runs are stored under the same eval in the Foundry portal, giving you a **single pane of glass** to compare metrics across model versions over time.
+
+**Why this matters for migrations:**
+- Every model candidate (gpt-4o → gpt-4.1 → gpt-5.1 → gpt-5.2) gets its own run under the same eval
+- The Foundry portal shows all runs side-by-side with pass rates, score distributions, and per-item drill-down
+- You build a historical record of how each model performed on your exact workload — no spreadsheets, no manual tracking
+- When the next retirement is announced, you already have baseline runs to compare against
+
+**Step-by-step pattern:**
+
+```python
+import os
+from datetime import datetime
+from azure.identity import DefaultAzureCredential
+from azure.ai.projects import AIProjectClient
+from openai.types.evals.create_eval_jsonl_run_data_source_param import (
+    CreateEvalJSONLRunDataSourceParam,
+    SourceFileID,
+)
+
+project_client = AIProjectClient(
+    endpoint=os.environ["AZURE_AI_PROJECT_ENDPOINT"],
+    credential=DefaultAzureCredential(),
+)
+client = project_client.get_openai_client()
+
+# ── Step 1: Create the eval definition ONCE ──────────────────────────
+# This defines your testing criteria and data schema. Reuse this eval_id
+# for every future model evaluation. Store the eval_id in your config.
+eval_obj = client.evals.create(
+    name="migration-quality-gate",   # Descriptive, stable name
+    data_source_config={
+        "type": "custom",
+        "item_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "response": {"type": "string"},
+                "context": {"type": "string"},
+                "ground_truth": {"type": "string"},
+            },
+            "required": ["query", "response"],
+        },
+    },
+    testing_criteria=[
+        {
+            "type": "azure_ai_evaluator",
+            "name": "coherence",
+            "evaluator_name": "builtin.coherence",
+            "initialization_parameters": {"deployment_name": os.environ["EVAL_MODEL_DEPLOYMENT"]},
+            "data_mapping": {"query": "{{item.query}}", "response": "{{item.response}}"},
+        },
+        {
+            "type": "azure_ai_evaluator",
+            "name": "groundedness",
+            "evaluator_name": "builtin.groundedness",
+            "initialization_parameters": {"deployment_name": os.environ["EVAL_MODEL_DEPLOYMENT"]},
+            "data_mapping": {
+                "query": "{{item.query}}",
+                "response": "{{item.response}}",
+                "context": "{{item.context}}",
+            },
+        },
+        {
+            "type": "azure_ai_evaluator",
+            "name": "relevance",
+            "evaluator_name": "builtin.relevance",
+            "initialization_parameters": {"deployment_name": os.environ["EVAL_MODEL_DEPLOYMENT"]},
+            "data_mapping": {"query": "{{item.query}}", "response": "{{item.response}}"},
+        },
+    ],
+)
+EVAL_ID = eval_obj.id  # Persist this — reuse for every future run
+print(f"Eval created: {EVAL_ID}")
+
+# ── Step 2: Upload your golden dataset ───────────────────────────────
+data = project_client.datasets.upload_file(
+    name="golden-dataset-v2",
+    version="1.0",
+    file_path="./golden_dataset.jsonl",
+)
+
+# ── Step 3: Create a run for EACH model you want to evaluate ────────
+# Each run is labeled with the model name + date, all under the same eval_id.
+models_to_evaluate = ["gpt-4o", "gpt-4.1", "gpt-5.1"]
+
+for model in models_to_evaluate:
+    run = client.evals.runs.create(
+        eval_id=EVAL_ID,
+        name=f"{model}_{datetime.now().strftime('%Y%m%d')}",
+        data_source=CreateEvalJSONLRunDataSourceParam(
+            type="jsonl",
+            source=SourceFileID(type="file_id", id=data.id),
+        ),
+    )
+    print(f"  Run for {model}: {run.id}")
+
+# ── Step 4: View all runs in the Foundry portal ─────────────────────
+# Navigate to: Foundry portal → your project → Evaluation → select "migration-quality-gate"
+# All runs appear in a single view with side-by-side metric comparison.
+```
+
+**Later, when a new model becomes available (e.g., gpt-5.2):**
+
+```python
+# Reuse the SAME eval_id — no need to recreate testing criteria
+run = client.evals.runs.create(
+    eval_id=EVAL_ID,  # Same eval definition from months ago
+    name=f"gpt-5.2_{datetime.now().strftime('%Y%m%d')}",
+    data_source=CreateEvalJSONLRunDataSourceParam(
+        type="jsonl",
+        source=SourceFileID(type="file_id", id=data.id),
+    ),
+)
+# This run shows up alongside the earlier gpt-4o, gpt-4.1, gpt-5.1 runs
+# in the Foundry portal — instant comparison without rebuilding anything.
+```
+
+**What the Foundry portal gives you:**
+- **Run comparison view**: select any 2+ runs under the same eval to see metric deltas
+- **Per-item drill-down**: click into a specific test case to see how each model answered and was scored
+- **Pass rate trends**: see how pass rates evolve across runs (models × time)
+- **Report URLs**: each run produces a `report_url` you can share with stakeholders
+
+> **Tip:** Use the repo's `FoundryEvalsClient` to simplify this pattern — it wraps `create_eval` / `run_eval` / `wait_for_completion` and handles result parsing. Store the returned `eval_id` in your `.env` or config for reuse across migration cycles.
+
 ---
 
 ## Acceptance Thresholds

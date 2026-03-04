@@ -196,13 +196,13 @@ report.print_report()
 ### Cloud Evaluation (Azure AI Foundry)
 
 ```python
-from src.evaluate.foundry import FoundryEvaluator
+from src.evaluate.foundry import FoundryEvalsClient
 
-foundry = FoundryEvaluator(project_endpoint="https://your-project.services.ai.azure.com/...")
+foundry = FoundryEvalsClient()
 results = foundry.evaluate_cloud(report, evaluators=["coherence", "fluency", "relevance"])
 ```
 
-See [azure_openai_evaluation_guide.ipynb](azure_openai_evaluation_guide.ipynb) for the full walkthrough.
+See [azure_openai_evaluation_guide.ipynb](azure_openai_evaluation_guide.ipynb) for the full walkthrough, and the **[Cloud Eval Tracking deep dive](docs/cloud-eval-tracking-across-models.md)** for how to track metrics across model generations in a single Foundry portal view.
 
 ## Getting Started
 
@@ -237,7 +237,6 @@ token_provider = get_bearer_token_provider(
 2. Run `az login` to authenticate
 3. Start with the **technical guide** notebook for API migration
 4. Use the **evaluation guide** notebook to validate quality
-5. Check the **pricing notebook** for cost analysis
 
 ## Repository Structure
 
@@ -251,7 +250,8 @@ token_provider = get_bearer_token_provider(
 ├── azure_openai_migration_technical.ipynb   # Technical migration guide (API changes, code)
 ├── azure_openai_evaluation_guide.ipynb      # Evaluation demo notebook
 ├── docs/
-│   └── llm-upgrade-lifecycle-best-practices.md  # Full lifecycle best practices guide
+│   ├── llm-upgrade-lifecycle-best-practices.md  # Full lifecycle best practices guide
+│   └── cloud-eval-tracking-across-models.md     # Deep dive: tracking metrics across model migrations
 ├── src/                                      # Reusable Python modules
 │   ├── __init__.py
 │   ├── config.py                            # Model helpers (is_v1, is_reasoning, is_o_series), env loading

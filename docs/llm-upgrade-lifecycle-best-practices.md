@@ -844,6 +844,8 @@ Don't wait for a deprecation notice to evaluate models. Build evaluation into yo
 3. **Quality gates:** Define pass/fail thresholds (accuracy, latency P95, cost per 1K tokens). Block migration if thresholds aren't met.
 4. **Track drift:** Compare current production model outputs against your golden dataset over time to detect degradation even within the same model version.
 
+> 📖 **Deep dive:** See **[Tracking Evaluation Metrics Across Model Migrations](cloud-eval-tracking-across-models.md)** for a step-by-step guide on using a single Foundry eval definition to accumulate runs across model generations — with portal screenshots, code, and CI/CD integration.
+
 ### 6.4 Plan on a ~12-Month Cadence
 
 Given the 12-month GA lifecycle, plan for **at least one major model migration per year** for each model family you consume. Build this into your team's roadmap:
