@@ -211,6 +211,8 @@ report.print_report()
 - Include the full context (system prompt, tools, documents) — not just the user message
 - If you have expected outputs, include them for reference-based metrics
 
+> 📖 **[Building Golden Datasets deep dive →](building-golden-datasets.md)** — practical, step-by-step guide to building eval datasets from Stored Completions, APIM logs, agent traces, and synthetic generation. Covers LLM-only apps, AI Gateway apps, and agent-based apps.
+
 ---
 
 ## Interpreting Results
