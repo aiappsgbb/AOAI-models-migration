@@ -89,80 +89,22 @@ For a comprehensive walkthrough of the full lifecycle — including deployment i
 
 ## Key API Changes
 
-### Client Configuration
+GPT-4.1+ and GPT-5+ models use the **v1 API** (`OpenAI` client instead of `AzureOpenAI`), change several parameters, and introduce `reasoning_effort`. Key differences:
 
-**Before (GPT-4o — versioned API):**
-```python
-from openai import AzureOpenAI
+- **Client:** `AzureOpenAI` → `OpenAI` with `base_url=".../openai/v1/"`
+- **Parameters:** `max_tokens` → `max_completion_tokens`; reasoning models drop `temperature`/`top_p` and use `developer` role instead of `system`
+- **Reasoning effort:** GPT-5.1/5.2 default to `none`; GPT-5/5-mini/5-nano minimum is `"minimal"` (not `"none"`)
+- **Structured outputs** and **Responses API** are supported across all new models
 
-client = AzureOpenAI(
-    azure_ad_token_provider=token_provider,
-    api_version="2024-02-15-preview",
-    azure_endpoint=AZURE_OPENAI_ENDPOINT
-)
-```
+📖 **[Full API Changes deep dive →](docs/api-changes-by-model.md)** — client config code, parameter tables, reasoning effort matrix, structured outputs, Responses API, and C#/JS/Java SDK info.
 
-**After (GPT-4.1 / GPT-5 series — v1 API):**
-```python
-from openai import OpenAI
+## Deep Dives
 
-client = OpenAI(
-    api_key=token_provider(),
-    base_url=f"{AZURE_OPENAI_ENDPOINT}/openai/v1/"
-)
-```
-
-### Parameter Changes
-
-| Parameter | GPT-4o | GPT-4.1 | GPT-5 / GPT-5.1 / GPT-5.2 | o-series (o1, o3, o4-mini) |
-|-----------|--------|---------|---------------------------|---------------------------|
-| `max_tokens` | Supported | Use `max_completion_tokens` | Use `max_completion_tokens` | Use `max_completion_tokens` |
-| `temperature` | Supported | Supported | **Not supported** | **Not supported** |
-| `top_p` | Supported | Supported | **Not supported** | **Not supported** |
-| `reasoning_effort` | N/A | N/A | See table below | Supported |
-| System role | `system` | `system` | `developer` | `developer` |
-
-### Reasoning Effort by Model
-
-> **Important:** `reasoning_effort="none"` is only supported from GPT-5.1 onwards. GPT-5, GPT-5-mini, and GPT-5-nano do **not** support `"none"` — their minimum is `"minimal"`, which still incurs reasoning tokens and added latency. This is a key consideration when migrating from a non-reasoning model like GPT-4o.
-
-| Model | Type | `reasoning_effort` levels | Default |
-|-------|------|--------------------------|---------|
-| GPT-4.1 / 4.1-mini / 4.1-nano | Standard | N/A (no reasoning) | — |
-| GPT-5 / 5-mini / 5-nano | Reasoning | `minimal`, `low`, `medium`, `high` | `medium` |
-| GPT-5.1 | Reasoning | `none`, `low`, `medium`, `high` | `none` |
-| GPT-5.2 | Reasoning | `none`, `low`, `medium`, `high` | `none` |
-| o-series (o1, o3, o4-mini) | Reasoning | `low`, `medium`, `high` | `medium` |
-
-## Structured Outputs & Responses API
-
-### Structured Outputs
-
-If your application uses `response_format` for JSON output, be aware of model differences:
-
-| Feature | GPT-4o | GPT-4.1 | GPT-5+ |
-|---------|--------|---------|--------|
-| `{ "type": "json_object" }` | Supported | Supported | Supported |
-| `{ "type": "json_schema", ... }` | Supported (2024-08-06+) | Supported | Supported |
-| Strict mode | Supported | Supported | Supported |
-
-Test your JSON schemas against the new model — while the API is compatible, different models may interpret schema constraints differently.
-
-### Responses API
-
-Azure OpenAI now supports the **Responses API** alongside Chat Completions. The Responses API is the recommended path forward for new development, offering built-in tool use, file search, and web search. Existing Chat Completions code continues to work. See the [Responses API docs](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/responses) for details.
-
-## Other SDKs (C#, JavaScript, Java)
-
-This repo provides Python examples, but the same migration concepts apply to all Azure OpenAI SDKs:
-
-| Language | Package | v1 API Support |
-|----------|---------|----------------|
-| **C# / .NET** | `Azure.AI.OpenAI` + `OpenAI` | Use `OpenAIClient` with `/openai/v1/` base URL |
-| **JavaScript / TypeScript** | `openai` (npm) | Use `OpenAI` with `baseURL` pointing to `/openai/v1/` |
-| **Java** | `com.azure:azure-ai-openai` | Use the OpenAI-compatible client |
-
-> See [Azure OpenAI SDKs](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/supported-languages) for SDK-specific documentation.
+| Topic | Doc |
+|-------|-----|
+| **API Changes by Model** | [docs/api-changes-by-model.md](docs/api-changes-by-model.md) — client config, parameters, reasoning effort, structured outputs, SDKs |
+| **Lifecycle Best Practices** | [docs/llm-upgrade-lifecycle-best-practices.md](docs/llm-upgrade-lifecycle-best-practices.md) — inventory, notifications, rollout, fine-tuned models, multi-region |
+| **Cloud Eval Tracking** | [docs/cloud-eval-tracking-across-models.md](docs/cloud-eval-tracking-across-models.md) — reusable eval definitions, Foundry portal comparison, CI/CD |
 
 ## Evaluation
 
@@ -250,8 +192,10 @@ token_provider = get_bearer_token_provider(
 ├── azure_openai_migration_technical.ipynb   # Technical migration guide (API changes, code)
 ├── azure_openai_evaluation_guide.ipynb      # Evaluation demo notebook
 ├── docs/
+│   ├── api-changes-by-model.md                  # Deep dive: client config, parameters, reasoning effort, SDKs
 │   ├── llm-upgrade-lifecycle-best-practices.md  # Full lifecycle best practices guide
-│   └── cloud-eval-tracking-across-models.md     # Deep dive: tracking metrics across model migrations
+│   ├── cloud-eval-tracking-across-models.md     # Deep dive: tracking metrics across model migrations
+│   └── images/                                  # Screenshots and diagrams
 ├── src/                                      # Reusable Python modules
 │   ├── __init__.py
 │   ├── config.py                            # Model helpers (is_v1, is_reasoning, is_o_series), env loading
