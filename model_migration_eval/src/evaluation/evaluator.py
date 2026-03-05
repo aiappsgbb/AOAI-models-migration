@@ -1176,30 +1176,76 @@ class ModelEvaluator:
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Persistent background event loop for running async code from sync callers
 # ---------------------------------------------------------------------------
+
+import concurrent.futures as _cf
+import threading as _threading
+
+_loop: Optional[asyncio.AbstractEventLoop] = None
+_loop_thread: Optional[_threading.Thread] = None
+_loop_lock = _threading.Lock()
+
+
+def _ensure_loop() -> asyncio.AbstractEventLoop:
+    """Return the shared background event loop, creating it on first use."""
+    global _loop, _loop_thread
+    if _loop is not None and _loop.is_running():
+        return _loop
+    with _loop_lock:
+        if _loop is not None and _loop.is_running():
+            return _loop
+        _loop = asyncio.new_event_loop()
+
+        def _run():
+            asyncio.set_event_loop(_loop)
+            _loop.run_forever()
+
+        _loop_thread = _threading.Thread(target=_run, daemon=True, name="eval-loop")
+        _loop_thread.start()
+        return _loop
+
 
 def _run_in_loop(coro):
     """Run an async coroutine from synchronous code.
-    
-    If there is already a running event loop (e.g. inside Jupyter or an
-    outer ``asyncio.run``), we schedule on that loop via a background thread
-    so we never hit "cannot run nested event loop".  Otherwise we simply
-    use ``asyncio.run``.
-    """
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
 
-    if loop is not None and loop.is_running():
-        # We're inside an existing event loop — run in a new thread
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(asyncio.run, coro)
-            return future.result()
-    else:
-        return asyncio.run(coro)
+    Uses a persistent background event loop to avoid the overhead of
+    creating and destroying a loop on every call.  The loop lives in a
+    daemon thread and is reused across all invocations.
+
+    **ContextVar propagation**: the calling thread's ``contextvars``
+    snapshot (including ``_current_run_id``) is captured via
+    ``copy_context()`` and forwarded to the Task so that log-capture
+    handlers running inside the coroutine can see the correct run-id.
+    """
+    import contextvars as _ctx
+
+    loop = _ensure_loop()
+    ctx = _ctx.copy_context()
+
+    # We cannot use asyncio.run_coroutine_threadsafe directly because
+    # it does NOT propagate the caller's ContextVars.  Instead we
+    # schedule a Task manually with the captured context.
+    result_future: _cf.Future = _cf.Future()
+
+    def _schedule():
+        try:
+            task = loop.create_task(coro, context=ctx)
+            task.add_done_callback(_on_done)
+        except BaseException as exc:
+            if not result_future.done():
+                result_future.set_exception(exc)
+
+    def _on_done(task: asyncio.Task):
+        if task.cancelled():
+            result_future.cancel()
+        elif task.exception() is not None:
+            result_future.set_exception(task.exception())
+        else:
+            result_future.set_result(task.result())
+
+    loop.call_soon_threadsafe(_schedule)
+    return result_future.result()
 
 
 # Example usage

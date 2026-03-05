@@ -178,7 +178,7 @@ class PromptManager:
         self.index_path = self.history_dir / "versions.json"
         self._topic_path = self.history_dir / "topic_metadata.json"
         self._index = self._load_index()
-        self._metadata_lock = threading.Lock()
+        self._io_lock = threading.Lock()  # protects metadata AND version-index writes
 
         # Ensure all configured models have a prompt directory
         cfg_models = self._config.get("azure", {}).get("models", {})
@@ -245,7 +245,7 @@ class PromptManager:
         the timestamps so that ``is_data_in_sync`` can do a content-based
         check in addition to the timestamp comparison.
         """
-        with self._metadata_lock:
+        with self._io_lock:
             meta = self.get_topic_metadata()
             if topic:
                 meta["topic"] = topic
@@ -764,64 +764,65 @@ class PromptManager:
 
         Returns the version metadata dict for the **new** content.
         """
-        # Always reload from disk so we never overwrite entries
-        # added by external scripts or concurrent processes.
-        self._index = self._load_index()
+        with self._io_lock:
+            # Always reload from disk so we never overwrite entries
+            # added by external scripts or concurrent processes.
+            self._index = self._load_index()
 
-        prompt_path = self.prompts_dir / model / f"{prompt_type}.md"
-        prompt_path.parent.mkdir(parents=True, exist_ok=True)
+            prompt_path = self.prompts_dir / model / f"{prompt_type}.md"
+            prompt_path.parent.mkdir(parents=True, exist_ok=True)
 
-        version_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            version_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
-        # ── 1. Snapshot the CURRENT (old) file and INDEX it ───────────
-        if prompt_path.exists():
-            old_content = prompt_path.read_text(encoding="utf-8")
-            # Only create a snapshot if there is meaningful content and
-            # the old content differs from the new content.
-            if old_content.strip() and old_content.strip() != content.strip():
-                snapshot_name = f"{model}__{prompt_type}__{version_id}.md"
-                (self.history_dir / snapshot_name).write_text(old_content, encoding="utf-8")
+            # ── 1. Snapshot the CURRENT (old) file and INDEX it ───────────
+            if prompt_path.exists():
+                old_content = prompt_path.read_text(encoding="utf-8")
+                # Only create a snapshot if there is meaningful content and
+                # the old content differs from the new content.
+                if old_content.strip() and old_content.strip() != content.strip():
+                    snapshot_name = f"{model}__{prompt_type}__{version_id}.md"
+                    (self.history_dir / snapshot_name).write_text(old_content, encoding="utf-8")
 
-                # Determine the topic of the OLD content. If the caller
-                # provides no topic we fall back to current metadata, but
-                # when generating for a new topic the previous metadata
-                # still points to the old topic – which is exactly what
-                # we want.
-                old_topic = self.get_topic_metadata().get("topic", "") or topic
+                    # Determine the topic of the OLD content. If the caller
+                    # provides no topic we fall back to current metadata, but
+                    # when generating for a new topic the previous metadata
+                    # still points to the old topic – which is exactly what
+                    # we want.
+                    old_topic = self.get_topic_metadata().get("topic", "") or topic
 
-                old_entry = {
-                    "id": version_id,
-                    "model": model,
-                    "prompt_type": prompt_type,
-                    "topic": old_topic,
-                    "source": "snapshot",
-                    "author": author,
-                    "timestamp": datetime.now().isoformat(),
-                    "filename": snapshot_name,
-                }
-                self._index.insert(0, old_entry)
+                    old_entry = {
+                        "id": version_id,
+                        "model": model,
+                        "prompt_type": prompt_type,
+                        "topic": old_topic,
+                        "source": "snapshot",
+                        "author": author,
+                        "timestamp": datetime.now().isoformat(),
+                        "filename": snapshot_name,
+                    }
+                    self._index.insert(0, old_entry)
 
-        # ── 2. Write the NEW content and INDEX it ─────────────────────
-        prompt_path.write_text(content, encoding="utf-8")
+            # ── 2. Write the NEW content and INDEX it ─────────────────────
+            prompt_path.write_text(content, encoding="utf-8")
 
-        new_version_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        new_snapshot = f"{model}__{prompt_type}__{new_version_id}_new.md"
-        (self.history_dir / new_snapshot).write_text(content, encoding="utf-8")
+            new_version_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            new_snapshot = f"{model}__{prompt_type}__{new_version_id}_new.md"
+            (self.history_dir / new_snapshot).write_text(content, encoding="utf-8")
 
-        entry = {
-            "id": new_version_id,
-            "model": model,
-            "prompt_type": prompt_type,
-            "topic": topic,
-            "source": source,
-            "author": author,
-            "timestamp": datetime.now().isoformat(),
-            "filename": new_snapshot,
-        }
-        self._index.insert(0, entry)   # newest first
-        self._save_index()
+            entry = {
+                "id": new_version_id,
+                "model": model,
+                "prompt_type": prompt_type,
+                "topic": topic,
+                "source": source,
+                "author": author,
+                "timestamp": datetime.now().isoformat(),
+                "filename": new_snapshot,
+            }
+            self._index.insert(0, entry)   # newest first
+            self._save_index()
 
-        return entry
+            return entry
 
     # ── Version history ───────────────────────────────────────────────
 
@@ -887,35 +888,13 @@ class PromptManager:
         file on disk.  Returns True if the version was found and
         removed, False otherwise.
         """
-        self._index = self._load_index()
-        entry = next((v for v in self._index if v["id"] == version_id), None)
-        if not entry:
-            return False
+        with self._io_lock:
+            self._index = self._load_index()
+            entry = next((v for v in self._index if v["id"] == version_id), None)
+            if not entry:
+                return False
 
-        # Remove the snapshot file (if it exists)
-        snapshot_path = self.history_dir / entry.get("filename", "")
-        if snapshot_path.exists():
-            try:
-                snapshot_path.unlink()
-            except OSError as exc:
-                logger.warning("Could not delete snapshot file %s: %s", snapshot_path, exc)
-
-        # Remove from index and persist
-        self._index = [v for v in self._index if v["id"] != version_id]
-        self._save_index()
-        return True
-
-    def delete_versions_bulk(self, version_ids: List[str]) -> int:
-        """
-        Delete multiple versions at once.
-
-        Returns the number of versions actually removed.
-        """
-        self._index = self._load_index()
-        ids_set = set(version_ids)
-        to_delete = [v for v in self._index if v["id"] in ids_set]
-
-        for entry in to_delete:
+            # Remove the snapshot file (if it exists)
             snapshot_path = self.history_dir / entry.get("filename", "")
             if snapshot_path.exists():
                 try:
@@ -923,9 +902,33 @@ class PromptManager:
                 except OSError as exc:
                     logger.warning("Could not delete snapshot file %s: %s", snapshot_path, exc)
 
-        self._index = [v for v in self._index if v["id"] not in ids_set]
-        self._save_index()
-        return len(to_delete)
+            # Remove from index and persist
+            self._index = [v for v in self._index if v["id"] != version_id]
+            self._save_index()
+            return True
+
+    def delete_versions_bulk(self, version_ids: List[str]) -> int:
+        """
+        Delete multiple versions at once.
+
+        Returns the number of versions actually removed.
+        """
+        with self._io_lock:
+            self._index = self._load_index()
+            ids_set = set(version_ids)
+            to_delete = [v for v in self._index if v["id"] in ids_set]
+
+            for entry in to_delete:
+                snapshot_path = self.history_dir / entry.get("filename", "")
+                if snapshot_path.exists():
+                    try:
+                        snapshot_path.unlink()
+                    except OSError as exc:
+                        logger.warning("Could not delete snapshot file %s: %s", snapshot_path, exc)
+
+            self._index = [v for v in self._index if v["id"] not in ids_set]
+            self._save_index()
+            return len(to_delete)
 
     # ── AI Generation ─────────────────────────────────────────────────
 

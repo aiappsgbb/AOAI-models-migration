@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import logging
 import threading
+import collections
 from typing import Optional, Dict, Any, List, Generator
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -215,7 +216,7 @@ class AzureOpenAIClient:
             http_client=httpx.Client(
                 limits=httpx.Limits(
                     max_connections=10,
-                    max_keepalive_connections=0,   # disable keep-alive
+                    max_keepalive_connections=5,
                 ),
             ),
             **auth_kwargs,
@@ -242,8 +243,9 @@ class AzureOpenAIClient:
         # Model configurations
         self.models: Dict[str, ModelConfig] = {}
         
-        # Metrics storage
-        self.metrics_history: List[RequestMetrics] = []
+        # Metrics storage — bounded deque to prevent unbounded memory growth.
+        # Oldest entries are automatically evicted when the limit is reached.
+        self.metrics_history: collections.deque = collections.deque(maxlen=5000)
         
         # Cache setup
         self._cache: Optional[diskcache.Cache] = None

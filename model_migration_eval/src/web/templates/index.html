@@ -277,6 +277,13 @@
                 .replace(/'/g, '&#39;');
         }
 
+        // ── Active pollers registry (for page-unload cleanup) ──
+        const _activePollers = new Set();
+        window.addEventListener('beforeunload', () => {
+            for (const stop of _activePollers) { try { stop(); } catch(_) {} }
+            _activePollers.clear();
+        });
+
         async function startBackendLogPolling(runId, tag = 'Backend') {
             if (!document.getElementById('verbose-mode').checked || !runId) {
                 return async () => {};
@@ -284,6 +291,9 @@
 
             let offset = 0;
             let active = true;
+            let pollCount = 0;
+            const MAX_POLLS = 500;
+            let controller = new AbortController();
 
             const levelToType = (lvl) => {
                 const u = String(lvl || '').toUpperCase();
@@ -295,8 +305,14 @@
 
             const pollOnce = async () => {
                 if (!active) return;
+                if (++pollCount > MAX_POLLS) {
+                    verboseLog(`⚠️ <strong>${tag}</strong> log polling stopped after ${MAX_POLLS} cycles (safety limit).`, 'warn');
+                    cleanup();
+                    return;
+                }
                 try {
-                    const r = await fetch(`/api/logs/${encodeURIComponent(runId)}?offset=${offset}`);
+                    controller = new AbortController();
+                    const r = await fetch(`/api/logs/${encodeURIComponent(runId)}?offset=${offset}`, { signal: controller.signal });
                     if (!r.ok) return;
                     const data = await r.json();
                     const entries = data.entries || [];
@@ -307,17 +323,23 @@
                         verboseLog(`🖥️ <strong>${tag}</strong> [${loggerName}] <span class="opacity-70">${level}</span> — ${msg}`, levelToType(level));
                     }
                     offset = Number(data.next_offset || offset);
-                } catch (_) {
-                    // silent by design
+                } catch (err) {
+                    if (err.name === 'AbortError') return;
                 }
             };
 
             const timer = setInterval(pollOnce, 1200);
             await pollOnce();
 
-            return async () => {
+            const cleanup = () => {
                 active = false;
                 clearInterval(timer);
+                try { controller.abort(); } catch(_) {}
+                _activePollers.delete(stopFn);
+            };
+
+            const stopFn = async () => {
+                cleanup();
                 try {
                     const r = await fetch(`/api/logs/${encodeURIComponent(runId)}?offset=${offset}`);
                     if (!r.ok) return;
@@ -329,10 +351,11 @@
                         const msg = escapeHtml(e.message || '');
                         verboseLog(`🖥️ <strong>${tag}</strong> [${loggerName}] <span class="opacity-70">${level}</span> — ${msg}`, levelToType(level));
                     }
-                } catch (_) {
-                    // silent by design
-                }
+                } catch (_) {}
             };
+
+            _activePollers.add(stopFn);
+            return stopFn;
         }
 
         async function loadActiveTopic() {
@@ -421,7 +444,7 @@
                 // Load results
                 const resultsResp = await fetch('/api/results');
                 const resultsData = await resultsResp.json();
-                document.getElementById('results-count').textContent = resultsData.results?.length || 0;
+                document.getElementById('results-count').textContent = resultsData.total ?? resultsData.results?.length ?? 0;
             } catch (error) {
                 console.error('Error loading stats:', error);
             }

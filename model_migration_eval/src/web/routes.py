@@ -96,24 +96,27 @@ def create_app(config_path: str = None) -> Flask:
     )
     _email_sender = create_email_sender(app.config['SETTINGS'])
 
-    # Per-user instance caches  (user_id → instance)
-    _user_data_loaders: dict = {}
-    _user_prompt_loaders: dict = {}
-    _user_prompt_managers: dict = {}
-    _user_evaluators: dict = {}
-    _user_comparators: dict = {}
+    # Per-user instance cache with LRU eviction  (user_id → instances)
+    _MAX_CACHED_USERS = 50
+    _user_cache: dict = {}          # uid → {"data_loader": ..., "last_access": float, ...}
+    _user_cache_lock = threading.Lock()
 
     # Lazy-loaded client (shared across all users — same Azure endpoint)
     _client = None
     _metrics_calc = None
     _foundry_evaluator = None
     _foundry_checked = False
+    _singleton_lock = threading.Lock()  # protects lazy init of the above
 
     # In-memory backend log streaming buffers (Option B)
     _run_logs = {}
     _run_logs_lock = threading.Lock()
     _run_logs_max_lines = 2000
     _run_logs_ttl_sec = 3600
+
+    # Shared thread pool for /api/evaluate/single parallel model dispatch
+    from concurrent.futures import ThreadPoolExecutor as _TPE
+    _shared_pool = _TPE(max_workers=10)
 
     # ── Verbose-log masking (hide sensitive endpoints from UI) ───────
     import re as _re
@@ -372,79 +375,112 @@ def create_app(config_path: str = None) -> Flask:
 
     # ── Per-user instance factories ──────────────────────────────────
 
+    def _get_user_slot(uid: str) -> dict:
+        """Return the cache slot for *uid*, creating it if needed.
+
+        Thread-safe.  If the cache exceeds ``_MAX_CACHED_USERS`` the
+        least-recently-accessed entry is evicted.
+        """
+        now = time.time()
+        with _user_cache_lock:
+            slot = _user_cache.get(uid)
+            if slot is not None:
+                slot["last_access"] = now
+                return slot
+            # Evict oldest entries if over limit
+            while len(_user_cache) >= _MAX_CACHED_USERS:
+                oldest_uid = min(_user_cache, key=lambda k: _user_cache[k]["last_access"])
+                del _user_cache[oldest_uid]
+                app.logger.debug(f"Evicted cached instances for user {oldest_uid}")
+            slot = {"last_access": now}
+            _user_cache[uid] = slot
+            return slot
+
+    def _invalidate_user(uid: str):
+        """Remove all cached instances for a user (e.g. after topic switch)."""
+        with _user_cache_lock:
+            _user_cache.pop(uid, None)
+
     def get_client():
         nonlocal _client
         if _client is None:
-            try:
-                _client = create_client_from_config(app.config['CONFIG_PATH'])
-            except Exception as e:
-                app.logger.error(f"Failed to create client: {e}")
-                return None
+            with _singleton_lock:
+                if _client is None:
+                    try:
+                        _client = create_client_from_config(app.config['CONFIG_PATH'])
+                    except Exception as e:
+                        app.logger.error(f"Failed to create client: {e}")
+                        return None
         return _client
 
     def get_data_loader() -> DataLoader:
         uctx = _get_user_context()
         uid = uctx.user_id
-        if uid not in _user_data_loaders:
-            _user_data_loaders[uid] = DataLoader(str(uctx.data_dir))
-        return _user_data_loaders[uid]
+        slot = _get_user_slot(uid)
+        if "data_loader" not in slot:
+            slot["data_loader"] = DataLoader(str(uctx.data_dir))
+        return slot["data_loader"]
 
     def get_prompt_loader() -> PromptLoader:
         uctx = _get_user_context()
         uid = uctx.user_id
-        if uid not in _user_prompt_loaders:
-            _user_prompt_loaders[uid] = PromptLoader(str(uctx.prompts_dir))
-        return _user_prompt_loaders[uid]
+        slot = _get_user_slot(uid)
+        if "prompt_loader" not in slot:
+            slot["prompt_loader"] = PromptLoader(str(uctx.prompts_dir))
+        return slot["prompt_loader"]
 
     def get_prompt_manager() -> PromptManager:
         uctx = _get_user_context()
         uid = uctx.user_id
-        if uid not in _user_prompt_managers:
-            _user_prompt_managers[uid] = PromptManager(
+        slot = _get_user_slot(uid)
+        if "prompt_manager" not in slot:
+            slot["prompt_manager"] = PromptManager(
                 prompts_dir=str(uctx.prompts_dir),
                 data_dir=str(uctx.data_dir),
                 config=app.config.get('SETTINGS', {}),
             )
-        return _user_prompt_managers[uid]
+        return slot["prompt_manager"]
 
     def get_metrics_calc():
         nonlocal _metrics_calc
         if _metrics_calc is None:
-            cost_rates = app.config.get('SETTINGS', {}).get('cost_rates', {})
-            _metrics_calc = MetricsCalculator(cost_rates=cost_rates if cost_rates else None)
+            with _singleton_lock:
+                if _metrics_calc is None:
+                    cost_rates = app.config.get('SETTINGS', {}).get('cost_rates', {})
+                    _metrics_calc = MetricsCalculator(cost_rates=cost_rates if cost_rates else None)
         return _metrics_calc
 
     def _load_perf_settings() -> dict:
-        """Read performance settings from config file."""
-        try:
-            import yaml as _yaml
-            with open(app.config['CONFIG_PATH'], 'r') as f:
-                cfg = _yaml.safe_load(f)
-            return cfg.get('evaluation', {})
-        except Exception:
-            return {}
+        """Return evaluation performance settings from the cached config.
+
+        Uses ``app.config['SETTINGS']`` (loaded once at startup) instead
+        of re-reading settings.yaml from disk on every call.
+        """
+        return app.config.get('SETTINGS', {}).get('evaluation', {})
 
     def get_evaluator():
         uctx = _get_user_context()
         uid = uctx.user_id
         client = get_client()
-        if client and uid not in _user_evaluators:
+        slot = _get_user_slot(uid)
+        if client and "evaluator" not in slot:
             perf = _load_perf_settings()
-            _user_evaluators[uid] = ModelEvaluator(
+            slot["evaluator"] = ModelEvaluator(
                 client,
                 prompt_loader=get_prompt_loader(),
                 data_loader=get_data_loader(),
                 max_concurrent=perf.get('max_concurrent_requests', 5),
             )
-        return _user_evaluators.get(uid)
+        return slot.get("evaluator")
 
     def get_comparator():
         uctx = _get_user_context()
         uid = uctx.user_id
         client = get_client()
-        if client and uid not in _user_comparators:
+        slot = _get_user_slot(uid)
+        if client and "comparator" not in slot:
             perf = _load_perf_settings()
-            _user_comparators[uid] = ModelComparator(
+            slot["comparator"] = ModelComparator(
                 client,
                 evaluator=get_evaluator(),
                 foundry_evaluator=get_foundry_evaluator(),
@@ -452,10 +488,10 @@ def create_app(config_path: str = None) -> Flask:
                 config_path=app.config.get('CONFIG_PATH', 'config/settings.yaml'),
             )
         else:
-            comp = _user_comparators.get(uid)
+            comp = slot.get("comparator")
             if comp is not None:
                 comp.foundry_evaluator = get_foundry_evaluator()
-        return _user_comparators.get(uid)
+        return slot.get("comparator")
 
     def get_foundry_evaluator():
         """Lazy-load the Foundry evaluator from settings.yaml config."""
@@ -821,13 +857,12 @@ def create_app(config_path: str = None) -> Flask:
                 return model_name, {'error': str(e)}
 
         # --- Dispatch all models in parallel ----------------------------
-        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from concurrent.futures import as_completed
         results = {}
-        with ThreadPoolExecutor(max_workers=max(len(models_to_test), 1)) as pool:
-            futures = {pool.submit(_eval_one_model, m): m for m in models_to_test}
-            for future in as_completed(futures):
-                model_name, result = future.result()
-                results[model_name] = result
+        futures = {_shared_pool.submit(_eval_one_model, m): m for m in models_to_test}
+        for future in as_completed(futures):
+            model_name, result = future.result()
+            results[model_name] = result
 
         try:
             return jsonify(results)
@@ -1344,13 +1379,40 @@ def create_app(config_path: str = None) -> Flask:
 
     @app.route('/api/results')
     def list_results():
-        """List saved evaluation results"""
+        """List saved evaluation results.
+
+        Optional query params for pagination:
+          ``?page=1&per_page=20``
+        When *page* is supplied, only that page of results is returned
+        along with ``total``, ``page``, ``per_page``, and ``pages``
+        metadata.  Without pagination params, **all** results are
+        returned (backward-compatible).
+        """
         results_dir = Path(str(_get_user_context().results_dir))
         if not results_dir.exists():
-            return jsonify({'results': []})
-            
+            return jsonify({'results': [], 'total': 0})
+
+        # Collect JSON result files sorted newest-first by filesystem mtime
+        # (avoids reading every JSON just to sort by timestamp).
+        json_files = sorted(
+            results_dir.glob('*.json'),
+            key=lambda f: f.stat().st_mtime,
+            reverse=True,
+        )
+        total = len(json_files)
+
+        # Pagination (optional)
+        page_str = request.args.get('page')
+        per_page = min(int(request.args.get('per_page', 50)), 200)
+        if page_str is not None:
+            page = max(int(page_str), 1)
+            start = (page - 1) * per_page
+            json_files = json_files[start:start + per_page]
+        else:
+            page = None
+
         results = []
-        for file in results_dir.glob('*.json'):
+        for file in json_files:
             try:
                 with open(file, encoding='utf-8') as f:
                     data = json.load(f)
@@ -1378,8 +1440,13 @@ def create_app(config_path: str = None) -> Flask:
             except (json.JSONDecodeError, OSError) as e:
                 app.logger.debug(f"Skipping unreadable result file {file.name}: {e}")
                 continue
-                
-        return jsonify({'results': sorted(results, key=lambda x: x['timestamp'], reverse=True)})
+
+        response: dict = {'results': results, 'total': total}
+        if page is not None:
+            response['page'] = page
+            response['per_page'] = per_page
+            response['pages'] = max(1, -(-total // per_page))  # ceil division
+        return jsonify(response)
         
     @app.route('/api/results/<filename>', methods=['DELETE'])
     def delete_result(filename: str):
