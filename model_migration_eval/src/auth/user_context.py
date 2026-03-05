@@ -142,8 +142,16 @@ class UserContext:
         if src_data_topics.exists():
             shutil.copytree(src_data_topics, self.data_topics_dir, dirs_exist_ok=True)
 
-        # History is intentionally NOT copied — each user starts with a
-        # clean prompt-version history that only tracks their own changes.
+        # Copy topic_metadata.json so the UI knows which topic is active.
+        # Version history (versions.json) is intentionally NOT copied —
+        # each user starts with a clean prompt-version history that only
+        # tracks their own changes.
+        src_topic_meta = prompts_src / "history" / "topic_metadata.json"
+        if src_topic_meta.exists():
+            dest_topic_meta = self.history_dir / "topic_metadata.json"
+            if not dest_topic_meta.exists():
+                shutil.copy2(src_topic_meta, dest_topic_meta)
+                logger.info("Seeded topic_metadata.json from shared history")
 
         logger.info(f"Seeded user {self.user_id} from shared data")
 

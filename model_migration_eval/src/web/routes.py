@@ -1909,13 +1909,8 @@ def create_app(config_path: str = None) -> Flask:
             meta = manager.activate_topic(slug)
             # Invalidate per-user caches so new content is picked up
             uid = session.get('user_id')
-            loader = get_prompt_loader()
-            loader._cache.clear()
-            dl = get_data_loader()
-            dl.clear_cache()
-            # Evaluator and comparator hold references to old prompt/data loaders
-            _user_evaluators.pop(uid, None)
-            _user_comparators.pop(uid, None)
+            if uid:
+                _invalidate_user(uid)
             return jsonify({'status': 'activated', 'topic': meta})
         except RuntimeError as e:
             return jsonify({'error': str(e)}), 409
