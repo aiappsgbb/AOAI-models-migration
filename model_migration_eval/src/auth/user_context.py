@@ -113,8 +113,13 @@ class UserContext:
             for model_dir in prompts_src.iterdir():
                 if model_dir.is_dir() and model_dir.name not in skip:
                     dest = self.prompts_dir / model_dir.name
-                    if not dest.exists() or not any(dest.iterdir()):
+                    # Check for actual prompt files (.md), not just any
+                    # content — empty dirs created by ensure_dirs or
+                    # leftover non-prompt files should not block seeding.
+                    has_prompts = dest.exists() and any(dest.glob("*.md"))
+                    if not has_prompts:
                         shutil.copytree(model_dir, dest, dirs_exist_ok=True)
+                        logger.info(f"Seeded prompts for {model_dir.name}")
 
         # Copy synthetic data (type dirs only, skip topics)
         if data_src.exists():
@@ -122,8 +127,11 @@ class UserContext:
             for type_dir in data_src.iterdir():
                 if type_dir.is_dir() and type_dir.name not in skip:
                     dest = self.data_dir / type_dir.name
-                    if not dest.exists() or not any(dest.iterdir()):
+                    # Check for actual data files (.json), not just any content
+                    has_data = dest.exists() and any(dest.glob("*.json"))
+                    if not has_data:
                         shutil.copytree(type_dir, dest, dirs_exist_ok=True)
+                        logger.info(f"Seeded data for {type_dir.name}")
 
         # Copy topic archives (prompts/topics/ and data/synthetic/topics/)
         src_prompt_topics = prompts_src / "topics"

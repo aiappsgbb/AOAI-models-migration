@@ -21,7 +21,7 @@ import logging
 
 from ..clients.azure_openai import AzureOpenAIClient, CompletionResult
 from ..utils.prompt_loader import PromptLoader
-from ..utils.prompt_manager import _extract_categories_from_prompt
+from ..utils.category_parser import extract_categories_from_prompt as _extract_categories_from_prompt
 from ..utils.data_loader import (
     DataLoader, 
     ClassificationScenario, 
@@ -35,7 +35,8 @@ from .metrics import (
     ClassificationMetrics,
     ConsistencyMetrics,
     LatencyMetrics,
-    QualityMetrics
+    QualityMetrics,
+    ToolCallingMetrics,
 )
 
 
@@ -67,6 +68,7 @@ class EvaluationResult:
     consistency_metrics: Optional[ConsistencyMetrics] = None
     latency_metrics: Optional[LatencyMetrics] = None
     quality_metrics: Optional[QualityMetrics] = None
+    tool_calling_metrics: Optional[ToolCallingMetrics] = None
     raw_results: List[Dict] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
     
@@ -80,6 +82,7 @@ class EvaluationResult:
             'consistency_metrics': self.consistency_metrics.to_dict() if self.consistency_metrics else None,
             'latency_metrics': self.latency_metrics.to_dict() if self.latency_metrics else None,
             'quality_metrics': self.quality_metrics.to_dict() if self.quality_metrics else None,
+            'tool_calling_metrics': self.tool_calling_metrics.to_dict() if self.tool_calling_metrics else None,
             'raw_results': self.raw_results,
             'error_count': len(self.errors),
             'errors': self.errors,
@@ -1088,11 +1091,10 @@ class ModelEvaluator:
             avg_tool_acc = float(_np.mean(tool_accuracies))
             avg_param_acc = float(_np.mean(param_accuracies))
             combined_accuracy = (avg_tool_acc + avg_param_acc) / 2
-            result.classification_metrics = ClassificationMetrics(
-                accuracy=combined_accuracy,
-                f1_score=avg_tool_acc,
-                precision=avg_param_acc,
-                recall=avg_tool_acc,
+            result.tool_calling_metrics = ToolCallingMetrics(
+                tool_selection_accuracy=avg_tool_acc,
+                parameter_accuracy=avg_param_acc,
+                combined_accuracy=combined_accuracy,
             )
             result.quality_metrics = QualityMetrics(
                 format_compliance=avg_tool_acc,

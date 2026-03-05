@@ -151,11 +151,52 @@ class QualityMetrics:
         }
 
 
+@dataclass
+class ToolCallingMetrics:
+    """Metrics specific to tool/function calling evaluation.
+
+    Previously tool-calling results were stored in a ``ClassificationMetrics``
+    instance, which was semantically misleading.  This dedicated dataclass
+    makes the intent clear and allows tool-specific fields in the future.
+    """
+    tool_selection_accuracy: float = 0.0   # Correct tool chosen (0-1)
+    parameter_accuracy: float = 0.0        # Parameters filled correctly (0-1)
+    combined_accuracy: float = 0.0         # (tool_selection + parameter) / 2
+
+    def to_dict(self) -> Dict:
+        return {
+            'tool_selection_accuracy': self.tool_selection_accuracy,
+            'parameter_accuracy': self.parameter_accuracy,
+            'combined_accuracy': self.combined_accuracy,
+        }
+
+
 class MetricsCalculator:
     """Comprehensive metrics calculator for model evaluation."""
 
-    def __init__(self):
+    # Default cost rates (USD per 1K tokens) — used when no external
+    # ``cost_rates`` dict is injected from settings.yaml.
+    _DEFAULT_COST_RATES: Dict[str, Dict[str, float]] = {
+        'default': {'input': 0.0025, 'output': 0.01, 'cached_input': 0.00125},
+    }
+
+    def __init__(self, cost_rates: Optional[Dict[str, Dict[str, float]]] = None):
         self._category_labels = []
+        self.cost_rates: Dict[str, Dict[str, float]] = cost_rates or self._DEFAULT_COST_RATES
+
+    def get_cost_rates(self, model_name: Optional[str] = None) -> Dict[str, float]:
+        """Return the per-1K-token rate dict for *model_name*.
+
+        Falls back to the ``"default"`` entry, then to the first entry
+        in the table, and finally to a safe hard-coded fallback.
+        """
+        if model_name and model_name in self.cost_rates:
+            return self.cost_rates[model_name]
+        if 'default' in self.cost_rates:
+            return self.cost_rates['default']
+        if self.cost_rates:
+            return next(iter(self.cost_rates.values()))
+        return {'input': 0.0025, 'output': 0.01, 'cached_input': 0.00125}
 
     @staticmethod
     def _normalise_category(value) -> str:
@@ -396,13 +437,8 @@ class MetricsCalculator:
             avg_prompt_tokens = total_prompt / len(token_data)
             avg_completion_tokens = total_completion / len(token_data)
             
-            # Cost estimation (per 1K tokens, from model_params.yaml)
-            cost_rates = {
-                'gpt4': {'input': 0.0025, 'output': 0.01, 'cached_input': 0.00125},
-                'gpt5': {'input': 0.005, 'output': 0.02, 'cached_input': 0.0025, 'reasoning': 0.015},
-                'mistral': {'input': 0.002, 'output': 0.006, 'cached_input': 0.001},
-            }
-            rates = cost_rates.get(model_name, next(iter(cost_rates.values()), {}))
+            # Cost estimation (per 1K tokens) — from centralized cost_rates
+            rates = self.get_cost_rates(model_name)
             for d in token_data:
                 pt = d.get('prompt_tokens', 0)
                 ct = d.get('cached_tokens', 0)

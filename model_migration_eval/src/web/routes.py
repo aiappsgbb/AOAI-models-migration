@@ -410,7 +410,8 @@ def create_app(config_path: str = None) -> Flask:
     def get_metrics_calc():
         nonlocal _metrics_calc
         if _metrics_calc is None:
-            _metrics_calc = MetricsCalculator()
+            cost_rates = app.config.get('SETTINGS', {}).get('cost_rates', {})
+            _metrics_calc = MetricsCalculator(cost_rates=cost_rates if cost_rates else None)
         return _metrics_calc
 
     def _load_perf_settings() -> dict:
@@ -2022,16 +2023,9 @@ def create_app(config_path: str = None) -> Flask:
 
     def _estimate_cost(model_name: str, metrics) -> dict:
         """Return cost estimate in USD for a single request."""
-        # Per-1K-token rates (USD).  Models not listed fall back to default rates.
-        rates = {
-            'gpt4':     {'input': 0.0025, 'output': 0.01,  'cached_input': 0.00125},
-            'gpt4o':    {'input': 0.0025, 'output': 0.01,  'cached_input': 0.00125},
-            'gpt41_mini': {'input': 0.0004, 'output': 0.0016, 'cached_input': 0.0001},
-            'gpt5':     {'input': 0.005,  'output': 0.02,  'cached_input': 0.0025, 'reasoning': 0.015},
-            'gpt5_reasoning': {'input': 0.005, 'output': 0.02, 'cached_input': 0.0025, 'reasoning': 0.015},
-            'gemini3_flash': {'input': 0.00015, 'output': 0.0006, 'cached_input': 0.0000375},
-        }
-        r = rates.get(model_name, next(iter(rates.values()), {}))
+        # Use centralized cost_rates from settings.yaml (via MetricsCalculator)
+        mc = get_metrics_calc()
+        r = mc.get_cost_rates(model_name)
         pt = getattr(metrics, 'prompt_tokens', 0) or 0
         ct = getattr(metrics, 'cached_tokens', 0) or 0
         comp = getattr(metrics, 'completion_tokens', 0) or 0

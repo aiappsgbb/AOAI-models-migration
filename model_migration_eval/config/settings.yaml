@@ -104,6 +104,52 @@ foundry:
   timeout: 600
 
 # =============================================================================
+# Cost Rates (USD per 1K tokens)
+# =============================================================================
+# Single source of truth used by MetricsCalculator and the /api routes.
+# Add entries for every model key; unknown models fall back to "default".
+cost_rates:
+  default:
+    input: 0.0025
+    output: 0.01
+    cached_input: 0.00125
+  gpt4:
+    input: 0.0025
+    output: 0.01
+    cached_input: 0.00125
+  gpt4o:
+    input: 0.0025
+    output: 0.01
+    cached_input: 0.00125
+  gpt41_mini:
+    input: 0.0004
+    output: 0.0016
+    cached_input: 0.0001
+  gpt5:
+    input: 0.005
+    output: 0.02
+    cached_input: 0.0025
+    reasoning: 0.015
+  gpt51:
+    input: 0.005
+    output: 0.02
+    cached_input: 0.0025
+    reasoning: 0.015
+  gpt5_reasoning:
+    input: 0.005
+    output: 0.02
+    cached_input: 0.0025
+    reasoning: 0.015
+  mistral_large_3:
+    input: 0.002
+    output: 0.006
+    cached_input: 0.001
+  gemini3_flash:
+    input: 0.00015
+    output: 0.0006
+    cached_input: 0.0000375
+
+# =============================================================================
 # Evaluation Settings
 # =============================================================================
 evaluation:

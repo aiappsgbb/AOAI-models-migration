@@ -23,6 +23,7 @@ from .metrics import (
     ConsistencyMetrics,
     LatencyMetrics,
     QualityMetrics,
+    ToolCallingMetrics,
     MetricsCalculator
 )
 from ..clients.azure_openai import AzureOpenAIClient
@@ -470,6 +471,16 @@ class ModelComparator:
                 dimensions.append(
                     self._create_dimension("Avg Confidence", cm_a.avg_confidence, cm_b.avg_confidence, higher_better=True)
                 )
+
+        # Tool calling metrics (dedicated dataclass)
+        if result_a.tool_calling_metrics and result_b.tool_calling_metrics:
+            tc_a = result_a.tool_calling_metrics
+            tc_b = result_b.tool_calling_metrics
+            dimensions.extend([
+                self._create_dimension("Tool Selection Accuracy", tc_a.tool_selection_accuracy, tc_b.tool_selection_accuracy, higher_better=True),
+                self._create_dimension("Parameter Accuracy", tc_a.parameter_accuracy, tc_b.parameter_accuracy, higher_better=True),
+                self._create_dimension("Combined Accuracy", tc_a.combined_accuracy, tc_b.combined_accuracy, higher_better=True),
+            ])
             
         # Latency metrics
         if result_a.latency_metrics and result_b.latency_metrics:

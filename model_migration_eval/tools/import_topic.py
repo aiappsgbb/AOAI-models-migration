@@ -73,7 +73,8 @@ _PROJECT_ROOT = _SCRIPT_DIR.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
 from src.clients.azure_openai import create_client_from_config, AzureOpenAIClient
-from src.utils.prompt_manager import _extract_categories_from_prompt, _slugify
+from src.utils.category_parser import extract_categories_from_prompt as _extract_categories_from_prompt
+from src.utils.prompt_manager import _slugify
 from src.utils.model_guidance import get_guidance as _get_model_guidance, resolve_model_family as _resolve_model_family
 
 # ---------------------------------------------------------------------------

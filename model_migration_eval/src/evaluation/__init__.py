@@ -6,7 +6,8 @@ from .metrics import (
     ClassificationMetrics,
     ConsistencyMetrics,
     LatencyMetrics,
-    QualityMetrics
+    QualityMetrics,
+    ToolCallingMetrics,
 )
 from .evaluator import ModelEvaluator
 from .comparator import ModelComparator
@@ -18,6 +19,7 @@ __all__ = [
     'ConsistencyMetrics', 
     'LatencyMetrics',
     'QualityMetrics',
+    'ToolCallingMetrics',
     'ModelEvaluator',
     'ModelComparator',
     'FoundryEvaluator',
