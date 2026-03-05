@@ -72,18 +72,115 @@ These are the models you should be migrating **to**. Their retirement dates give
 | **Global** | Auto-upgraded. Same behavior as Standard but routed across regions. |
 | **DataZone** | Auto-upgraded. Same behavior as Standard but with data residency guarantees. |
 
+### Model Version Update Policies (Standard Deployments)
+
+Every Standard deployment has a **version update policy** that controls if and when it auto-upgrades. This is the setting that most often confuses teams — especially because the default behavior may not be what you expect.
+
+| Policy | API value | What it does | When it triggers |
+|--------|-----------|-------------|-----------------|
+| **Auto-update to default** | `OnceNewDefaultVersionAvailable` | Upgrades within ~2 weeks of a new default version being designated | Proactively, as soon as a new default is available |
+| **Upgrade at expiration** | `OnceCurrentVersionExpired` | Upgrades to the current default version when your pinned version reaches its retirement date | Only at retirement — can be months or years later |
+| **No auto-upgrade** | `NoAutoUpgrade` | Never upgrades automatically. **⚠️ Deployment stops working at retirement.** | Never — deployment is deleted/disabled at retirement |
+
+> **⚠️ Critical:** If your policy is `NoAutoUpgrade` and you don't act before retirement, your deployment **stops accepting requests**. There is no grace period.
+
+> **Default behavior:** If you haven't explicitly set a policy, the effective value is `OnceCurrentVersionExpired` — your deployment will auto-upgrade at retirement, but not before. This is the most common scenario.
+
+```mermaid
+gantt
+    title Update Policy Timeline Example (GPT-4o 2024-08-06)
+    dateFormat YYYY-MM-DD
+    axisFormat %b %Y
+
+    section OnceNewDefaultVersionAvailable
+    Deployment running GPT-4o       :done, a1, 2025-01-01, 2025-12-01
+    Auto-upgraded to new default    :active, a2, 2025-12-01, 2026-03-31
+
+    section OnceCurrentVersionExpired
+    Deployment running GPT-4o       :done, b1, 2025-01-01, 2026-03-09
+    Auto-upgraded at retirement     :crit, b2, 2026-03-09, 2026-03-31
+
+    section NoAutoUpgrade
+    Deployment running GPT-4o       :done, c1, 2025-01-01, 2026-03-31
+    ⚠️ Deployment STOPS WORKING    :crit, c2, 2026-03-31, 2026-04-15
+```
+
+### How to Check and Change Your Policy
+
+**Azure Portal:** Go to your Azure OpenAI resource → **Deployments** → select a deployment → **Properties** → look for *"Version update policy"*.
+
+**Azure CLI:**
+
+```bash
+# List all deployments and their update policies
+az cognitiveservices account deployment list \
+  --name YOUR_RESOURCE_NAME \
+  --resource-group YOUR_RG \
+  --query "[].{name:name, model:properties.model.name, version:properties.model.version, policy:properties.versionUpgradeOption}" \
+  -o table
+```
+
+```bash
+# Change a deployment's update policy
+az cognitiveservices account deployment create \
+  --name YOUR_RESOURCE_NAME \
+  --resource-group YOUR_RG \
+  --deployment-name YOUR_DEPLOYMENT \
+  --model-name gpt-4o \
+  --model-version "2024-08-06" \
+  --model-format OpenAI \
+  --sku-capacity 120 \
+  --sku-name "Standard" \
+  --version-upgrade-option "OnceCurrentVersionExpired"
+```
+
+**PowerShell:**
+
+```powershell
+# Set a deployment to NoAutoUpgrade (pin the version)
+$deployment = Get-AzCognitiveServicesAccountDeployment `
+  -ResourceGroupName YOUR_RG -AccountName YOUR_RESOURCE -Name YOUR_DEPLOYMENT
+$deployment.Properties.VersionUpgradeOption = "NoAutoUpgrade"
+New-AzCognitiveServicesAccountDeployment `
+  -ResourceGroupName YOUR_RG -AccountName YOUR_RESOURCE `
+  -Name YOUR_DEPLOYMENT -Properties $deployment.Properties -Sku $deployment.Sku
+```
+
+### Which Policy Should I Use?
+
+| Scenario | Recommended policy | Why |
+|----------|-------------------|-----|
+| **Dev/test environments** | `OnceNewDefaultVersionAvailable` | Get the latest model early to start testing |
+| **Production — can tolerate model changes** | `OnceCurrentVersionExpired` (default) | Auto-upgrades at retirement, giving you maximum runway on the current model |
+| **Production — strict change control** | `NoAutoUpgrade` | Full control over when you migrate. **But you must monitor retirement dates and act before expiry, or your deployment breaks.** |
+| **Staging / pre-prod** | `OnceNewDefaultVersionAvailable` | Mirrors what production will eventually get; gives you a preview window to test |
+
+> **Recommended pattern:** Use `OnceNewDefaultVersionAvailable` in staging + `OnceCurrentVersionExpired` in production. This gives you early visibility in staging while preserving stability in production until the retirement date forces a change.
+
+### Provisioned Deployments — Manual Migration Required
+
+Provisioned (PTU) deployments do **not** support automatic model upgrades. You must migrate manually using one of two approaches:
+
+| Approach | How it works | Downtime |
+|----------|-------------|----------|
+| **In-place migration** | Change the model version or family on the existing deployment. Azure migrates traffic over a 20–30 minute window. | Minimal (~20–30 min, deployment stays responsive) |
+| **Multi-deployment migration** | Create a new deployment with the target model, gradually shift traffic, then delete the old one. | Zero (blue-green) |
+
+> **In-place migrations** are simpler but give you less control. **Multi-deployment migrations** require more quota (two deployments running simultaneously) but allow gradual traffic shifting and rollback.
+
 ### Key Concepts
 
 - **"Retirement (not before)"** — Microsoft guarantees the model will be available until at least this date. The actual retirement may be later.
 - **Auto-upgrade** — For Standard/Global/DataZone deployments, Microsoft automatically switches your deployment to the replacement model. Your endpoint URL stays the same, but the model behind it changes.
-- **No-longer-available (NLA)** — After retirement, the model cannot be deployed or re-deployed. Existing deployments stop working.
+- **No-longer-available (NLA)** — After retirement, the model cannot be deployed or re-deployed. Existing deployments with `NoAutoUpgrade` stop working.
 
 ### What You Should Do
 
-1. **Inventory your deployments** — Know which models and deployment types you're using. See the [Lifecycle Best Practices guide](llm-upgrade-lifecycle-best-practices.md) for how to automate this with Azure CLI/SDK.
-2. **Test before the auto-upgrade date** — Run your evaluation suite against the replacement model. See the [Evaluation Guide](evaluation-guide.md).
-3. **For Provisioned deployments** — You must manually create a new deployment with the target model and migrate traffic. Auto-upgrade does not apply.
-4. **Set up notifications** — Use Azure Service Health alerts to get notified of upcoming retirements. See the [Lifecycle Best Practices guide](llm-upgrade-lifecycle-best-practices.md#2-monitor-notifications).
+1. **Inventory your deployments** — Know which models, deployment types, and update policies you're using. Use the CLI command above, or see the [Lifecycle Best Practices guide](llm-upgrade-lifecycle-best-practices.md).
+2. **Check your update policies** — Especially look for `NoAutoUpgrade` deployments that will break at retirement.
+3. **Test before the auto-upgrade date** — Run your evaluation suite against the replacement model. See the [Evaluation Guide](evaluation-guide.md).
+4. **For Provisioned deployments** — Plan your in-place or multi-deployment migration well before the retirement date.
+5. **Set up notifications** — Use Azure Service Health alerts to get notified of upcoming retirements. See the [Lifecycle Best Practices guide](llm-upgrade-lifecycle-best-practices.md#2-monitor-notifications).
 
 ---
 
