@@ -936,7 +936,7 @@ Use this checklist when a model retirement is announced:
 | Cloud evaluation SDK guide | https://learn.microsoft.com/azure/ai-foundry/how-to/develop/cloud-evaluation |
 | Agent evaluation guide | https://learn.microsoft.com/azure/ai-foundry/how-to/develop/agent-evaluate-sdk |
 | `azure-ai-evaluation` SDK reference | https://learn.microsoft.com/python/api/overview/azure/ai-evaluation-readme |
-| `azure-ai-projects` SDK (v2 docs) | https://azuresdkdocs.z19.web.core.windows.net/python/azure-ai-projects/2.0.0b2/index |
+| `azure-ai-projects` SDK reference | https://learn.microsoft.com/python/api/overview/azure/ai-projects-readme |
 | Evaluation samples (GitHub) | https://github.com/Azure-Samples/azureai-samples/tree/main/scenarios/evaluate |
 | Managing provisioned deployments | https://learn.microsoft.com/azure/ai-foundry/openai/how-to/working-with-models |
 | Model upgrade with Ask AI (Foundry) | https://learn.microsoft.com/azure/ai-foundry/observability/how-to/optimization-model-upgrade |

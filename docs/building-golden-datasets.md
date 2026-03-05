@@ -68,7 +68,7 @@ with open("golden_dataset.jsonl", "w") as f:
         f.write("\n")
 ```
 
-> **Cost:** Free. Stored completions are retained for 30 days at no extra charge. You're capturing data you're already paying to generate.
+> **Cost:** Stored completions are retained for 30 days at no extra charge. You're capturing data you're already paying to generate.
 
 > **Privacy:** Stored completions inherit your Azure OpenAI data processing terms. Data stays in your Azure tenant. Apply PII scrubbing before using in evaluation if needed.
 
@@ -182,7 +182,7 @@ outputs.to_eval_qr_json_lines("golden_dataset.jsonl")
 - Runs each query through your app to capture the response
 - Outputs ready-to-evaluate JSONL
 
-> **Cost:** ~$0.50–2.00 for 100 synthetic queries (GPT-4o judge). Negligible.
+> **Cost:** Roughly $0.50–2.00 for 100 synthetic queries using GPT-4o as judge. Actual costs depend on prompt length and model pricing.
 
 ### Option B: LLM-Powered Generation from Examples
 
@@ -453,7 +453,7 @@ for record in golden_dataset:
     record["ground_truth"] = reference.choices[0].message.content
 ```
 
-3. **Crowd-source from SMEs** — Share a spreadsheet with 5-10 subject matter experts. Each labels 20 records. Takes ~1 hour per person. You get 100-200 labeled records for effectively zero cost.
+3. **Crowd-source from SMEs** — Share a spreadsheet with 5-10 subject matter experts. Each labels 20 records. Takes ~1 hour per person.
 
 ---
 
@@ -530,15 +530,15 @@ report.print_report()
 
 | Approach | Records | Cost | Time |
 |----------|---------|------|------|
-| Stored Completions export | 200 | **Free** (data you already paid to generate) | 1 hour |
-| APIM log export | 200 | **Free** (logs already collected) | 1 hour |
-| App-level log sampling | 200 | **Free** (just code instrumentation) | 2 hours |
+| Stored Completions export | 200 | No extra charge (data already generated) | 1 hour |
+| APIM log export | 200 | No extra charge (logs already collected) | 1 hour |
+| App-level log sampling | 200 | No extra charge (code instrumentation) | 2 hours |
 | Synthetic generation (SDK Simulator) | 100 | **~$1-2** (LLM inference) | 30 min |
-| LLM-powered variations from examples | 50 | **~$0.50** | 15 min |
-| LLM-assisted ground truth labeling | 200 | **~$2-5** | 1 hour |
-| Human SME labeling (spot-check) | 50 | **~$0** (1 hour of SME time) | 1 hour |
+| LLM-powered variations from examples | 50 | **~$0.50** (LLM inference) | 15 min |
+| LLM-assisted ground truth labeling | 200 | **~$2-5** (LLM inference) | 1 hour |
+| Human SME labeling (spot-check) | 50 | SME time (~1 hour per person) | 1 hour |
 
-**Total cost to build a production-quality golden dataset: $0–10 and a single afternoon.**
+> **Key takeaway:** Most of the cost is in human time, not compute. Production log–based approaches leverage data you've already paid to generate, and synthetic generation costs are modest. The biggest investment is curating and maintaining the dataset — but even that can be done incrementally.
 
 ---
 
