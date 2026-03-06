@@ -8,6 +8,7 @@ azure-ai-projects>=2.0.0b2
 # Web Framework
 flask>=3.0.0
 flask-cors>=4.0.0
+flask-compress>=1.15
 
 # Data Processing
 numpy>=1.24.0

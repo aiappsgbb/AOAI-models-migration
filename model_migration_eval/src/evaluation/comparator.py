@@ -158,6 +158,7 @@ class ModelComparator:
         foundry_evaluator: Optional[Any] = None,
         parallel_models: bool = True,
         config_path: str = "config/settings.yaml",
+        acceptance_thresholds: Optional[Dict[str, Dict[str, float]]] = None,
     ):
         """
         Initialize the comparator.
@@ -167,7 +168,8 @@ class ModelComparator:
             evaluator: Optional ModelEvaluator instance
             foundry_evaluator: Optional FoundryEvaluator instance
             parallel_models: If True, evaluate both models simultaneously
-            config_path: Path to settings.yaml for acceptance thresholds
+            config_path: Path to settings.yaml (only used if acceptance_thresholds not given)
+            acceptance_thresholds: Pre-loaded thresholds dict (avoids re-reading YAML)
         """
         self.client = client
         self.evaluator = evaluator or ModelEvaluator(client)
@@ -182,16 +184,19 @@ class ModelComparator:
         }
 
         # Acceptance thresholds for migration readiness
-        self.acceptance_thresholds: Dict[str, Dict[str, float]] = {}
-        try:
-            if config_path and Path(config_path).exists():
-                with open(config_path, 'r') as f:
-                    cfg = yaml.safe_load(f)
-                self.acceptance_thresholds = (
-                    cfg.get('evaluation', {}).get('acceptance_thresholds', {})
-                )
-        except Exception:
-            pass
+        if acceptance_thresholds is not None:
+            self.acceptance_thresholds = acceptance_thresholds
+        else:
+            self.acceptance_thresholds = {}
+            try:
+                if config_path and Path(config_path).exists():
+                    with open(config_path, 'r') as f:
+                        cfg = yaml.safe_load(f)
+                    self.acceptance_thresholds = (
+                        cfg.get('evaluation', {}).get('acceptance_thresholds', {})
+                    )
+            except Exception:
+                pass
         
     def compare_models(
         self,

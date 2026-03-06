@@ -13,6 +13,7 @@ from pathlib import Path
 
 from flask import Flask, render_template, request, jsonify, session, redirect, g
 from flask_cors import CORS
+from flask_compress import Compress
 
 from ..auth.user_store import UserStore
 from ..auth.code_manager import CodeManager
@@ -46,9 +47,10 @@ def create_app(config_path: str = None) -> Flask:
                 template_folder='templates',
                 static_folder='static')
     CORS(app)
+    Compress(app)
     
-    # Always reload templates from disk (even without debug mode)
-    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    # Reload templates from disk only in debug mode (production uses cached bytecode)
+    app.config['TEMPLATES_AUTO_RELOAD'] = app.debug
     
     # Store configuration
     app.config['CONFIG_PATH'] = config_path or 'config/settings.yaml'
@@ -109,6 +111,10 @@ def create_app(config_path: str = None) -> Flask:
     _singleton_lock = threading.Lock()  # protects lazy init of the above
 
     # In-memory backend log streaming buffers (Option B)
+    # Each run_id maps to a dict with a thread-safe deque for entries
+    # and metadata. The global lock is only needed to create/delete
+    # run slots — appends to deque are lock-free.
+    from collections import deque as _deque
     _run_logs = {}
     _run_logs_lock = threading.Lock()
     _run_logs_max_lines = 2000
@@ -141,6 +147,10 @@ def create_app(config_path: str = None) -> Flask:
     # Async comparison jobs storage
     _compare_jobs = {}
     _compare_jobs_lock = threading.Lock()
+
+    # Async batch evaluation jobs storage
+    _batch_jobs = {}
+    _batch_jobs_lock = threading.Lock()
 
     # Async generate jobs storage
     _generate_jobs = {}
@@ -187,7 +197,12 @@ def create_app(config_path: str = None) -> Flask:
                 )
 
     class _RunLogCaptureHandler(logging.Handler):
-        """Capture log records for the active run_id context into memory."""
+        """Capture log records for the active run_id context into memory.
+
+        Uses a per-run ``collections.deque`` with a fixed maxlen so that
+        appends are thread-safe without acquiring the global lock on
+        every log line — only slot creation needs the lock.
+        """
 
         def emit(self, record):
             run_id = _current_run_id.get()
@@ -205,16 +220,17 @@ def create_app(config_path: str = None) -> Flask:
                 'message': message,
             }
             now = time.time()
-            with _run_logs_lock:
-                buff = _run_logs.setdefault(run_id, {
-                    'entries': [],
-                    'created_at': now,
-                    'last_access': now,
-                })
-                buff['entries'].append(entry)
-                buff['last_access'] = now
-                if len(buff['entries']) > _run_logs_max_lines:
-                    buff['entries'] = buff['entries'][-_run_logs_max_lines:]
+            # Fast path: slot already exists (no lock needed for deque append)
+            buff = _run_logs.get(run_id)
+            if buff is None:
+                with _run_logs_lock:
+                    buff = _run_logs.setdefault(run_id, {
+                        'entries': _deque(maxlen=_run_logs_max_lines),
+                        'created_at': now,
+                        'last_access': now,
+                    })
+            buff['entries'].append(entry)
+            buff['last_access'] = now
 
     def _install_run_log_handler_once():
         root = logging.getLogger()
@@ -231,9 +247,10 @@ def create_app(config_path: str = None) -> Flask:
             expired = [rid for rid, data in _run_logs.items() if data.get('last_access', 0) < cutoff]
             for rid in expired:
                 _run_logs.pop(rid, None)
-        # Also clean up old async jobs (compare, generate, regenerate)
+        # Also clean up old async jobs (compare, batch, generate, regenerate)
         for lock, store in [
             (_compare_jobs_lock, _compare_jobs),
+            (_batch_jobs_lock, _batch_jobs),
             (_generate_jobs_lock, _generate_jobs),
             (_regenerate_jobs_lock, _regenerate_jobs),
         ]:
@@ -480,12 +497,13 @@ def create_app(config_path: str = None) -> Flask:
         slot = _get_user_slot(uid)
         if client and "comparator" not in slot:
             perf = _load_perf_settings()
+            settings = app.config.get('SETTINGS', {})
             slot["comparator"] = ModelComparator(
                 client,
                 evaluator=get_evaluator(),
                 foundry_evaluator=get_foundry_evaluator(),
                 parallel_models=perf.get('parallel_models', True),
-                config_path=app.config.get('CONFIG_PATH', 'config/settings.yaml'),
+                acceptance_thresholds=settings.get('evaluation', {}).get('acceptance_thresholds', {}),
             )
         else:
             comp = slot.get("comparator")
@@ -502,9 +520,7 @@ def create_app(config_path: str = None) -> Flask:
         if not is_foundry_available():
             return None
         try:
-            import yaml as _yaml
-            with open(app.config['CONFIG_PATH'], 'r') as f:
-                cfg = _yaml.safe_load(f)
+            cfg = app.config.get('SETTINGS', {})
             _foundry_evaluator = create_foundry_evaluator_from_config(cfg)
         except Exception as e:
             app.logger.warning(f'Foundry evaluator init failed: {e}')
@@ -580,13 +596,14 @@ def create_app(config_path: str = None) -> Flask:
             offset = 0
 
         rid = _normalize_run_id(run_id)
-        with _run_logs_lock:
-            buff = _run_logs.get(rid, {'entries': [], 'last_access': time.time()})
-            entries = buff.get('entries', [])
-            next_offset = len(entries)
-            slice_entries = entries[offset:]
+        buff = _run_logs.get(rid)
+        if buff is None:
+            entries_list: list = []
+        else:
+            entries_list = list(buff.get('entries', []))
             buff['last_access'] = time.time()
-            _run_logs[rid] = buff
+        next_offset = len(entries_list)
+        slice_entries = entries_list[offset:]
 
         # Mask sensitive endpoints before sending to the UI
         if _mask_patterns:
@@ -763,7 +780,6 @@ def create_app(config_path: str = None) -> Flask:
     @app.route('/api/evaluate/single', methods=['POST'])
     def evaluate_single():
         """Evaluate a single prompt against one or both models"""
-        get_prompt_loader()._cache.clear()          # always read fresh from disk
         data = request.get_json() or {}
         run_id = _normalize_run_id(data.get('run_id') if data else None)
         _cleanup_run_logs()
@@ -871,12 +887,10 @@ def create_app(config_path: str = None) -> Flask:
         
     @app.route('/api/evaluate/batch', methods=['POST'])
     def evaluate_batch():
-        """Run batch evaluation on test scenarios"""
-        get_prompt_loader()._cache.clear()          # always read fresh from disk
+        """Run batch evaluation — runs in background thread, returns 202."""
         data = request.get_json() or {}
         run_id = _normalize_run_id(data.get('run_id') if data else None)
         _cleanup_run_logs()
-        token = _current_run_id.set(run_id)
         model_name = data.get('model', 'gpt4')
         evaluation_type = data.get('type', 'classification')
         limit = min(data.get('limit', 10), 100)  # Cap at 100 to prevent abuse
@@ -884,67 +898,116 @@ def create_app(config_path: str = None) -> Flask:
         try:
             _register_job()
         except RuntimeError as e:
-            _current_run_id.reset(token)
             return jsonify({'error': str(e), 'run_id': run_id}), 409
 
         evaluator = get_evaluator()
         if not evaluator:
             _unregister_job()
-            _current_run_id.reset(token)
             return jsonify({'error': 'Evaluator not available', 'run_id': run_id}), 500
-            
+
+        # Pre-load data in the request thread (fast, needs user context)
+        loader = get_data_loader()
         try:
-            loader = get_data_loader()
             if evaluation_type == 'classification':
                 scenarios = loader.load_classification_scenarios()[:limit]
-                result = evaluator.evaluate_classification(model_name, scenarios)
             elif evaluation_type == 'dialog':
                 scenarios = loader.load_dialog_scenarios()[:limit]
-                result = evaluator.evaluate_dialog(model_name, scenarios)
             elif evaluation_type == 'rag':
                 scenarios = loader.load_rag_scenarios()[:limit]
-                result = evaluator.evaluate_rag(model_name, scenarios)
             elif evaluation_type == 'tool_calling':
                 scenarios = loader.load_tool_calling_scenarios()[:limit]
-                result = evaluator.evaluate_tool_calling(model_name, scenarios)
             else:
                 scenarios = loader.load_general_tests()[:limit]
-                result = evaluator.evaluate_general(model_name, scenarios)
-
-            # Auto-save results to disk
-            try:
-                uctx = _get_user_context()
-                result.save(str(uctx.results_dir))
-                app.logger.info(f"Auto-saved {evaluation_type} result for {model_name}")
-            except Exception as save_err:
-                app.logger.warning(f"Failed to auto-save result: {save_err}")
-
-            result_dict = result.to_dict()
-            # Include the saved filename so the UI can reference it
-            ts = result.timestamp.replace(':', '-')
-            result_dict['saved_filename'] = f"{model_name}_{evaluation_type}_{ts}.json"
-            result_dict['run_id'] = run_id
-            return jsonify(result_dict)
-
-        except MissingPromptsError as e:
-            app.logger.warning(f"Missing prompts for {model_name}/{evaluation_type}: {e}")
-            return jsonify({
-                'error': str(e),
-                'error_type': 'missing_prompts',
-                'model': model_name,
-                'evaluation_type': evaluation_type,
-                'run_id': run_id,
-            }), 400
         except Exception as e:
-            return jsonify({'error': str(e), 'run_id': run_id}), 500
-        finally:
             _unregister_job()
-            _current_run_id.reset(token)
+            return jsonify({'error': str(e), 'run_id': run_id}), 400
+
+        results_dir = str(_get_user_context().results_dir)
+
+        # Register job as running
+        with _batch_jobs_lock:
+            _batch_jobs[run_id] = {
+                'status': 'running',
+                'result': None,
+                'error': None,
+                'error_type': None,
+                'created': time.time(),
+            }
+
+        def _bg_batch():
+            """Background worker — runs evaluation and stores result."""
+            token = _current_run_id.set(run_id)
+            try:
+                if evaluation_type == 'classification':
+                    result = evaluator.evaluate_classification(model_name, scenarios)
+                elif evaluation_type == 'dialog':
+                    result = evaluator.evaluate_dialog(model_name, scenarios)
+                elif evaluation_type == 'rag':
+                    result = evaluator.evaluate_rag(model_name, scenarios)
+                elif evaluation_type == 'tool_calling':
+                    result = evaluator.evaluate_tool_calling(model_name, scenarios)
+                else:
+                    result = evaluator.evaluate_general(model_name, scenarios)
+
+                # Auto-save results to disk
+                try:
+                    result.save(results_dir)
+                    logging.getLogger(__name__).info(
+                        f"Auto-saved {evaluation_type} result for {model_name}"
+                    )
+                except Exception as save_err:
+                    logging.getLogger(__name__).warning(f"Failed to auto-save result: {save_err}")
+
+                result_dict = result.to_dict()
+                ts = result.timestamp.replace(':', '-')
+                result_dict['saved_filename'] = f"{model_name}_{evaluation_type}_{ts}.json"
+                result_dict['run_id'] = run_id
+                with _batch_jobs_lock:
+                    _batch_jobs[run_id]['status'] = 'completed'
+                    _batch_jobs[run_id]['result'] = result_dict
+            except MissingPromptsError as exc:
+                logging.getLogger(__name__).warning(
+                    f"Missing prompts for {model_name}/{evaluation_type}: {exc}"
+                )
+                with _batch_jobs_lock:
+                    _batch_jobs[run_id]['status'] = 'failed'
+                    _batch_jobs[run_id]['error'] = str(exc)
+                    _batch_jobs[run_id]['error_type'] = 'missing_prompts'
+            except Exception as exc:
+                logging.getLogger(__name__).error(f"Batch evaluation failed: {exc}")
+                with _batch_jobs_lock:
+                    _batch_jobs[run_id]['status'] = 'failed'
+                    _batch_jobs[run_id]['error'] = str(exc)
+            finally:
+                _unregister_job()
+                _current_run_id.reset(token)
+
+        thread = threading.Thread(target=_bg_batch, daemon=True)
+        thread.start()
+
+        return jsonify({'status': 'running', 'run_id': run_id}), 202
+
+    @app.route('/api/evaluate/batch/<run_id>/status')
+    def batch_status(run_id: str):
+        """Poll batch evaluation job status; returns result payload when complete."""
+        rid = _normalize_run_id(run_id)
+        with _batch_jobs_lock:
+            job = _batch_jobs.get(rid)
+        if not job:
+            return jsonify({'status': 'not_found', 'run_id': rid}), 404
+
+        resp = {'status': job['status'], 'run_id': rid}
+        if job['status'] == 'completed':
+            resp['result'] = job['result']
+        elif job['status'] == 'failed':
+            resp['error'] = job['error']
+            if job.get('error_type'):
+                resp['error_type'] = job['error_type']
+        return jsonify(resp)
             
     @app.route('/api/compare', methods=['POST'])
     def compare_models():
         """Compare two models — runs in background thread, returns 202."""
-        get_prompt_loader()._cache.clear()          # always read fresh from disk
         data = request.get_json() or {}
         run_id = _normalize_run_id(data.get('run_id') if data else None)
         _cleanup_run_logs()
@@ -1414,10 +1477,35 @@ def create_app(config_path: str = None) -> Flask:
         results = []
         for file in json_files:
             try:
-                with open(file, encoding='utf-8') as f:
-                    data = json.load(f)
+                # Read only the first 3 KB — metadata fields (model_name,
+                # evaluation_type, timestamp, model_a/b, foundry URLs) are
+                # always at the top of the JSON, so we avoid parsing the
+                # potentially large raw_results arrays.
+                with open(file, 'rb') as f:
+                    head = f.read(3072)
+                # Complete the truncated JSON so it can be parsed
+                text = head.decode('utf-8', errors='replace')
+                # Try to parse. If the file is small enough, this works directly.
+                # For large files, we'll get a decode error; fall back to regex.
+                try:
+                    data = json.loads(text)
+                except json.JSONDecodeError:
+                    # Extract top-level fields from the partial JSON via simple parsing
+                    import re as _re_local
+                    def _extract(key):
+                        m = _re_local.search(rf'"{key}"\s*:\s*"([^"]*)"', text)
+                        return m.group(1) if m else ''
+                    data = {
+                        'model_name': _extract('model_name'),
+                        'model_a': _extract('model_a'),
+                        'model_b': _extract('model_b'),
+                        'evaluation_type': _extract('evaluation_type'),
+                        'timestamp': _extract('timestamp'),
+                        'foundry_report_url': _extract('foundry_report_url'),
+                    }
+
                 model_display = data.get('model_name', 'unknown')
-                if model_display == 'unknown' and 'model_a' in data:
+                if model_display == 'unknown' and 'model_a' in data and data.get('model_a'):
                     model_display = f"{data['model_a']} vs {data.get('model_b', '?')}"
                 entry = {
                     'filename': file.name,
@@ -1491,9 +1579,20 @@ def create_app(config_path: str = None) -> Flask:
 
     @app.route('/api/data/overview')
     def get_data_overview():
-        """Return counts per data-type for the active set and every archived topic."""
+        """Return counts per data-type for the active set and every archived topic.
+
+        Uses a per-user in-memory cache with a 5-second TTL to avoid
+        re-scanning and parsing every data file on every page load.
+        """
+        uid = session.get('user_id', '')
+        slot = _get_user_slot(uid) if uid else {}
+        now = time.time()
+        cached = slot.get('_data_overview_cache')
+        if cached and (now - cached['ts']) < 5.0:
+            return jsonify({'overview': cached['data']})
+
         manager = get_prompt_manager()
-        data_files = manager._DATA_FILES          # classification, dialog, general
+        data_files = manager._DATA_FILES
         data_dir = Path(str(_get_user_context().data_dir))
         topics_dir = data_dir / 'topics'
 
@@ -1513,7 +1612,6 @@ def create_app(config_path: str = None) -> Flask:
             return result
 
         overview: list[dict] = []
-        # Active
         meta = manager.get_topic_metadata()
         active_topic = meta.get('topic', '') or ''
         from src.utils.prompt_manager import _slugify
@@ -1524,7 +1622,6 @@ def create_app(config_path: str = None) -> Flask:
             'active': True,
             'counts': _count(data_dir),
         })
-        # Archived (skip the currently active topic to avoid duplicates)
         if topics_dir.exists():
             for slug_dir in sorted(topics_dir.iterdir()):
                 if slug_dir.is_dir() and slug_dir.name != active_slug:
@@ -1544,6 +1641,8 @@ def create_app(config_path: str = None) -> Flask:
                         'counts': _count(slug_dir),
                     })
 
+        # Cache result for this user
+        slot['_data_overview_cache'] = {'ts': now, 'data': overview}
         return jsonify({'overview': overview})
 
     @app.route('/api/data/raw/<data_type>')

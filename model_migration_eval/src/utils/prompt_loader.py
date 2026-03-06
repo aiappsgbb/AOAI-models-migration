@@ -25,7 +25,10 @@ class PromptLoader:
             prompts_dir: Base directory containing prompt files
         """
         self.prompts_dir = Path(prompts_dir)
-        self._cache: Dict[str, str] = {}
+        # Cache stores (mtime, content) tuples keyed by "model/prompt_type".
+        # On cache hit we stat() the file (~100× cheaper than open+read)
+        # and only reload when mtime has changed.
+        self._cache: Dict[str, tuple] = {}
         
     def load_prompt(
         self, 
@@ -44,25 +47,19 @@ class PromptLoader:
         Returns:
             Loaded and processed prompt string
         """
-        # Check cache first
+        # Check cache first (mtime-validated)
         cache_key = f"{model}/{prompt_type}"
-        if cache_key in self._cache and not variables:
-            return self._cache[cache_key]
-            
-        # Construct file path
-        file_path = self.prompts_dir / model / f"{prompt_type}.md"
-        
-        if not file_path.exists():
-            # Reasoning variant → fall back to the base model's prompts
-            # e.g. gpt5_reasoning → gpt5
-            base_model = re.sub(r'_reasoning$', '', model)
-            if base_model != model:
-                file_path = self.prompts_dir / base_model / f"{prompt_type}.md"
+        file_path = self._resolve_path(model, prompt_type)
 
-        if not file_path.exists():
-            # Try without model prefix (shared template)
-            file_path = self.prompts_dir / "templates" / f"{prompt_type}.md"
-            
+        if cache_key in self._cache and not variables:
+            cached_mtime, cached_content = self._cache[cache_key]
+            try:
+                current_mtime = file_path.stat().st_mtime
+                if current_mtime == cached_mtime:
+                    return cached_content
+            except OSError:
+                pass  # file gone — fall through to reload
+
         if not file_path.exists():
             raise FileNotFoundError(f"Prompt template not found: {file_path}")
             
@@ -70,14 +67,33 @@ class PromptLoader:
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
             
-        # Cache raw content
-        self._cache[cache_key] = content
+        # Cache with mtime
+        try:
+            self._cache[cache_key] = (file_path.stat().st_mtime, content)
+        except OSError:
+            pass
         
         # Substitute variables if provided
         if variables:
             content = self._substitute_variables(content, variables)
             
         return content
+
+    def _resolve_path(self, model: str, prompt_type: str) -> Path:
+        """Resolve the filesystem path for a prompt template."""
+        file_path = self.prompts_dir / model / f"{prompt_type}.md"
+
+        if not file_path.exists():
+            # Reasoning variant → fall back to the base model's prompts
+            base_model = re.sub(r'_reasoning$', '', model)
+            if base_model != model:
+                file_path = self.prompts_dir / base_model / f"{prompt_type}.md"
+
+        if not file_path.exists():
+            # Try without model prefix (shared template)
+            file_path = self.prompts_dir / "templates" / f"{prompt_type}.md"
+
+        return file_path
         
     def _substitute_variables(self, content: str, variables: Dict[str, Any]) -> str:
         """

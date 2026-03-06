@@ -158,6 +158,7 @@ model_migration_eval/
 ├── tools/
 │   ├── add_model.py                 # CLI tool: add a new model (interactive or scripted)
 │   ├── assign_foundry_roles.ps1     # Grant Reader + Azure AI User to workshop attendees (batch)
+│   ├── delete_user.py               # CLI tool: delete a user (DB records + data directory)
 │   ├── generate_csv_samples.py      # Generate CSV sample files for all 5 task types
 │   ├── generate_gemini_prompts.py   # Generate Gemini-optimised prompt templates
 │   ├── import_topic.py              # CLI tool: import external topic from source prompt + test data
@@ -1922,6 +1923,11 @@ python tools/add_model.py --key gpt45 --deployment "gpt-4.5" --family gpt4
 python tools/add_model.py --key o4_mini --deployment "o4-mini" --family gpt5 --reasoning-effort medium
 python tools/add_model.py --key mistral_large_3 --deployment "Mistral-Large-3" --family mistral
 python tools/add_model.py --key gpt45 --deployment "gpt-4.5" --family gpt4 --copy-prompts-from gpt4o
+
+# Delete a user (DB records + data/users/<slug>/ directory)
+python tools/delete_user.py user@example.com              # interactive confirmation
+python tools/delete_user.py user@example.com --dry-run     # preview without deleting
+python tools/delete_user.py user@example.com --yes          # skip confirmation
 ```
 
 > **Note:** The CLI `evaluate` and `compare` subcommands currently support `classification`, `dialog`, `general`, and `all`.  RAG and tool calling evaluations are available via the **web UI** and **REST API** only.
@@ -2163,6 +2169,7 @@ When comparing two models, each dimension shows:
 | `azure-ai-projects` | ≥2.0.0b2 | Microsoft Foundry Control Plane evaluation (optional) |
 | `flask` | ≥3.0.0 | Web framework |
 | `flask-cors` | ≥4.0.0 | Cross-origin support |
+| `flask-compress` | ≥1.15 | HTTP response compression (gzip/brotli) |
 | `scikit-learn` | ≥1.3.0 | Classification metrics (F1, accuracy, kappa) |
 | `numpy` | ≥1.24.0 | Statistical calculations |
 | `diskcache` | ≥5.6.3 | Response caching |

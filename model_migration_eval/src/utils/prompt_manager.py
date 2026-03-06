@@ -466,8 +466,9 @@ class PromptManager:
         for model_dir in self._get_model_dirs():
             cls_path = self.prompts_dir / model_dir / "classification_agent_system.md"
             if cls_path.exists():
-                first_line = cls_path.read_text(encoding="utf-8").splitlines()[0] if cls_path.stat().st_size > 0 else "(empty)"
-                cats = _extract_categories_from_prompt(cls_path.read_text(encoding="utf-8"))
+                text = cls_path.read_text(encoding="utf-8")
+                first_line = text.splitlines()[0] if text else "(empty)"
+                cats = _extract_categories_from_prompt(text)
                 logger.info(f"  Restored {model_dir} prompt: {first_line[:80]}")
                 logger.info(f"  {model_dir} categories ({len(cats)}): {cats}")
         for data_type, filename in self._DATA_FILES.items():
@@ -720,19 +721,39 @@ class PromptManager:
     # ── Index management ──────────────────────────────────────────────
 
     def _load_index(self) -> List[Dict]:
-        """Load the version index from disk."""
+        """Load the version index from disk (mtime-cached).
+
+        Re-reads the file only when its mtime has changed since the
+        last load, so callers that need to see external edits still
+        get them, but the common path avoids a redundant parse.
+        """
         if self.index_path.exists():
             try:
+                current_mtime = self.index_path.stat().st_mtime
+                if (
+                    hasattr(self, '_index_mtime')
+                    and self._index_mtime == current_mtime
+                    and self._index is not None
+                ):
+                    return self._index
                 with open(self.index_path, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                    data = json.load(f)
+                self._index_mtime = current_mtime
+                return data
             except (json.JSONDecodeError, OSError):
                 logger.warning("Corrupt versions.json – starting fresh")
+        self._index_mtime = 0.0
         return []
 
     def _save_index(self):
         """Persist the version index to disk."""
         with open(self.index_path, "w", encoding="utf-8") as f:
             json.dump(self._index, f, indent=2, ensure_ascii=False)
+        # Update cached mtime so subsequent _load_index skips re-read
+        try:
+            self._index_mtime = self.index_path.stat().st_mtime
+        except OSError:
+            self._index_mtime = 0.0
 
     # ── Read helpers ──────────────────────────────────────────────────
 

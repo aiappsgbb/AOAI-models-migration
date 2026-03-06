@@ -859,9 +859,44 @@
                     })
                 });
 
+                if (!response.ok) {
+                    let serverMsg = '';
+                    try {
+                        const errBody = await response.json();
+                        serverMsg = errBody.error || '';
+                    } catch (_) {}
+                    const detail = serverMsg ? `: ${serverMsg}` : '';
+                    verboseLog(`❌ The server rejected the request. HTTP ${response.status}${detail}`, 'err');
+                    throw new Error(`Batch evaluation failed (HTTP ${response.status})${detail}`);
+                }
+
+                verboseLog('⏳ Batch evaluation is running in the background — polling for completion…', 'step');
+
+                // Poll /api/evaluate/batch/<run_id>/status until done
+                let data = null;
+                while (true) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    try {
+                        const statusResp = await fetch(`/api/evaluate/batch/${encodeURIComponent(runId)}/status`);
+                        if (!statusResp.ok) continue;
+                        const statusData = await statusResp.json();
+                        if (statusData.status === 'completed') {
+                            data = statusData.result;
+                            break;
+                        } else if (statusData.status === 'failed') {
+                            const err = new Error(statusData.error || 'Batch evaluation failed on the server');
+                            err.error_type = statusData.error_type;
+                            throw err;
+                        }
+                        // else still 'running' — keep polling
+                    } catch (pollErr) {
+                        if (pollErr.message && pollErr.message.includes('failed')) throw pollErr;
+                        // transient network error — retry silently
+                    }
+                }
+
                 const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
-                verboseLog(`✅ Response received from server (HTTP ${response.status}) after <strong>${elapsed}s</strong>.`, 'ok');
-                const data = await response.json();
+                verboseLog(`✅ Response received from server after <strong>${elapsed}s</strong>.`, 'ok');
                 
                 if (data.error) {
                     verboseLog('❌ The server returned an error: <em>' + data.error + '</em>', 'err');
