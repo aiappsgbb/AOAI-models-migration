@@ -45,10 +45,26 @@
                     </select>
                 </div>
                 <div>
-                    <label class="fluent-label">Model B</label>
-                    <select id="model-b" class="fluent-input">
-                        <!-- populated dynamically -->
-                    </select>
+                    <label class="fluent-label">Model B <span id="model-b-count" class="text-xs text-gray-400"></span></label>
+                    <!-- Custom multiselect dropdown -->
+                    <div id="model-b-wrapper" class="relative">
+                        <button type="button" id="model-b-toggle" class="fluent-input w-full text-left flex items-center justify-between cursor-pointer">
+                            <span id="model-b-display" class="truncate text-gray-400">Select models…</span>
+                            <svg class="w-4 h-4 text-gray-400 shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                        <div id="model-b-dropdown" class="hidden absolute z-40 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto">
+                            <div class="sticky top-0 bg-white border-b px-3 py-2 flex items-center justify-between">
+                                <label class="flex items-center cursor-pointer text-xs text-brand-600 font-medium">
+                                    <input type="checkbox" id="model-b-select-all" class="h-3.5 w-3.5 text-brand-500 rounded border-gray-300 mr-1.5">
+                                    Select All
+                                </label>
+                                <button type="button" id="model-b-close" class="text-xs text-gray-400 hover:text-gray-600">Done</button>
+                            </div>
+                            <div id="model-b-options" class="py-1">
+                                <!-- populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label class="fluent-label">Evaluation Type</label>
@@ -75,6 +91,24 @@
                         </label>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Batch Tabs (visible only when multiple Model B's) -->
+        <div id="batch-tabs-bar" class="hidden mb-4">
+            <div class="flex items-center gap-1 flex-wrap border-b border-gray-200" id="batch-tabs">
+                <!-- Tabs inserted dynamically -->
+            </div>
+        </div>
+
+        <!-- Batch progress bar -->
+        <div id="batch-progress" class="hidden mb-6">
+            <div class="flex items-center justify-between text-sm text-gray-600 mb-1">
+                <span id="batch-progress-label">Comparing…</span>
+                <span id="batch-progress-pct">0%</span>
+            </div>
+            <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div id="batch-progress-bar" class="h-2 bg-brand-500 rounded-full transition-all duration-300" style="width:0%"></div>
             </div>
         </div>
 
@@ -218,6 +252,10 @@
         let comparisonChart1100 = null;
         let comparisonChartTps = null;
         let modelNames = {};
+        // Batch state: array of report dicts keyed by model_b name
+        let batchReports = {};
+        let batchModelBList = [];
+        let activeTab = null;
 
         const FOUNDRY_FRIENDLY = {
             'coherence': 'Coherence',
@@ -412,31 +450,110 @@
 
         function displayName(key) { return modelNames[key] || key; }
 
+        // ── Model B Multiselect ─────────────────────────────────────
+        let _allModels = [];
+
+        function getSelectedModelBs() {
+            const checks = document.querySelectorAll('#model-b-options input[type=checkbox]:checked');
+            return Array.from(checks).map(c => c.value);
+        }
+
+        function updateModelBDisplay() {
+            const selected = getSelectedModelBs();
+            const display = document.getElementById('model-b-display');
+            const countEl = document.getElementById('model-b-count');
+            if (selected.length === 0) {
+                display.textContent = 'Select models…';
+                display.classList.add('text-gray-400');
+                display.classList.remove('text-gray-800');
+                countEl.textContent = '';
+            } else if (selected.length <= 2) {
+                display.textContent = selected.map(displayName).join(', ');
+                display.classList.remove('text-gray-400');
+                display.classList.add('text-gray-800');
+                countEl.textContent = `(${selected.length})`;
+            } else {
+                display.textContent = `${selected.length} models selected`;
+                display.classList.remove('text-gray-400');
+                display.classList.add('text-gray-800');
+                countEl.textContent = `(${selected.length})`;
+            }
+            // Update select-all checkbox
+            const allBoxes = document.querySelectorAll('#model-b-options input[type=checkbox]');
+            const selAll = document.getElementById('model-b-select-all');
+            selAll.checked = allBoxes.length > 0 && selected.length === allBoxes.length;
+            selAll.indeterminate = selected.length > 0 && selected.length < allBoxes.length;
+            updateCompareHeading();
+        }
+
+        function renderModelBOptions() {
+            const modelA = document.getElementById('model-a').value;
+            const container = document.getElementById('model-b-options');
+            const prevSelected = getSelectedModelBs();
+            container.innerHTML = '';
+            _allModels.forEach(m => {
+                if (m.name === modelA) return; // hide Model A from B options
+                const div = document.createElement('div');
+                div.className = 'px-3 py-1.5 hover:bg-gray-50 flex items-center cursor-pointer';
+                const checked = prevSelected.includes(m.name) ? 'checked' : '';
+                div.innerHTML = `<label class="flex items-center cursor-pointer w-full text-sm">
+                    <input type="checkbox" value="${m.name}" ${checked} class="h-3.5 w-3.5 text-brand-500 rounded border-gray-300 mr-2">
+                    ${escapeHtml(m.display_name || m.deployment)}
+                </label>`;
+                div.querySelector('input').addEventListener('change', updateModelBDisplay);
+                container.appendChild(div);
+            });
+            updateModelBDisplay();
+        }
+
+        // Toggle dropdown
+        document.getElementById('model-b-toggle').addEventListener('click', () => {
+            document.getElementById('model-b-dropdown').classList.toggle('hidden');
+        });
+        document.getElementById('model-b-close').addEventListener('click', () => {
+            document.getElementById('model-b-dropdown').classList.add('hidden');
+        });
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            const wrapper = document.getElementById('model-b-wrapper');
+            if (!wrapper.contains(e.target)) {
+                document.getElementById('model-b-dropdown').classList.add('hidden');
+            }
+        });
+        // Select All
+        document.getElementById('model-b-select-all').addEventListener('change', (e) => {
+            const boxes = document.querySelectorAll('#model-b-options input[type=checkbox]');
+            boxes.forEach(b => { b.checked = e.target.checked; });
+            updateModelBDisplay();
+        });
+
         async function loadModels() {
             try {
                 const resp = await fetch('/api/models');
                 const data = await resp.json();
-                const models = data.models || [];
+                _allModels = data.models || [];
                 const selA = document.getElementById('model-a');
-                const selB = document.getElementById('model-b');
                 selA.innerHTML = '';
-                selB.innerHTML = '';
-                models.forEach((m, i) => {
+                _allModels.forEach((m) => {
                     const label = m.display_name || m.deployment;
                     modelNames[m.name] = label;
-                    const optA = new Option(label, m.name);
-                    const optB = new Option(label, m.name);
-                    selA.appendChild(optA);
-                    selB.appendChild(optB);
+                    selA.appendChild(new Option(label, m.name));
                 });
-                // Default: first model in A, second in B
-                if (models.length >= 2) selB.value = models[1].name;
                 // Read URL query params or localStorage to override defaults
                 const params = new URLSearchParams(window.location.search);
                 const qA = params.get('model_a') || (function(){ try { return localStorage.getItem('compare_model_a'); } catch(e){ return null; } })();
-                const qB = params.get('model_b') || (function(){ try { return localStorage.getItem('compare_model_b'); } catch(e){ return null; } })();
-                if (qA && models.some(m => m.name === qA)) selA.value = qA;
-                if (qB && models.some(m => m.name === qB)) selB.value = qB;
+                if (qA && _allModels.some(m => m.name === qA)) selA.value = qA;
+                // Render model B options (excluding model A)
+                renderModelBOptions();
+                // Auto-select second model if nothing selected
+                if (getSelectedModelBs().length === 0 && _allModels.length >= 2) {
+                    const secondModel = _allModels.find(m => m.name !== selA.value);
+                    if (secondModel) {
+                        const cb = document.querySelector(`#model-b-options input[value="${secondModel.name}"]`);
+                        if (cb) cb.checked = true;
+                        updateModelBDisplay();
+                    }
+                }
             } catch (e) { console.error('Failed to load models', e); }
         }
 
@@ -444,123 +561,323 @@
             await loadModels();
             await checkFoundryStatus();
             loadActiveTopic();
-            // Update heading with selected model names
             updateCompareHeading();
         });
 
         function updateCompareHeading() {
             const modelA = document.getElementById('model-a').value;
-            const modelB = document.getElementById('model-b').value;
+            const selected = getSelectedModelBs();
             const heading = document.getElementById('compare-heading');
-            heading.textContent = `${displayName(modelA)} vs ${displayName(modelB)} Comparison`;
-            document.title = `Model Comparison — ${displayName(modelA)} vs ${displayName(modelB)}`;
+            if (selected.length === 0) {
+                heading.textContent = `${displayName(modelA)} Comparison`;
+                document.title = `Model Comparison`;
+            } else if (selected.length === 1) {
+                heading.textContent = `${displayName(modelA)} vs ${displayName(selected[0])} Comparison`;
+                document.title = `Model Comparison — ${displayName(modelA)} vs ${displayName(selected[0])}`;
+            } else {
+                heading.textContent = `${displayName(modelA)} vs ${selected.length} Models Comparison`;
+                document.title = `Model Comparison — ${displayName(modelA)} vs ${selected.length} models`;
+            }
         }
 
-        // Update heading whenever dropdowns change
-        document.getElementById('model-a').addEventListener('change', updateCompareHeading);
-        document.getElementById('model-b').addEventListener('change', updateCompareHeading);
+        // Re-render Model B options when Model A changes (to exclude it)
+        document.getElementById('model-a').addEventListener('change', () => {
+            renderModelBOptions();
+            updateCompareHeading();
+        });
 
+        // ── Batch Tabs ──────────────────────────────────────────────
+        function buildBatchTabs(modelBList, modelA) {
+            const bar = document.getElementById('batch-tabs-bar');
+            const tabs = document.getElementById('batch-tabs');
+            if (modelBList.length <= 1) {
+                bar.classList.add('hidden');
+                return;
+            }
+            bar.classList.remove('hidden');
+            tabs.innerHTML = '';
+            // One tab per model B + summary tab
+            modelBList.forEach((mb, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap';
+                btn.dataset.tab = mb;
+                btn.textContent = `vs ${displayName(mb)}`;
+                btn.addEventListener('click', () => switchTab(mb));
+                tabs.appendChild(btn);
+            });
+            // Summary tab
+            const sumBtn = document.createElement('button');
+            sumBtn.className = 'px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap';
+            sumBtn.dataset.tab = '__summary__';
+            sumBtn.textContent = '📊 Summary';
+            sumBtn.addEventListener('click', () => switchTab('__summary__'));
+            tabs.appendChild(sumBtn);
+        }
+
+        function switchTab(tabKey) {
+            activeTab = tabKey;
+            // Update tab styling
+            document.querySelectorAll('#batch-tabs button').forEach(btn => {
+                if (btn.dataset.tab === tabKey) {
+                    btn.classList.add('border-brand-500', 'text-brand-600');
+                    btn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700');
+                } else {
+                    btn.classList.remove('border-brand-500', 'text-brand-600');
+                    btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700');
+                }
+            });
+            if (tabKey === '__summary__') {
+                displayBatchSummary();
+            } else {
+                const report = batchReports[tabKey];
+                if (report) displayResults(report);
+            }
+        }
+
+        function displayBatchSummary() {
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('results-section').classList.remove('hidden');
+            const modelA = batchModelBList.length > 0 && Object.values(batchReports)[0]?.model_a
+                ? Object.values(batchReports)[0].model_a : document.getElementById('model-a').value;
+
+            // Build summary HTML
+            let summaryHtml = `
+                <div class="fluent-card p-5 mb-8">
+                    <h3 class="fluent-section-title text-[16px] mb-4">Batch Comparison Summary — ${displayName(modelA)} vs ${batchModelBList.length} models</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Model B</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Winner</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dimensions</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">A Wins</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">B Wins</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">High Impact</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">`;
+            for (const mb of batchModelBList) {
+                const report = batchReports[mb];
+                if (report) {
+                    const s = report.summary || {};
+                    const winner = s.overall_winner === 'tie' ? 'Tie' : displayName(s.overall_winner || '?');
+                    const aWins = s[`${report.model_a}_wins`] || 0;
+                    const bWins = s[`${mb}_wins`] || 0;
+                    const highImpact = (s.high_impact_dimensions || []).length;
+                    summaryHtml += `<tr class="cursor-pointer hover:bg-gray-50" onclick="switchTab('${mb}')">
+                        <td class="px-4 py-3 text-sm font-medium text-gray-900">${displayName(mb)}</td>
+                        <td class="px-4 py-3 text-sm font-medium text-brand-600">${winner}</td>
+                        <td class="px-4 py-3 text-sm text-gray-500">${s.total_dimensions || 0}</td>
+                        <td class="px-4 py-3 text-sm text-blue-600">${aWins}</td>
+                        <td class="px-4 py-3 text-sm text-green-600">${bWins}</td>
+                        <td class="px-4 py-3 text-sm text-red-600">${highImpact}</td>
+                        <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">✓ Done</span></td>
+                    </tr>`;
+                } else {
+                    summaryHtml += `<tr>
+                        <td class="px-4 py-3 text-sm font-medium text-gray-900">${displayName(mb)}</td>
+                        <td colspan="5" class="px-4 py-3 text-sm text-gray-400">—</td>
+                        <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">✗ Failed</span></td>
+                    </tr>`;
+                }
+            }
+            summaryHtml += `</tbody></table></div></div>`;
+
+            // Replace the inner results content temporarily
+            const section = document.getElementById('results-section');
+            // Hide the normal sub-sections, show summary
+            const normalCards = section.querySelectorAll(':scope > *');
+            normalCards.forEach(el => el.style.display = 'none');
+            let summaryDiv = document.getElementById('batch-summary-view');
+            if (!summaryDiv) {
+                summaryDiv = document.createElement('div');
+                summaryDiv.id = 'batch-summary-view';
+                section.appendChild(summaryDiv);
+            }
+            summaryDiv.style.display = '';
+            summaryDiv.innerHTML = summaryHtml;
+        }
+
+        function showNormalResultsView() {
+            const section = document.getElementById('results-section');
+            const normalCards = section.querySelectorAll(':scope > *:not(#batch-summary-view)');
+            normalCards.forEach(el => el.style.display = '');
+            const summaryDiv = document.getElementById('batch-summary-view');
+            if (summaryDiv) summaryDiv.style.display = 'none';
+        }
+
+        // ── Main comparison handler ─────────────────────────────────
         document.getElementById('run-comparison').addEventListener('click', async function() {
             const modelA = document.getElementById('model-a').value;
-            const modelB = document.getElementById('model-b').value;
+            const modelBList = getSelectedModelBs();
             const evalType = document.getElementById('eval-type').value;
             const includeFoundry = document.getElementById('foundry-mode')?.checked || false;
             const runId = makeRunId('compare');
+
+            if (modelBList.length === 0) {
+                alert('Please select at least one Model B.');
+                return;
+            }
+
+            // Reset batch state
+            batchReports = {};
+            batchModelBList = modelBList;
+            activeTab = null;
 
             // Show loading
             document.getElementById('results-section').classList.add('hidden');
             document.getElementById('error-state').classList.add('hidden');
             document.getElementById('loading-state').classList.remove('hidden');
+            document.getElementById('batch-tabs-bar').classList.add('hidden');
             verboseClear();
-            verboseLog('🚀 <strong>Starting model comparison</strong>', 'head');
-            verboseLog(`Both models will be evaluated on the same set of <strong>${evalType}</strong> test scenarios, and their results will be compared dimension by dimension.<br><strong>Model A:</strong> ${displayName(modelA)} &nbsp;|&nbsp; <strong>Model B:</strong> ${displayName(modelB)}`, 'step');
-            if (includeFoundry) {
-                verboseLog('☁️ Foundry mode enabled: both model outputs will also be graded by LLM-as-judge evaluators.', 'step');
+
+            const isBatch = modelBList.length > 1;
+
+            if (isBatch) {
+                // Show progress bar
+                document.getElementById('batch-progress').classList.remove('hidden');
+                document.getElementById('batch-progress-bar').style.width = '0%';
+                document.getElementById('batch-progress-pct').textContent = '0%';
+                document.getElementById('batch-progress-label').textContent = `Preparing batch comparison (${modelBList.length} models)…`;
+                verboseLog(`🚀 <strong>Starting batch comparison</strong> — ${displayName(modelA)} vs ${modelBList.length} models`, 'head');
+                modelBList.forEach(mb => verboseLog(`  • ${displayName(mb)}`, 'detail'));
+            } else {
+                document.getElementById('batch-progress').classList.add('hidden');
+                verboseLog('🚀 <strong>Starting model comparison</strong>', 'head');
+                verboseLog(`<strong>Model A:</strong> ${displayName(modelA)} &nbsp;|&nbsp; <strong>Model B:</strong> ${displayName(modelBList[0])}`, 'step');
             }
-            verboseLog('📡 Sending comparison request to the API — this runs both models sequentially, so it may take a while…', 'step');
+            if (includeFoundry) {
+                verboseLog('☁️ Foundry mode enabled: model outputs will also be graded by LLM-as-judge evaluators.', 'step');
+            }
+            verboseLog('📡 Sending comparison request to the API…', 'step');
             const t0 = performance.now();
             const stopBackendLogs = await startBackendLogPolling(runId, 'Comparison');
 
             try {
-                const response = await fetch('/api/compare', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        model_a: modelA,
-                        model_b: modelB,
-                        type: evalType,
-                        include_foundry: includeFoundry,
-                        run_id: runId,
-                    })
-                });
+                if (isBatch) {
+                    // ── BATCH path ──────────────────────────────────
+                    const response = await fetch('/api/compare/batch', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model_a: modelA,
+                            model_b_list: modelBList,
+                            type: evalType,
+                            include_foundry: includeFoundry,
+                            run_id: runId,
+                        })
+                    });
+                    if (!response.ok) {
+                        let serverMsg = '';
+                        try { const errBody = await response.json(); serverMsg = errBody.error || ''; } catch (_) {}
+                        throw new Error(`Batch comparison failed (HTTP ${response.status})${serverMsg ? ': ' + serverMsg : ''}`);
+                    }
+                    verboseLog('⏳ Batch comparison is running — polling for progress…', 'step');
 
-                if (!response.ok) {
-                    let serverMsg = '';
-                    try {
-                        const errBody = await response.json();
-                        serverMsg = errBody.error || '';
-                    } catch (_) {}
-                    const detail = serverMsg ? `: ${serverMsg}` : '';
-                    verboseLog(`❌ The server rejected the request. HTTP ${response.status}${detail}`, 'err');
-                    throw new Error(`Comparison failed (HTTP ${response.status})${detail}`);
-                }
+                    // Poll batch status
+                    let lastCompleted = 0;
+                    while (true) {
+                        await new Promise(r => setTimeout(r, 2500));
+                        try {
+                            const sr = await fetch(`/api/compare/batch/${encodeURIComponent(runId)}/status`);
+                            if (!sr.ok) continue;
+                            const sd = await sr.json();
 
-                verboseLog('⏳ Comparison is running in the background — polling for completion…', 'step');
+                            // Update progress
+                            const completed = sd.completed || 0;
+                            const total = sd.total || modelBList.length;
+                            const pct = Math.round((completed / total) * 100);
+                            document.getElementById('batch-progress-bar').style.width = pct + '%';
+                            document.getElementById('batch-progress-pct').textContent = pct + '%';
+                            const currentMb = sd.current_model_b;
+                            document.getElementById('batch-progress-label').textContent =
+                                completed < total
+                                    ? `Comparing ${displayName(modelA)} vs ${displayName(currentMb || '…')} (${completed}/${total})`
+                                    : `Completed ${completed}/${total} comparisons`;
 
-                // Poll /api/compare/<run_id>/status until done
-                let data = null;
-                while (true) {
-                    await new Promise(r => setTimeout(r, 2500));
-                    try {
-                        const statusResp = await fetch(`/api/compare/${encodeURIComponent(runId)}/status`);
-                        if (!statusResp.ok) continue;
-                        const statusData = await statusResp.json();
-                        if (statusData.status === 'completed') {
-                            data = statusData.result;
-                            break;
-                        } else if (statusData.status === 'failed') {
-                            throw new Error(statusData.error || 'Comparison failed on the server');
+                            // Log new completions
+                            if (completed > lastCompleted) {
+                                for (const mb of modelBList) {
+                                    const r = (sd.results || {})[mb];
+                                    if (r && r.status === 'completed' && !batchReports[mb]) {
+                                        batchReports[mb] = r.report;
+                                        verboseLog(`✅ ${displayName(modelA)} vs ${displayName(mb)} — done (${completed}/${total})`, 'ok');
+                                    }
+                                }
+                                lastCompleted = completed;
+                            }
+
+                            if (sd.status === 'completed') break;
+                            if (sd.status === 'failed') throw new Error(sd.error || 'Batch comparison failed');
+                        } catch (pollErr) {
+                            if (pollErr.message && pollErr.message.includes('failed')) throw pollErr;
                         }
-                        // else still 'running' — keep polling
-                    } catch (pollErr) {
-                        if (pollErr.message && pollErr.message.includes('Comparison failed')) throw pollErr;
-                        // transient network error — retry silently
                     }
-                }
 
-                const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
-                verboseLog(`✅ Comparison completed in <strong>${elapsed}s</strong>.`, 'ok');
-                const winnerKey = data.summary?.overall_winner || '?';
-                const winnerLabel = winnerKey === 'tie' ? 'Tie — no clear winner' : displayName(winnerKey);
-                verboseLog(`🏆 <strong>Overall winner: ${winnerLabel}</strong> — across <strong>${data.summary?.total_dimensions || '?'} dimensions</strong>.`, 'head');
+                    const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+                    verboseLog(`✅ Batch comparison completed in <strong>${elapsed}s</strong>. ${Object.keys(batchReports).length}/${modelBList.length} successful.`, 'ok');
 
-                if (data.dimensions) {
-                    verboseLog('📊 <strong>Dimension-by-dimension breakdown:</strong>', 'head');
-                    for (const d of data.dimensions) {
-                        const better = d.better_model === 'model_a' ? displayName(data.model_a) : d.better_model === 'model_b' ? displayName(data.model_b) : 'Tie';
-                        const arrow = d.percent_change > 0 ? '📈' : d.percent_change < 0 ? '📉' : '➡️';
-                        const sigLabel = { high: '🔴 High impact', medium: '🟡 Medium', low: '🔵 Low', negligible: '⚪ Negligible' }[d.significance] || d.significance;
-                        let line = `<strong>${d.dimension}</strong>: `;
-                        line += `${displayName(data.model_a)} = <strong>${d.model_a_value.toFixed(4)}</strong> vs ${displayName(data.model_b)} = <strong>${d.model_b_value.toFixed(4)}</strong>`;
-                        line += ` &nbsp;${arrow} ${d.percent_change > 0 ? '+' : ''}${d.percent_change.toFixed(1)}%`;
-                        line += ` &nbsp;|&nbsp; Winner: <strong>${better}</strong> &nbsp;|&nbsp; Impact: ${sigLabel}`;
-                        const type = d.significance === 'high' ? 'warn' : d.significance === 'medium' ? 'step' : 'detail';
-                        verboseLog(line, type);
+                    // Build tabs and show first result
+                    document.getElementById('loading-state').classList.add('hidden');
+                    document.getElementById('batch-progress').classList.add('hidden');
+                    buildBatchTabs(modelBList, modelA);
+
+                    // Show first successful tab
+                    const firstOk = modelBList.find(mb => batchReports[mb]);
+                    if (firstOk) {
+                        switchTab(firstOk);
+                    } else {
+                        throw new Error('All comparisons in the batch failed.');
                     }
-                }
+                } else {
+                    // ── SINGLE path (backward compatible) ───────────
+                    const response = await fetch('/api/compare', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model_a: modelA,
+                            model_b: modelBList[0],
+                            type: evalType,
+                            include_foundry: includeFoundry,
+                            run_id: runId,
+                        })
+                    });
+                    if (!response.ok) {
+                        let serverMsg = '';
+                        try { const errBody = await response.json(); serverMsg = errBody.error || ''; } catch (_) {}
+                        throw new Error(`Comparison failed (HTTP ${response.status})${serverMsg ? ': ' + serverMsg : ''}`);
+                    }
+                    verboseLog('⏳ Comparison is running in the background — polling for completion…', 'step');
 
-                if (data.recommendations && data.recommendations.length) {
-                    let recHtml = '💡 <strong>Recommendations:</strong><br>';
-                    data.recommendations.forEach((r, i) => { recHtml += `${i + 1}. ${r}<br>`; });
-                    verboseLog(recHtml, 'ok');
-                }
+                    let data = null;
+                    while (true) {
+                        await new Promise(r => setTimeout(r, 2500));
+                        try {
+                            const statusResp = await fetch(`/api/compare/${encodeURIComponent(runId)}/status`);
+                            if (!statusResp.ok) continue;
+                            const statusData = await statusResp.json();
+                            if (statusData.status === 'completed') { data = statusData.result; break; }
+                            else if (statusData.status === 'failed') throw new Error(statusData.error || 'Comparison failed on the server');
+                        } catch (pollErr) {
+                            if (pollErr.message && pollErr.message.includes('Comparison failed')) throw pollErr;
+                        }
+                    }
 
-                verboseLog('🏁 <strong>Comparison analysis complete.</strong>', 'ok');
-                displayResults(data);
+                    const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+                    verboseLog(`✅ Comparison completed in <strong>${elapsed}s</strong>.`, 'ok');
+                    const winnerKey = data.summary?.overall_winner || '?';
+                    const winnerLabel = winnerKey === 'tie' ? 'Tie — no clear winner' : displayName(winnerKey);
+                    verboseLog(`🏆 <strong>Overall winner: ${winnerLabel}</strong> — across <strong>${data.summary?.total_dimensions || '?'} dimensions</strong>.`, 'head');
+                    verboseLog('🏁 <strong>Comparison analysis complete.</strong>', 'ok');
+                    displayResults(data);
+                }
             } catch (error) {
                 console.error('[Comparison Error]', error);
                 verboseLog(`❌ <strong>Error:</strong> ${error.message || error}`, 'err');
                 document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('batch-progress').classList.add('hidden');
                 document.getElementById('error-state').classList.remove('hidden');
                 document.getElementById('error-message').textContent = error.message || 'Unknown error';
             } finally {
@@ -571,6 +888,7 @@
         function displayResults(data) {
             document.getElementById('loading-state').classList.add('hidden');
             document.getElementById('results-section').classList.remove('hidden');
+            showNormalResultsView();
 
             // Update summary cards
             document.getElementById('winner-name').textContent = 

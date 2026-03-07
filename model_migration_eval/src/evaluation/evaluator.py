@@ -156,10 +156,10 @@ class ModelEvaluator:
         """Decide whether consistency runs should actually execute.
 
         Returns *False* (auto-disabling consistency) when the model uses a
-        rate-limited backend such as Gemini free-tier, where the extra
-        requests would quickly exhaust the daily quota.  For all other
-        backends the caller's original ``measure_consistency`` flag is
-        honoured.
+        rate-limited backend such as Gemini free-tier (5 RPM, ~20 RPD),
+        where the extra requests would quickly exhaust the daily quota.
+        For all other backends the caller's original ``measure_consistency``
+        flag is honoured.
         """
         if not measure_consistency:
             return False

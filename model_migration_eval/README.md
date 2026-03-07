@@ -37,7 +37,7 @@ This framework automates that process end-to-end:
 | **Tool Calling** | Tool selection accuracy, parameter extraction accuracy, response correctness, latency & cost analytics |
 | **Token & Cost** | Per-request token breakdown (prompt/completion/cached/reasoning), cost estimation, cache hit rate, throughput (tok/s) |
 | **Consistency** | Multi-run reproducibility scoring, response variance, format consistency |
-| **Model Comparison** | Dimension-by-dimension comparison with statistical significance (Welch's t-test) and actionable recommendations |
+| **Model Comparison** | Head-to-head or **batch multi-model** comparison (Model A vs N Model B's) with dimension-by-dimension charts, statistical significance (Welch's t-test), and actionable recommendations |
 | **Prompt Versioning** | Every save creates a timestamped snapshot — preview, restore, or delete any version |
 | **Test Data Editor** | View, create, and edit test scenarios via type-specific web forms (classification, dialog, general, RAG, tool calling) with auto-scroll, a JSON toggle for advanced editing, and configurable scenario counts per type |
 | **Results Persistence** | Evaluations and comparisons auto-save to disk — browse, filter, inspect, and delete from the UI |
@@ -143,7 +143,7 @@ model_migration_eval/
 │   │   ├── prompt_manager.py       # PromptManager — editing, versioning, AI gen, topics
 │   │   └── data_loader.py          # DataLoader — synthetic scenario loading
 │   └── web/
-│       ├── routes.py               # Flask API routes (1500+ lines, 50+ routes)
+│       ├── routes.py               # Flask API routes (2100+ lines, 55+ routes)
 │       └── templates/
 │           ├── _fluent_head.html    # Fluent 2 design system (CSS tokens, Tailwind config, component classes)
 │           ├── _sidebar.html        # Top header bar + collapsible left sidebar + user menu
@@ -298,7 +298,7 @@ The UI follows the **Microsoft Copilot Studio** visual language — a **Fluent 2
 |-----|------|-----|---------|
 | **Dashboard** | 🏠 | `/` | Quick single-prompt evaluation — enter a prompt, pick models, see responses side-by-side |
 | **Evaluate** | 📊 | `/evaluate` | Batch evaluation of a single model across all test scenarios for a given type |
-| **Compare** | ⚖️ | `/compare` | Head-to-head comparison of two models with dimension-by-dimension charts |
+| **Compare** | ⚖️ | `/compare` | Head-to-head or **batch multi-model** comparison (Model A vs one or more Model B's) with dimension-by-dimension charts and summary table |
 | **Results** | 📋 | `/results` | Browse, filter, inspect, and delete all saved evaluation/comparison results |
 | **Prompts** | ✏️ | `/prompts` | Full prompt lifecycle: view, edit, AI-generate, version history, and test data explorer |
 | **Import Samples** | 📄 | `/import-samples` | JSON & CSV sample files for all 5 task types — copyable examples with field reference (opens from the Prompts page "Samples" link) |
@@ -359,12 +359,24 @@ Each metric card has an **ⓘ info tooltip** button explaining what the metric m
   <img src="docs/demos/04_comparison.gif" alt="Head-to-head model comparison demo" width="800">
 </p>
 
-1. Select **Model A** (baseline) and **Model B** (candidate), plus the evaluation type.
+1. Select **Model A** (baseline) and one or more **Model B** candidates from the multiselect dropdown, plus the evaluation type.
 2. Optionally enable **☑ Verbose** and/or **☑ Include Foundry LLM-as-judge**.
-3. Click **▶ Run Comparison** — the comparison runs **asynchronously** in a background thread while the UI polls for progress (avoids ACA Envoy proxy timeout limits).
+3. Click **▶ Run Comparison**.
 4. See dimension-by-dimension results with percentage change, significance levels, and a bar chart.
 5. The report includes an overall winner and actionable recommendations.
 6. Comparisons are **auto-saved** to `data/results/`.
+
+#### Single vs. Batch Comparison
+
+| Mode | Trigger | Behaviour |
+|------|---------|----------|
+| **Single** | 1 Model B selected | Direct comparison A vs B — same as before |
+| **Batch** | 2+ Model B's selected | Model A is evaluated **once**, then each Model B is evaluated and compared. A **progress bar** tracks completion. Tabbed results let you switch between each A-vs-B report, plus a **📊 Summary** tab with an overview table |
+
+In batch mode:
+- **Model A** is evaluated only once and reused for all comparisons (saves time and API calls).
+- Each pair's report is **auto-saved** individually with a shared `batch_id` for grouping.
+- Foundry LLM-as-judge scores for Model A are also submitted only once.
 
 ### Results (`/results`)
 
@@ -373,6 +385,7 @@ Each metric card has an **ⓘ info tooltip** button explaining what the metric m
 </p>
 
 - Lists all saved evaluation and comparison JSON files, sorted newest first.
+- **Batch grouping** — comparisons from the same batch run are grouped under a collapsible **📦 Batch Comparison** header showing the number of reports and timestamp.  Click to expand and see individual results.
 - **Filter** by type: Classification, Dialog, General, or Comparison.
 - **Count badge** shows how many results match the current filter.
 - Click any result to open a **detail modal** with:
@@ -1346,9 +1359,9 @@ Google Gemini models are accessed via the [OpenAI-compatible endpoint](https://a
 
 | Aspect | Detail |
 |--------|--------|
-| **Rate limits (free tier)** | ~15 RPM / ~20 RPD — the free API key is severely rate-limited. Set `max_concurrent: 1` to send requests sequentially |
-| **Retry with backoff** | Transient errors (429, 500, 502, 503, 504) trigger up to 6 retries with exponential backoff (2 → 4 → 8 → 16 → 32 → 64 s) plus jitter, capped at 120 s per wait |
-| **Daily quota detection** | When the daily quota (`PerDay`) is exhausted, the system detects it immediately and fails fast with a clear message instead of retrying |
+| **Rate limits (free tier)** | 5 RPM / ~20 RPD — the free API key is severely rate-limited. Set `max_concurrent: 1` to send requests sequentially |
+| **Retry with backoff** | Transient errors (429, 500, 502, 503, 504) trigger up to **12 retries** (vs 6 for other models) with exponential backoff plus jitter, capped at 120 s per wait. A **minimum 13 s delay** between retries is enforced to stay within the 5 RPM limit |
+| **Per-minute vs. daily detection** | The system distinguishes **per-minute** rate limits (`PerMinute` in `quotaId`) from **daily** quota exhaustion (`PerDay`). Per-minute 429s are retried with backoff; daily quota exhaustion fails fast immediately with a clear message |
 | **SDK retries disabled** | The OpenAI SDK's built-in `max_retries` is set to `0` for Gemini clients to avoid double-retry (SDK retries × app retries) |
 | **Consistency runs skipped** | Consistency/reproducibility measurements (multiple runs per scenario) are **automatically disabled** for Gemini models to conserve the limited daily quota |
 | **Seed parameter** | Not sent — Gemini does not support the `seed` parameter |
@@ -1982,6 +1995,8 @@ All endpoints are available at `http://127.0.0.1:<port>/api/`.
 | `POST` | `/api/evaluate/batch` | Batch evaluation — auto-saves result to disk |
 | `POST` | `/api/compare` | Compare two models — returns HTTP 202, runs asynchronously in background |
 | `GET` | `/api/compare/<run_id>/status` | Poll comparison job progress — returns result payload when complete |
+| `POST` | `/api/compare/batch` | Batch compare Model A vs multiple Model B's — returns HTTP 202, evaluates A once and reuses |
+| `GET` | `/api/compare/batch/<run_id>/status` | Poll batch comparison progress — returns per-model status and reports |
 
 ### Prompt Management
 
@@ -2196,8 +2211,8 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 | `AzureOpenAIClient` | `src.clients.azure_openai` | Wraps the OpenAI SDK — connection management, chat completions, streaming.  Supports Azure OpenAI, Marketplace models (Mistral), and Google Gemini via `model_family` + `backend`-based routing |
 | `ModelEvaluator` | `src.evaluation.evaluator` | Runs classification/dialog/general/RAG/tool_calling evaluations against a single model |
 | `EvaluationResult` | `src.evaluation.evaluator` | Dataclass container for evaluation output — serialises to/from JSON |
-| `ModelComparator` | `src.evaluation.comparator` | Compares evaluation results between two models with significance analysis |
-| `ComparisonReport` | `src.evaluation.comparator` | Dataclass for comparison output — dimensions, winner, recommendations |
+| `ModelComparator` | `src.evaluation.comparator` | Compares evaluation results between two models (or batch: one model vs N candidates) with significance analysis |
+| `ComparisonReport` | `src.evaluation.comparator` | Dataclass for comparison output — dimensions, winner, recommendations, optional `batch_id` for grouping |
 | `MetricsCalculator` | `src.evaluation.metrics` | Computes classification metrics (accuracy, F1, kappa, confusion matrix, calibration), dialog quality metrics (rule compliance, empathy, optimal similarity, resolution efficiency), RAG metrics (groundedness, relevance), tool calling metrics (tool selection accuracy, parameter accuracy), latency & cost analytics, and consistency scoring.  Includes case-insensitive category normalisation with alias support |
 | `FoundryEvaluator` | `src.evaluation.foundry_evaluator` | Submits evaluation data to Microsoft Foundry Control Plane for LLM-as-judge quality evaluation.  Handles JSONL export (with type-specific converters for all 5 eval types), dataset upload, evaluation creation, run polling, and automatic retry with safety evaluator fallback |
 | `PromptManager` | `src.utils.prompt_manager` | Prompt editing, versioning, AI generation (4 task types × N models + 5 datasets with JSON sanitisation & retry), topic archival, data sync, synthetic data regeneration |

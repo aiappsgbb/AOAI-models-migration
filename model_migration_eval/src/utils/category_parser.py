@@ -125,6 +125,10 @@ def extract_categories_from_prompt(prompt_text: str) -> List[str]:
         # Detect table header row
         if '|' in stripped and not in_table:
             cols = [c.strip().lower() for c in stripped.split('|')]
+            # Skip tables whose header explicitly labels columns as
+            # subcategory data — these are not primary category tables.
+            if any(re.search(r'sub.?categor', col) for col in cols):
+                continue
             # Pass 1: look for a column explicitly named as a code column
             for i, col in enumerate(cols):
                 if col in ('code', 'category_code', 'codigo', 'código',

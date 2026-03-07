@@ -487,13 +487,26 @@ class AzureOpenAIClient:
         transient per-minute rate-limit).
 
         Gemini free-tier errors include a ``QuotaFailure`` detail whose
-        ``quotaId`` contains ``PerDay``.  The error can also surface as
-        ``metadata.quota_limit`` containing ``PerDay``, a ``retryDelay``
-        of 86 400 s, or simply ``"Resource has been exhausted"`` without
-        granular details via the OpenAI-compatible endpoint.
+        ``quotaId`` contains ``PerDay``.  Per-minute rate-limits contain
+        ``PerMinute`` in the ``quotaId`` and must **not** be treated as
+        daily — they are transient and should be retried with backoff.
 
-        Retrying these is pointless until the next calendar day, so we
-        fail fast instead.
+        Only the following indicators are considered *daily* exhaustion:
+
+        1. ``quotaId`` containing ``PerDay``
+        2. ``metadata.quota_limit`` containing ``PerDay``
+        3. ``retryDelay`` >= 3 600 s (1 hour — effectively a daily reset)
+        4. Error message explicitly mentioning ``per day`` / ``PerDay``
+        5. Deep-search for ``PerDay`` in the serialised body
+        6. ``RESOURCE_EXHAUSTED`` status **only** when *no* granular quota
+           details are present (ambiguous legacy format).
+
+        If ``PerMinute`` indicators are found, we always return ``False``
+        regardless of a generic ``RESOURCE_EXHAUSTED`` message, because
+        per-minute limits should be retried — not failed.
+
+        Retrying daily limits is pointless until the next calendar day, so
+        we fail fast instead.
         """
         try:
             body = getattr(exc, 'body', None)
@@ -505,25 +518,53 @@ class AzureOpenAIClient:
                 if not isinstance(details, list):
                     details = []
 
+                _found_per_minute = False
+                _found_per_day = False
+                _found_granular_quota = False
+
                 for detail in details:
                     if not isinstance(detail, dict):
                         continue
-                    # 1. QuotaFailure violations with PerDay quotaId
+                    # 1. QuotaFailure violations — check for PerDay / PerMinute
                     for v in detail.get('violations', []):
-                        if 'PerDay' in (v.get('quotaId', '') if isinstance(v, dict) else ''):
-                            return True
-                    # 2. ErrorInfo metadata with PerDay quota_limit
+                        if not isinstance(v, dict):
+                            continue
+                        qid = v.get('quotaId', '')
+                        if qid:
+                            _found_granular_quota = True
+                        if 'PerDay' in qid:
+                            _found_per_day = True
+                        if 'PerMinute' in qid:
+                            _found_per_minute = True
+
+                    # 2. ErrorInfo metadata
                     meta = detail.get('metadata', {})
-                    if isinstance(meta, dict) and 'PerDay' in meta.get('quota_limit', ''):
-                        return True
+                    if isinstance(meta, dict):
+                        ql = meta.get('quota_limit', '')
+                        if ql:
+                            _found_granular_quota = True
+                        if 'PerDay' in ql:
+                            _found_per_day = True
+                        if 'PerMinute' in ql:
+                            _found_per_minute = True
+
                     # 3. RetryInfo with very long delay (>= 1 h → daily quota)
                     retry_delay = detail.get('retryDelay', '')
                     if isinstance(retry_delay, str) and retry_delay.endswith('s'):
                         try:
                             if float(retry_delay[:-1]) >= 3600:
-                                return True
+                                _found_per_day = True
                         except ValueError:
                             pass
+
+                # Fast path: per-minute indicator present and NO per-day
+                # indicator → this is a transient RPM limit, NOT daily.
+                if _found_per_minute and not _found_per_day:
+                    return False
+
+                # Explicit daily quota found
+                if _found_per_day:
+                    return True
 
                 # 4. Check message for explicit "per day" / "PerDay" mentions
                 msg = error_obj.get('message', '')
@@ -535,14 +576,24 @@ class AzureOpenAIClient:
                 # 5. Deep search: serialise the full body and look for PerDay
                 #    anywhere in the structure (catches any nested format).
                 try:
-                    if 'PerDay' in json.dumps(body):
+                    body_str = json.dumps(body)
+                    if 'PerDay' in body_str:
                         return True
+                    # If PerMinute is anywhere in the body → transient, not daily
+                    if 'PerMinute' in body_str:
+                        return False
                 except (TypeError, ValueError):
                     pass
 
                 # 6. Gemini "Resource has been exhausted" via OpenAI-compat
-                #    endpoint — often lacks granular details.  Combined with
-                #    RESOURCE_EXHAUSTED status this is the daily limit.
+                #    endpoint.  Only classify as daily if we found *no*
+                #    granular quota details — when details exist but have no
+                #    PerDay indicator, it is a transient per-minute limit.
+                if _found_granular_quota:
+                    return False  # Had details but no PerDay → per-minute
+
+                # No granular details at all — ambiguous.  Use generic
+                # RESOURCE_EXHAUSTED as daily heuristic only as last resort.
                 if isinstance(msg, str):
                     ml = msg.lower()
                     if ('resource' in ml and 'exhausted' in ml) or \
@@ -552,9 +603,13 @@ class AzureOpenAIClient:
         except (AttributeError, TypeError):
             pass
 
-        # 7. Last resort: check the stringified exception
-        exc_str = str(exc).lower()
-        if 'resource' in exc_str and 'exhausted' in exc_str:
+        # 7. Last resort: check the stringified exception, but exclude
+        #    cases that mention per-minute indicators.
+        exc_str = str(exc)
+        if 'PerMinute' in exc_str:
+            return False
+        exc_lower = exc_str.lower()
+        if 'resource' in exc_lower and 'exhausted' in exc_lower:
             return True
 
         return False
@@ -821,10 +876,14 @@ class AzureOpenAIClient:
             **kwargs
         )
             
-        # Gemini free tier is very restrictive (≈20 RPD) and often returns
-        # 429/503.  We retry generously with exponential backoff + jitter
-        # for ALL transient HTTP errors (429, 500, 502, 503, 504).
-        _MAX_TRANSIENT_RETRIES = 6
+        # Gemini free tier is very restrictive (5 RPM, ~20 RPD) and
+        # often returns 429/503.  We retry generously with exponential
+        # backoff + jitter for ALL transient HTTP errors.
+        # Gemini models get more retries and a minimum inter-retry delay
+        # to stay within the 5 requests-per-minute limit.
+        _is_gemini = self._is_gemini_backend(config)
+        _MAX_TRANSIENT_RETRIES = 12 if _is_gemini else 6
+        _GEMINI_MIN_RETRY_SECS = 13.0   # 60 s / 5 RPM ≈ 12 s + margin
         _TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
 
         for _attempt in range(_MAX_TRANSIENT_RETRIES + 1):
@@ -867,7 +926,7 @@ class AzureOpenAIClient:
                     and _status in _TRANSIENT_STATUS_CODES
                     and _attempt < _MAX_TRANSIENT_RETRIES
                 ):
-                    # Daily quota exhausted (e.g. Gemini free-tier 20 RPD)
+                    # Daily quota exhausted (e.g. Gemini free-tier ~20 RPD)
                     # → retrying is pointless, fail immediately.
                     if _status == 429 and self._is_daily_quota_exhausted(e):
                         _quota_msg = (
@@ -883,6 +942,10 @@ class AzureOpenAIClient:
                     # Try to honour the server's suggested retry delay
                     _default_wait = min(2 ** _attempt * 2, 120)
                     wait = self._parse_retry_after(e, default=_default_wait)
+                    # Gemini free tier (5 RPM): enforce minimum spacing so
+                    # we don't immediately hit the per-minute limit again.
+                    if _is_gemini:
+                        wait = max(wait, _GEMINI_MIN_RETRY_SECS)
                     # Add jitter (±25 %) to avoid thundering-herd on resume
                     wait = wait * (0.75 + random.random() * 0.5)
                     logger.warning(

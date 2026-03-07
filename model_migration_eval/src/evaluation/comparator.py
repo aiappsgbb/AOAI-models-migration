@@ -8,7 +8,8 @@ and Foundry LLM-as-judge submissions run concurrently.
 
 import json
 import asyncio
-from typing import Dict, List, Any, Optional, Tuple
+import uuid
+from typing import Dict, List, Any, Optional, Tuple, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -71,6 +72,7 @@ class ComparisonReport:
     foundry_scores_b: Optional[Dict[str, Any]] = None
     foundry_meta: Optional[Dict[str, Any]] = None
     migration_readiness: Optional[Dict[str, Any]] = None
+    batch_id: Optional[str] = None
     
     @staticmethod
     def _sanitize(obj):
@@ -103,6 +105,7 @@ class ComparisonReport:
             'foundry_scores_b': self.foundry_scores_b,
             'foundry_meta': self.foundry_meta,
             'migration_readiness': self.migration_readiness,
+            'batch_id': self.batch_id,
         }
         return self._sanitize(raw)
         
@@ -319,6 +322,207 @@ class ModelComparator:
             migration_readiness=migration_readiness,
         )
         
+    def compare_models_batch(
+        self,
+        model_a: str,
+        model_b_list: List[str],
+        evaluation_type: str = "classification",
+        include_foundry: bool = False,
+        progress_callback: Optional[Callable[[int, int, str, Optional[ComparisonReport]], None]] = None,
+    ) -> List[ComparisonReport]:
+        """Compare model_a against multiple model_b's, evaluating A only once.
+
+        Args:
+            model_a: Reference model name.
+            model_b_list: List of candidate model names to compare against A.
+            evaluation_type: One of 'classification', 'dialog', 'general',
+                'rag', 'tool_calling'.
+            include_foundry: Whether to run Foundry LLM-as-judge evaluations.
+            progress_callback: Optional ``(completed_idx, total, current_model_b,
+                report_or_None)`` called after each pair completes.
+
+        Returns:
+            List of ComparisonReport — one per model_b.
+        """
+        return _run_in_loop(self.compare_models_batch_async(
+            model_a, model_b_list, evaluation_type,
+            include_foundry=include_foundry,
+            progress_callback=progress_callback,
+        ))
+
+    async def compare_models_batch_async(
+        self,
+        model_a: str,
+        model_b_list: List[str],
+        evaluation_type: str = "classification",
+        include_foundry: bool = False,
+        progress_callback: Optional[Callable[[int, int, str, Optional[ComparisonReport]], None]] = None,
+    ) -> List[ComparisonReport]:
+        """Async batch comparison: evaluates model_a once, then each model_b.
+
+        Foundry scores for model_a are also submitted once and reused.
+        """
+        batch_id = uuid.uuid4().hex[:12]
+        total = len(model_b_list)
+        reports: List[ComparisonReport] = []
+
+        # 1. Evaluate model A once
+        logger.info(f"[Batch {batch_id}] Evaluating model_a={model_a} ({evaluation_type})")
+        result_a = await self._evaluate_single_model_async(model_a, evaluation_type)
+
+        # 2. Foundry for model_a (once)
+        foundry_scores_a: Optional[Dict[str, Any]] = None
+        foundry_meta_a: Optional[Dict[str, Any]] = None
+        if include_foundry and self.foundry_evaluator is not None:
+            logger.info(f"[Batch {batch_id}] Submitting Foundry evaluation for model_a={model_a}")
+            foundry_scores_a, foundry_meta_a = await self._submit_foundry_single(
+                result_a, evaluation_type, model_a
+            )
+
+        # 3. For each model_b: evaluate, optionally Foundry, compare
+        for idx, model_b in enumerate(model_b_list):
+            logger.info(
+                f"[Batch {batch_id}] Comparing {model_a} vs {model_b} "
+                f"({idx + 1}/{total})"
+            )
+            try:
+                result_b = await self._evaluate_single_model_async(model_b, evaluation_type)
+
+                # Foundry for model_b
+                f_scores_b: Optional[Dict[str, Any]] = None
+                f_meta: Optional[Dict[str, Any]] = None
+                if include_foundry:
+                    f_meta = {
+                        'enabled': True,
+                        'completed': False,
+                        'errors': [],
+                        'model_a': foundry_meta_a or {'eval_id': None, 'run_id': None, 'report_url': None},
+                        'model_b': {'eval_id': None, 'run_id': None, 'report_url': None},
+                    }
+                    if self.foundry_evaluator is None:
+                        f_meta['errors'].append('Foundry evaluator is not configured.')
+                    else:
+                        logger.info(f"[Batch {batch_id}] Submitting Foundry for model_b={model_b}")
+                        f_scores_b, f_meta_b = await self._submit_foundry_single(
+                            result_b, evaluation_type, model_b
+                        )
+                        f_meta['model_b'] = f_meta_b or {'eval_id': None, 'run_id': None, 'report_url': None}
+                        if f_scores_b is None:
+                            f_meta['errors'].append(f"No Foundry scores returned for {model_b}.")
+                        if foundry_scores_a is None:
+                            f_meta['errors'].append(f"No Foundry scores returned for {model_a}.")
+                        f_meta['completed'] = bool(foundry_scores_a and f_scores_b)
+
+                # Build comparison report
+                dimensions = self._generate_dimensions(
+                    result_a, result_b, evaluation_type,
+                    foundry_scores_a=foundry_scores_a,
+                    foundry_scores_b=f_scores_b,
+                )
+                summary = self._generate_summary(dimensions, model_a, model_b)
+                if include_foundry:
+                    foundry_dims = [d for d in dimensions if d.dimension.endswith('(Foundry)')]
+                    summary['foundry'] = {
+                        'enabled': True,
+                        'metrics_compared': len(foundry_dims),
+                        'completed': bool(foundry_scores_a and f_scores_b),
+                        'errors': (f_meta or {}).get('errors', []),
+                    }
+                recommendations = self._generate_recommendations(
+                    dimensions, result_a, result_b, model_a, model_b
+                )
+                migration_readiness = self._evaluate_migration_readiness(
+                    result_b, evaluation_type, model_b
+                )
+                statistical_significance = None
+                if result_a.raw_results and result_b.raw_results:
+                    try:
+                        statistical_significance = MetricsCalculator.calculate_statistical_significance(
+                            result_a.raw_results, result_b.raw_results
+                        )
+                    except Exception:
+                        pass
+
+                report = ComparisonReport(
+                    model_a=model_a,
+                    model_b=model_b,
+                    timestamp=datetime.now().isoformat(),
+                    evaluation_type=evaluation_type,
+                    dimensions=dimensions,
+                    summary=summary,
+                    recommendations=recommendations,
+                    raw_results_a=result_a.raw_results,
+                    raw_results_b=result_b.raw_results,
+                    statistical_significance=statistical_significance,
+                    foundry_scores_a={'aggregated': foundry_scores_a.get('aggregated', {})} if foundry_scores_a else None,
+                    foundry_scores_b={'aggregated': f_scores_b.get('aggregated', {})} if f_scores_b else None,
+                    foundry_meta=f_meta,
+                    migration_readiness=migration_readiness,
+                    batch_id=batch_id,
+                )
+                reports.append(report)
+
+                if progress_callback:
+                    try:
+                        progress_callback(idx + 1, total, model_b, report)
+                    except Exception:
+                        pass
+
+            except Exception as exc:
+                logger.error(f"[Batch {batch_id}] Failed {model_a} vs {model_b}: {exc}")
+                if progress_callback:
+                    try:
+                        progress_callback(idx + 1, total, model_b, None)
+                    except Exception:
+                        pass
+
+        logger.info(f"[Batch {batch_id}] Completed {len(reports)}/{total} comparisons")
+        return reports
+
+    async def _evaluate_single_model_async(
+        self,
+        model: str,
+        evaluation_type: str,
+    ) -> 'EvaluationResult':
+        """Evaluate a single model for the given evaluation type."""
+        if evaluation_type == "classification":
+            return await self.evaluator.evaluate_classification_async(model)
+        elif evaluation_type == "dialog":
+            return await self.evaluator.evaluate_dialog_async(model)
+        elif evaluation_type == "rag":
+            return await self.evaluator.evaluate_rag_async(model)
+        elif evaluation_type == "tool_calling":
+            return await self.evaluator.evaluate_tool_calling_async(model)
+        else:
+            return await self.evaluator.evaluate_general_async(model)
+
+    async def _submit_foundry_single(
+        self,
+        result: 'EvaluationResult',
+        evaluation_type: str,
+        model_name: str,
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """Submit a single model's results to Foundry and return (scores, meta)."""
+        meta: Dict[str, Any] = {'eval_id': None, 'run_id': None, 'report_url': None}
+        try:
+            res = await asyncio.to_thread(
+                self.foundry_evaluator.submit_evaluation,
+                raw_results=result.raw_results,
+                evaluation_type=evaluation_type,
+                model_name=model_name,
+                poll=True,
+            )
+            meta = {
+                'eval_id': res.get('eval_id'),
+                'run_id': res.get('run_id'),
+                'report_url': res.get('report_url'),
+                'status': res.get('status'),
+            }
+            return res.get('foundry_scores'), meta
+        except Exception as e:
+            logger.warning(f"Foundry submission failed for {model_name}: {e}")
+            return None, meta
+
     def compare_full(
         self,
         model_a: str = "gpt4",

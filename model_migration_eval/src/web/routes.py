@@ -1096,6 +1096,138 @@ def create_app(config_path: str = None) -> Flask:
         elif job['status'] == 'failed':
             resp['error'] = job['error']
         return jsonify(resp)
+
+    # ── Batch comparison (Model A vs multiple Model B's) ─────────────
+
+    @app.route('/api/compare/batch', methods=['POST'])
+    def compare_models_batch():
+        """Compare model_a against a list of model_b's — background thread, returns 202.
+
+        Request body:
+            model_a:        str
+            model_b_list:   list[str]   (≥1 models)
+            type:           str         evaluation type
+            include_foundry: bool
+            run_id:         str|null
+        """
+        data = request.get_json() or {}
+        run_id = _normalize_run_id(data.get('run_id'))
+        _cleanup_run_logs()
+        model_a = data.get('model_a', 'gpt4')
+        model_b_list = data.get('model_b_list', [])
+        evaluation_type = data.get('type', 'classification')
+        include_foundry = bool(data.get('include_foundry', False))
+
+        if not model_b_list or not isinstance(model_b_list, list):
+            return jsonify({'error': 'model_b_list must be a non-empty list', 'run_id': run_id}), 400
+
+        try:
+            _register_job()
+        except RuntimeError as e:
+            return jsonify({'error': str(e), 'run_id': run_id}), 409
+
+        comparator = get_comparator()
+        if not comparator:
+            _unregister_job()
+            return jsonify({'error': 'Comparator not available', 'run_id': run_id}), 500
+
+        results_dir = str(_get_user_context().results_dir)
+        _bg_user_id = session.get('user_id')
+
+        # Register batch job
+        with _compare_jobs_lock:
+            _compare_jobs[run_id] = {
+                'status': 'running',
+                'mode': 'batch',
+                'total': len(model_b_list),
+                'completed': 0,
+                'current_model_b': None,
+                'results': {mb: {'status': 'pending'} for mb in model_b_list},
+                'error': None,
+                'created': time.time(),
+            }
+
+        def _bg_batch_compare():
+            _uctx = UserContext(user_id=_bg_user_id, base_dir='data/users')
+            token = _current_run_id.set(run_id)
+            try:
+                def _progress(completed_idx, total, current_mb, report):
+                    with _compare_jobs_lock:
+                        job = _compare_jobs.get(run_id)
+                        if not job:
+                            return
+                        job['completed'] = completed_idx
+                        job['current_model_b'] = current_mb
+                        if report is not None:
+                            try:
+                                report.save(results_dir)
+                                logging.getLogger(__name__).info(
+                                    f"Auto-saved batch comparison {model_a} vs {current_mb} ({evaluation_type})"
+                                )
+                            except Exception as save_err:
+                                logging.getLogger(__name__).warning(
+                                    f"Failed to auto-save batch comparison: {save_err}"
+                                )
+                            job['results'][current_mb] = {
+                                'status': 'completed',
+                                'report': report.to_dict(),
+                            }
+                        else:
+                            job['results'][current_mb] = {
+                                'status': 'failed',
+                            }
+
+                reports = comparator.compare_models_batch(
+                    model_a=model_a,
+                    model_b_list=model_b_list,
+                    evaluation_type=evaluation_type,
+                    include_foundry=include_foundry,
+                    progress_callback=_progress,
+                )
+
+                with _compare_jobs_lock:
+                    _compare_jobs[run_id]['status'] = 'completed'
+            except Exception as exc:
+                logging.getLogger(__name__).error(f"Batch comparison failed: {exc}")
+                with _compare_jobs_lock:
+                    _compare_jobs[run_id]['status'] = 'failed'
+                    _compare_jobs[run_id]['error'] = str(exc)
+            finally:
+                _unregister_job()
+                _current_run_id.reset(token)
+
+        thread = threading.Thread(target=_bg_batch_compare, daemon=True)
+        thread.start()
+
+        return jsonify({
+            'status': 'running',
+            'run_id': run_id,
+            'mode': 'batch',
+            'total': len(model_b_list),
+        }), 202
+
+    @app.route('/api/compare/batch/<run_id>/status')
+    def compare_batch_status(run_id: str):
+        """Poll batch comparison job status with per-model progress."""
+        rid = _normalize_run_id(run_id)
+        with _compare_jobs_lock:
+            job = _compare_jobs.get(rid)
+        if not job:
+            return jsonify({'status': 'not_found', 'run_id': rid}), 404
+        if job.get('mode') != 'batch':
+            return jsonify({'status': 'not_found', 'run_id': rid, 'error': 'Not a batch job'}), 404
+
+        resp = {
+            'status': job['status'],
+            'run_id': rid,
+            'total': job.get('total', 0),
+            'completed': job.get('completed', 0),
+            'current_model_b': job.get('current_model_b'),
+            'results': job.get('results', {}),
+        }
+        if job['status'] == 'failed' and job.get('error'):
+            resp['error'] = job['error']
+        return jsonify(resp)
             
     @app.route('/api/prompts/<model>/<prompt_type>')
     def get_prompt(model: str, prompt_type: str):
@@ -1502,6 +1634,7 @@ def create_app(config_path: str = None) -> Flask:
                         'evaluation_type': _extract('evaluation_type'),
                         'timestamp': _extract('timestamp'),
                         'foundry_report_url': _extract('foundry_report_url'),
+                        'batch_id': _extract('batch_id'),
                     }
 
                 model_display = data.get('model_name', 'unknown')
@@ -1513,6 +1646,10 @@ def create_app(config_path: str = None) -> Flask:
                     'type': data.get('evaluation_type', 'unknown'),
                     'timestamp': data.get('timestamp', ''),
                 }
+                # Include batch_id when available (batch comparisons)
+                bid = data.get('batch_id')
+                if bid:
+                    entry['batch_id'] = bid
                 # Include Foundry report URLs when available
                 if data.get('foundry_report_url'):
                     entry['foundry_report_url'] = data['foundry_report_url']
