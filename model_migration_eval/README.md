@@ -72,6 +72,8 @@ model_migration_eval/
 │       ├── foundry-resource.bicep  #   AI Services account + model deployments + Foundry project
 │       ├── openai-access.bicep     #   Cognitive Services OpenAI User role (legacy)
 │       └── openai-resource.bicep   #   Azure OpenAI account (legacy — replaced by foundry-resource)
+│   └── hooks/
+│       └── assign-roles.ps1        #   Manual RBAC assignment (for Conditional Access-blocked tenants)
 │
 ├── config/
 │   ├── settings.yaml               # Azure credentials & model definitions
@@ -1894,6 +1896,52 @@ az containerapp revision list -n <container-app-name> -g rg-<environment-name> -
 ```
 
 You can also view telemetry in the Azure Portal → Application Insights resource created in the resource group.
+
+### Troubleshooting: Conditional Access Policy Blocking Role Assignments
+
+Some Azure AD (Entra ID) tenants — especially corporate tenants like **MCAPS** — have **Conditional Access policies** that block the Microsoft Graph API calls required for RBAC role assignments during ARM deployments. If `azd up` fails with:
+
+```
+GraphBadRequest: Microsoft Policy Administration Service Application is blocked
+by a conditional access policy in the tenant.
+```
+
+…the Azure resources were all created successfully — the failure is only at the role assignment step.
+
+#### Solution: Skip RBAC and Assign Roles Manually
+
+**Step 1 — Tell `azd` to skip role assignments:**
+
+```powershell
+azd env set skipRbac true
+```
+
+**Step 2 — Re-run provisioning (this will skip the role assignments):**
+
+```powershell
+azd up
+```
+
+**Step 3 — Assign roles manually using the provided script:**
+
+```powershell
+.\infra\hooks\assign-roles.ps1 -EnvironmentName <your-azd-env-name>
+```
+
+The script uses Azure CLI (`az role assignment create`) instead of ARM/Graph, which is not blocked by the same Conditional Access policies. It assigns all 6 required roles:
+
+| Role | Scope | Purpose |
+|------|-------|---------|
+| **AcrPull** | Container Registry | Pull container images |
+| **Cognitive Services OpenAI Contributor** | AI Services account | Model management + data-plane write |
+| **Cognitive Services OpenAI User** | AI Services account | Chat/completions inference |
+| **Azure AI Developer** | AI Services account | Foundry project operations |
+| **Azure AI User** | AI Services account | Foundry asset store access |
+| **Storage Blob Data Contributor** | Resource Group | Upload evaluation datasets to backing storage |
+
+#### Alternative: Ask Your Tenant Admin
+
+If you'd rather fix the root cause, ask your Entra ID admin to add an exclusion for the **Microsoft Policy Administration Service** application in the Conditional Access policy. The `Correlation ID` from the error message helps them locate the specific policy in the Entra ID sign-in logs.
 
 ### Tear Down
 

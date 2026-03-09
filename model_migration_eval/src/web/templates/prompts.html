@@ -669,7 +669,7 @@
                     if (['templates', 'history', 'topics'].includes(model)) continue;
                     const mInfo = availableModels.find(m => m.name === model) || {};
                     const mFamily = mInfo.model_family || 'gpt4';
-                    const headColor = mFamily === 'gpt5' ? 'text-purple-700' : mFamily === 'mistral' ? 'text-amber-700' : 'text-blue-700';
+                    const headColor = mFamily === 'gpt5' ? 'text-purple-700' : mFamily === 'gemini' ? 'text-emerald-700' : mFamily === 'mistral' ? 'text-amber-700' : 'text-blue-700';
                     const section = document.createElement('div');
                     section.innerHTML = `
                         <h3 class="font-medium ${headColor} mb-2">${displayName(model) || model.toUpperCase()}</h3>
@@ -776,6 +776,7 @@
                     const familyInfo = {
                         gpt4: { color: 'blue-600', traits: ['Explicit CoT instructions', 'Detailed formatting rules', 'More verbose examples'] },
                         gpt5: { color: 'purple-500', traits: ['Leverage native reasoning', 'Streamlined structure', 'YAML/JSON schemas'] },
+                        gemini: { color: 'emerald-600', traits: ['Concise Markdown-style prompts', 'Relies on native multimodal understanding', 'Minimal few-shot — strong zero-shot performance'] },
                         mistral: { color: 'amber-600', traits: ['Explicit CoT + few-shot examples', 'Strong multilingual capability', 'Detailed JSON schema in prompt'] },
                     };
                     keyDiffContainer.innerHTML = Object.entries(families).map(([fam, models]) => {
@@ -846,7 +847,7 @@
                 const badge = $('prompt-model');
                 badge.textContent = displayName(model);
                 const mFamily = (availableModels.find(m => m.name === model) || {}).model_family;
-                badge.className = `px-3 py-1 rounded-full text-sm font-medium ${mFamily === 'gpt5' ? 'bg-purple-100 text-purple-800' : mFamily === 'mistral' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`;
+                badge.className = `px-3 py-1 rounded-full text-sm font-medium ${mFamily === 'gpt5' ? 'bg-purple-100 text-purple-800' : mFamily === 'gemini' ? 'bg-emerald-100 text-emerald-800' : mFamily === 'mistral' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`;
                 $('prompt-readonly').innerHTML = `<pre class="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-lg overflow-auto max-h-[700px]">${esc(data.content)}</pre>`;
                 $('btn-toggle-edit').classList.remove('hidden');
                 // Pre-fill editor

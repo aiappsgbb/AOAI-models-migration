@@ -45,6 +45,9 @@ param authCodeVerification string = ''
 @description('Auth email provider: "smtp" for real emails, "console" for stdout (dev). Overrides settings.yaml.')
 param authEmailProvider string = ''
 
+@description('Skip RBAC role assignments (set to true if Conditional Access blocks Graph API calls). Assign roles manually after deploy.')
+param skipRbac bool = false
+
 @secure()
 @description('Flask session signing key (stored as Container Apps secret). Auto-generated if empty.')
 param flaskSecretKey string = ''
@@ -121,7 +124,7 @@ module webIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.
 }
 
 // ── ACR Pull ───────────────────────────────────────────────────────────────
-module acrAccess './modules/acr-access.bicep' = {
+module acrAccess './modules/acr-access.bicep' = if (!skipRbac) {
   name: 'acr-access'
   scope: rg
   params: {
@@ -147,7 +150,7 @@ module aiServices './modules/foundry-resource.bicep' = {
 }
 
 // ── RBAC: All roles (OpenAI + Foundry + Storage) ───────────────────────────
-module foundryAccess './modules/foundry-access.bicep' = {
+module foundryAccess './modules/foundry-access.bicep' = if (!skipRbac) {
   name: 'foundry-access'
   scope: rg
   params: {
