@@ -183,8 +183,13 @@ var smtpEnv = empty(smtpHost) ? [] : [
   { name: 'SMTP_PASSWORD', value: smtpPassword }
   { name: 'SMTP_FROM_EMAIL', value: smtpFromEmail }
 ]
-var authEnv = empty(flaskSecretKey) ? [] : [
-  { name: 'FLASK_SECRET_KEY', value: flaskSecretKey }
+// Auto-generate a deterministic Flask secret key from resource identifiers when not
+// explicitly provided.  This keeps the key stable across container restarts / redeployments
+// while still being unique per resource-group + subscription.
+var generatedFlaskKey = guid(rg.id, 'flask-session-signing-key')
+var effectiveFlaskKey = empty(flaskSecretKey) ? generatedFlaskKey : flaskSecretKey
+var authEnv = [
+  { name: 'FLASK_SECRET_KEY', value: effectiveFlaskKey }
 ]
 var codeVerifEnv = empty(authCodeVerification) ? [] : [
   { name: 'AUTH_CODE_VERIFICATION', value: authCodeVerification }

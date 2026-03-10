@@ -18,7 +18,7 @@ param location string
 @description('Resource tags.')
 param tags object = {}
 
-@description('Model deployments for the judge/grader. Each: { name, model, skuName?, capacity? }')
+@description('Model deployments for the judge/grader. Each: { name, model, version, format?, skuName?, capacity? }')
 param deployments array = []
 
 // ── AI Services account (hub) ──────────────────────────────────────────────
@@ -52,7 +52,7 @@ resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-
     }
     properties: {
       model: {
-        format: 'OpenAI'
+        format: d.?format ?? 'OpenAI'
         name: d.model
         version: d.version
       }

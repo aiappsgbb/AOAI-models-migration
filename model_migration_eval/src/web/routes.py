@@ -295,6 +295,8 @@ def create_app(config_path: str = None) -> Flask:
             if request.path.startswith('/api/'):
                 return jsonify({'error': 'Authentication required'}), 401
             return redirect('/login')
+        # Refresh session TTL on every authenticated request (sliding window)
+        session.modified = True
         # Make user info available to templates
         g.user_id = user_id
         g.user_email = session.get('user_email', '')
