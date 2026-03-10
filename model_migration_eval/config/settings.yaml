@@ -40,14 +40,21 @@ azure:
       temperature: 0.1
 
     gpt5:
-      deployment_name: "gpt-5.2"
+      deployment_name: "gpt-5.4"
       model_family: "gpt5"
-      model_version: "2025-01-01"
+      model_version: "2026-03-05"
       max_tokens: 8192
       temperature: 0.1
       
     gpt51:
       deployment_name: "gpt-5.1"
+      model_family: "gpt5"
+      model_version: "2025-01-01"
+      max_tokens: 16384
+      temperature: 0.1
+
+    gpt52:
+      deployment_name: "gpt-5.2"
       model_family: "gpt5"
       model_version: "2025-01-01"
       max_tokens: 16384
@@ -67,14 +74,14 @@ azure:
       max_tokens: 8192
       temperature: 0.1
 
-    gemini3_flash:
-      deployment_name: "gemini-3-flash-preview"
-      model_family: "gemini"
-      backend: "gemini"                       # uses OpenAI-compat Gemini endpoint
-      model_version: "2025-06-01"
-      max_tokens: 8192
-      temperature: 0.1
-      max_concurrent: 1                       # Gemini free tier: 5 RPM, ~20 RPD — sequential to avoid 429
+#    gemini3_flash:
+#      deployment_name: "gemini-3-flash-preview"
+#      model_family: "gemini"
+#      backend: "gemini"                       # uses OpenAI-compat Gemini endpoint
+#      model_version: "2025-06-01"
+#      max_tokens: 8192
+#      temperature: 0.1
+#      max_concurrent: 1                       # Gemini free tier: 5 RPM, ~20 RPD — sequential to avoid 429
 
 # =============================================================================
 # Google Gemini Configuration (optional — only needed if using Gemini models)

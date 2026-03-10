@@ -1471,9 +1471,9 @@ If you prefer to configure manually, add a model in **2 steps**:
 
 The key name (`my_new_model`) is arbitrary — it becomes the model identifier in the CLI, API, and web UI.  It also determines the prompt directory name.
 
-**Step 2 — Create a prompt directory (recommended):**
+**Step 2 — Create prompt directories (recommended):**
 
-Create `prompts/<model_key>/` and add one `.md` file per task type:
+Create `prompts/<model_key>/` (global defaults) and add one `.md` file per task type:
 
 ```
 prompts/my_new_model/
@@ -1485,12 +1485,24 @@ prompts/my_new_model/
 
 > **Tip:** Copy from an existing model with the same family.  For example, if your new model is GPT-4-family, copy from `prompts/gpt4/`.
 
+> **⚠️ Per-user prompt directories:** Each user has their own prompt directory under `data/users/<user_id>/prompts/<model_key>/`.  When a user logs in for the first time, prompts are seeded from the global `prompts/` directory.  However, **if you add a new model after users have already logged in**, their per-user directories will **not** be populated automatically.  You must either:
+>
+> 1. **Copy the prompt files manually** into each existing user's directory:
+>    ```bash
+>    # Example: copy gpt5 prompts to a new gpt52 model for an existing user
+>    cp prompts/gpt52/* data/users/angels_at_microsoft_com/prompts/gpt52/
+>    ```
+> 2. **Or use the Prompts page** in the web UI — it will detect the missing prompts and offer to seed them from the best matching model.
+>
+> Without prompt files in the per-user directory, the model will fail with **"Prompt template not found"** when running evaluations.
+
 If you skip this step, the **prompt fallback chain** kicks in automatically:
 
 ```
-prompts/{model_key}/          ← first try (e.g. prompts/my_new_model/)
-prompts/{base_model}/         ← if key ends with _reasoning, strip suffix (e.g. gpt5_reasoning → gpt5)
-prompts/templates/            ← final fallback (generic templates)
+data/users/<user>/prompts/{model_key}/   ← first try (per-user override)
+prompts/{model_key}/                     ← global default prompts
+prompts/{base_model}/                    ← if key ends with _reasoning, strip suffix (e.g. gpt5_reasoning → gpt5)
+prompts/templates/                       ← final fallback (generic templates)
 ```
 
 #### What happens automatically
@@ -1507,7 +1519,8 @@ Once you add the YAML entry (via the tool or manually) and restart the server:
 | What | Where | Required? |
 |------|-------|:---------:|
 | Model configuration | `config/settings.yaml` → `azure.models.<key>` | ✅ |
-| Prompt templates | `prompts/<key>/` → `{type}_agent_system.md` | Recommended |
+| Global prompt templates | `prompts/<key>/` → `{type}_agent_system.md` | Recommended |
+| Per-user prompt templates | `data/users/<user_id>/prompts/<key>/` → `{type}_agent_system.md` | ✅ for existing users |
 | Code changes | None — registration is automatic | — |
 | Server restart | Required to pick up new YAML entries | ✅ |
 

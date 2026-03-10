@@ -320,7 +320,7 @@
             let offset = 0;
             let active = true;
             let pollCount = 0;
-            const MAX_POLLS = 500;           // safety cap (~10 min at 1.2 s)
+            const MAX_POLLS = 5000;           // safety cap (~100 min at 1.2 s)
             let controller = new AbortController();
 
             const levelToType = (lvl) => {
@@ -344,6 +344,7 @@
                     if (!r.ok) return;
                     const data = await r.json();
                     const entries = data.entries || [];
+                    if (entries.length > 0) pollCount = 0;  // backend still active → reset
                     for (const e of entries) {
                         const loggerName = escapeHtml(e.logger || 'app');
                         const level = escapeHtml(e.level || 'INFO');
@@ -406,7 +407,7 @@
             try {
                 const resp = await fetch('/api/models');
                 const data = await resp.json();
-                const models = data.models || [];
+                const models = (data.models || []).sort((a, b) => (a.display_name || a.deployment).localeCompare(b.display_name || b.deployment));
                 const sel = document.getElementById('model');
                 sel.innerHTML = '';
                 models.forEach(m => {

@@ -292,7 +292,7 @@
             let offset = 0;
             let active = true;
             let pollCount = 0;
-            const MAX_POLLS = 500;
+            const MAX_POLLS = 5000;           // safety cap (~100 min at 1.2 s)
             let controller = new AbortController();
 
             const levelToType = (lvl) => {
@@ -316,6 +316,7 @@
                     if (!r.ok) return;
                     const data = await r.json();
                     const entries = data.entries || [];
+                    if (entries.length > 0) pollCount = 0;  // backend still active → reset
                     for (const e of entries) {
                         const loggerName = escapeHtml(e.logger || 'app');
                         const level = escapeHtml(e.level || 'INFO');
@@ -384,7 +385,7 @@
             try {
                 const resp = await fetch('/api/models');
                 const data = await resp.json();
-                const models = data.models || [];
+                const models = (data.models || []).sort((a, b) => (a.display_name || a.deployment).localeCompare(b.display_name || b.deployment));
                 availableModels = models;
                 models.forEach(m => { modelNames[m.name] = m.display_name || m.deployment; });
                 // Populate Quick Evaluation model checkboxes dynamically
@@ -467,7 +468,7 @@
                 return;
             }
 
-            resultsEl.innerHTML = '<p class="text-blue-500 loading">Running evaluation...</p>';
+            resultsEl.innerHTML = '<div class="flex items-center gap-2 text-blue-500 loading"><svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span>Running evaluation…</span></div>';
             verboseClear();
             verboseLog('🚀 <strong>Starting quick classification test</strong>', 'head');
             verboseLog(`Sending the following customer message to <strong>${models.map(m => displayName(m)).join(' and ')}</strong> for classification:<br>💬 <em>"${input.substring(0, 200)}${input.length > 200 ? '…' : ''}"</em><br>The model(s) will analyze this message and predict a category, subcategory, priority, and sentiment.`, 'step');

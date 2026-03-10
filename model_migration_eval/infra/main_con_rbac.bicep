@@ -45,6 +45,9 @@ param authCodeVerification string = ''
 @description('Auth email provider: "smtp" for real emails, "console" for stdout (dev). Overrides settings.yaml.')
 param authEmailProvider string = ''
 
+@description('Skip RBAC role assignments (set to true if Conditional Access blocks Graph API calls). Assign roles manually after deploy.')
+param skipRbac bool = false
+
 @secure()
 @description('Flask session signing key (stored as Container Apps secret). Auto-generated if empty.')
 param flaskSecretKey string = ''
@@ -63,15 +66,10 @@ var aiServicesName = 'ais-${envNameLower}-${resourceSuffix}'
 var foundryProjectName = '${envNameLower}-project'
 
 // All model deployments live in the AI Services account
-// format defaults to 'OpenAI'; Marketplace models (Mistral) need their own format.
-// capacity = TPM in units of 1K (e.g. 1000 = 1 M TPM). Set high to avoid 429s.
 var modelDeployments = [
-  { name: 'gpt-4.1', model: 'gpt-4.1', version: '2025-04-14', skuName: 'GlobalStandard', capacity: 1000 }
-  { name: 'gpt-4o', model: 'gpt-4o', version: '2024-08-06', skuName: 'GlobalStandard', capacity: 1000 }
-  { name: 'gpt-4.1-mini', model: 'gpt-4.1-mini', version: '2025-04-14', skuName: 'GlobalStandard', capacity: 1000 }
-  { name: 'gpt-5.4', model: 'gpt-5.4', version: '2026-03-05', skuName: 'GlobalStandard', capacity: 1000 }
-  { name: 'gpt-5.1', model: 'gpt-5.1', version: '2025-11-13', skuName: 'GlobalStandard', capacity: 1000 }
-  { name: 'Mistral-Large-3', model: 'Mistral-Large-3', version: '1', format: 'Mistral AI', skuName: 'GlobalStandard', capacity: 100 }
+  { name: 'gpt-4.1', model: 'gpt-4.1', version: '2025-04-14', skuName: 'GlobalStandard', capacity: 10 }
+  { name: 'gpt-5.2', model: 'gpt-5.2', version: '2025-12-11', skuName: 'GlobalStandard', capacity: 10 }
+  { name: 'gpt-5.1', model: 'gpt-5.1', version: '2025-11-13', skuName: 'GlobalStandard', capacity: 10 }
 ]
 
 var tags = {
@@ -126,7 +124,7 @@ module webIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.
 }
 
 // ── ACR Pull ───────────────────────────────────────────────────────────────
-module acrAccess './modules/acr-access.bicep' = {
+module acrAccess './modules/acr-access.bicep' = if (!skipRbac) {
   name: 'acr-access'
   scope: rg
   params: {
@@ -152,7 +150,7 @@ module aiServices './modules/foundry-resource.bicep' = {
 }
 
 // ── RBAC: All roles (OpenAI + Foundry + Storage) ───────────────────────────
-module foundryAccess './modules/foundry-access.bicep' = {
+module foundryAccess './modules/foundry-access.bicep' = if (!skipRbac) {
   name: 'foundry-access'
   scope: rg
   params: {

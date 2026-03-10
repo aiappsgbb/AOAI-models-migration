@@ -706,7 +706,7 @@
             try {
                 const resp = await fetch('/api/models');
                 const data = await resp.json();
-                availableModels = data.models || [];
+                availableModels = (data.models || []).sort((a, b) => (a.display_name || a.deployment).localeCompare(b.display_name || b.deployment));
                 availableModels.forEach(m => { modelNames[m.name] = m.display_name || m.deployment; });
                 const sel = $('gen-model');
                 sel.innerHTML = availableModels.map(m =>
