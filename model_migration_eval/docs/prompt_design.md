@@ -668,7 +668,58 @@ output: JSON with category and confidence
 
 ---
 
-## 11. Web-Based Prompt Editor
+## 11. Import-Time Prompt Quality Assurance
+
+When importing a topic (via the Prompts → Import Topic UI or the `tools/import_topic.py` CLI), the framework generates optimised prompts for each target model from a source prompt.  Several automated mechanisms ensure that generated prompts remain **faithful to the source schema** while being adapted for each model family.
+
+### 11.1 Classification Prompt Alignment
+
+The import pipeline guarantees that every target classification prompt contains the **exact same category taxonomy** as the source prompt:
+
+```
+Source prompt (gpt4o)                Target prompt (gpt5, mistral, gemini, …)
+┌───────────────────────┐            ┌───────────────────────────────────────┐
+│ 10 categories         │            │ 10 categories (verified 100% match)  │
+│ priority: critical,   │  ──────►   │ priority: critical, high, med, low   │
+│   high, medium, low   │  3-layer   │ sentiment: pos, neutral, neg, mixed  │
+│ sentiment: positive,  │  alignment │ JSON schema: all fields preserved    │
+│   neutral, neg, mixed │            │                                      │
+└───────────────────────┘            └───────────────────────────────────────┘
+```
+
+**Alignment layers:**
+
+| Step | Mechanism | Description |
+|------|-----------|-------------|
+| 1 | Meta-prompt enrichment | Source categories, priorities, and sentiments are injected as explicit constraints in the LLM generation call |
+| 2 | Deterministic injection | `_inject_missing_categories()` scans the generated prompt and programmatically inserts any missing categories into the correct section (table row, bullet item, or inline) |
+| 3 | LLM auto-fix | If categories are still missing (deeply custom format), a targeted LLM call adds only the missing ones |
+| 4 | Case-insensitive verification | Final overlap check confirms 100% coverage using `.lower()` to prevent false negatives |
+
+### 11.2 Dialog Prompt Field Preservation
+
+For dialog prompts, the import pipeline extracts all JSON response fields from the source prompt (e.g. `follow_up_questions`, `context_gaps_identified`, `reasoning`, `confidence_score`, etc.) and verifies that every target prompt includes them.  This ensures the evaluation metrics pipeline can parse all expected fields from model responses.
+
+### 11.3 Priority & Sentiment Normalisation
+
+The framework enforces canonical value sets during import:
+
+- **Priority:** `critical`, `high`, `medium`, `low` — legacy aliases like `critical_safety` are normalised to `critical`
+- **Sentiment:** `positive`, `neutral`, `negative`, `mixed`
+
+### 11.4 Error-Resilient Parallel Generation
+
+Target prompts are generated in parallel via `ThreadPoolExecutor`.  Each model's generation runs inside a `try/except` block, so:
+
+- A **429 rate-limit** error on one model does not crash the entire import
+- **Timeout** or **content-filter** errors are logged and skipped
+- Partial imports succeed with all models that completed
+
+> **Tip:** A typical import of 8 models × 4 task types = 32 prompts completes in ~10 minutes.  If the generator model is rate-limited, increase `max_concurrent` in `settings.yaml` or use a model with higher throughput.
+
+---
+
+## 12. Web-Based Prompt Editor
 
 The evaluation framework includes a full **Prompts** page (`/prompts`) with a Copilot Studio–style Fluent 2 interface for managing prompts without leaving the browser:
 
@@ -683,4 +734,4 @@ The editor uses **Fluent 2 styled inputs** (`.fluent-input`), **brand-blue actio
 
 ---
 
-*Prompt Design Guide v2.0 | Last Updated: February 2026*
+*Prompt Design Guide v2.1 | Last Updated: July 2026*

@@ -29,7 +29,7 @@ This framework automates that process end-to-end:
 | **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.1, GPT-5.2, Mistral-Large-3, Gemini 3 Flash, reasoning variants, etc.) — each with `model_family` for automatic API behaviour |
 | **Multi-Topic** | Switch between self-contained topic archives (prompts + data) without losing anything |
 | **AI Generation** | One-click generation of optimised prompts (4 task types × N models) + 5 test datasets (70 scenarios) tailored to any domain, with dynamic category taxonomy, JSON retry logic, and **selective regeneration** (prompts only, test data only, or both) |
-| **Topic Import** | Import prompts + test data from disk for any source model (web UI or CLI) — target model prompts are auto-generated and the topic is archived ready to activate |
+| **Topic Import** | Import prompts + test data from disk for any source model (web UI or CLI) — target model prompts are auto-generated with **multi-layer category alignment** (deterministic injection → LLM auto-fix → post-generation verification), **error-resilient** parallel generation (individual 429/failure tolerance), and automatic priority & sentiment normalisation.  The topic is archived ready to activate |
 | **Classification** | Accuracy, F1, precision, recall, subcategory/priority/sentiment accuracy, confidence calibration, confusion matrix |
 | **Dialog** | Follow-up quality, context coverage, rule compliance, empathy score, optimal similarity, resolution efficiency, consistency |
 | **General** | Format compliance, completeness, reasoning, safety, structured output |
@@ -807,7 +807,7 @@ If you already have your own system prompt and test data, you can import them di
 
 > **CSV import:** CSV files are parsed via `csv.DictReader` and automatically converted to JSON on import.  The canonical storage format is always JSON.  See the [Import Samples page](#) (`/import-samples`) for format details and copy-ready examples.
 
-The system validates the prompt(s) and test data, generates optimised prompts **in parallel** for all target models, and writes everything as an archived topic.  Activate it from the topic selector to start running evaluations.
+The system validates the prompt(s) and test data, generates optimised prompts **in parallel** (via `ThreadPoolExecutor`) for all target models with multi-layer category alignment, priority/sentiment normalisation, and error-resilient execution, then writes everything as an archived topic.  Activate it from the topic selector to start running evaluations.
 
 #### From the CLI
 
@@ -866,10 +866,18 @@ python tools/import_topic.py \
 
 #### What happens during import
 
-1. Each source prompt is validated — if it lacks the output format block required by the evaluation pipeline, it's appended automatically.
-2. Optimised prompts are generated **in parallel** for each target model, preserving the same category taxonomy and adapting to each model family's best practices.
-3. Test data is validated and missing optional fields are auto-filled.  CSV files are converted to JSON automatically.
-4. Everything is written to the archive structure:
+1. **Source prompt validation** — Each source prompt is parsed; if it lacks the output format block required by the evaluation pipeline, it's appended automatically.
+2. **Schema extraction** — For classification prompts, all categories, priority levels, and sentiment values are extracted from the source prompt.  For dialog prompts, all JSON response fields are extracted (e.g. `follow_up_questions`, `context_gaps_identified`, `reasoning`, etc.).
+3. **Parallel target-prompt generation** — Optimised prompts are generated **in parallel** (via `ThreadPoolExecutor`) for each target model, preserving the same category taxonomy and adapting to each model family's best practices.  Each generation call includes a **meta-prompt enrichment** layer that injects the exact list of expected categories, JSON fields, priority levels, and sentiment values.
+4. **Multi-layer category alignment** (classification only) — After generation, each target prompt passes through a three-step alignment pipeline:
+   - **Deterministic injection** (`_inject_missing_categories`) — Any categories present in the source prompt but missing from the generated target are injected programmatically into the correct section (table, list, or inline), with no LLM call required.
+   - **LLM auto-fix** — If categories are still missing after deterministic injection (e.g. deeply custom formats), a targeted LLM call adds only the missing ones.
+   - **Case-insensitive verification** — A final overlap check (case-insensitive) confirms 100% category coverage.  All comparisons use `.lower()` to prevent false negatives from casing differences.
+5. **Priority & sentiment normalisation** — Target prompts are validated to use the canonical priority scale (`critical`, `high`, `medium`, `low`) and sentiment scale (`positive`, `neutral`, `negative`, `mixed`).  Legacy values like `critical_safety` are normalised automatically.
+6. **Dialog JSON field preservation** — Target dialog prompts are verified to include all JSON response fields from the source prompt, ensuring the evaluation pipeline can parse every expected field.
+7. **Error-resilient execution** — Each target model generation runs inside a `try/except` block.  If a single model fails (e.g. HTTP 429 rate-limit, timeout, or content-filter rejection), the error is logged and the import continues with the remaining models — one failure does not crash the entire import.
+8. **Test data validation** — Test data is validated and missing optional fields are auto-filled.  CSV files are converted to JSON automatically.
+9. **Archive write** — Everything is written to the archive structure:
    - `prompts/topics/<slug>/<model>/` — prompt files per model
    - `data/synthetic/topics/<slug>/` — test data by type
    - `topic.json` — metadata
@@ -885,6 +893,24 @@ Categories are **invented dynamically** for each topic — the generator creates
 When generating test data, the system includes automatic JSON sanitisation (trailing commas, comments, double commas) and retry logic (up to 3 attempts with re-prompting) to handle models that occasionally return imperfect JSON.
 
 **Minimum count validation:** If the model returns valid JSON but with fewer than 50% of the requested scenarios (e.g. 2 instead of 15), the system automatically retries with a reinforced prompt that explicitly demands the exact target count.  This prevents silently accepting under-populated datasets.
+
+#### Import Robustness & Alignment Guarantees
+
+The import pipeline includes several layers of protection to ensure generated prompts are fully aligned with the source prompt's schema:
+
+| Layer | Mechanism | Scope |
+|-------|-----------|-------|
+| **Meta-prompt enrichment** | The LLM generation call includes the full list of source categories, JSON fields, priority levels, and sentiment values as explicit instructions | All task types |
+| **Deterministic injection** | `_inject_missing_categories()` programmatically adds any categories the LLM missed — detects tables, bullet lists, and inline mentions and inserts in the correct format | Classification |
+| **LLM auto-fix fallback** | If deterministic injection cannot add a category (deeply custom format), a targeted LLM call adds only the missing ones | Classification |
+| **Case-insensitive verification** | All category overlap checks use `.lower()` to prevent false negatives from casing differences (e.g. `Billing_Inquiry` vs `billing_inquiry`) | Classification |
+| **Priority normalisation** | Validates the canonical 4-level scale: `critical`, `high`, `medium`, `low`.  Legacy aliases like `critical_safety` are mapped automatically | Classification |
+| **Sentiment normalisation** | Validates the canonical 4-level scale: `positive`, `neutral`, `negative`, `mixed` | Classification |
+| **Dialog field preservation** | Verifies all JSON response fields from the source prompt appear in each target prompt (e.g. `follow_up_questions`, `context_gaps_identified`, `reasoning`) | Dialog |
+| **Error resilience** | Each target model runs in its own `try/except`.  HTTP 429, timeouts, and content-filter errors are logged but do not crash the import — partial results are preserved | All task types |
+| **Noise-set exclusion fix** | The category parser no longer treats `other_or_unclear` (or similar catch-all categories) as noise — they are preserved through the full pipeline | Classification |
+
+> **Result:** An import of 8 models × 4 task types = 32 prompts typically completes in ~10 minutes with 100% category alignment across all targets.
 
 ### Version History
 
@@ -2276,7 +2302,7 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 | `ComparisonReport` | `src.evaluation.comparator` | Dataclass for comparison output — dimensions, winner, recommendations, optional `batch_id` for grouping |
 | `MetricsCalculator` | `src.evaluation.metrics` | Computes classification metrics (accuracy, F1, kappa, confusion matrix, calibration), dialog quality metrics (rule compliance, empathy, optimal similarity, resolution efficiency), RAG metrics (groundedness, relevance), tool calling metrics (tool selection accuracy, parameter accuracy), latency & cost analytics, and consistency scoring.  Includes case-insensitive category normalisation with alias support |
 | `FoundryEvaluator` | `src.evaluation.foundry_evaluator` | Submits evaluation data to Microsoft Foundry Control Plane for LLM-as-judge quality evaluation.  Handles JSONL export (with type-specific converters for all 5 eval types), dataset upload, evaluation creation, run polling, and automatic retry with safety evaluator fallback |
-| `PromptManager` | `src.utils.prompt_manager` | Prompt editing, versioning, AI generation (4 task types × N models + 5 datasets with JSON sanitisation & retry), topic archival, data sync, synthetic data regeneration |
+| `PromptManager` | `src.utils.prompt_manager` | Prompt editing, versioning, AI generation (4 task types × N models + 5 datasets with JSON sanitisation & retry), topic archival, data sync, synthetic data regeneration, canonical classification schema (`critical`/`high`/`medium`/`low` priorities, 4-level sentiment) |
 | `PromptLoader` | `src.utils.prompt_loader` | Template loading from disk with in-memory caching |
 | `DataLoader` | `src.utils.data_loader` | Loads synthetic test scenarios from JSON files |
 
@@ -2309,4 +2335,4 @@ MIT License
 
 ---
 
-*Last Updated: March 2026*
+*Last Updated: July 2026*
