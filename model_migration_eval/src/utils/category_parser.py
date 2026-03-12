@@ -37,7 +37,7 @@ def extract_categories_from_prompt(prompt_text: str) -> List[str]:
     seen: set[str] = set()
 
     noise = {
-        'out_of_scope', 'other_or_unclear', 'out_of_scope_non_aerodynamic',
+        'out_of_scope', 'out_of_scope_non_aerodynamic',
         'out_of_scope_or_non_aeronautics', 'out_of_scope_or_general',
     }
 

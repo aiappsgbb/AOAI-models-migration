@@ -1913,12 +1913,16 @@ def create_app(config_path: str = None) -> Flask:
             _ensure_output_format,
             generate_target_prompt,
             _resolve_model_family,
+            _fix_target_categories,
+            _inject_missing_categories,
+            _extract_json_fields_from_dialog,
             validate_and_fix_test_data,
             write_archived_topic,
             TASK_PROMPT_MAP,
             DATA_FILE_MAP,
         )
         from src.utils.prompt_manager import _slugify
+        from src.utils.category_parser import extract_categories_from_prompt as _extract_categories_from_prompt
 
         topic_name = request.form.get('topic', '').strip()
         if not topic_name:
@@ -1940,11 +1944,14 @@ def create_app(config_path: str = None) -> Flask:
             if not target_models:
                 target_models = ['gpt5']  # fallback
 
-        # Build model_family lookup from config
+        # Build model_family and model_deployment lookups from config
         model_families = {}
+        model_deployments = {}
         for mk, mp in app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).items():
             if isinstance(mp, dict):
                 model_families[mk] = mp.get('model_family', _resolve_model_family(mk))
+                if mp.get('deployment'):
+                    model_deployments[mk] = mp['deployment']
 
         # ── Collect uploaded prompt files (support both source_* and gpt4_* names) ──
         prompt_files = {}
@@ -2013,36 +2020,97 @@ def create_app(config_path: str = None) -> Flask:
             app.logger.info(f'Import topic: validating {task} prompt ({len(raw_content)} chars)')
             validated_prompts[task] = _ensure_output_format(raw_content, task)
 
+        # ── Extract cross-task domain context ──
+        # 1) Categories from classification prompt (used for classification AND dialog)
+        domain_categories: list[str] | None = None
+        if 'classification' in validated_prompts:
+            domain_categories = _extract_categories_from_prompt(validated_prompts['classification'])
+            if domain_categories:
+                app.logger.info(f'Import topic: extracted {len(domain_categories)} domain categories from classification prompt')
+
+        # 2) Tool names from tool_calling test data (used for tool_calling prompt generation)
+        domain_tools_summary: str | None = None
+        if 'tool_calling' in data_files:
+            tool_names: set[str] = set()
+            for scenario in data_files['tool_calling']:
+                raw_tools = scenario.get('available_tools', [])
+                # available_tools may be a JSON-encoded string or a list
+                if isinstance(raw_tools, str):
+                    try:
+                        raw_tools = json.loads(raw_tools)
+                    except (json.JSONDecodeError, TypeError):
+                        raw_tools = []
+                if isinstance(raw_tools, list):
+                    for tool in raw_tools:
+                        if isinstance(tool, dict):
+                            name = tool.get('function', {}).get('name') or tool.get('name', '')
+                        elif isinstance(tool, str):
+                            name = tool
+                        else:
+                            name = ''
+                        if name:
+                            tool_names.add(name)
+            if tool_names:
+                domain_tools_summary = ', '.join(sorted(tool_names))
+                app.logger.info(f'Import topic: extracted {len(tool_names)} domain tools from test data: {domain_tools_summary}')
+
+        # 3) JSON field names from dialog source prompt (used for dialog prompt generation)
+        dialog_json_fields: list[str] | None = None
+        if 'dialog' in validated_prompts:
+            dialog_json_fields = _extract_json_fields_from_dialog(validated_prompts['dialog'])
+            if dialog_json_fields:
+                app.logger.info(f'Import topic: extracted {len(dialog_json_fields)} dialog JSON fields from source prompt: {dialog_json_fields}')
+
         # ── Generate target-model prompts in parallel ──
-        import asyncio
-        from concurrent.futures import ThreadPoolExecutor
 
         def _gen_one(task: str, src_content: str, tgt_model: str):
             """Generate a single target-model prompt (runs in thread pool)."""
             family = model_families.get(tgt_model, _resolve_model_family(tgt_model))
+            dep_name = model_deployments.get(tgt_model)
             app.logger.info(f'Import topic: [parallel] generating {tgt_model} {task} prompt...')
             t0 = _time.time()
             generated = generate_target_prompt(
                 client, topic_name, task, src_content, generator_model,
                 target_model=tgt_model, model_family=family,
+                deployment_name=dep_name,
+                domain_categories=domain_categories,
+                domain_tools_summary=domain_tools_summary,
+                dialog_json_fields=dialog_json_fields,
             )
             elapsed = round(_time.time() - t0, 1)
             app.logger.info(f'Import topic: [parallel] {tgt_model} {task} prompt generated in {elapsed}s')
             return task, tgt_model, generated, elapsed
 
-        async def _gen_all():
-            loop = asyncio.get_running_loop()
-            n_workers = len(validated_prompts) * len(target_models)
-            with ThreadPoolExecutor(max_workers=max(n_workers, 1)) as pool:
-                futures = [
-                    loop.run_in_executor(pool, _gen_one, task, content, tgt)
-                    for task, content in validated_prompts.items()
-                    for tgt in target_models
-                ]
-                return await asyncio.gather(*futures)
-
         t_total = _time.time()
-        results = asyncio.run(_gen_all())
+        # Run generation in parallel using threads (compatible with Flask test client on Windows)
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        tasks_to_run = [
+            (task, content, tgt)
+            for task, content in validated_prompts.items()
+            for tgt in target_models
+        ]
+        n_workers = max(len(tasks_to_run), 1)
+        results = []
+        failed = []
+        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+            future_map = {
+                pool.submit(_gen_one, task, content, tgt): (task, tgt)
+                for task, content, tgt in tasks_to_run
+            }
+            for future in as_completed(future_map):
+                task_key, tgt_key = future_map[future]
+                try:
+                    results.append(future.result())
+                except Exception as exc:
+                    app.logger.error(
+                        f'Import topic: generation failed for {tgt_key} {task_key}: {exc}'
+                    )
+                    failed.append((task_key, tgt_key, str(exc)))
+        if failed:
+            app.logger.warning(
+                f'Import topic: {len(failed)}/{len(tasks_to_run)} generations failed — '
+                f'continuing with {len(results)} successful ones'
+            )
         app.logger.info(
             f'Import topic: all target prompts generated in {round(_time.time() - t_total, 1)}s (parallel)'
         )
@@ -2056,6 +2124,47 @@ def create_app(config_path: str = None) -> Flask:
         # Include source model content
         for task, content in validated_prompts.items():
             prompts_map.setdefault(task, {})[source_model] = content
+
+        # ── Post-generation: category alignment for classification prompts ──
+        if domain_categories and 'classification' in prompts_map:
+            source_cls_content = validated_prompts.get('classification', '')
+            for tgt_model, tgt_content in list(prompts_map['classification'].items()):
+                if tgt_model == source_model:
+                    continue
+                # Step 1: Deterministic injection of any missing categories
+                patched = _inject_missing_categories(
+                    tgt_content, source_cls_content, domain_categories,
+                )
+                if patched != tgt_content:
+                    prompts_map['classification'][tgt_model] = patched
+                    app.logger.info(
+                        f'Import topic: {tgt_model} classification — '
+                        f'deterministic category injection applied'
+                    )
+                    tgt_content = patched
+
+                # Step 2: If still <80% overlap, try LLM-based fix as fallback
+                tgt_cats = _extract_categories_from_prompt(tgt_content)
+                if tgt_cats:
+                    source_set = set(c.lower() for c in domain_categories)
+                    target_set = set(c.lower() for c in tgt_cats)
+                    overlap = len(source_set & target_set) / max(len(source_set), 1)
+                    if overlap < 0.80:
+                        app.logger.warning(
+                            f'Import topic: {tgt_model} classification has {overlap:.0%} category overlap '
+                            f'({len(source_set & target_set)}/{len(source_set)}) after injection — LLM auto-fixing...'
+                        )
+                        fixed = _fix_target_categories(
+                            client, tgt_content, domain_categories,
+                            tgt_model, generator_model,
+                        )
+                        if fixed:
+                            prompts_map['classification'][tgt_model] = fixed
+                            app.logger.info(f'Import topic: {tgt_model} classification categories realigned via LLM.')
+                    else:
+                        app.logger.info(
+                            f'Import topic: {tgt_model} classification category alignment OK ({overlap:.0%})'
+                        )
 
         # ── Write archived topic ──
         app.logger.info(f'Import topic: writing archived topic "{slug}"…')

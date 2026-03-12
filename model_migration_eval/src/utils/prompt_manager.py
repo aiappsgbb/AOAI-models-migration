@@ -54,7 +54,7 @@ using EXACTLY these names and types — no renaming, no nesting changes:
 {
   "primary_category": "<string> — one of the mandatory category codes",
   "subcategory": "<string> — a descriptive snake_case subcategory",
-  "priority": "<string> — one of: critical_safety | high | medium | low",
+  "priority": "<string> — one of: critical | high | medium | low",
   "sentiment": "<string> — a flat label, e.g. angry, neutral, positive",
   "confidence": <number> — a decimal between 0.0 and 1.0,
   "summary": "<string> — brief summary of the customer request",
@@ -67,7 +67,7 @@ STRICT RULES:
   inside another object (no `category.primary` or `category.code`).
 - "subcategory" must be a flat string at the top level — NOT `category.secondary`.
 - "priority" — NOT "priority_level". Values must be exactly:
-  critical_safety, high, medium, or low.
+  critical, high, medium, or low.
 - "sentiment" must be a flat string — NOT an object with sub-keys.
 - "confidence" must be a single decimal number 0.0–1.0 — NOT a string,
   NOT an object, NOT absent.
