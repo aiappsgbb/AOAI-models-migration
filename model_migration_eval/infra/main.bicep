@@ -45,6 +45,9 @@ param authCodeVerification string = ''
 @description('Auth email provider: "smtp" for real emails, "console" for stdout (dev). Overrides settings.yaml.')
 param authEmailProvider string = ''
 
+@description('EasyAuth auto-login: "true" (default) to auto sign-in via Container Apps EasyAuth headers, "false" to always show login page. Overrides settings.yaml.')
+param authEasyAuthAutoLogin string = ''
+
 @secure()
 @description('Flask session signing key (stored as Container Apps secret). Auto-generated if empty.')
 param flaskSecretKey string = ''
@@ -197,10 +200,13 @@ var codeVerifEnv = empty(authCodeVerification) ? [] : [
 var emailProviderEnv = empty(authEmailProvider) ? [] : [
   { name: 'AUTH_EMAIL_PROVIDER', value: authEmailProvider }
 ]
+var easyAuthEnv = empty(authEasyAuthAutoLogin) ? [] : [
+  { name: 'AUTH_EASYAUTH_AUTO_LOGIN', value: authEasyAuthAutoLogin }
+]
 var geminiEnv = empty(geminiApiKey) ? [] : [
   { name: 'GEMINI_API_KEY', value: geminiApiKey }
 ]
-var containerEnv = concat(baseEnv, smtpEnv, authEnv, codeVerifEnv, emailProviderEnv, geminiEnv)
+var containerEnv = concat(baseEnv, smtpEnv, authEnv, codeVerifEnv, emailProviderEnv, easyAuthEnv, geminiEnv)
 
 module web 'br/public:avm/res/app/container-app:0.10.0' = {
   name: 'web-container-app'
