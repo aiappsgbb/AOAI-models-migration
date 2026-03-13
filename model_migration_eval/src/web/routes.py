@@ -19,7 +19,7 @@ from ..auth.user_store import UserStore
 from ..auth.code_manager import CodeManager
 from ..auth.email_sender import create_email_sender
 from ..auth.user_context import UserContext
-from ..auth.session import is_public_route
+from ..auth.session import is_public_route, get_easyauth_email
 from ..clients.azure_openai import create_client_from_config
 from ..utils.prompt_loader import PromptLoader
 from ..utils.prompt_manager import PromptManager
@@ -89,6 +89,23 @@ def create_app(config_path: str = None) -> Flask:
             _code_verification = _cv_yaml_lower not in ('false', '0', 'no') and not _cv_yaml_lower.startswith('${')
         else:
             _code_verification = bool(_cv_yaml)
+
+    # EasyAuth auto-login: when True the app trusts the
+    # X-MS-CLIENT-PRINCIPAL-NAME header injected by the Container Apps
+    # authentication sidecar and creates a session automatically.
+    _ea_env = _os.environ.get('AUTH_EASYAUTH_AUTO_LOGIN', '').strip().lower()
+    if _ea_env in ('false', '0', 'no'):
+        _easyauth_auto_login = False
+    elif _ea_env in ('true', '1', 'yes'):
+        _easyauth_auto_login = True
+    else:
+        _ea_yaml = _auth_cfg.get('easyauth_auto_login', True)
+        if isinstance(_ea_yaml, str):
+            _ea_lower = _ea_yaml.strip().lower()
+            _easyauth_auto_login = _ea_lower not in ('false', '0', 'no') and not _ea_lower.startswith('${')
+        else:
+            _easyauth_auto_login = bool(_ea_yaml)
+
     _user_store = UserStore(db_path='data/auth.db')
     _code_manager = CodeManager(
         db_path='data/auth.db',
@@ -283,14 +300,57 @@ def create_app(config_path: str = None) -> Flask:
         g._user_context = ctx
         return ctx
 
+    # ── Session establishment (shared logic) ──────────────────────────
+
+    def _establish_session(email: str) -> str:
+        """Create / fetch user, bootstrap dirs, set Flask session.
+
+        Returns the ``user_id``.  This is the single place that turns
+        an email into a fully-initialised session — used by:
+        * ``auth_login`` (code_verification off)
+        * ``auth_verify`` (OTP flow)
+        * EasyAuth auto-login (Container Apps sidecar)
+        """
+        user = _user_store.get_or_create(email)
+        _user_store.update_last_login(user.id)
+
+        uctx = UserContext(user_id=user.id, base_dir='data/users')
+        model_keys = list(
+            app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys()
+        )
+        uctx.ensure_dirs(model_keys=model_keys)
+        uctx.seed_from_shared(
+            shared_prompts='prompts',
+            shared_data='data/synthetic',
+        )
+
+        session.permanent = True
+        session['user_id'] = user.id
+        session['user_email'] = user.email
+        return user.id
+
     # ── Auth middleware ───────────────────────────────────────────────
 
     @app.before_request
     def _require_authentication():
-        """Reject unauthenticated requests (except public routes)."""
+        """Reject unauthenticated requests (except public routes).
+
+        When running behind Azure Container Apps EasyAuth the sidecar
+        injects ``X-MS-CLIENT-PRINCIPAL-NAME`` with the user's email.
+        If ``easyauth_auto_login`` is enabled and that header is
+        present, a Flask session is created transparently so the user
+        never sees the login page.
+        """
         if is_public_route(request.path):
             return None
         user_id = session.get('user_id')
+        if not user_id:
+            # ── Try EasyAuth auto-login ──────────────────────────────
+            if _easyauth_auto_login:
+                ea_email = get_easyauth_email()
+                if ea_email:
+                    user_id = _establish_session(ea_email)
+                    logger.info('EasyAuth auto-login for %s', ea_email)
         if not user_id:
             if request.path.startswith('/api/'):
                 return jsonify({'error': 'Authentication required'}), 401
@@ -315,6 +375,13 @@ def create_app(config_path: str = None) -> Flask:
     def login_page():
         if session.get('user_id'):
             return redirect('/')
+        # If EasyAuth headers are present, auto-login and skip the form
+        if _easyauth_auto_login:
+            ea_email = get_easyauth_email()
+            if ea_email:
+                _establish_session(ea_email)
+                logger.info('EasyAuth auto-login (login page) for %s', ea_email)
+                return redirect('/')
         return render_template('login.html')
 
     @app.route('/api/auth/login', methods=['POST'])
@@ -327,19 +394,8 @@ def create_app(config_path: str = None) -> Flask:
 
         # Skip OTP — authenticate immediately with just the email
         if not _code_verification:
-            user = _user_store.get_or_create(email)
-            _user_store.update_last_login(user.id)
-            uctx = UserContext(user_id=user.id, base_dir='data/users')
-            model_keys = list(app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys())
-            uctx.ensure_dirs(model_keys=model_keys)
-            uctx.seed_from_shared(
-                shared_prompts='prompts',
-                shared_data='data/synthetic',
-            )
-            session.permanent = True
-            session['user_id'] = user.id
-            session['user_email'] = user.email
-            return jsonify({'status': 'authenticated', 'user_id': user.id, 'redirect': '/'})
+            uid = _establish_session(email)
+            return jsonify({'status': 'authenticated', 'user_id': uid, 'redirect': '/'})
 
         code = _code_manager.generate(email)
         sent = _email_sender.send_code(email, code)
@@ -360,25 +416,8 @@ def create_app(config_path: str = None) -> Flask:
         if not ok:
             return jsonify({'error': msg}), 401
 
-        # Get or create user
-        user = _user_store.get_or_create(email)
-        _user_store.update_last_login(user.id)
-
-        # Bootstrap user directory on first login
-        uctx = UserContext(user_id=user.id, base_dir='data/users')
-        model_keys = list(app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys())
-        uctx.ensure_dirs(model_keys=model_keys)
-        uctx.seed_from_shared(
-            shared_prompts='prompts',
-            shared_data='data/synthetic',
-        )
-
-        # Create session
-        session.permanent = True
-        session['user_id'] = user.id
-        session['user_email'] = user.email
-
-        return jsonify({'status': 'authenticated', 'user_id': user.id, 'redirect': '/'})
+        uid = _establish_session(email)
+        return jsonify({'status': 'authenticated', 'user_id': uid, 'redirect': '/'})
 
     @app.route('/api/auth/logout', methods=['POST'])
     def auth_logout():
