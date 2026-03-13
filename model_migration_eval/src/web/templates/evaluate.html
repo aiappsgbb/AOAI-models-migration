@@ -1106,6 +1106,7 @@
             const lm = data.latency_metrics;
             const cons = data.consistency_metrics;
             const qm = data.quality_metrics;
+            const tcm = data.tool_calling_metrics;
 
             // --- Dynamic Metric Cards ---
             const cardsEl = document.getElementById('metrics-cards');
@@ -1154,8 +1155,8 @@
                 ];
             } else if (evalType === 'tool_calling') {
                 cards = [
-                    { label: 'Tool Selection Acc', value: cm ? (cm.accuracy * 100).toFixed(1) + '%' : '-', color: 'blue' },
-                    { label: 'Param Accuracy', value: cm && cm.f1_score != null ? (cm.f1_score * 100).toFixed(1) + '%' : '-', color: 'green' },
+                    { label: 'Tool Selection Acc', value: tcm ? (tcm.tool_selection_accuracy * 100).toFixed(1) + '%' : '-', color: 'blue' },
+                    { label: 'Param Accuracy', value: tcm ? (tcm.parameter_accuracy * 100).toFixed(1) + '%' : '-', color: 'green' },
                     { label: 'Consistency', value: cons ? (cons.reproducibility_score * 100).toFixed(1) + '%' : '-', color: 'purple' },
                     { label: 'Avg Latency', value: lm ? lm.mean_latency.toFixed(3) + 's' : '-', color: 'yellow' },
                     { label: 'P95 Latency', value: lm ? lm.p95_latency.toFixed(3) + 's' : '-', color: 'yellow' },
