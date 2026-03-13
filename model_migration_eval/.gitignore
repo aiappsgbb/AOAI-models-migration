@@ -28,6 +28,9 @@ config/settings.local.yaml
 # Logs
 logs/
 
+# Auth database (session/OTP state — ephemeral)
+data/auth.db
+
 # Evaluation results (keep directory, ignore files)
 data/results/*.json
 
