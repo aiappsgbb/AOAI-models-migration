@@ -85,6 +85,7 @@ PUBLIC_PREFIXES = (
     "/login",
     "/api/auth/",
     "/api/health",
+    "/.auth/",         # Azure Container Apps EasyAuth callback routes
     "/static/",
     "/favicon",
 )

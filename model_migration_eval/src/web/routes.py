@@ -102,7 +102,9 @@ def create_app(config_path: str = None) -> Flask:
         _ea_yaml = _auth_cfg.get('easyauth_auto_login', True)
         if isinstance(_ea_yaml, str):
             _ea_lower = _ea_yaml.strip().lower()
-            _easyauth_auto_login = _ea_lower not in ('false', '0', 'no') and not _ea_lower.startswith('${')
+            # Unresolved placeholder ${...} → default to True (auto-detect)
+            # Only explicit 'false'/'0'/'no' disables the feature.
+            _easyauth_auto_login = _ea_lower not in ('false', '0', 'no')
         else:
             _easyauth_auto_login = bool(_ea_yaml)
 
@@ -329,6 +331,8 @@ def create_app(config_path: str = None) -> Flask:
         session['user_email'] = user.email
         return user.id
 
+    app.logger.info('EasyAuth auto-login enabled: %s', _easyauth_auto_login)
+
     # ── Auth middleware ───────────────────────────────────────────────
 
     @app.before_request
@@ -350,7 +354,15 @@ def create_app(config_path: str = None) -> Flask:
                 ea_email = get_easyauth_email()
                 if ea_email:
                     user_id = _establish_session(ea_email)
-                    logger.info('EasyAuth auto-login for %s', ea_email)
+                    app.logger.info('EasyAuth auto-login for %s', ea_email)
+                else:
+                    # Log headers for debugging (first request only)
+                    principal = request.headers.get('X-MS-CLIENT-PRINCIPAL-NAME', '')
+                    principal_id = request.headers.get('X-MS-CLIENT-PRINCIPAL-ID', '')
+                    app.logger.debug(
+                        'EasyAuth headers: PRINCIPAL-NAME=%r, PRINCIPAL-ID=%r, path=%s',
+                        principal, principal_id, request.path,
+                    )
         if not user_id:
             if request.path.startswith('/api/'):
                 return jsonify({'error': 'Authentication required'}), 401
@@ -380,7 +392,7 @@ def create_app(config_path: str = None) -> Flask:
             ea_email = get_easyauth_email()
             if ea_email:
                 _establish_session(ea_email)
-                logger.info('EasyAuth auto-login (login page) for %s', ea_email)
+                app.logger.info('EasyAuth auto-login (login page) for %s', ea_email)
                 return redirect('/')
         return render_template('login.html')
 
