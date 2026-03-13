@@ -158,9 +158,14 @@ schema:
 
 ## CLASSIFICATION REQUIREMENT
 
-- Always set `category` to the correct primary category code from the existing taxonomy (do not rename, merge, split, or invent new primary categories).
-- Set `subcategory` to a concise telco-relevant label consistent with the chosen primary category.
-- If the taxonomy is not explicitly provided in the conversation, infer the best matching existing primary category code from prior system context; do not create new codes.
+Primary category codes (MUST remain exactly as listed; do not rename, merge, split, or invent new primary categories):
+- TOOL_CALL — The request requires one or more tool/function calls to retrieve or update data
+- NO_TOOL — The request can be answered with general knowledge or troubleshooting guidance without tools
+- CLARIFY — The intent is clear but required parameters are missing or ambiguous; ask questions before any tool call
+- REFUSE — The request is disallowed, unsafe, or attempts to bypass security/verification
+
+- Always set `category` to one of the four codes above.
+- Set `subcategory` to a concise telco-relevant label consistent with the chosen primary category (e.g., `billing.invoice_explain`, `network.coverage_check`, `sim.block_stolen`, `plan.upgrade`, `roaming.activate`, `general.troubleshooting`).
 
 ---
 

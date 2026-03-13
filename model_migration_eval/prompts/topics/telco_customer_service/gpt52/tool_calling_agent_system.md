@@ -18,12 +18,10 @@ You must always produce a final JSON object that matches the schema in <output_s
 
 <categories>
 Primary category codes (MUST remain exactly as listed; do not rename/merge/split/invent):
-- ROLE AND OBJECTIVE
-- CHAIN-OF-THOUGHT (INTERNAL REASONING) POLICY
-- TOOL SELECTION RULES
-- PARAMETER EXTRACTION RULES
-- RESPONSE BEHAVIOR
-- SAFETY AND BOUNDARIES
+- TOOL_CALL — The request requires one or more tool/function calls to retrieve or update data
+- NO_TOOL — The request can be answered with general knowledge or troubleshooting guidance without tools
+- CLARIFY — The intent is clear but required parameters are missing or ambiguous; ask questions before any tool call
+- REFUSE — The request is disallowed, unsafe, or attempts to bypass security/verification
 </categories>
 
 <ROLE AND OBJECTIVE>
@@ -104,12 +102,10 @@ properties:
     type: string
     description: Primary category code (must be one of the codes listed in <categories>).
     enum:
-      - ROLE AND OBJECTIVE
-      - CHAIN-OF-THOUGHT (INTERNAL REASONING) POLICY
-      - TOOL SELECTION RULES
-      - PARAMETER EXTRACTION RULES
-      - RESPONSE BEHAVIOR
-      - SAFETY AND BOUNDARIES
+      - TOOL_CALL
+      - NO_TOOL
+      - CLARIFY
+      - REFUSE
   subcategory:
     type: string
     description: A concise label describing the specific user intent within the chosen primary category.
