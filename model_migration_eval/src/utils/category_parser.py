@@ -10,9 +10,9 @@ Re-exported from ``prompt_manager`` for backward compatibility.
 """
 
 import re
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-__all__ = ["extract_categories_from_prompt"]
+__all__ = ["extract_categories_from_prompt", "extract_taxonomy_from_prompt"]
 
 
 def extract_categories_from_prompt(prompt_text: str) -> List[str]:
@@ -313,6 +313,209 @@ def extract_categories_from_prompt(prompt_text: str) -> List[str]:
                 _add(stripped)
 
     return categories
+
+
+def extract_taxonomy_from_prompt(prompt_text: str) -> Dict[str, List[str]]:
+    """Extract a hierarchical taxonomy from a classification prompt.
+
+    Returns a dict mapping each primary category code to a list of its
+    subcategory codes.  Falls back to ``{cat: [] for cat in categories}``
+    when subcategories cannot be reliably parsed.
+
+    Supports the same prompt formats as :func:`extract_categories_from_prompt`:
+
+    1. **YAML** — ``categories:`` block with nested ``subcategories:`` keys.
+    2. **Bullet / dash lists** — indented sub-items under each top-level category.
+    3. **Markdown tables** — tables with both "category" and "subcategory" columns.
+    """
+    from typing import Dict  # local re-import for safety
+
+    _CODE_RE = re.compile(r'^[a-z][a-z0-9_]{2,}$')
+    yaml_meta_keys = {
+        'name', 'description', 'subcategories', 'priority', 'sentiment',
+        'priority_levels', 'sentiment_values', 'entity_schema',
+        'follow_up_question_types',
+    }
+
+    taxonomy: Dict[str, List[str]] = {}
+
+    # ── Strategy A: YAML dict keys under `categories:` ────────────
+    cat_header_re = re.compile(r'^(\s*)categories:\s*$', re.MULTILINE)
+    for m in cat_header_re.finditer(prompt_text):
+        base_indent = len(m.group(1))
+        cat_indent_min = base_indent + 1
+        cat_indent_max = base_indent + 6
+        remaining = prompt_text[m.end():].splitlines()
+
+        current_cat: Optional[str] = None
+        in_subcategories = False
+        subcat_base_indent: Optional[int] = None
+
+        for sub_line in remaining:
+            if not sub_line.strip():
+                continue
+            content = sub_line.lstrip()
+            indent = len(sub_line) - len(content)
+
+            # Exited the categories block entirely
+            if indent <= base_indent and content and not content.startswith('#'):
+                break
+
+            # Detect "subcategories:" key — the items below are subcategory codes
+            stripped_key = content.rstrip().rstrip(':')
+            if stripped_key == 'subcategories':
+                in_subcategories = True
+                subcat_base_indent = indent
+                continue
+
+            # If we were inside subcategories and de-dented back, exit subcat mode
+            if in_subcategories and subcat_base_indent is not None and indent <= subcat_base_indent:
+                in_subcategories = False
+                subcat_base_indent = None
+
+            # Collect subcategory codes
+            if in_subcategories and current_cat is not None:
+                key_m = re.match(r'([a-z][a-z0-9_]{2,}):?', content)
+                if key_m:
+                    sc_code = key_m.group(1)
+                    if sc_code not in yaml_meta_keys:
+                        taxonomy.setdefault(current_cat, [])
+                        if sc_code not in taxonomy[current_cat]:
+                            taxonomy[current_cat].append(sc_code)
+                # Also handle bullet-style subcategories: "- some_code"
+                bullet_m = re.match(r'[-*]\s+([a-z][a-z0-9_]{2,})', content)
+                if bullet_m:
+                    sc_code = bullet_m.group(1)
+                    if sc_code not in yaml_meta_keys:
+                        taxonomy.setdefault(current_cat, [])
+                        if sc_code not in taxonomy[current_cat]:
+                            taxonomy[current_cat].append(sc_code)
+                continue
+
+            # Detect top-level category keys
+            if cat_indent_min <= indent <= cat_indent_max:
+                key_m = re.match(r'([a-z][a-z0-9_]{2,}):', content)
+                if key_m and key_m.group(1) not in yaml_meta_keys:
+                    current_cat = key_m.group(1)
+                    taxonomy.setdefault(current_cat, [])
+
+    if taxonomy:
+        return taxonomy
+
+    # ── Strategy B: Bullet / dash lists with indented sub-items ───
+    _TAXONOMY_KW_RE = re.compile(r'(categor|taxonom|classif)', re.IGNORECASE)
+    _EXCLUSION_KW_RE = re.compile(
+        r'(priorid|priority|sentim|output|format|ejemplo|example|instruc|entity|risk|follow)',
+        re.IGNORECASE)
+
+    lines = prompt_text.splitlines()
+    in_tax = False
+    current_cat = None
+    top_indent: Optional[int] = None
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Detect section headings
+        if stripped.startswith('#') or (
+            len(stripped) >= 10 and stripped[0] not in '-*|' and
+            sum(1 for c in stripped if c.isupper()) / max(1, sum(1 for c in stripped if c.isalpha())) >= 0.6
+        ):
+            if _EXCLUSION_KW_RE.search(stripped.lower()):
+                in_tax = False
+            elif _TAXONOMY_KW_RE.search(stripped.lower()):
+                in_tax = True
+                current_cat = None
+                top_indent = None
+            continue
+
+        if not in_tax:
+            continue
+
+        # Match bullet items: "- some_code" or "* some_code"
+        bm = re.match(r'^(\s*)[-*]\s+\**([a-z][a-z0-9_]{2,})\**\s*(?:[:(].*)?$', line)
+        if not bm:
+            # Also match "- some_code:" with trailing description
+            bm = re.match(r'^(\s*)[-*]\s+\**([a-z][a-z0-9_]{2,})\**:', line)
+        if bm:
+            indent = len(bm.group(1))
+            code = bm.group(2)
+            if top_indent is None:
+                top_indent = indent
+            if indent == top_indent:
+                # Top-level category
+                current_cat = code
+                taxonomy.setdefault(current_cat, [])
+            elif indent > top_indent and current_cat is not None:
+                # Sub-level → subcategory
+                if code not in taxonomy.get(current_cat, []):
+                    taxonomy.setdefault(current_cat, []).append(code)
+
+    if taxonomy:
+        return taxonomy
+
+    # ── Strategy C: Markdown table with category + subcategory cols ─
+    in_tax = False
+    in_table = False
+    cat_col_idx: Optional[int] = None
+    subcat_col_idx: Optional[int] = None
+    separator_seen = False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('#') or (
+            len(stripped) >= 10 and stripped[0] not in '-*|' and
+            sum(1 for c in stripped if c.isupper()) / max(1, sum(1 for c in stripped if c.isalpha())) >= 0.6
+        ):
+            if _EXCLUSION_KW_RE.search(stripped.lower()):
+                in_tax = False
+            elif _TAXONOMY_KW_RE.search(stripped.lower()):
+                in_tax = True
+            in_table = False
+            cat_col_idx = None
+            subcat_col_idx = None
+            separator_seen = False
+            continue
+
+        if not in_tax:
+            continue
+
+        if '|' in stripped and not in_table:
+            cols = [c.strip().lower() for c in stripped.split('|')]
+            for i, col in enumerate(cols):
+                if re.search(r'categor[ií]a.*principal|primary.*categ|category[_ ]code|^code$|^category$', col):
+                    cat_col_idx = i
+                if re.search(r'sub.?categor', col):
+                    subcat_col_idx = i
+            if cat_col_idx is not None and subcat_col_idx is not None:
+                in_table = True
+            else:
+                cat_col_idx = None
+                subcat_col_idx = None
+            continue
+
+        if in_table and re.match(r'^[\s|:-]+$', stripped):
+            separator_seen = True
+            continue
+
+        if in_table and '|' in stripped and separator_seen:
+            cols = [c.strip().strip('`') for c in stripped.split('|')]
+            if cat_col_idx is not None and subcat_col_idx is not None:
+                cat_val = cols[cat_col_idx].strip() if cat_col_idx < len(cols) else ""
+                subcat_val = cols[subcat_col_idx].strip() if subcat_col_idx < len(cols) else ""
+                if _CODE_RE.match(cat_val) and _CODE_RE.match(subcat_val):
+                    taxonomy.setdefault(cat_val, [])
+                    if subcat_val not in taxonomy[cat_val]:
+                        taxonomy[cat_val].append(subcat_val)
+        elif in_table and '|' not in stripped:
+            in_table = False
+
+    if taxonomy:
+        return taxonomy
+
+    # ── Fallback: return categories with empty subcategory lists ──
+    categories = extract_categories_from_prompt(prompt_text)
+    return {c: [] for c in categories}
 
 
 # Backward-compatible alias (underscore-prefixed name used by old callers)

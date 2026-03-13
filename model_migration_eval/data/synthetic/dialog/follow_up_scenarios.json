@@ -1,122 +1,122 @@
 [
   {
     "id": "DLG_001",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"Hi, my mobile bill is way higher than usual this month and I don’t understand why.\"}]",
-    "context_gaps": "customer authentication details | account or phone number | billing period in question | whether customer has checked itemized usage",
-    "optimal_follow_up": "I’m sorry for the confusion about your bill, and I’ll be happy to look into it. To get started, could you please provide your full name, the mobile number on the account, and confirm the billing month that looks higher than usual? Also, have you had a chance to review the itemized charges in your online account or on the PDF bill, and if so, were there any specific charges that stood out as unexpected?",
-    "follow_up_rules": "Begin with empathy and acknowledge the billing concern | Request only the minimum necessary details to locate the account | Ask the customer to specify the billing period and any suspicious line items | Avoid assuming the cause of the overcharge before reviewing the account",
-    "expected_resolution_turns": "2"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"Hi, do you have any Red Sea liveaboards in October for 2 divers? We’re thinking Brothers/Daedalus/Elphinstone but flexible if the price is better.\"}]",
+    "context_gaps": "preferred departure week in October | budget per person | cabin type and departure port",
+    "optimal_follow_up": "Absolutely, I can check October Red Sea liveaboard options for 2 divers. To narrow down the best availability and pricing, please tell me your preferred departure week, your approximate budget per person, and whether you want a twin cabin, double cabin, or are open to shared accommodation. Also let me know if you prefer departures from Hurghada, Port Ghalib, or either. Once I have that, I can suggest the most suitable BDE and alternative route options.",
+    "follow_up_rules": "Ask only for details needed to quote accurately | Mention route and port options relevant to the Red Sea | Avoid promising availability before checking live inventory",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_002",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"Every evening my home internet gets super slow, but it’s fine during the day.\"}, {\"role\": \"agent\", \"message\": \"I’m sorry to hear that your speeds are slowing down in the evenings.\"}]",
-    "context_gaps": "type of connection (fiber, cable, DSL, 5G home) | modem/router model and setup | whether the issue is on Wi‑Fi, wired, or both | speed test results and times | location/postcode to check for congestion or outages",
-    "optimal_follow_up": "To help narrow this down, could you tell me what type of home internet service you have with us (for example fiber, cable, or 5G home internet) and whether the slowdown happens on both Wi‑Fi and wired connections? If possible, please run a speed test at https://speedtest.net or our official speed test app around the time you notice the slowdown and share the download and upload results, along with your postcode, so I can check for any local congestion or network issues.",
-    "follow_up_rules": "Clarify the technical environment before suggesting fixes | Ask for concrete measurements like speed test results and times | Avoid blaming the customer’s devices without evidence | Keep instructions simple and step‑by‑step",
-    "expected_resolution_turns": "3"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"We want to book a week in Marsa Alam in May with shore diving and maybe one day boat trip.\"},{\"role\":\"agent\",\"message\":\"That sounds great. We can help with resort-based diving packages in Marsa Alam.\"},{\"role\":\"customer\",\"message\":\"Can you make it family-friendly? My partner dives, I snorkel, and our 12-year-old wants to try diving if possible.\"}]",
+    "context_gaps": "exact travel dates in May | room setup and board basis | child diving certification or try-dive preference",
+    "optimal_follow_up": "Yes, we can tailor a Marsa Alam package for a mixed family trip. To build the right option, please share your exact May travel dates, how many rooms you need and your preferred meal plan, and whether your 12-year-old wants a supervised introductory dive or already has a junior certification. I’ll also check which resorts offer good house-reef snorkeling, family-friendly facilities, and a dive center that can arrange a day boat for your partner.",
+    "follow_up_rules": "Acknowledge mixed diver/non-diver needs | Check child age and diving status before confirming activities | Offer customized package rather than a one-size-fits-all quote",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_003",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"I just put my SIM into a new phone and it says ‘No SIM card’.\"}]",
-    "context_gaps": "phone make and model | SIM card size and condition | whether SIM works in another device | whether the phone is carrier locked or unlocked | account status and SIM activation status",
-    "optimal_follow_up": "Thanks for letting me know. Let’s get that new phone working. Could you tell me the make and model of the new phone and whether it’s unlocked or purchased directly from us? Also, does this SIM card still work if you put it back into your old phone, and have you checked that the SIM is firmly seated in the tray with no visible damage or dirt on the metal contacts?",
-    "follow_up_rules": "Gather key device and SIM details before troubleshooting | Ask the customer to try simple checks they can safely perform | Differentiate between SIM, device, and account issues | Avoid technical jargon without explanation",
-    "expected_resolution_turns": "3"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"I paid the deposit for our Red Sea trip last week but haven’t received a receipt yet. Also, can I pay the balance by bank transfer instead of card?\"}]",
+    "context_gaps": "booking reference | payer name and payment date | departure date and balance due date",
+    "optimal_follow_up": "Of course, I can help with that. Please send your booking reference, the lead passenger name, and the date the deposit was paid so I can locate the file and confirm the receipt status. We can usually advise on bank transfer for the balance as well, but I’ll need to check your departure date and balance due date first because transfer timing can matter close to travel.",
+    "follow_up_rules": "Verify booking before discussing payment specifics | Mention timing sensitivity for bank transfers | Do not confirm receipt issuance without checking records",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_004",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"I just landed in Spain and my phone has no service at all. I thought roaming was included.\"}, {\"role\": \"agent\", \"message\": \"I understand how important it is to stay connected while traveling.\"}, {\"role\": \"customer\", \"message\": \"Yeah, I really need it for work emails and maps.\"}]",
-    "context_gaps": "customer’s mobile number and plan type | whether international roaming is enabled on the account | device type and roaming settings status | whether the customer has tried manual network selection | any roaming usage or blocks on the line",
-    "optimal_follow_up": "Let’s get you connected as quickly as possible. Please share your mobile number and confirm the name on the account so I can check whether international roaming is enabled on your plan. On your phone, could you also confirm that data roaming is turned on in your mobile network settings and let me know if you see any networks when you try to search for them manually in the ‘Network operators’ menu?",
-    "follow_up_rules": "Reassure the customer given the urgency of travel situations | Verify both account-level and device-level roaming settings | Provide clear, device-agnostic instructions for manual network search | Avoid promising roaming is included until the plan is confirmed",
-    "expected_resolution_turns": "3"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"We’re booked on a liveaboard from Hurghada next month, but one of our group may need to cancel because of surgery. What are the options?\"}]",
+    "context_gaps": "booking reference | number of passengers affected | whether travel insurance is in place",
+    "optimal_follow_up": "I’m sorry to hear that. Please send your booking reference and let me know which passenger may need to cancel, whether the rest of the group still plans to travel, and if they have travel insurance that may cover medical cancellation. Once I check the booking terms, I can explain the cancellation charges, whether a name change is possible, and any options to minimize costs.",
+    "follow_up_rules": "Lead with empathy for medical situation | Gather booking and insurance details before quoting penalties | Explore alternatives such as name change if permitted",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_005",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"I want to cancel my mobile line at the end of this month. How do I do that?\"}]",
-    "context_gaps": "account holder identity and authentication | which specific line to cancel if multiple lines exist | desired effective cancellation date | contract status and any early termination fees | outstanding device payment plans",
-    "optimal_follow_up": "I can help you with that. First, I’ll need to locate and verify your account. Could you please provide your full name, the mobile number you’d like to cancel, and confirm that you’re the account holder or an authorized contact? Once I’ve pulled up your account, I’ll review any contract terms, device payment plans, and possible early termination fees with you, and we can set the cancellation to take effect at the end of the month as requested.",
-    "follow_up_rules": "Confirm identity and authorization before discussing cancellations | Clarify which line and date the customer wants to cancel | Proactively mention potential fees or device balances | Use neutral language and avoid pressuring the customer to stay",
-    "expected_resolution_turns": "2"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"I’m a UK passport holder flying to Egypt for a Red Sea dive holiday. Do I need a visa in advance, and is 5 months validity on my passport enough?\"}]",
+    "context_gaps": "destination airport and resort/liveaboard area | exact passport expiry date | nationality and any non-UK residency complications",
+    "optimal_follow_up": "I can help with the general requirements, but I want to make sure you don’t face any travel issues. Please confirm your exact arrival airport in Egypt, your passport expiry date, and whether you are traveling solely on a UK passport. For many Red Sea trips, visa rules can depend on route and entry point, and passport validity is critical. Once you confirm those details, I’ll outline the likely requirements and strongly recommend checking the latest official government and airline guidance before departure.",
+    "follow_up_rules": "Do not give definitive immigration advice without key travel details | Flag passport validity as a potential travel risk | Direct customer to official sources for final confirmation",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_006",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"I’m supposed to get a discount for having mobile and home internet with you, but my last bill doesn’t show it.\"}, {\"role\": \"agent\", \"message\": \"Thanks for reaching out about the missing discount.\"}]",
-    "context_gaps": "which services are bundled (mobile, internet, TV) | when the bundle was activated or changed | eligibility criteria for the discount | billing cycle when discount was expected to start | account numbers for each service",
-    "optimal_follow_up": "To check why the bundle discount isn’t showing, could you please confirm which services you currently have with us (for example mobile plus home internet, or mobile, internet, and TV) and when you were told the discount would start? If you have them handy, please share the account numbers for your mobile and home internet so I can verify that they’re correctly linked and that your plan meets the discount eligibility requirements.",
-    "follow_up_rules": "Clarify the exact bundle configuration and start date | Verify that all relevant services are on the same customer profile | Explain that discounts may start from a specific billing cycle | Avoid guaranteeing backdated credits before reviewing policy",
-    "expected_resolution_turns": "3"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"Our flight lands in Hurghada at 23:40. If we book the liveaboard with you, is the airport transfer included and where do we meet the driver?\"},{\"role\":\"agent\",\"message\":\"Transfers are often included or can be arranged depending on the boat and package.\"},{\"role\":\"customer\",\"message\":\"We’re worried because it’s a late arrival and we have dive bags.\"}]",
+    "context_gaps": "boat name or booking reference | number of passengers and bags | whether arrival is same day as embarkation",
+    "optimal_follow_up": "That’s completely understandable, especially with a late arrival and dive gear. Please send your boat name or booking reference, your flight details, and how many passengers and large bags you’ll have. I’ll confirm whether the Hurghada airport transfer is included, the exact meeting procedure, and whether the driver will wait inside arrivals or outside the terminal. If your arrival is close to embarkation cut-off, I’ll also check whether any special coordination is needed.",
+    "follow_up_rules": "Reassure customer about late-night logistics | Confirm inclusion and meeting instructions only after checking booking/package | Assess timing risk if arrival is near embarkation deadline",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_007",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"We just opened a small office and need a static IP on our business internet line. Can you set that up?\"}]",
-    "context_gaps": "confirmation that the account is a business account | current internet plan and router type | number of static IPs required | technical contact person and availability | awareness of any additional fees",
-    "optimal_follow_up": "Yes, we can look into adding a static IP for your office connection. Could you confirm your business account name, the service address, and the account or circuit number for the internet line you’re referring to? Also, do you need a single static IP or a block of IPs, and is there a technical contact on your team we should coordinate with for any router configuration? I’ll also outline any additional monthly charges before we proceed.",
-    "follow_up_rules": "Confirm business account details and service identifiers | Clarify the quantity and purpose of static IPs | Set expectations about potential additional charges | Identify a technical contact to avoid miscommunication",
-    "expected_resolution_turns": "2"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"Can you tell me what the cabins are like on Red Sea liveaboards? My wife gets seasick and wants an ensuite lower-deck cabin if possible.\"}]",
+    "context_gaps": "specific boat or route of interest | travel month | cabin occupancy preference",
+    "optimal_follow_up": "Yes, cabin layout can make a big difference for comfort. If you tell me which boat or route you’re considering, your travel month, and whether you want a double or twin setup, I can recommend the most suitable ensuite lower-deck options. I can also point out which boats are generally more stable in rougher conditions and whether there are any midship cabins available, which some guests prefer if they’re prone to seasickness.",
+    "follow_up_rules": "Focus on practical cabin and comfort details | Avoid generic claims because layouts vary by vessel | Mention stability and cabin location sensitively",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_008",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"My home phone connected to the modem has no dial tone at all.\"}, {\"role\": \"agent\", \"message\": \"I’m sorry your home phone isn’t working.\"}, {\"role\": \"customer\", \"message\": \"It’s been like this since yesterday evening.\"}]",
-    "context_gaps": "type of voice service (VoIP via modem or traditional line) | whether internet service is working | modem status lights and recent power outages | whether multiple handsets are affected | service address to check for outages",
-    "optimal_follow_up": "Let’s see what’s causing that. First, can you confirm whether your home phone is connected directly to our modem or to a separate wall socket, and whether your internet connection is working normally? Please also tell me if all handsets in the home have no dial tone or just one, and take a quick look at your modem to let me know which lights are on or flashing. Finally, share your service address so I can check for any local voice outages.",
-    "follow_up_rules": "Differentiate between VoIP and traditional landline setups | Check for broader connectivity or power issues | Ask about multiple devices to isolate the fault | Use clear, non-technical language when referring to modem lights",
-    "expected_resolution_turns": "3"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"I have Open Water with 18 logged dives. Can I join a Brothers/Daedalus/Elphinstone safari, and do I need to bring my own SMB and reef hook?\"}]",
+    "context_gaps": "date of last dive | comfort in currents and deep diving | rental needs for missing equipment",
+    "optimal_follow_up": "Thanks, that helps. BDE routes are often best suited to divers with more experience because conditions can include strong currents, blue-water entries, and deeper profiles. Please tell me when your last dive was, how comfortable you are with currents, and whether you would need to rent any equipment. I can then advise whether this route is appropriate or whether a northern or easier southern itinerary would be safer and more enjoyable. For equipment, SMBs are strongly recommended and reef hook policies can vary by operator and site briefing, so I’ll check the specific boat’s requirements.",
+    "follow_up_rules": "Prioritize suitability and safety over making the sale | Assess recent experience, not just certification level | Clarify operator-specific equipment requirements",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_009",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"My mobile data suddenly got really slow and I got a text about reaching my limit. What does that mean?\"}]",
-    "context_gaps": "customer’s plan type and data allowance | whether speed is throttled or data is fully blocked | billing cycle dates | whether customer wants a one-time top-up or plan change",
-    "optimal_follow_up": "That message usually means you’ve used the full high-speed data allowance on your plan for this billing cycle. I can check the details for you. Please provide your mobile number and the name on the account so I can see your plan, your data limit, and how much you’ve used. Once I’ve checked, I can explain whether your speeds are just reduced or if data is paused, and we can look at options like a one-time data top-up or switching to a plan with more data if you’d like.",
-    "follow_up_rules": "Explain data caps in simple terms without jargon | Confirm plan details before suggesting changes | Offer both short-term and long-term solutions | Avoid upselling without confirming the customer’s needs",
-    "expected_resolution_turns": "2"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"We’re thinking of the Red Sea in August. Is it too hot, and which route usually has the best chance of good visibility and less rough crossings?\"}]",
+    "context_gaps": "departure port preference | diver experience level | liveaboard versus resort-based diving preference",
+    "optimal_follow_up": "August can be excellent for Red Sea diving, but it is very hot on land and conditions vary by route. To recommend the best option, please tell me whether you prefer a liveaboard or resort-based trip, your diving experience level, and whether you’d rather depart from Hurghada or Port Ghalib if doing a safari. In general, I can then compare likely sea conditions, crossing exposure, water temperature, and visibility expectations for northern wreck routes versus southern offshore itineraries.",
+    "follow_up_rules": "Set realistic expectations about heat and sea conditions | Tailor route advice to experience and trip style | Avoid guaranteeing weather or visibility",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_010",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"How do I change my Wi‑Fi password on the router you gave me?\"}, {\"role\": \"agent\", \"message\": \"I can guide you through changing your Wi‑Fi password.\"}]",
-    "context_gaps": "router model provided by the telco | whether customer can access router physically | whether customer is comfortable using a web interface or app | current connection type (wired or Wi‑Fi)",
-    "optimal_follow_up": "To give you the right steps, could you check the label on your router and tell me the brand and model number printed there? Also, are you currently connected to that router’s network, and do you prefer to change the password using our mobile app if available, or through the router’s web page in a browser? Once I know that, I’ll walk you through the exact steps.",
-    "follow_up_rules": "Identify the specific router model before giving instructions | Offer the simplest method based on the customer’s comfort level | Confirm the customer is connected to the router before changes | Keep instructions sequential and easy to follow",
-    "expected_resolution_turns": "2"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"I’m diabetic and want to do a Red Sea liveaboard. Is that allowed? I also take medication that needs to stay cool.\"}]",
+    "context_gaps": "type of diabetes and control status | diving medical clearance status | specific boat and storage needs for medication",
+    "optimal_follow_up": "Thanks for raising this before booking. Diving with diabetes may be possible in some cases, but it depends on your medical history, control, and the operator’s policy. Please let me know whether you use insulin, whether you have a recent fit-to-dive medical clearance from a diving doctor, and which trip you’re considering. I’ll also check whether the boat can safely store temperature-sensitive medication. Because this involves health and diving safety, we may need medical approval before confirming the booking.",
+    "follow_up_rules": "Treat medical disclosure seriously and non-judgmentally | Request medical clearance details before confirming suitability | Check practical onboard medication storage arrangements",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_011",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"I’m trying to move my number from another provider to you, but it keeps failing.\"}]",
-    "context_gaps": "current (losing) provider name | exact mobile number to be ported | whether the number is prepaid or postpaid | account number or PAC/porting code from old provider | error message or status from failed port attempt",
-    "optimal_follow_up": "Let’s sort out the porting issue. Could you tell me which provider you’re moving the number from, the mobile number you’re trying to port, and whether it’s a prepaid or postpaid line? If you’ve received a porting or authorization code from your current provider, please share that as well, along with any error message or status you saw when the port failed, so I can check what’s blocking the transfer.",
-    "follow_up_rules": "Gather all required porting identifiers before reattempting | Clarify prepaid vs postpaid as rules may differ | Ask about any error messages to pinpoint the failure reason | Avoid blaming the other provider; stay neutral and solution-focused",
-    "expected_resolution_turns": "3"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"We’re already on the boat and my rental BCD keeps leaking. I told the guide this morning but it’s still not sorted and I’ve missed a dive.\"}]",
+    "context_gaps": "boat name and cabin/booking name | whether issue is ongoing and affects safety | what resolution has already been offered onboard",
+    "optimal_follow_up": "I’m sorry you’re dealing with that onboard. Your safety and dive time matter. Please send the boat name, the lead booking name or cabin number, and confirm whether the BCD issue is still unresolved right now. Also let me know what the crew has offered so far, such as a replacement unit or repair attempt. I’ll escalate this immediately with the operator and ask for a safe replacement and a clear update on how they plan to address the missed dive.",
+    "follow_up_rules": "Prioritize immediate safety and active trip resolution | Gather enough details to escalate quickly | Do not advise customer to continue diving with faulty equipment",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_012",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"I want to limit what my kids can access on their phones through your network. Do you have parental controls?\"}, {\"role\": \"agent\", \"message\": \"We do offer some parental control options.\"}, {\"role\": \"customer\", \"message\": \"I mainly want to block adult sites and set time limits at night.\"}]",
-    "context_gaps": "number of lines to be controlled | whether kids’ phones are on the same account | device types and operating systems | customer’s comfort with app-based controls | whether controls should apply only to mobile data or also Wi‑Fi",
-    "optimal_follow_up": "We can definitely help you set up restrictions like that. To recommend the best option, could you tell me how many of your children’s lines are on your account and whether they use iPhones, Android phones, or a mix? Also, do you want the restrictions to apply only when they’re using mobile data, or also when they’re on your home Wi‑Fi? Based on that, I can walk you through our network-based parental controls and, if needed, suggest device-level settings as well.",
-    "follow_up_rules": "Clarify scope: which lines and which networks should be controlled | Account for differences between device platforms | Explain limitations of network-based filtering vs device controls | Use reassuring language focused on safety and support",
-    "expected_resolution_turns": "3"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"We got back from our Red Sea trip last week. The cabin AC barely worked for 3 nights and one of the promised dive sites was skipped. How do I make a complaint?\"}]",
+    "context_gaps": "booking reference | whether issues were reported during trip | what remedy if any was offered onsite",
+    "optimal_follow_up": "I’m sorry to hear the trip didn’t meet expectations. Please send your booking reference, the boat name, and a brief timeline of the AC issue and the skipped dive site, including whether you reported both problems to the crew or tour leader during the trip and what response you received. If you have photos or written notes, those can help. Once I have that, I’ll explain the complaint process and review whether compensation or another remedy may be appropriate under the booking terms.",
+    "follow_up_rules": "Acknowledge dissatisfaction without admitting liability prematurely | Request evidence and reporting history | Explain complaint pathway clearly and professionally",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_013",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"Your technician never showed up for my fiber installation this morning.\"}, {\"role\": \"agent\", \"message\": \"I’m really sorry to hear that the technician didn’t arrive as expected.\"}]",
-    "context_gaps": "service address and order/appointment number | scheduled appointment window and time zone | any notifications sent about delays or rescheduling | customer’s availability for a new appointment | whether any partial work was done previously",
-    "optimal_follow_up": "Let me check what happened with your appointment and get this back on track. Please provide your service address and, if you have it, the order or appointment reference number. What time window were you given for this morning’s visit, and did you receive any text or email updates about delays or rescheduling? Once I’ve reviewed the technician’s notes, I’ll explain what went wrong and offer you the earliest available new appointment that fits your schedule.",
-    "follow_up_rules": "Acknowledge the inconvenience and apologize clearly | Confirm appointment details before investigating | Check internal notes and notifications before explaining | Offer concrete next steps with the soonest available slot",
-    "expected_resolution_turns": "2"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"I’ve booked with you twice before for Egypt. Do you offer repeat guest discounts or any deals if I bring 4 friends on a liveaboard next spring?\"}]",
+    "context_gaps": "previous booking details or customer record | target travel month and route | whether group wants to book together under one lead name",
+    "optimal_follow_up": "Thanks for coming back to us. We really appreciate repeat guests. Please share your previous booking name or references, your preferred month next spring, and which Red Sea route you’re considering. Also let me know if all 5 of you would book together under one lead passenger. I’ll check whether there’s a repeat guest offer, any group incentive, or current promotion that can be applied to the liveaboard you want.",
+    "follow_up_rules": "Recognize loyalty and show appreciation | Verify eligibility before promising discounts | Check stacking rules for repeat and group promotions",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_014",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"My bill shows a bunch of international calls I never made in the middle of the night.\"}, {\"role\": \"agent\", \"message\": \"I understand how worrying unexpected international charges can be.\"}, {\"role\": \"customer\", \"message\": \"I live alone and my phone was on my nightstand the whole time.\"}]",
-    "context_gaps": "phone number and account details | whether calls were from mobile or landline | whether SIM or device has been lost, shared, or used abroad | exact dates and destinations of disputed calls | previous history of similar issues or fraud alerts",
-    "optimal_follow_up": "Let’s investigate those charges and secure your line. Please provide the phone number with the disputed calls and confirm the name on the account. Are these calls showing on a mobile line or a home phone line, and can you tell me the dates and countries or numbers listed for the international calls you don’t recognize? I’ll review your call records, check for any signs of SIM or account compromise, and we can discuss options such as barring international calls and submitting a billing dispute if appropriate.",
-    "follow_up_rules": "Treat potential fraud as urgent and reassure the customer | Gather precise details about the disputed activity | Check for security issues and propose protective measures | Avoid promising charge reversals before completing the investigation",
-    "expected_resolution_turns": "3"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"My husband surfaced confused after the second dive near Elphinstone and now has tingling in his arm. We’re back on the day boat heading to Marsa Alam. What should we do?\"}]",
+    "context_gaps": "whether oxygen is being administered now | severity and progression of symptoms | boat crew and dive guide emergency actions already taken",
+    "optimal_follow_up": "This may be a serious diving medical emergency. Tell the crew immediately if you have not already done so and ask for emergency oxygen to be started now, keep him lying flat and comfortable, and do not let him dive again. The boat should activate its emergency medical procedure and arrange urgent assessment by local emergency medical support and the nearest appropriate recompression facility. Please reply with your exact location, whether oxygen is on, his age, and whether symptoms are worsening, but do not delay onboard emergency action while messaging here.",
+    "follow_up_rules": "Treat possible decompression illness as urgent | Instruct immediate onboard emergency escalation and oxygen use | Do not provide casual reassurance or delay emergency care",
+    "expected_resolution_turns": 2
   },
   {
     "id": "DLG_015",
-    "conversation": "[{\"role\": \"customer\", \"message\": \"I scanned the QR code for the eSIM you sent, but my phone says activation failed.\"}]",
-    "context_gaps": "phone make, model, and operating system version | whether the eSIM profile is from a new line or a replacement | error message shown during activation | network connectivity (Wi‑Fi or mobile data) during activation | whether any other eSIM profiles are already installed",
-    "optimal_follow_up": "Thanks for letting me know. To help fix the eSIM activation, could you tell me the make and model of your phone and which software version it’s running? Is this eSIM for a brand-new line or replacing a physical SIM or previous eSIM on the same number? Please also share the exact error message you see when activation fails and confirm whether you’re connected to Wi‑Fi or mobile data during the process, as well as whether you already have any other eSIM profiles installed on the device.",
-    "follow_up_rules": "Confirm device compatibility and software version first | Clarify whether this is a new activation or a replacement | Ask for the exact error text to guide troubleshooting | Ensure the customer has a stable data connection during activation",
-    "expected_resolution_turns": "3"
+    "conversation": "[{\"role\":\"customer\",\"message\":\"Our inbound flight to Hurghada has been delayed 6 hours and we now land after midnight. Embarkation for the liveaboard was supposed to be this evening. Are we going to miss the boat?\"}]",
+    "context_gaps": "booking reference and boat name | updated flight number and ETA | current location of vessel and operator contact status",
+    "optimal_follow_up": "I know that’s stressful. Please send your booking reference, boat name, updated flight number, and new arrival time immediately. I’ll contact the operator to check whether the vessel is still in port, whether late boarding can be arranged, or if a morning transfer to the next pickup point is possible. Keep your phone on and share any airline delay confirmation you have, as timing is critical and we need to act quickly to reduce the risk of missed embarkation.",
+    "follow_up_rules": "Treat as time-critical missed embarkation risk | Collect flight and booking details fast | Coordinate practical recovery options rather than giving generic advice",
+    "expected_resolution_turns": 2
   }
 ]

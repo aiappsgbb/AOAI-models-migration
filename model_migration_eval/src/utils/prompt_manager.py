@@ -31,6 +31,7 @@ from src.utils.model_guidance import get_guidance as _get_model_guidance
 from src.utils.data_loader import ensure_flat_schema
 from src.utils.category_parser import (          # A2 refactor
     extract_categories_from_prompt,
+    extract_taxonomy_from_prompt,
     _extract_categories_from_prompt,              # backward-compatible alias
 )
 
@@ -55,7 +56,7 @@ using EXACTLY these names and types — no renaming, no nesting changes:
   "primary_category": "<string> — one of the mandatory category codes",
   "subcategory": "<string> — a descriptive snake_case subcategory",
   "priority": "<string> — one of: critical | high | medium | low",
-  "sentiment": "<string> — a flat label, e.g. angry, neutral, positive",
+  "sentiment": "<string> — one of: very_negative | negative | neutral | positive | very_positive",
   "confidence": <number> — a decimal between 0.0 and 1.0,
   "summary": "<string> — brief summary of the customer request",
   "follow_up_questions": ["<string>", ...]
@@ -69,6 +70,8 @@ STRICT RULES:
 - "priority" — NOT "priority_level". Values must be exactly:
   critical, high, medium, or low.
 - "sentiment" must be a flat string — NOT an object with sub-keys.
+  Values must be exactly one of: very_negative, negative, neutral,
+  positive, or very_positive.
 - "confidence" must be a single decimal number 0.0–1.0 — NOT a string,
   NOT an object, NOT absent.
 - "summary" must be a flat string — NOT "summary_es", NOT an object.
@@ -77,6 +80,13 @@ STRICT RULES:
 The model MAY add extra fields (entities, safety_flags, vehicle info, etc.)
 as needed, but the 7 fields above MUST be present with these exact names.
 """
+
+# ── Canonical allowed values for classification fields ────────────
+# These are the ONLY valid values the data-generation pipeline and
+# prompt-generation pipeline should use.  Post-generation validation
+# normalises any deviation back to this canonical set.
+_CANONICAL_PRIORITY_VALUES = ["critical", "high", "medium", "low"]
+_CANONICAL_SENTIMENT_VALUES = ["very_negative", "negative", "neutral", "positive", "very_positive"]
 
 
 def _slugify(text: str) -> str:
@@ -662,6 +672,22 @@ class PromptManager:
                     f"canonical categories from metadata (prompt extraction failed)"
                 )
 
+        # Extract full taxonomy (categories → subcategories) from the
+        # first model's prompt for subcategory-aware data generation.
+        self._canonical_taxonomy = {}
+        for m in self._get_model_dirs():
+            cls_prompt = self.get_active_prompt(m, "classification_agent_system") or ""
+            if cls_prompt:
+                tax = extract_taxonomy_from_prompt(cls_prompt)
+                subcats_total = sum(len(v) for v in tax.values())
+                if tax and subcats_total > 0:
+                    self._canonical_taxonomy = tax
+                    logger.info(
+                        f"regenerate_test_data: extracted taxonomy from {m}: "
+                        f"{len(tax)} categories, {subcats_total} subcategories"
+                    )
+                    break
+
         _dc = data_counts or {}
         _cfg_dc = self._config.get("evaluation", {}).get("test_data_counts", {})
         data_generators = [
@@ -985,6 +1011,7 @@ class PromptManager:
         model_family: Optional[str] = None,
         deployment_name: Optional[str] = None,
         task_hint: Optional[str] = None,
+        taxonomy: Optional[Dict[str, List[str]]] = None,
     ) -> Tuple[str, str, str]:
         """Generate a single prompt asynchronously.
 
@@ -999,6 +1026,7 @@ class PromptManager:
             shared_categories=shared_categories if task in ("classification", "dialog") else None,
             model_family=model_family,
             deployment_name=deployment_name,
+            taxonomy=taxonomy if task == "classification" else None,
         )
 
         async with semaphore:
@@ -1155,6 +1183,71 @@ class PromptManager:
                         else:
                             logger.info(f"[OK] All {data_type} expected_category values match canonical categories.")
 
+                    # ── Validate subcategory, priority, sentiment ─────
+                    if data_type == "classification":
+                        taxonomy: Dict[str, List[str]] = getattr(self, '_canonical_taxonomy', None) or {}
+                        # Flatten taxonomy to a set of all valid subcategories
+                        valid_subcats = {
+                            sc.lower().strip()
+                            for subs in taxonomy.values()
+                            for sc in subs
+                        } if taxonomy else set()
+
+                        priority_set = {p.lower() for p in _CANONICAL_PRIORITY_VALUES}
+                        sentiment_set = {s.lower() for s in _CANONICAL_SENTIMENT_VALUES}
+
+                        fixed_subcat = fixed_prio = fixed_sent = 0
+                        for sc in scenarios:
+                            # -- Subcategory validation --
+                            if valid_subcats:
+                                raw_sub = sc.get("expected_subcategory", "")
+                                if isinstance(raw_sub, str) and raw_sub.lower().strip() not in valid_subcats:
+                                    # Fuzzy match: substring containment
+                                    sub_lower = raw_sub.lower().strip()
+                                    match = next(
+                                        (s for s in valid_subcats
+                                         if s in sub_lower or sub_lower in s),
+                                        None,
+                                    )
+                                    if match:
+                                        sc["expected_subcategory"] = match
+                                    else:
+                                        # Pick a random valid subcategory from
+                                        # this scenario's category, if possible
+                                        cat = sc.get("expected_category", "")
+                                        cat_subs = taxonomy.get(cat, [])
+                                        if cat_subs:
+                                            sc["expected_subcategory"] = random.choice(cat_subs)
+                                        else:
+                                            all_subs = [s for subs in taxonomy.values() for s in subs]
+                                            if all_subs:
+                                                sc["expected_subcategory"] = random.choice(all_subs)
+                                    fixed_subcat += 1
+
+                            # -- Priority validation --
+                            raw_prio = sc.get("expected_priority", "")
+                            if isinstance(raw_prio, str) and raw_prio.lower().strip() not in priority_set:
+                                sc["expected_priority"] = random.choice(_CANONICAL_PRIORITY_VALUES)
+                                fixed_prio += 1
+
+                            # -- Sentiment validation --
+                            raw_sent = sc.get("expected_sentiment", "")
+                            if isinstance(raw_sent, str) and raw_sent.lower().strip() not in sentiment_set:
+                                sc["expected_sentiment"] = random.choice(_CANONICAL_SENTIMENT_VALUES)
+                                fixed_sent += 1
+
+                        if fixed_subcat or fixed_prio or fixed_sent:
+                            logger.warning(
+                                f"[!] Post-gen fixes for {data_type}: "
+                                f"subcategory={fixed_subcat}, priority={fixed_prio}, "
+                                f"sentiment={fixed_sent} / {len(scenarios)} scenarios"
+                            )
+                        else:
+                            logger.info(
+                                f"[OK] All {data_type} subcategory/priority/sentiment "
+                                f"values match canonical sets."
+                            )
+
                     # Validate minimum count
                     min_acceptable = max(1, int(target_count * 0.5))
                     if len(scenarios) < min_acceptable and attempt <= max_retries:
@@ -1284,6 +1377,22 @@ class PromptManager:
             # We still need data_dir set for the Step 4 block
             # Skip straight past Steps 0-3 by using a local goto via
             # the same Step 4 code at the bottom of this method.
+
+            # Extract full taxonomy for subcategory-aware data generation
+            self._canonical_taxonomy = {}
+            for m in models:
+                cls_prompt = self.get_active_prompt(m, "classification_agent_system") or ""
+                if cls_prompt:
+                    tax = extract_taxonomy_from_prompt(cls_prompt)
+                    subcats_total = sum(len(v) for v in tax.values())
+                    if tax and subcats_total > 0:
+                        self._canonical_taxonomy = tax
+                        logger.info(
+                            f"data_only: extracted taxonomy from {m}: "
+                            f"{len(tax)} categories, {subcats_total} subcategories"
+                        )
+                        break
+
             data_path = Path(data_dir)
             _dc = data_counts or {}
             _cfg_dc = self._config.get("evaluation", {}).get("test_data_counts", {})
@@ -1402,6 +1511,7 @@ class PromptManager:
 
         # Extract categories from canonical classification
         shared_categories: Optional[List[str]] = None
+        shared_taxonomy: Optional[Dict[str, List[str]]] = None
         if not canonical_cls_content.startswith("[Error"):
             extracted = _extract_categories_from_prompt(canonical_cls_content)
             if extracted:
@@ -1410,6 +1520,19 @@ class PromptManager:
                     f"Extracted {len(extracted)} categories from {canonical} "
                     f"classification prompt: {extracted}"
                 )
+            # Also extract full taxonomy (categories → subcategories)
+            tax = extract_taxonomy_from_prompt(canonical_cls_content)
+            subcats_total = sum(len(v) for v in tax.values())
+            if tax and subcats_total > 0:
+                shared_taxonomy = tax
+                self._canonical_taxonomy = tax
+                logger.info(
+                    f"Extracted taxonomy from {canonical}: "
+                    f"{len(tax)} categories, {subcats_total} subcategories total"
+                )
+            else:
+                self._canonical_taxonomy = {}
+                logger.info("No subcategories extracted from canonical prompt — subcategory constraints disabled")
         # Fallback: if extraction from new prompt failed, keep preserved ones
         if not shared_categories and preserved_categories:
             shared_categories = preserved_categories
@@ -1447,6 +1570,7 @@ class PromptManager:
                             model_family=family,
                             deployment_name=deployment,
                             task_hint=task,
+                            taxonomy=shared_taxonomy if task == "classification" else None,
                         )
                     )
             return await asyncio.gather(*tasks, return_exceptions=True)
@@ -1634,11 +1758,16 @@ class PromptManager:
         shared_categories: Optional[List[str]] = None,
         model_family: Optional[str] = None,
         deployment_name: Optional[str] = None,
+        taxonomy: Optional[Dict[str, List[str]]] = None,
     ) -> str:
         """Build the meta-prompt that instructs the AI to generate a system prompt.
 
         Uses :func:`src.utils.model_guidance.get_guidance` to produce
         two-tier guidance: family-level base + deployment-specific addendum.
+
+        When *taxonomy* is provided, both primary categories AND their
+        subcategories are injected as mandatory constraints for the
+        generated classification prompt.
         """
 
         guidance = _get_model_guidance(target_model, deployment_name=deployment_name, model_family=model_family)
@@ -1692,19 +1821,27 @@ class PromptManager:
                 "STYLE to the target model’s best practices but keep the "
                 "EXACT SAME primary category codes)"
             )
+            subcat_req = (
+                "3. Keep EXACTLY the same subcategory codes as the reference — "
+                "do NOT rename, paraphrase, or invent new subcategories\n"
+            ) if taxonomy else (
+                "3. Adapt subcategories, descriptions, examples, and prose "
+                f"to the {model_label} style guidelines above\n"
+            )
             requirements = (
                 "## REQUIREMENTS\n"
                 "1. The prompt must be fully self-contained (no placeholders left)\n"
                 "2. Keep EXACTLY the same primary category codes as the reference — "
                 "do NOT rename, merge, split, or invent new categories\n"
-                "3. Adapt subcategories, descriptions, examples, and prose "
-                f"to the {model_label} style guidelines above\n"
+                f"{subcat_req}"
                 "4. Keep the same structural quality as the reference\n"
                 "5. The JSON output schema in the generated prompt MUST use the "
                 "EXACT field names specified in the MANDATORY JSON OUTPUT SCHEMA "
                 "section below — do NOT rename fields (no category.primary, no "
                 "priority_level, no summary_es, no follow_up_questions_es)\n"
-                "6. Output ONLY the system prompt content — no wrapper, no explanation"
+                "6. Sentiment values MUST be exactly: very_negative, negative, "
+                "neutral, positive, very_positive — no synonyms or alternatives\n"
+                "7. Output ONLY the system prompt content — no wrapper, no explanation"
             )
         else:
             ref_header = (
@@ -1745,25 +1882,63 @@ Create {task_description.get(task, task)}
 {reference_snippet}
 
 {requirements}
-{self._categories_block(shared_categories, task)}
+{self._categories_block(shared_categories, task, taxonomy=taxonomy)}
 {schema_block}
 """
 
-    @staticmethod
-    def _categories_block(categories: Optional[List[str]], task: str = "classification") -> str:
+    def _categories_block(
+        self,
+        categories: Optional[List[str]],
+        task: str = "classification",
+        taxonomy: Optional[Dict[str, List[str]]] = None,
+    ) -> str:
         """Return a category constraint block adapted to the task type.
 
-        - **classification**: strict — the prompt MUST use these exact codes.
+        - **classification**: strict — the prompt MUST use these exact codes
+          AND subcategory codes when *taxonomy* is available.
         - **dialog**: soft — the prompt should cover all these domain areas
           in its conversation handling, but need not list them as codes.
         - **other tasks**: no block (categories are irrelevant).
+
+        When *taxonomy* is provided (a dict mapping category → subcategory
+        list), the block constrains both primary categories AND their
+        subcategories, preventing models from inventing their own.
         """
         if not categories:
             return ""
 
-        cat_list = '\n'.join(f'  - {c}' for c in categories)
-
         if task == "classification":
+            # Build a hierarchical listing when taxonomy is available
+            if taxonomy and any(taxonomy.get(c) for c in categories):
+                lines = []
+                for c in categories:
+                    subcats = taxonomy.get(c, [])
+                    if subcats:
+                        lines.append(f"  - {c}")
+                        for sc in subcats:
+                            lines.append(f"      - {sc}")
+                    else:
+                        lines.append(f"  - {c}")
+                cat_list = '\n'.join(lines)
+                subcat_rule = (
+                    f"You MUST use EXACTLY the subcategory codes listed under each\n"
+                    f"category above. Do NOT rename, paraphrase, or invent new\n"
+                    f"subcategories.\n"
+                )
+            else:
+                cat_list = '\n'.join(f'  - {c}' for c in categories)
+                subcat_rule = (
+                    f"You may create subcategories adapted to this model's style,\n"
+                    f"but they MUST be descriptive snake_case codes.\n"
+                )
+
+            sentiment_rule = (
+                f"MANDATORY SENTIMENT VALUES: very_negative | negative | neutral | "
+                f"positive | very_positive\n"
+                f"The prompt MUST instruct the model to use ONLY these 5 sentiment\n"
+                f"values — no synonyms, no emotional labels, no other vocabulary.\n"
+            )
+
             return (
                 f"\n## MANDATORY CATEGORY TAXONOMY (CRITICAL — DO NOT CHANGE)\n"
                 f"You MUST use EXACTLY these primary category codes.\n"
@@ -1773,19 +1948,19 @@ Create {task_description.get(task, task)}
                 f"These are the ONLY valid primary_category values.\n"
                 f"The number of categories is FIXED at {len(categories)}.\n"
                 f"Do NOT add extra categories. Do NOT remove any.\n"
-                f"You may freely create subcategories, descriptions, and examples\n"
-                f"adapted to this model's style, but the primary category codes\n"
-                f"MUST be identical to the list above.\n"
+                f"{subcat_rule}\n"
+                f"{sentiment_rule}\n"
                 f"\n{_CANONICAL_CLASSIFICATION_SCHEMA}"
             )
 
         if task == "dialog":
+            cat_list_dialog = '\n'.join(f'  - {c}' for c in categories)
             return (
                 f"\n## DOMAIN CATEGORIES REFERENCE\n"
                 f"The following categories represent the key areas of this domain.\n"
                 f"The conversation agent MUST be capable of handling inquiries,\n"
                 f"follow-ups, and escalation flows for ALL of these areas:\n\n"
-                f"{cat_list}\n\n"
+                f"{cat_list_dialog}\n\n"
                 f"Ensure the prompt's conversation patterns, follow-up question\n"
                 f"templates, and escalation rules cover every area listed above.\n"
                 f"You do NOT need to list them as formal category codes, but the\n"
@@ -1797,17 +1972,44 @@ Create {task_description.get(task, task)}
     # ── Meta-prompt builders for synthetic data ───────────────────────
 
     def _build_classification_data_prompt(self, topic: str, count: int, *, categories: Optional[List[str]] = None) -> str:
-        """Build the meta-prompt for generating classification test scenarios."""
+        """Build the meta-prompt for generating classification test scenarios.
+
+        When ``self._canonical_taxonomy`` is set, subcategory constraints
+        are injected so that the generated data uses the EXACT same
+        subcategory codes as the canonical classification prompt.
+        """
+        taxonomy: Dict[str, List[str]] = getattr(self, '_canonical_taxonomy', None) or {}
 
         if categories:
             cat_list = ', '.join(f'"{c}"' for c in categories)
-            category_block = (
-                f"MANDATORY CATEGORIES — use EXACTLY these category codes (copy them verbatim):\n"
-                f"  [{cat_list}]\n"
-                f"- You MUST use these exact strings as `expected_category` values — do NOT paraphrase, rename, or invent new ones.\n"
-                f"- Each category must have 2-6 subcategories, also in readable snake_case.\n"
-                f"- Distribute the {count} scenarios across ALL categories (at least 2 per category)."
-            )
+            # Build subcategory constraint block when taxonomy is available
+            if taxonomy and any(taxonomy.get(c) for c in categories):
+                subcat_lines = []
+                for c in categories:
+                    subcats = taxonomy.get(c, [])
+                    if subcats:
+                        sc_str = ', '.join(f'"{s}"' for s in subcats)
+                        subcat_lines.append(f"    {c}: [{sc_str}]")
+                    else:
+                        subcat_lines.append(f"    {c}: (any descriptive_snake_case subcategory)")
+                subcat_block = '\n'.join(subcat_lines)
+                category_block = (
+                    f"MANDATORY CATEGORIES — use EXACTLY these category codes (copy them verbatim):\n"
+                    f"  [{cat_list}]\n"
+                    f"- You MUST use these exact strings as `expected_category` values — do NOT paraphrase, rename, or invent new ones.\n"
+                    f"- MANDATORY SUBCATEGORIES per category (use ONLY these exact codes as `expected_subcategory`):\n"
+                    f"{subcat_block}\n"
+                    f"- Do NOT invent, rename, or paraphrase subcategories — copy them VERBATIM from the list above.\n"
+                    f"- Distribute the {count} scenarios across ALL categories (at least 1 per category)."
+                )
+            else:
+                category_block = (
+                    f"MANDATORY CATEGORIES — use EXACTLY these category codes (copy them verbatim):\n"
+                    f"  [{cat_list}]\n"
+                    f"- You MUST use these exact strings as `expected_category` values — do NOT paraphrase, rename, or invent new ones.\n"
+                    f"- Each category must have 2-6 subcategories, also in readable snake_case.\n"
+                    f"- Distribute the {count} scenarios across ALL categories (at least 2 per category)."
+                )
         else:
             category_block = (
                 f'CATEGORY NAMING RULES:\n'
@@ -1849,13 +2051,13 @@ FIELD RULES:
   Do NOT use a raw object; it MUST be a JSON-encoded string.
 
 SENTIMENT VALUES (use exactly one of these):
-  very_angry, angry, frustrated, concerned, worried, neutral, curious, cautious, positive, professional
+  very_negative, negative, neutral, positive, very_positive
 
 IMPORTANT RULES:
 1. ALL scenarios, customer inputs, categories, subcategories, and contexts must be domain-specific to "{topic}"
 2. Use at least 5 of your invented categories, distributing scenarios across them
 3. Distribute priorities evenly: ~20% critical, ~30% high, ~30% medium, ~20% low
-4. Mix sentiments realistically using ONLY the values listed above
+4. Mix sentiments realistically using ONLY the 5 values listed above (very_negative, negative, neutral, positive, very_positive)
 5. Customer inputs must be natural, varied in tone and length
 6. Context fields should contain domain-specific metadata as a JSON string
 7. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON

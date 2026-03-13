@@ -30,10 +30,10 @@ PRIORITY LEVELS
 - low: informational, no service impact, no urgency
 - medium: service degraded, billing confusion, needs action soon
 - high: service down, risk of suspension, imminent deadline, repeated failures
-- urgent: fraud/security risk, safety risk, total outage for critical service, legal/regulatory escalation
+- critical: fraud/security risk, safety risk, total outage for critical service, legal/regulatory escalation
 
 SENTIMENT
-- positive, neutral, negative, angry
+- very_negative, negative, neutral, positive, very_positive
 
 CONFIDENCE
 - Float 0.0–1.0 reflecting certainty of category+subcategory mapping.
@@ -94,7 +94,7 @@ taxonomy:
       sms_mms_issue:
         description: SMS/MMS not sending/receiving, verification codes not arriving.
         examples: ["No me llegan SMS", "No recibo el código del banco"]
-      internet_fiber_dsl_outage:
+      home_internet_connectivity_issue:
         description: Home internet down, LOS light, no sync, widespread outage symptoms.
         examples: ["No tengo internet en casa", "La luz LOS está roja"]
       slow_internet_performance:
@@ -112,8 +112,8 @@ taxonomy:
       device_configuration_support:
         description: Help configuring phone/router settings (APN, eSIM install, hotspot).
         examples: ["Configurar APN", "Instalar eSIM"]
-      service_activation_provisioning_issue:
-        description: Line/service not activated, stuck provisioning, SIM not provisioned.
+      sim_activation_or_replacement_issue:
+        description: Line/service not activated, stuck provisioning, SIM not provisioned, SIM replacement.
         examples: ["La línea no activa", "La SIM no registra"]
 
   sales_and_upgrades:
@@ -122,9 +122,12 @@ taxonomy:
       new_service_signup:
         description: Wants to contract a new mobile/fiber/TV line or bundle.
         examples: ["Quiero contratar fibra", "Alta de una línea nueva"]
-      plan_change_or_upgrade:
-        description: Change plan, upgrade speed/data, add lines, migrate prepaid/postpaid.
+      plan_upgrade_or_downgrade_request:
+        description: Change plan, upgrade or downgrade speed/data, migrate prepaid/postpaid.
         examples: ["Subir de plan", "Cambiar a pospago"]
+      add_line_or_add_device_request:
+        description: Requests to add a new line or add a device to an existing account.
+        examples: ["Quiero agregar una línea", "Añadir un dispositivo a mi cuenta"]
       device_purchase_or_financing:
         description: Buy phone/router/decoder, installments, trade-in, stock.
         examples: ["Quiero un iPhone a cuotas", "¿Hay stock de router?"]
@@ -147,7 +150,7 @@ taxonomy:
       personal_details_update:
         description: Update name, address, email, contact info.
         examples: ["Cambiar correo", "Actualizar domicilio"]
-      account_access_login_issue:
+      login_or_password_issue:
         description: App/web login, password reset, account locked.
         examples: ["No puedo entrar a la app", "Restablecer contraseña"]
       line_management:
@@ -165,6 +168,9 @@ taxonomy:
       portability_outbound:
         description: Wants to port number out; process, codes, timelines (not cancellation intent).
         examples: ["Portar a otra compañía", "Necesito el NIP de portabilidad"]
+      number_porting_request:
+        description: General number porting requests, inbound or outbound, requirements and status.
+        examples: ["Quiero portar mi número aquí", "Estado de mi portabilidad"]
 
   retention_and_cancellation:
     description: Cancellation, downgrade due to dissatisfaction, competitor switching, save offers.
@@ -184,11 +190,14 @@ taxonomy:
       moving_home_service_transfer:
         description: Moving house; transfer service, cancel due to move.
         examples: ["Me mudo, trasladar fibra", "No hay cobertura en mi nueva casa"]
+      cancellation_other_reason:
+        description: Cancellation for reasons not covered by other subcategories (e.g., no longer needed, switching provider).
+        examples: ["Ya no necesito el servicio", "Me cambio de operador"]
 
   security_and_fraud:
     description: Suspicious activity, account compromise, SIM swap, identity theft, privacy.
     subcategories:
-      suspected_fraudulent_charge_or_activity:
+      suspected_fraudulent_charges:
         description: Unrecognized usage/charges suggesting fraud (calls, data, purchases).
         examples: ["Consumos que no hice", "Llamadas raras en mi línea"]
       sim_swap_or_number_hijack:
@@ -200,8 +209,8 @@ taxonomy:
       phishing_or_social_engineering_report:
         description: Reports scam calls/SMS/emails impersonating the company.
         examples: ["Me llegó SMS falso", "Llamada diciendo ser soporte"]
-      device_stolen_and_security:
-        description: Stolen device/line security actions (block IMEI/SIM) with fraud concern.
+      lost_or_stolen_device_or_sim:
+        description: Lost or stolen device/SIM; security actions (block IMEI/SIM) with fraud concern.
         examples: ["Me robaron el celular, bloqueen", "Necesito bloquear la línea ya"]
       privacy_data_request_or_incident:
         description: Privacy concerns, data leak suspicion, personal data handling.
@@ -222,8 +231,8 @@ taxonomy:
       network_expansion_request:
         description: Requests coverage expansion or fiber rollout timeline.
         examples: ["¿Cuándo llega 5G?", "¿Cuándo instalan fibra aquí?"]
-      indoor_coverage_solution:
-        description: Asks about repeaters, femtocell, Wi‑Fi calling for indoor issues.
+      indoor_coverage_issue:
+        description: Indoor coverage problems; asks about repeaters, femtocell, Wi‑Fi calling for indoor issues.
         examples: ["Necesito repetidor", "Solución para señal dentro de casa"]
 
   complaints_and_escalations:
@@ -244,6 +253,9 @@ taxonomy:
       regulatory_or_legal_threat:
         description: Mentions regulator, consumer protection, lawsuit.
         examples: ["Iré a defensa del consumidor", "Los denunciaré"]
+      customer_service_experience_complaint:
+        description: Complaint specifically about customer service agent experience or handling quality.
+        examples: ["El agente fue muy grosero", "Pésima atención del operador"]
 
   general_information:
     description: General questions about products, policies, processes not clearly fitting others.
@@ -285,8 +297,8 @@ Return exactly this JSON object with these field names:
 {
   "category": "billing_inquiry | technical_support | sales_and_upgrades | account_management | retention_and_cancellation | security_and_fraud | network_coverage_and_quality | complaints_and_escalations | general_information",
   "subcategory": "string",
-  "priority": "low | medium | high | urgent",
-  "sentiment": "positive | neutral | negative | angry",
+  "priority": "critical | high | medium | low",
+  "sentiment": "very_negative | negative | neutral | positive | very_positive",
   "confidence": 0.0,
   "entities": {
     "names": [],

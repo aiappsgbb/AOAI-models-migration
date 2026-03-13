@@ -1,62 +1,62 @@
 [
   {
     "id": "RAG_001",
-    "query": "How long does it usually take to get from Sharm El Sheikh airport to Naama Bay, and what transfer options are mentioned?",
-    "context": "Sharm El Sheikh (SSH) airport is about 12–15 km from Naama Bay. Most dive travelers use pre-booked hotel shuttles or licensed taxis from the arrivals area. Typical transfer time is 15–25 minutes depending on traffic and security checkpoints.",
-    "ground_truth": "It’s typically a 15–25 minute transfer, and the context mentions pre-booked hotel shuttles and licensed taxis as options."
+    "query": "I'm planning a liveaboard in Egypt in late November. Which route in this brochure includes both Brothers and Daedalus, how many nights is it, and what certification level is required?",
+    "context": "The Red Sea Odyssey fleet brochure lists several Egyptian liveaboard itineraries. The 'Brothers, Daedalus & Elphinstone' route operates as a 7-night trip from Port Ghalib and is recommended for advanced divers because of strong currents, blue-water entries, and frequent negative descents. A separate 'North & Tiran' route is also 7 nights but is suitable for Open Water divers with at least 20 logged dives.",
+    "ground_truth": "The route is 'Brothers, Daedalus & Elphinstone.' It is 7 nights long and is recommended for advanced divers."
   },
   {
     "id": "RAG_002",
-    "query": "For the Hurghada day boat trips described, what’s the schedule and what’s included in the price?",
-    "context": "Our Hurghada day boats depart daily at 08:30 from the main marina and return around 16:00. The standard package includes two guided dives, tanks and weights, lunch on board, and soft drinks. Marine park fees and equipment rental (BCD, regulator, wetsuit) are not included unless stated on your voucher.",
-    "ground_truth": "Depart 08:30 and return around 16:00; included are two guided dives, tanks and weights, lunch, and soft drinks. Marine park fees and gear rental are not included unless the voucher states otherwise."
+    "query": "For a diver staying in Sharm el-Sheikh without a liveaboard, which day trip in this FAQ reaches Ras Mohammed by boat, and what does the price include?",
+    "context": "Sharm Dive Center's day-trip FAQ explains that the Ras Mohammed boat excursion departs from the marina at 8:00 and returns around 17:00. The listed price includes hotel transfers within Sharm, lunch on board, guide services, and 2 guided dives. Equipment rental and marine park fees are charged separately.",
+    "ground_truth": "The day trip is the Ras Mohammed boat excursion, and the price includes hotel transfers within Sharm, lunch on board, guide services, and 2 guided dives."
   },
   {
     "id": "RAG_003",
-    "query": "Do I need a guide to dive the Blue Hole in Dahab, and are there any stated restrictions?",
-    "context": "The Blue Hole area in Dahab is dived as a shore entry with a short walk from the parking area. Local regulations require visiting divers to be accompanied by a registered guide for dives at the Blue Hole and Canyon sites. The briefing notes also state that the Arch is not part of the recreational route and is not offered on standard guided dives.",
-    "ground_truth": "Yes—visiting divers must be accompanied by a registered guide at the Blue Hole (and Canyon). The context also states the Arch is not part of the recreational route and isn’t offered on standard guided dives."
+    "query": "I have 18 logged dives and only Open Water certification. Based on these operator notes, which of the two itineraries is the safer fit for me: North & Tiran or Brothers/Daedalus/Elphinstone?",
+    "context": "A booking note from Coral Route Liveaboards states that the North & Tiran itinerary is designed for newer Red Sea divers and accepts Open Water certification, although 20 logged dives are preferred. The same note says the Brothers/Daedalus/Elphinstone route is for advanced divers due to exposed offshore sites, stronger currents, and more demanding entries. Guests who do not meet the experience recommendation may be restricted from some dives at the guide's discretion.",
+    "ground_truth": "North & Tiran is the safer fit. The notes say it accepts Open Water divers, while Brothers/Daedalus/Elphinstone is intended for advanced divers and may restrict less experienced guests."
   },
   {
     "id": "RAG_004",
-    "query": "What does the Northern Red Sea liveaboard route cover, and how long is the crossing to the first wreck area according to the itinerary?",
-    "context": "Northern Red Sea liveaboards typically combine Ras Mohammed with the Strait of Tiran and the wrecks of Abu Nuhas. After the first night in port, the itinerary notes an early departure with a 3–4 hour crossing to reach the Abu Nuhas area for the first dives. The route then continues south to Ras Mohammed for reef dives before returning to the marina on the final afternoon.",
-    "ground_truth": "The route covers Ras Mohammed, the Strait of Tiran, and the Abu Nuhas wrecks, with a 3–4 hour crossing to reach Abu Nuhas for the first dives."
+    "query": "What nitrox policy applies on this boat, and is there an extra charge for certified divers?",
+    "context": "The vessel information sheet for M/Y Sea Lantern says nitrox 32% is available to divers holding a valid Enriched Air certification card. In the inclusions section, it states 'Nitrox provided free of charge for certified divers.' A separate equipment page notes that 15L tanks and rental regulators incur additional fees.",
+    "ground_truth": "Nitrox 32% is available for divers with a valid Enriched Air certification, and there is no extra charge for certified divers."
   },
   {
     "id": "RAG_005",
-    "query": "If I rent a full set of scuba gear in Marsa Alam, what’s the daily price and what deposit or ID requirements apply?",
-    "context": "Marsa Alam Dive Center rental list: Full equipment set (BCD, regulator, wetsuit, mask, fins) is €25 per diving day. A refundable cash deposit of €100 is required, or alternatively the center will hold a passport copy and hotel room number until the gear is returned. Dive computers and torches are priced separately and are not included in the full set.",
-    "ground_truth": "A full set costs €25 per diving day. The center requires either a refundable €100 cash deposit or they will hold a passport copy and hotel room number until return; computers and torches are not included."
+    "query": "Can you tell me the water temperature in March at St. John's and whether I should pack a 3 mm or 5 mm wetsuit?",
+    "context": "A short destination article on southern Red Sea diving says St. John's is known for reef walls, tunnels, and long crossings from Egyptian ports. The same article recommends bringing reef hooks only where permitted and notes that visibility is often excellent in calm weather. No monthly water temperature table or exposure protection guidance is included in the retrieved text.",
+    "ground_truth": "The context is insufficient to answer. It does not provide March water temperature at St. John's or recommend whether to pack a 3 mm or 5 mm wetsuit."
   },
   {
     "id": "RAG_006",
-    "query": "What marine park fees apply for Ras Mohammed and Tiran, and how do guests pay them on this trip?",
-    "context": "Park fee notice for Sharm day boats: Ras Mohammed National Park fee is 5 USD per person per day, and the Strait of Tiran fee is 3 USD per person per day. Fees are collected in cash on the morning of departure and passed to the rangers; card payments are not accepted for park fees. Guests are advised to bring small bills in USD or the equivalent in EGP.",
-    "ground_truth": "Ras Mohammed is 5 USD per person per day and Tiran is 3 USD per person per day; guests pay in cash on the morning of departure (no card), ideally with small USD bills or equivalent EGP."
+    "query": "I'm confused about the departure transfer for this Hurghada liveaboard. Does boarding start at 17:00 or 18:00, and when is the airport shuttle scheduled?",
+    "context": "The operator's booking confirmation says, 'Guests may board from 17:00 onward; dinner is served on the first evening in port.' However, the pre-departure PDF states, 'Boarding begins at 18:00 after port clearance is completed.' Both documents agree that the complimentary airport-to-marina shuttle departs Hurghada Airport at 16:00 on embarkation day.",
+    "ground_truth": "The context is contradictory about boarding time: one document says 17:00 and another says 18:00. The airport shuttle is scheduled for 16:00 from Hurghada Airport."
   },
   {
     "id": "RAG_007",
-    "query": "Is Nitrox available on the liveaboard, what mix is offered, and do I need a certification card to use it?",
-    "context": "Onboard gases: Enriched Air Nitrox is available for certified divers. The standard fill is Nitrox 32 (EAN32) and is included in the 'Nitrox package' purchased at check-in. Divers must present a Nitrox certification card during the first-day paperwork; uncertified divers may not use Nitrox fills.",
-    "ground_truth": "Yes—Nitrox is available as EAN32, but only for certified divers who present a Nitrox certification card; uncertified divers may not use it."
+    "query": "If I want to dive the SS Thistlegorm and also spend a day around Tiran, which itinerary should I choose, and from which port does it depart?",
+    "context": "A route summary from Sinai Blue Liveaboards describes the 'North & Tiran' itinerary as combining the wrecks of Abu Nuhas and the SS Thistlegorm with reef dives in the Straits of Tiran. The same summary says embarkation is in Sharm el-Sheikh. Another route, 'Simply the Best,' departs from Hurghada and focuses on Brothers, Daedalus, and Elphinstone instead.",
+    "ground_truth": "Choose the 'North & Tiran' itinerary. It departs from Sharm el-Sheikh."
   },
   {
     "id": "RAG_008",
-    "query": "What is the baggage allowance for dive gear on the charter flight to Hurghada, and is there a separate sports equipment allowance?",
-    "context": "Airline charter FAQ (updated May): Passengers may check 20 kg of hold baggage plus 5 kg cabin baggage. A separate sports equipment allowance of 10 kg is available for pre-registered dive gear at no extra charge.\n\nOperator pre-departure email (sent June): Your charter ticket includes 15 kg checked baggage and 5 kg hand luggage. Please note there is no additional sports allowance; any extra weight is charged at the airport.",
-    "ground_truth": "The context is contradictory: one document says 20 kg checked plus a 10 kg pre-registered dive gear allowance, while another says 15 kg checked and no sports allowance. A single definitive allowance cannot be determined from the provided context."
+    "query": "According to these travel notes, what documents and fees should I be ready for on arrival if I'm joining a dive trip in Egypt?",
+    "context": "The arrival guide for international guests says travelers must carry a passport valid for at least six months beyond the date of entry. It also notes that many nationalities can purchase a tourist visa on arrival for USD 25, payable at the airport before immigration. For divers joining marine park itineraries, park fees are usually collected separately by the operator during check-in and are not part of the visa process.",
+    "ground_truth": "You should have a passport valid for at least six months beyond entry. Be prepared to pay a USD 25 tourist visa on arrival at the airport if eligible, and note that marine park fees are collected separately by the operator during check-in."
   },
   {
     "id": "RAG_009",
-    "query": "Which months have the best underwater visibility in the Red Sea for a diving holiday, and why?",
-    "context": "Red Sea travel note: Water temperatures vary by season, and many resorts offer diving year-round. Some itineraries are more comfortable in spring and autumn due to milder air temperatures. Always check local forecasts and consult your dive operator for current conditions.",
-    "ground_truth": "The context does not specify which months have the best visibility or provide reasons tied to visibility; it only mentions year-round diving and that spring/autumn can be more comfortable for air temperatures."
+    "query": "I get seasick easily. Based on this route comparison, which option is likely calmer: a northern itinerary from Hurghada or an offshore southern route, and why?",
+    "context": "A Red Sea route comparison article explains that northern itineraries from Hurghada often spend more time in relatively sheltered areas and make shorter crossings between wrecks and reefs. In contrast, offshore southern routes to Brothers or Daedalus involve longer open-water crossings and can feel rougher when wind picks up. The article advises motion-sensitive guests to consider the northern routes first.",
+    "ground_truth": "A northern itinerary from Hurghada is likely calmer because it usually stays in more sheltered areas with shorter crossings, while offshore southern routes have longer open-water crossings and can be rougher."
   },
   {
     "id": "RAG_010",
-    "query": "I’m bringing a CCR to a Red Sea liveaboard. What does the policy say about oxygen fills, sorb availability, and bailout requirements?",
-    "context": "Technical diving policy (liveaboard): Closed-circuit rebreathers are accepted only with prior approval and proof of training on the specific unit. Oxygen fills are available on board; diluent is provided as air only. Sofnolime is available in limited quantities and must be reserved at least 14 days before departure. Divers must carry open-circuit bailout sufficient to reach the surface, and the policy specifies a minimum of one bailout cylinder with an independent regulator and SPG; additional bailout may be required depending on the planned depth and runtime as agreed with the cruise director.",
-    "ground_truth": "CCRs are allowed only with prior approval and proof of unit-specific training. Oxygen fills are available; diluent is air only. Sofnolime is limited and must be reserved at least 14 days before departure. Bailout is required: at minimum one bailout cylinder with an independent regulator and SPG, with possible additional bailout depending on the planned dive profile as agreed with the cruise director."
+    "query": "For this shore-diving package in Dahab, how many guided dives are included over three days, and what is excluded from the package price?",
+    "context": "The Dahab shore-diving package description states: 'Three-day guided package with 2 shore dives per day, including transport to local sites and cylinder weights.' In the exclusions section it says accommodation, equipment rental, meals, and the mandatory environmental tax are not included. The package is aimed at certified divers who want to visit sites such as Lighthouse Reef, Canyon, and Bells.",
+    "ground_truth": "The package includes 6 guided shore dives over three days. Excluded from the price are accommodation, equipment rental, meals, and the mandatory environmental tax."
   }
 ]

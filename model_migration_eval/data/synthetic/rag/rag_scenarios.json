@@ -1,50 +1,62 @@
 [
   {
     "id": "RAG_001",
-    "query": "What is your refund policy for international orders?",
-    "context": "Our refund policy allows returns within 30 days of purchase for domestic orders. For international orders, the return window is extended to 45 days. Items must be in original packaging. Shipping costs are non-refundable for international returns. A restocking fee of 15% applies to opened electronics.",
-    "ground_truth": "International orders can be returned within 45 days. Items must be in original packaging. Shipping costs are non-refundable, and a 15% restocking fee applies to opened electronics."
+    "query": "I'm planning a liveaboard in Egypt in late November. Which route in this brochure includes both Brothers and Daedalus, how many nights is it, and what certification level is required?",
+    "context": "The Red Sea Odyssey fleet brochure lists several Egyptian liveaboard itineraries. The 'Brothers, Daedalus & Elphinstone' route operates as a 7-night trip from Port Ghalib and is recommended for advanced divers because of strong currents, blue-water entries, and frequent negative descents. A separate 'North & Tiran' route is also 7 nights but is suitable for Open Water divers with at least 20 logged dives.",
+    "ground_truth": "The route is 'Brothers, Daedalus & Elphinstone.' It is 7 nights long and is recommended for advanced divers."
   },
   {
     "id": "RAG_002",
-    "query": "What are the processor specs for the ProBook 450 G10?",
-    "context": "The ProBook 450 G10 features an Intel Core i7-1355U processor with 10 cores (2 Performance + 8 Efficient), 12 threads, and a max turbo frequency of 5.0 GHz. It comes with 16GB DDR4-3200 RAM (expandable to 32GB) and a 512GB PCIe NVMe SSD. The display is 15.6-inch FHD IPS anti-glare.",
-    "ground_truth": "The ProBook 450 G10 has an Intel Core i7-1355U processor with 10 cores (2P+8E), 12 threads, and up to 5.0 GHz turbo frequency."
+    "query": "For a diver staying in Sharm el-Sheikh without a liveaboard, which day trip in this FAQ reaches Ras Mohammed by boat, and what does the price include?",
+    "context": "Sharm Dive Center's day-trip FAQ explains that the Ras Mohammed boat excursion departs from the marina at 8:00 and returns around 17:00. The listed price includes hotel transfers within Sharm, lunch on board, guide services, and 2 guided dives. Equipment rental and marine park fees are charged separately.",
+    "ground_truth": "The day trip is the Ras Mohammed boat excursion, and the price includes hotel transfers within Sharm, lunch on board, guide services, and 2 guided dives."
   },
   {
     "id": "RAG_003",
-    "query": "What is the recommended dosage of ibuprofen for adults with mild pain?",
-    "context": "For adults and children 12 years and older: take 200mg to 400mg of ibuprofen every 4 to 6 hours as needed. Do not exceed 1200mg in 24 hours unless directed by a doctor. Take with food or milk to reduce stomach irritation. Patients with kidney disease should consult their doctor before use.",
-    "ground_truth": "Adults should take 200-400mg every 4-6 hours, not exceeding 1200mg per day. Should be taken with food or milk."
+    "query": "I have 18 logged dives and only Open Water certification. Based on these operator notes, which of the two itineraries is the safer fit for me: North & Tiran or Brothers/Daedalus/Elphinstone?",
+    "context": "A booking note from Coral Route Liveaboards states that the North & Tiran itinerary is designed for newer Red Sea divers and accepts Open Water certification, although 20 logged dives are preferred. The same note says the Brothers/Daedalus/Elphinstone route is for advanced divers due to exposed offshore sites, stronger currents, and more demanding entries. Guests who do not meet the experience recommendation may be restricted from some dives at the guide's discretion.",
+    "ground_truth": "North & Tiran is the safer fit. The notes say it accepts Open Water divers, while Brothers/Daedalus/Elphinstone is intended for advanced divers and may restrict less experienced guests."
   },
   {
     "id": "RAG_004",
-    "query": "Can the landlord enter the premises without notice?",
-    "context": "Section 12.3 - Right of Entry: The Landlord may enter the Premises upon providing at least 24 hours written notice to the Tenant, except in cases of emergency where immediate entry is permitted. Entry must occur between 9:00 AM and 6:00 PM on business days unless the Tenant consents to alternative times. The Landlord may not enter solely for inspection purposes more than once per calendar month.",
-    "ground_truth": "The landlord must provide 24 hours written notice before entry, except in emergencies. Entry is limited to 9AM-6PM on business days and no more than once monthly for inspections."
+    "query": "What nitrox policy applies on this boat, and is there an extra charge for certified divers?",
+    "context": "The vessel information sheet for M/Y Sea Lantern says nitrox 32% is available to divers holding a valid Enriched Air certification card. In the inclusions section, it states 'Nitrox provided free of charge for certified divers.' A separate equipment page notes that 15L tanks and rental regulators incur additional fees.",
+    "ground_truth": "Nitrox 32% is available for divers with a valid Enriched Air certification, and there is no extra charge for certified divers."
   },
   {
     "id": "RAG_005",
-    "query": "What are the interest rates for your savings accounts?",
-    "context": "Standard Savings Account: 0.50% APY, no minimum balance. Premium Savings: 2.15% APY, requires $10,000 minimum balance. High-Yield Money Market: 3.25% APY, requires $25,000 minimum balance, limited to 6 withdrawals per month. Certificate of Deposit (12-month): 4.10% APY, early withdrawal penalty of 90 days interest.",
-    "ground_truth": "Savings accounts range from 0.50% APY (Standard, no minimum) to 2.15% APY (Premium, $10K minimum). High-Yield Money Market offers 3.25% APY with $25K minimum. 12-month CD offers 4.10% APY."
+    "query": "Can you tell me the water temperature in March at St. John's and whether I should pack a 3 mm or 5 mm wetsuit?",
+    "context": "A short destination article on southern Red Sea diving says St. John's is known for reef walls, tunnels, and long crossings from Egyptian ports. The same article recommends bringing reef hooks only where permitted and notes that visibility is often excellent in calm weather. No monthly water temperature table or exposure protection guidance is included in the retrieved text.",
+    "ground_truth": "The context is insufficient to answer. It does not provide March water temperature at St. John's or recommend whether to pack a 3 mm or 5 mm wetsuit."
   },
   {
     "id": "RAG_006",
-    "query": "How many vacation days do I get after 3 years of service?",
-    "context": "Vacation Policy v4.2: Employees accrue paid time off based on tenure. 0-1 years: 10 days/year. 1-3 years: 15 days/year. 3-5 years: 20 days/year. 5-10 years: 25 days/year. 10+ years: 30 days/year. Unused days may carry over up to a maximum of 5 days. Accrual begins on the first day of employment. Part-time employees receive prorated benefits.",
-    "ground_truth": "After 3 years of service, employees receive 20 vacation days per year, with up to 5 unused days carrying over."
+    "query": "I'm confused about the departure transfer for this Hurghada liveaboard. Does boarding start at 17:00 or 18:00, and when is the airport shuttle scheduled?",
+    "context": "The operator's booking confirmation says, 'Guests may board from 17:00 onward; dinner is served on the first evening in port.' However, the pre-departure PDF states, 'Boarding begins at 18:00 after port clearance is completed.' Both documents agree that the complimentary airport-to-marina shuttle departs Hurghada Airport at 16:00 on embarkation day.",
+    "ground_truth": "The context is contradictory about boarding time: one document says 17:00 and another says 18:00. The airport shuttle is scheduled for 16:00 from Hurghada Airport."
   },
   {
     "id": "RAG_007",
-    "query": "My SmartHome Hub won't connect to WiFi after the firmware update.",
-    "context": "Known Issues - Firmware v3.2.1: Some SmartHome Hub devices may lose WiFi connectivity after updating. Resolution: 1) Press and hold the reset button for 10 seconds until the LED turns amber. 2) Wait 2 minutes for the device to restart. 3) Go to Settings > Network > WiFi Setup and re-enter your network credentials. 4) If the issue persists, roll back to firmware v3.1.8 via Settings > System > Firmware > Rollback. Note: Rolling back will remove features added in v3.2.1 including Matter protocol support.",
-    "ground_truth": "This is a known issue with firmware v3.2.1. Try resetting (hold reset 10s), then reconfigure WiFi. If it persists, roll back to v3.1.8, though this removes Matter protocol support."
+    "query": "If I want to dive the SS Thistlegorm and also spend a day around Tiran, which itinerary should I choose, and from which port does it depart?",
+    "context": "A route summary from Sinai Blue Liveaboards describes the 'North & Tiran' itinerary as combining the wrecks of Abu Nuhas and the SS Thistlegorm with reef dives in the Straits of Tiran. The same summary says embarkation is in Sharm el-Sheikh. Another route, 'Simply the Best,' departs from Hurghada and focuses on Brothers, Daedalus, and Elphinstone instead.",
+    "ground_truth": "Choose the 'North & Tiran' itinerary. It departs from Sharm el-Sheikh."
   },
   {
     "id": "RAG_008",
-    "query": "What is the maximum file upload size?",
-    "context": "FAQ Section: The maximum file upload size is 25MB for free accounts and 100MB for premium accounts. API Documentation v2.3: File uploads are limited to 50MB per request regardless of account type. The batch upload endpoint supports files up to 500MB. Release Notes (Jan 2026): Increased free tier upload limit to 50MB, premium to 200MB.",
-    "ground_truth": "Based on the most recent release notes (Jan 2026), free accounts support up to 50MB and premium up to 200MB. The API batch endpoint supports up to 500MB."
+    "query": "According to these travel notes, what documents and fees should I be ready for on arrival if I'm joining a dive trip in Egypt?",
+    "context": "The arrival guide for international guests says travelers must carry a passport valid for at least six months beyond the date of entry. It also notes that many nationalities can purchase a tourist visa on arrival for USD 25, payable at the airport before immigration. For divers joining marine park itineraries, park fees are usually collected separately by the operator during check-in and are not part of the visa process.",
+    "ground_truth": "You should have a passport valid for at least six months beyond entry. Be prepared to pay a USD 25 tourist visa on arrival at the airport if eligible, and note that marine park fees are collected separately by the operator during check-in."
+  },
+  {
+    "id": "RAG_009",
+    "query": "I get seasick easily. Based on this route comparison, which option is likely calmer: a northern itinerary from Hurghada or an offshore southern route, and why?",
+    "context": "A Red Sea route comparison article explains that northern itineraries from Hurghada often spend more time in relatively sheltered areas and make shorter crossings between wrecks and reefs. In contrast, offshore southern routes to Brothers or Daedalus involve longer open-water crossings and can feel rougher when wind picks up. The article advises motion-sensitive guests to consider the northern routes first.",
+    "ground_truth": "A northern itinerary from Hurghada is likely calmer because it usually stays in more sheltered areas with shorter crossings, while offshore southern routes have longer open-water crossings and can be rougher."
+  },
+  {
+    "id": "RAG_010",
+    "query": "For this shore-diving package in Dahab, how many guided dives are included over three days, and what is excluded from the package price?",
+    "context": "The Dahab shore-diving package description states: 'Three-day guided package with 2 shore dives per day, including transport to local sites and cylinder weights.' In the exclusions section it says accommodation, equipment rental, meals, and the mandatory environmental tax are not included. The package is aimed at certified divers who want to visit sites such as Lighthouse Reef, Canyon, and Bells.",
+    "ground_truth": "The package includes 6 guided shore dives over three days. Excluded from the price are accommodation, equipment rental, meals, and the mandatory environmental tax."
   }
 ]
