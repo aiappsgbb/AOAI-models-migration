@@ -229,6 +229,28 @@ class PromptLoader:
             {"role": "user", "content": user_content}
         ]
 
+    # Structured output instruction appended to every tool-calling
+    # evaluation so the evaluator can reliably parse selected tools.
+    _TC_OUTPUT_FORMAT = (
+        "\n\n## Required Response Format\n"
+        "After your analysis, you MUST end your response with a JSON block "
+        "using exactly this structure:\n"
+        "```json\n"
+        "{\n"
+        '  "selected_tools": [\n'
+        '    {"tool_name": "<exact_function_name>", "arguments": {"<param>": "<value>"}}\n'
+        "  ],\n"
+        '  "clarification": "<question if required params are missing, else null>",\n'
+        '  "direct_response": "<answer if no tool is needed, else null>"\n'
+        "}\n"
+        "```\n"
+        "Rules:\n"
+        "- Always include selected_tools with the tool(s) you would call, "
+        "even if you need to ask for missing parameters first.\n"
+        "- Use the exact function names from the Available Tools list.\n"
+        "- If no tool is appropriate, use an empty selected_tools array."
+    )
+
     def load_tool_calling_prompt(
         self,
         model: str,
@@ -256,7 +278,10 @@ class PromptLoader:
                 + "\n\n"
             )
 
-        user_content = f"{tools_desc}## User Request\n{query}"
+        user_content = (
+            f"{tools_desc}## User Request\n{query}"
+            f"{self._TC_OUTPUT_FORMAT}"
+        )
 
         return [
             {"role": "system", "content": system_prompt},
