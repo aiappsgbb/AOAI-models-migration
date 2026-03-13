@@ -52,7 +52,7 @@ resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-
     }
     properties: {
       model: {
-        format: 'OpenAI'
+        format: d.?format ?? 'OpenAI'
         name: d.model
         version: d.version
       }

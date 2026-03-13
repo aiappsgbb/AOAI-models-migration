@@ -14,6 +14,11 @@ permissions:
   id-token: write
   contents: read
 
+# Opt into Node.js 24 to silence the deprecation warning for actions
+# still bundled with Node.js 20 (actions/checkout, azure/login, etc.).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   detect-scope:
     runs-on: ubuntu-latest
@@ -31,7 +36,6 @@ jobs:
           $bicepFile = 'model_migration_eval/infra/main.bicep'
           if (Test-Path $bicepFile) {
             $targetScope = Select-String -Path $bicepFile -Pattern 'targetScope\s*=\s*[''"](\w+)[''"]' | ForEach-Object { $_.Matches.Groups[1].Value }
-            
             if ($targetScope -eq 'resourceGroup') {
               Write-Output "target-scope=resourceGroup" >> $env:GITHUB_OUTPUT
               Write-Output "Target scope: resourceGroup"
@@ -85,7 +89,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # using the install-azd action — runs from repo root (not working-directory)
+      # using the install-azd action - runs from repo root (not working-directory)
       - name: Install azd
         uses: Azure/setup-azd@v2.1.0
 
@@ -114,7 +118,7 @@ jobs:
           azcliversion: latest
           inlineScript: |
             RG_EXISTS=$(az group exists --name "$AZURE_RESOURCE_GROUP" --subscription "$AZURE_SUBSCRIPTION_ID")
-            
+
             if [ "$RG_EXISTS" = "true" ]; then
               echo "Resource group '$AZURE_RESOURCE_GROUP' already exists"
             else
