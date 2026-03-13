@@ -409,11 +409,35 @@ def _build_target_generation_meta_prompt(
 
     elif task == "tool_calling" and domain_tools_summary:
         cat_block = (
-            f"\n## DOMAIN TOOLS REFERENCE\n"
-            f"The test data for this topic uses the following tools/functions.\n"
-            f"The generated prompt should be aware of this tool surface and\n"
-            f"provide guidance appropriate to these domain-specific tools:\n\n"
-            f"{domain_tools_summary}\n"
+            f"\n## DOMAIN TOOLS REFERENCE (from test data)\n"
+            f"The evaluation test data for this topic uses the following\n"
+            f"tools/functions. The generated prompt MUST include domain-specific\n"
+            f"guidance for these tools and related operations:\n\n"
+            f"{domain_tools_summary}\n\n"
+            f"The prompt MUST:\n"
+            f"- Include a ROLE section that names the domain (e.g. 'Agente Telco',\n"
+            f"  'Red Sea Diving Travel Agent') — do NOT use a generic role\n"
+            f"- Reference these specific tools by name in tool selection guidance\n"
+            f"- Include a DOMAIN BEHAVIOR section listing common customer intents\n"
+            f"  and which tools handle them\n"
+            f"- Include domain-specific parameter extraction rules (entity types,\n"
+            f"  normalization formats, validation)\n"
+            f"- Include domain-specific safety constraints for destructive or\n"
+            f"  account-changing tools\n"
+            f"- Cover scenarios: single-tool, multi-tool, no-tool-needed,\n"
+            f"  and missing-parameters\n"
+        )
+    elif task == "tool_calling":
+        cat_block = (
+            f"\n## TOOL CALLING DOMAIN ALIGNMENT (CRITICAL)\n"
+            f"The generated prompt MUST be specific to the topic \"{topic}\".\n"
+            f"Do NOT generate a generic tool-calling template.\n"
+            f"Include:\n"
+            f"- A domain-specific ROLE section mentioning the topic\n"
+            f"- Domain-specific tool selection rules with examples\n"
+            f"- Domain-specific parameter extraction guidance\n"
+            f"- Domain-specific safety constraints\n"
+            f"- A DOMAIN BEHAVIOR section covering common customer intents\n"
         )
 
     # ── Build dialog-specific preservation instructions ──

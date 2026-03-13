@@ -1012,6 +1012,7 @@ class PromptManager:
         deployment_name: Optional[str] = None,
         task_hint: Optional[str] = None,
         taxonomy: Optional[Dict[str, List[str]]] = None,
+        domain_tools_summary: Optional[str] = None,
     ) -> Tuple[str, str, str]:
         """Generate a single prompt asynchronously.
 
@@ -1027,6 +1028,7 @@ class PromptManager:
             model_family=model_family,
             deployment_name=deployment_name,
             taxonomy=taxonomy if task == "classification" else None,
+            domain_tools_summary=domain_tools_summary if task == "tool_calling" else None,
         )
 
         async with semaphore:
@@ -1538,6 +1540,40 @@ class PromptManager:
             shared_categories = preserved_categories
             logger.info("Using preserved categories as fallback for shared_categories")
 
+        # ── 1b. Extract tool names from existing test data for tool_calling context ──
+        domain_tools_summary: Optional[str] = None
+        tc_data_file = Path(data_dir) / "tool_calling" / "tool_calling_scenarios.json"
+        if tc_data_file.exists():
+            try:
+                _tc_raw = json.loads(tc_data_file.read_text(encoding="utf-8"))
+                if isinstance(_tc_raw, dict):
+                    _tc_raw = _tc_raw.get("scenarios", _tc_raw.get("data", []))
+                _tool_names: set = set()
+                for _sc in _tc_raw:
+                    _avail = _sc.get("available_tools", [])
+                    if isinstance(_avail, str):
+                        try:
+                            _avail = json.loads(_avail)
+                        except (json.JSONDecodeError, TypeError):
+                            _avail = []
+                    if isinstance(_avail, list):
+                        for _t in _avail:
+                            _n = ""
+                            if isinstance(_t, dict):
+                                _n = _t.get("function", {}).get("name") or _t.get("name", "")
+                            elif isinstance(_t, str):
+                                _n = _t
+                            if _n:
+                                _tool_names.add(_n)
+                if _tool_names:
+                    domain_tools_summary = ", ".join(sorted(_tool_names))
+                    logger.info(
+                        f"Extracted {len(_tool_names)} domain tools from test data: "
+                        f"{domain_tools_summary}"
+                    )
+            except Exception as exc:
+                logger.warning(f"Could not extract tool names from test data: {exc}")
+
         # ── 2. Generate remaining prompts in PARALLEL ─────────────────
         n_remaining = len(models) * 4 - 1  # total minus the one already done
         logger.info(f"== Step 2/4: Generating {n_remaining} remaining prompts in parallel ==")
@@ -1571,6 +1607,7 @@ class PromptManager:
                             deployment_name=deployment,
                             task_hint=task,
                             taxonomy=shared_taxonomy if task == "classification" else None,
+                            domain_tools_summary=domain_tools_summary,
                         )
                     )
             return await asyncio.gather(*tasks, return_exceptions=True)
@@ -1759,6 +1796,7 @@ class PromptManager:
         model_family: Optional[str] = None,
         deployment_name: Optional[str] = None,
         taxonomy: Optional[Dict[str, List[str]]] = None,
+        domain_tools_summary: Optional[str] = None,
     ) -> str:
         """Build the meta-prompt that instructs the AI to generate a system prompt.
 
@@ -1768,6 +1806,10 @@ class PromptManager:
         When *taxonomy* is provided, both primary categories AND their
         subcategories are injected as mandatory constraints for the
         generated classification prompt.
+
+        When *domain_tools_summary* is provided (tool_calling task), the
+        tool names from the test data are injected so the generated prompt
+        includes domain-specific tool guidance.
         """
 
         guidance = _get_model_guidance(target_model, deployment_name=deployment_name, model_family=model_family)
@@ -1866,6 +1908,38 @@ class PromptManager:
         if task == "classification" and not shared_categories:
             schema_block = f"\n{_CANONICAL_CLASSIFICATION_SCHEMA}"
 
+        # Build tool context block for tool_calling tasks
+        tool_context_block = ""
+        if task == "tool_calling" and domain_tools_summary:
+            tool_context_block = (
+                f"\n## DOMAIN TOOLS REFERENCE (from test data)\n"
+                f"The evaluation test data for this topic uses the following\n"
+                f"tools/functions. The generated prompt MUST include domain-specific\n"
+                f"guidance for these tools and related telco/domain operations:\n\n"
+                f"{domain_tools_summary}\n\n"
+                f"The prompt should:\n"
+                f"- Reference these specific tools by name in guidance sections\n"
+                f"- Include domain-specific tool selection rules (which tool for\n"
+                f"  which type of request)\n"
+                f"- Cover scenarios: single-tool, multi-tool, no-tool-needed,\n"
+                f"  and missing-parameters\n"
+                f"- Include safety rules for destructive/account-changing tools\n"
+            )
+        elif task == "tool_calling":
+            tool_context_block = (
+                f"\n## TOOL CALLING DOMAIN ALIGNMENT (CRITICAL)\n"
+                f"The generated prompt MUST be specific to the topic \"{topic}\".\n"
+                f"Do NOT generate a generic tool-calling template.\n"
+                f"Include:\n"
+                f"- A domain-specific ROLE section mentioning the topic\n"
+                f"- Domain-specific tool selection rules with examples of\n"
+                f"  common intents and which tools handle them\n"
+                f"- Domain-specific parameter extraction guidance (entity\n"
+                f"  types, normalization rules, formats)\n"
+                f"- Domain-specific safety constraints\n"
+                f"- Telco/domain behavior section covering common customer intents\n"
+            )
+
         return f"""Generate a production-ready system prompt for the following scenario:
 
 ## TOPIC
@@ -1884,6 +1958,7 @@ Create {task_description.get(task, task)}
 {requirements}
 {self._categories_block(shared_categories, task, taxonomy=taxonomy)}
 {schema_block}
+{tool_context_block}
 """
 
     def _categories_block(
@@ -2254,4 +2329,8 @@ IMPORTANT RULES:
 7. Tool definitions should be realistic and well-structured
 8. Parameter types should vary (string, number, boolean, array)
 9. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation
+10. For expected_parameters, use CONCRETE sample values when the query provides them
+    (e.g. "742 Evergreen Terrace" not "<address>"). Use placeholder tokens like
+    "<customer_account_id>" ONLY for parameters that the user genuinely did not
+    provide in the query and that the model should ask for.
 """

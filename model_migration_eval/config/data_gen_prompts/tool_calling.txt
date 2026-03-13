@@ -33,3 +33,13 @@ IMPORTANT RULES:
 8. Parameter types should vary (string, number, boolean, array)
 9. The "scenarios" array MUST contain EXACTLY {count} items - not more, not less
 10. Return ONLY the JSON object with "scenarios" key - no markdown fences, no explanation
+11. For expected_parameters, use CONCRETE sample values when the query provides them
+    (e.g. "742 Evergreen Terrace" not "<address>"). Use placeholder tokens like
+    "<customer_account_id>" ONLY for parameters that the user genuinely did not
+    provide in the query and that the model should ask for.
+12. For the "no tool needed" scenario (rule 3), the expected_tool_calls MUST be ""
+    and expected_parameters MUST be "{{}}" — use a query that is off-topic or
+    answerable from general knowledge without any tool.
+13. For the "missing parameters" scenario (rule 5), expected_tool_calls should
+    still list the correct tool(s) but expected_parameters should contain
+    placeholder tokens for the missing values.
