@@ -363,6 +363,20 @@ def create_app(config_path: str = None) -> Flask:
                         'EasyAuth headers: PRINCIPAL-NAME=%r, PRINCIPAL-ID=%r, path=%s',
                         principal, principal_id, request.path,
                     )
+        # ── Re-seed user data if dirs were lost (e.g. container restart) ─
+        if user_id:
+            uctx = UserContext(user_id=user_id, base_dir='data/users')
+            if not uctx.is_initialised:
+                app.logger.info('User dirs missing after restart — re-seeding %s', user_id)
+                model_keys = list(
+                    app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys()
+                )
+                uctx.ensure_dirs(model_keys=model_keys)
+                uctx.seed_from_shared(
+                    shared_prompts='prompts',
+                    shared_data='data/synthetic',
+                )
+                _invalidate_user(user_id)   # clear stale cached managers
         if not user_id:
             if request.path.startswith('/api/'):
                 return jsonify({'error': 'Authentication required'}), 401
