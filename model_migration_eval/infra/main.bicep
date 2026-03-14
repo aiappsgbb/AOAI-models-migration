@@ -75,7 +75,10 @@ var modelDeployments = [
   { name: 'gpt-5.4', model: 'gpt-5.4', version: '2026-03-05', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.1', model: 'gpt-5.1', version: '2025-11-13', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.2', model: 'gpt-5.2', version: '2025-12-11', skuName: 'GlobalStandard', capacity: 1000 }
-  { name: 'Mistral-Large-3', model: 'Mistral-Large-3', version: '1', format: 'Mistral AI', skuName: 'GlobalStandard', capacity: 100 }
+  // Note: Mistral removed — requires Marketplace subscription agreement that
+  // blocks the entire @batchSize(1) loop when it fails, preventing subsequent
+  // resources (Foundry project) from being created.
+  // { name: 'Mistral-Large-3', model: 'Mistral-Large-3', version: '1', format: 'Mistral AI', skuName: 'GlobalStandard', capacity: 100 }
 ]
 
 var tags = {
@@ -284,3 +287,4 @@ output SERVICE_WEB_IMAGE_NAME string = containerImage
 output SERVICE_WEB_NAME string = web.outputs.name
 output AZURE_OPENAI_ENDPOINT string = aiServices.outputs.endpoint
 output FOUNDRY_PROJECT_ENDPOINT string = aiServices.outputs.projectEndpoint
+output MODEL_DEPLOYMENTS array = aiServices.outputs.deploymentNames
