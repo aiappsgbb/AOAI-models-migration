@@ -4,7 +4,7 @@
 //
 // Always creates all resources from scratch using a SINGLE AI Services
 // account (kind: AIServices) which:
-//   • Hosts all model deployments (gpt-4.1, gpt-5.2, gpt-5.1)
+//   • Hosts all model deployments (gpt-4.1, gpt-4o, gpt-4.1-mini, gpt-5.4, gpt-5.1, gpt-5.2)
 //   • Acts as AI Foundry hub with a project for evaluations
 //   • Provides the OpenAI-compatible endpoint for the app
 //
@@ -74,6 +74,7 @@ var modelDeployments = [
   { name: 'gpt-4.1-mini', model: 'gpt-4.1-mini', version: '2025-04-14', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.4', model: 'gpt-5.4', version: '2026-03-05', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.1', model: 'gpt-5.1', version: '2025-11-13', skuName: 'GlobalStandard', capacity: 1000 }
+  { name: 'gpt-5.2', model: 'gpt-5.2', version: '2025-11-13', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'Mistral-Large-3', model: 'Mistral-Large-3', version: '1', format: 'Mistral AI', skuName: 'GlobalStandard', capacity: 100 }
 ]
 
