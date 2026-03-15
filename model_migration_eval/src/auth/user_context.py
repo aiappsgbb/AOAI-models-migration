@@ -134,18 +134,32 @@ class UserContext:
                         logger.info(f"Seeded data for {type_dir.name}")
 
         # Copy topic archives (prompts/topics/ and data/synthetic/topics/)
+        # Only copy shared topics that do NOT already exist in the user's
+        # directory — never overwrite user-created or user-imported topics.
         src_prompt_topics = prompts_src / "topics"
         if src_prompt_topics.exists():
-            shutil.copytree(src_prompt_topics, self.topics_dir, dirs_exist_ok=True)
+            for topic_dir in src_prompt_topics.iterdir():
+                if topic_dir.is_dir():
+                    dest = self.topics_dir / topic_dir.name
+                    if not dest.exists():
+                        shutil.copytree(topic_dir, dest)
+                        logger.info(f"Seeded prompt topic archive: {topic_dir.name}")
 
         src_data_topics = data_src / "topics"
         if src_data_topics.exists():
-            shutil.copytree(src_data_topics, self.data_topics_dir, dirs_exist_ok=True)
+            for topic_dir in src_data_topics.iterdir():
+                if topic_dir.is_dir():
+                    dest = self.data_topics_dir / topic_dir.name
+                    if not dest.exists():
+                        shutil.copytree(topic_dir, dest)
+                        logger.info(f"Seeded data topic archive: {topic_dir.name}")
 
         # Copy topic_metadata.json so the UI knows which topic is active.
         # Version history (versions.json) is intentionally NOT copied —
         # each user starts with a clean prompt-version history that only
         # tracks their own changes.
+        # NEVER overwrite an existing topic_metadata.json — the user may
+        # have switched topics or generated new ones since first login.
         src_topic_meta = prompts_src / "history" / "topic_metadata.json"
         if src_topic_meta.exists():
             dest_topic_meta = self.history_dir / "topic_metadata.json"

@@ -320,11 +320,14 @@ def create_app(config_path: str = None) -> Flask:
         model_keys = list(
             app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys()
         )
+        already_exists = uctx.is_initialised
         uctx.ensure_dirs(model_keys=model_keys)
-        uctx.seed_from_shared(
-            shared_prompts='prompts',
-            shared_data='data/synthetic',
-        )
+        if not already_exists:
+            uctx.seed_from_shared(
+                shared_prompts='prompts',
+                shared_data='data/synthetic',
+            )
+            app.logger.info('Seeded new user %s from shared data', user.id)
 
         session.permanent = True
         session['user_id'] = user.id
