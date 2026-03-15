@@ -34,6 +34,9 @@
     },
     "geminiApiKey": {
       "value": "${GEMINI_API_KEY}"
+    },
+    "deployerPrincipalId": {
+      "value": "${DEPLOYER_PRINCIPAL_ID}"
     }
   }
 }

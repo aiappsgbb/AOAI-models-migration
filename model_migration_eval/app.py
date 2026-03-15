@@ -45,6 +45,11 @@ def setup_logging(level: str = "INFO"):
 
 def run_web_server(host: str = "127.0.0.1", port: int = 5000, debug: bool = False):
     """Run the Flask web application"""
+    # ── Restore persisted data from Blob Storage (if configured) ──────
+    from src.utils import blob_sync
+    blob_sync.download_all()
+    blob_sync.start_background_sync()
+
     app = create_app(config_path="config/settings.yaml")
 
     # Configure session lifetime from settings

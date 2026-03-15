@@ -31,6 +31,7 @@ from ..evaluation.foundry_evaluator import (
     is_foundry_available,
     create_foundry_evaluator_from_config,
 )
+from ..utils import blob_sync
 
 
 def create_app(config_path: str = None) -> Flask:
@@ -321,12 +322,22 @@ def create_app(config_path: str = None) -> Flask:
             app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys()
         )
         already_exists = uctx.is_initialised
+
+        # If user data is not on local disk, try restoring from blob
+        if not already_exists and blob_sync.is_enabled():
+            if blob_sync.download_user(user.id):
+                already_exists = uctx.is_initialised
+                app.logger.info('Restored user %s from blob storage', user.id)
+
         uctx.ensure_dirs(model_keys=model_keys)
         if not already_exists:
             uctx.seed_from_shared(
                 shared_prompts='prompts',
                 shared_data='data/synthetic',
             )
+            # Persist newly-seeded user to blob so it survives restarts
+            blob_sync.upload_user_tree(user.id)
+            blob_sync.upload_auth_db()
             app.logger.info('Seeded new user %s from shared data', user.id)
 
         session.permanent = True
@@ -370,15 +381,25 @@ def create_app(config_path: str = None) -> Flask:
         if user_id:
             uctx = UserContext(user_id=user_id, base_dir='data/users')
             if not uctx.is_initialised:
-                app.logger.info('User dirs missing after restart — re-seeding %s', user_id)
-                model_keys = list(
-                    app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys()
-                )
-                uctx.ensure_dirs(model_keys=model_keys)
-                uctx.seed_from_shared(
-                    shared_prompts='prompts',
-                    shared_data='data/synthetic',
-                )
+                # Try restoring from blob first (user data persisted there)
+                restored = False
+                if blob_sync.is_enabled():
+                    if blob_sync.download_user(user_id):
+                        restored = uctx.is_initialised
+                        app.logger.info('Restored user %s from blob after restart', user_id)
+
+                if not restored:
+                    app.logger.info('User dirs missing after restart — re-seeding %s', user_id)
+                    model_keys = list(
+                        app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys()
+                    )
+                    uctx.ensure_dirs(model_keys=model_keys)
+                    uctx.seed_from_shared(
+                        shared_prompts='prompts',
+                        shared_data='data/synthetic',
+                    )
+                    blob_sync.upload_user_tree(user_id)
+
                 _invalidate_user(user_id)   # clear stale cached managers
         if not user_id:
             if request.path.startswith('/api/'):
@@ -397,6 +418,26 @@ def create_app(config_path: str = None) -> Flask:
             'user_id': getattr(g, 'user_id', None),
             'user_email': getattr(g, 'user_email', ''),
         }
+
+    # ── Blob write-through: sync after mutating API calls ────────────
+
+    @app.after_request
+    def _blob_write_through(response):
+        """After any successful POST/PUT/DELETE API call, sync the current
+        user's data tree to Blob Storage so changes survive restarts."""
+        if (
+            blob_sync.is_enabled()
+            and request.method in ('POST', 'PUT', 'DELETE')
+            and request.path.startswith('/api/')
+            and response.status_code < 400
+        ):
+            uid = session.get('user_id')
+            if uid:
+                blob_sync.upload_user_tree(uid)
+                # Also sync auth.db on login-related endpoints
+                if 'auth' in request.path or 'login' in request.path:
+                    blob_sync.upload_auth_db()
+        return response
 
     # ── Auth routes ──────────────────────────────────────────────────
 

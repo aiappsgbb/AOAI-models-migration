@@ -56,6 +56,9 @@ param flaskSecretKey string = ''
 @description('Google Gemini API key for Gemini model evaluations (optional). Get from https://aistudio.google.com/')
 param geminiApiKey string = ''
 
+@description('Principal ID (object ID) of the deployer for Storage RBAC. Auto-populated by azd for the logged-in user. Leave empty to skip.')
+param deployerPrincipalId string = ''
+
 // ── Derived names ──────────────────────────────────────────────────────────
 var resourceSuffix = take(uniqueString(subscription().id, environmentName, location), 6)
 var envNameLower = replace(toLower(environmentName), '_', '-')
@@ -64,6 +67,9 @@ var resourceGroupName = 'rg-${environmentName}'
 // Single AI Services account — hosts ALL models + Foundry project
 var aiServicesName = 'ais-${envNameLower}-${resourceSuffix}'
 var foundryProjectName = '${envNameLower}-project'
+
+// Storage Account for persisting user data across container restarts
+var storageAccountName = take('st${replace(envNameLower, '-', '')}${resourceSuffix}', 24)
 
 // All model deployments live in the AI Services account
 // format defaults to 'OpenAI'; Marketplace models (Mistral) need their own format.
@@ -169,6 +175,19 @@ module foundryAccess './modules/foundry-access.bicep' = {
   }
 }
 
+// ── Storage Account for user-data persistence ─────────────────────────────
+module storage './modules/storage-resource.bicep' = {
+  name: 'storage'
+  scope: rg
+  params: {
+    name: storageAccountName
+    location: location
+    tags: tags
+    principalId: webIdentity.outputs.principalId
+    deployerPrincipalId: deployerPrincipalId
+  }
+}
+
 // ── Container App ──────────────────────────────────────────────────────────
 var containerAppName = take('ca-${envNameLower}-${resourceSuffix}', 32)
 var containerImage = !empty(webImageName)
@@ -183,6 +202,7 @@ var baseEnv = [
   { name: 'AZURE_CLIENT_ID', value: webIdentity.outputs.clientId }
   { name: 'AZURE_TENANT_ID', value: tenant().tenantId }
   { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: monitoring.outputs.applicationInsightsConnectionString }
+  { name: 'AZURE_STORAGE_ACCOUNT_NAME', value: storage.outputs.accountName }
 ]
 var smtpEnv = empty(smtpHost) ? [] : [
   { name: 'SMTP_HOST', value: smtpHost }
@@ -288,3 +308,4 @@ output SERVICE_WEB_NAME string = web.outputs.name
 output AZURE_OPENAI_ENDPOINT string = aiServices.outputs.endpoint
 output FOUNDRY_PROJECT_ENDPOINT string = aiServices.outputs.projectEndpoint
 output MODEL_DEPLOYMENTS array = aiServices.outputs.deploymentNames
+output AZURE_STORAGE_ACCOUNT_NAME string = storage.outputs.accountName

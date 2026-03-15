@@ -17,6 +17,7 @@ $LOCAL_PORT          = 5000
 $CONTAINER_PORT      = 5000
 $ENV_FILE            = ".env"
 $DOCKERFILE          = "Dockerfile"
+$STORAGE_ACCOUNT_NAME = "stmodelmigration"     # Must be globally unique, lowercase, no dashes, 3-24 chars
 
 # Environment variables that contain secrets (will be stored as Container Apps secrets)
 $SECRET_VARS = @("AZURE_CLIENT_SECRET", "SMTP_PASSWORD", "FLASK_SECRET_KEY", "GEMINI_API_KEY")
@@ -525,14 +526,15 @@ elseif ($choice -eq "2") {
     # --- Skip-step selector ---
     Write-Host "Skip completed steps?" -ForegroundColor Yellow
     Write-Host "  0. Run all steps (default)"
-    Write-Host "  1. Skip to Step 2 (ACR)          - Resource Group already exists"
-    Write-Host "  2. Skip to Step 3 (Docker)        - ACR already exists"
-    Write-Host "  3. Skip to Step 4 (Environment)   - Image already pushed"
-    Write-Host "  4. Skip to Step 5 (Env vars)      - Environment already exists"
-    Write-Host "  5. Skip to Step 6 (Container App) - Ready to create / update app"
-    Write-Host "  6. Skip to Step 7 (Get URL)       - App already deployed"
+    Write-Host "  1. Skip to Step 2 (ACR)           - Resource Group already exists"
+    Write-Host "  2. Skip to Step 3 (Docker)         - ACR already exists"
+    Write-Host "  3. Skip to Step 4 (Environment)    - Image already pushed"
+    Write-Host "  4. Skip to Step 5 (Storage)        - Environment already exists"
+    Write-Host "  5. Skip to Step 6 (Env vars)       - Storage already exists"
+    Write-Host "  6. Skip to Step 7 (Container App)  - Ready to create / update app"
+    Write-Host "  7. Skip to Step 8 (Get URL)        - App already deployed"
     Write-Host ""
-    $startStep = Read-Host "Start from step [0-6, default 0]"
+    $startStep = Read-Host "Start from step [0-7, default 0]"
     if (-not $startStep) { $startStep = "0" }
     $startStep = [int]$startStep
 
@@ -544,7 +546,7 @@ elseif ($choice -eq "2") {
     # == Step 1: Resource Group ================================================
     if ($startStep -le 0) {
         Write-Host ""
-        Write-Host "[Step 1/7] Checking Resource Group..." -ForegroundColor Cyan
+        Write-Host "[Step 1/8] Checking Resource Group..." -ForegroundColor Cyan
 
         $rgExists = az group exists --name $RESOURCE_GROUP 2>$null
         if ($rgExists -eq "true") {
@@ -570,13 +572,13 @@ elseif ($choice -eq "2") {
         az group create --name $RESOURCE_GROUP --location $LOCATION --output none
         Test-StepSuccess "Resource Group"
     } else {
-        Write-Host "[Step 1/7] Skipped (Resource Group)" -ForegroundColor Gray
+        Write-Host "[Step 1/8] Skipped (Resource Group)" -ForegroundColor Gray
     }
 
     # == Step 2: Azure Container Registry ======================================
     if ($startStep -le 1) {
         Write-Host ""
-        Write-Host "[Step 2/7] Azure Container Registry..." -ForegroundColor Cyan
+        Write-Host "[Step 2/8] Azure Container Registry..." -ForegroundColor Cyan
 
         $acrExists = az acr show --name $ACR_NAME --query "name" -o tsv 2>$null
         if ($acrExists) {
@@ -591,7 +593,7 @@ elseif ($choice -eq "2") {
             Test-StepSuccess "ACR creation"
         }
     } else {
-        Write-Host "[Step 2/7] Skipped (ACR)" -ForegroundColor Gray
+        Write-Host "[Step 2/8] Skipped (ACR)" -ForegroundColor Gray
     }
 
     # Get ACR credentials (always needed for later steps)
@@ -609,7 +611,7 @@ elseif ($choice -eq "2") {
     # == Step 3: Build & Push Docker Image =====================================
     if ($startStep -le 2) {
         Write-Host ""
-        Write-Host "[Step 3/7] Building and pushing Docker image..." -ForegroundColor Cyan
+        Write-Host "[Step 3/8] Building and pushing Docker image..." -ForegroundColor Cyan
 
         az acr login --name $ACR_NAME
         Test-StepSuccess "ACR login"
@@ -620,13 +622,13 @@ elseif ($choice -eq "2") {
         docker push "${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}"
         Test-StepSuccess "Docker push"
     } else {
-        Write-Host "[Step 3/7] Skipped (Docker build/push)" -ForegroundColor Gray
+        Write-Host "[Step 3/8] Skipped (Docker build/push)" -ForegroundColor Gray
     }
 
     # == Step 4: Container Apps Environment ====================================
     if ($startStep -le 3) {
         Write-Host ""
-        Write-Host "[Step 4/7] Container Apps Environment..." -ForegroundColor Cyan
+        Write-Host "[Step 4/8] Container Apps Environment..." -ForegroundColor Cyan
 
         $envExists = az containerapp env show `
             --name $ENVIRONMENT_NAME `
@@ -643,12 +645,68 @@ elseif ($choice -eq "2") {
             Test-StepSuccess "Container Apps Environment"
         }
     } else {
-        Write-Host "[Step 4/7] Skipped (Environment)" -ForegroundColor Gray
+        Write-Host "[Step 4/8] Skipped (Environment)" -ForegroundColor Gray
     }
 
-    # == Step 5: Build YAML configuration ======================================
+    # == Step 5: Storage Account (user data persistence) ========================
+    if ($startStep -le 4) {
+        Write-Host ""
+        Write-Host "[Step 5/8] Storage Account (user data persistence)..." -ForegroundColor Cyan
+
+        $saExists = az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $RESOURCE_GROUP --query "name" -o tsv 2>$null
+        if ($saExists) {
+            Write-Host "  Storage Account '$STORAGE_ACCOUNT_NAME' already exists - skipping creation" -ForegroundColor Gray
+        } else {
+            az storage account create `
+                --name $STORAGE_ACCOUNT_NAME `
+                --resource-group $RESOURCE_GROUP `
+                --location $LOCATION `
+                --sku Standard_LRS `
+                --kind StorageV2 `
+                --https-only true `
+                --min-tls-version TLS1_2 `
+                --allow-blob-public-access false `
+                --allow-shared-key-access false `
+                --output none
+            Test-StepSuccess "Storage Account creation"
+        }
+
+        # Create blob container
+        az storage container create `
+            --name userdata `
+            --account-name $STORAGE_ACCOUNT_NAME `
+            --auth-mode login `
+            --output none 2>$null
+        Write-Host "  Blob container 'userdata' ensured" -ForegroundColor Gray
+
+        # Assign Storage Blob Data Contributor to the Service Principal
+        $spAppId = $envVars['AZURE_CLIENT_ID']
+        if ($spAppId) {
+            $saId = az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $RESOURCE_GROUP --query "id" -o tsv
+            $existingRole = az role assignment list --assignee $spAppId --scope $saId --role "Storage Blob Data Contributor" --query "[0].id" -o tsv 2>$null
+            if (-not $existingRole) {
+                az role assignment create `
+                    --assignee $spAppId `
+                    --role "Storage Blob Data Contributor" `
+                    --scope $saId `
+                    --output none
+                Test-StepSuccess "Storage RBAC assignment"
+            } else {
+                Write-Host "  Storage RBAC already assigned" -ForegroundColor Gray
+            }
+        }
+
+        # Add storage account name to env vars for the container
+        $envVars['AZURE_STORAGE_ACCOUNT_NAME'] = $STORAGE_ACCOUNT_NAME
+    } else {
+        Write-Host "[Step 5/8] Skipped (Storage Account)" -ForegroundColor Gray
+        # Still need the env var even if skipping
+        $envVars['AZURE_STORAGE_ACCOUNT_NAME'] = $STORAGE_ACCOUNT_NAME
+    }
+
+    # == Step 6: Build YAML configuration ======================================
     Write-Host ""
-    Write-Host "[Step 5/7] Preparing environment variables & secrets..." -ForegroundColor Cyan
+    Write-Host "[Step 6/8] Preparing environment variables & secrets..." -ForegroundColor Cyan
 
     function ConvertTo-YamlSafe {
         param([string]$Value)
@@ -736,10 +794,10 @@ $envVarsYaml
     )
     Write-Host "  Saved $yamlFile" -ForegroundColor Gray
 
-    # == Step 6: Create / Update Container App =================================
-    if ($startStep -le 5) {
+    # == Step 7: Create / Update Container App =================================
+    if ($startStep -le 6) {
         Write-Host ""
-        Write-Host "[Step 6/7] Deploying Container App..." -ForegroundColor Cyan
+        Write-Host "[Step 7/8] Deploying Container App..." -ForegroundColor Cyan
 
         $appExists = az containerapp show `
             --name $CONTAINER_APP_NAME `
@@ -774,12 +832,12 @@ $envVarsYaml
 
         Remove-Item $yamlFile -ErrorAction SilentlyContinue
     } else {
-        Write-Host "[Step 6/7] Skipped (Container App)" -ForegroundColor Gray
+        Write-Host "[Step 7/8] Skipped (Container App)" -ForegroundColor Gray
     }
 
-    # == Step 7: Get Application URL ===========================================
+    # == Step 8: Get Application URL ===========================================
     Write-Host ""
-    Write-Host "[Step 7/7] Retrieving application URL..." -ForegroundColor Cyan
+    Write-Host "[Step 8/8] Retrieving application URL..." -ForegroundColor Cyan
 
     Start-Sleep -Seconds 5
 

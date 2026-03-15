@@ -2,6 +2,9 @@
 openai>=1.40.0
 azure-identity>=1.15.0
 
+# Azure Blob Storage (user data persistence)
+azure-storage-blob>=12.19.0
+
 # Microsoft Foundry Control Plane Evaluation (optional)
 azure-ai-projects>=2.0.0b2
 
