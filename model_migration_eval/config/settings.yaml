@@ -83,6 +83,52 @@ azure:
 #      temperature: 0.1
 #      max_concurrent: 1                       # Gemini free tier: 5 RPM, ~20 RPD — sequential to avoid 429
 
+    # ── Speech-to-Speech (Realtime API) ────────────────────────────
+    gpt_realtime_1:
+      deployment_name: "gpt-realtime"
+      model_family: "realtime"
+      backend: "realtime"
+      model_version: "2025-08-28"
+      max_tokens: 4096
+      temperature: 0.8
+      voice: "alloy"
+      turn_detection: "server_vad"
+      max_concurrent: 2                       # Realtime sessions are expensive — limit concurrency
+
+    gpt_realtime_15:
+      deployment_name: "gpt-realtime-1.5"
+      model_family: "realtime"
+      backend: "realtime"
+      model_version: "2026-02-23"
+      max_tokens: 4096
+      temperature: 0.8
+      voice: "alloy"
+      turn_detection: "server_vad"
+      max_concurrent: 2
+
+# =============================================================================
+# Realtime / Speech-to-Speech Configuration (optional)
+# =============================================================================
+# Voice models (TTS + Realtime) can run on a SEPARATE Azure OpenAI endpoint
+# to avoid quota contention with text models.  If omitted the main azure.*
+# endpoint is used.  Auth is always via Entra ID (DefaultAzureCredential).
+realtime:
+  # Optional dedicated endpoint for TTS + Realtime API voice models.
+  # Leave empty / remove to reuse the main azure.endpoint.
+  endpoint: "${AZURE_OPENAI_REALTIME_ENDPOINT}"
+  api_version: "2025-04-01-preview"
+
+  # TTS model used to convert text test-cases to audio before sending
+  # to the Realtime API.  Must be deployed on the realtime endpoint
+  # (or the main endpoint if no separate endpoint is configured).
+  tts:
+    deployment_name: "gpt-4o-mini-tts"
+    voice: "alloy"                          # default voice for TTS synthesis
+    speed: 1.0
+    response_format: "pcm"                  # "pcm" → raw PCM16 24 kHz mono
+    cache_enabled: true
+    cache_dir: ".cache/tts_audio"
+
 # =============================================================================
 # Google Gemini Configuration (optional — only needed if using Gemini models)
 # =============================================================================
@@ -155,6 +201,18 @@ cost_rates:
     input: 0.00015
     output: 0.0006
     cached_input: 0.0000375
+  gpt_realtime_1:
+    input: 0.005
+    output: 0.02
+    cached_input: 0.0025
+    audio_input: 0.06
+    audio_output: 0.24
+  gpt_realtime_15:
+    input: 0.0006
+    output: 0.0024
+    cached_input: 0.0003
+    audio_input: 0.01
+    audio_output: 0.04
 
 # =============================================================================
 # Evaluation Settings

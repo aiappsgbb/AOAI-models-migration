@@ -62,12 +62,12 @@ def run_web_server(host: str = "127.0.0.1", port: int = 5000, debug: bool = Fals
 ╔═══════════════════════════════════════════════════════════╗
 ║     Azure OpenAI Model Migration Evaluation Framework     ║
 ╠═══════════════════════════════════════════════════════════╣
-║  Web interface starting at: http://{host}:{port}          ║
+║  Web interface starting at: http://{host}:{port}         ║
 ║                                                           ║
 ║  Endpoints:                                               ║
 ║    /           - Dashboard                                ║
 ║    /evaluate   - Run batch evaluations                    ║
-║    /compare    - Compare any two models                  ║
+║    /compare    - Compare any two models                   ║
 ║    /results    - Browse saved results                     ║
 ║    /prompts    - View prompt templates                    ║
 ║                                                           ║

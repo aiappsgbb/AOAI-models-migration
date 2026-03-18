@@ -27,10 +27,13 @@ from ..utils.data_loader import DataLoader, ensure_flat_schema
 from ..evaluation.metrics import MetricsCalculator
 from ..evaluation.evaluator import ModelEvaluator, MissingPromptsError
 from ..evaluation.comparator import ModelComparator
+from ..evaluation.realtime_evaluator import RealtimeEvaluator
 from ..evaluation.foundry_evaluator import (
     is_foundry_available,
     create_foundry_evaluator_from_config,
 )
+from ..clients.tts_client import load_tts_config_from_settings
+from ..clients.realtime_client import RealtimeConfig
 from ..utils import blob_sync
 
 
@@ -601,6 +604,37 @@ def create_app(config_path: str = None) -> Flask:
             )
         return slot.get("evaluator")
 
+    def get_realtime_evaluator():
+        """Lazy-load the RealtimeEvaluator for voice/realtime models.
+
+        Mirrors the comparator's ``_realtime_settings`` initialisation so
+        that standalone Evaluate pages route realtime models through
+        TTS → WebSocket instead of chat/completions.
+        """
+        uctx = _get_user_context()
+        uid = uctx.user_id
+        client = get_client()
+        slot = _get_user_slot(uid)
+        if client and "realtime_evaluator" not in slot:
+            settings = app.config.get('SETTINGS', {})
+            rt_cfg = settings.get('realtime', {})
+            raw_ep = rt_cfg.get('endpoint', '')
+            realtime_endpoint = client._resolve_env_var(raw_ep) if raw_ep else None
+            raw_apiv = rt_cfg.get('api_version', '')
+            realtime_api_version = client._resolve_env_var(raw_apiv) if raw_apiv else None
+            tts_config = load_tts_config_from_settings({'realtime': rt_cfg})
+            perf = _load_perf_settings()
+            slot["realtime_evaluator"] = RealtimeEvaluator(
+                azure_client=client,
+                prompt_loader=get_prompt_loader(),
+                data_loader=get_data_loader(),
+                tts_config=tts_config,
+                max_concurrent=min(perf.get('max_concurrent_requests', 5), 2),
+                realtime_endpoint=realtime_endpoint,
+                realtime_api_version=realtime_api_version,
+            )
+        return slot.get("realtime_evaluator")
+
     def get_comparator():
         uctx = _get_user_context()
         uid = uctx.user_id
@@ -609,13 +643,19 @@ def create_app(config_path: str = None) -> Flask:
         if client and "comparator" not in slot:
             perf = _load_perf_settings()
             settings = app.config.get('SETTINGS', {})
-            slot["comparator"] = ModelComparator(
+            comp = ModelComparator(
                 client,
                 evaluator=get_evaluator(),
                 foundry_evaluator=get_foundry_evaluator(),
                 parallel_models=perf.get('parallel_models', True),
                 acceptance_thresholds=settings.get('evaluation', {}).get('acceptance_thresholds', {}),
+                prompt_loader=get_prompt_loader(),
+                data_loader=get_data_loader(),
             )
+            # Pass realtime/voice endpoint config so the RealtimeEvaluator
+            # can use a dedicated endpoint + TTS deployment from settings.
+            comp._realtime_settings = settings.get('realtime', {})
+            slot["comparator"] = comp
         else:
             comp = slot.get("comparator")
             if comp is not None:
@@ -753,6 +793,7 @@ def create_app(config_path: str = None) -> Flask:
                 'version': config.model_version,
                 'max_tokens': config.max_tokens,
                 'model_family': config.model_family or 'gpt4',
+                'modality': config.modality,
             })
         return jsonify({'models': models})
 
@@ -916,10 +957,105 @@ def create_app(config_path: str = None) -> Flask:
         prompt_loader = get_prompt_loader()
         metrics_calc = get_metrics_calc()
 
+        # Eagerly resolve the realtime evaluator *in the request thread*
+        # (where Flask app-context is active) so the thread-pool closures
+        # below never need to call get_realtime_evaluator() themselves.
+        _has_realtime = any(
+            client.models.get(m) and client.models[m].backend == 'realtime'
+            for m in models_to_test
+        )
+        rt_eval = get_realtime_evaluator() if _has_realtime else None
+
+        # --- Helper: route a realtime model through TTS → WebSocket ----
+        def _eval_one_realtime(model_name: str, config):
+            """Send *customer_input* through the Realtime API pipeline.
+
+            1. Load the agent system prompt for the evaluation type.
+            2. Synthesise the user text to PCM-16 audio via TTS.
+            3. Open a Realtime WebSocket session and stream the audio.
+            4. Return the transcript + latency metrics.
+            """
+            try:
+                import asyncio
+                if not rt_eval:
+                    return model_name, {'error': 'Realtime evaluator not available — check realtime settings in settings.yaml'}
+
+                # Prompt type mapping (same keys as _EVAL_PROMPT_TYPES)
+                _prompt_map = {
+                    'classification': 'classification_agent_system',
+                    'dialog': 'dialog_agent_system',
+                    'rag': 'rag_agent_system',
+                    'tool_calling': 'tool_calling_agent_system',
+                }
+                prompt_type = _prompt_map.get(evaluation_type)
+                instructions = ""
+                if prompt_type:
+                    instructions = prompt_loader.load_prompt(model_name, prompt_type)
+
+                # Enrich instructions for specific types
+                if evaluation_type == 'classification':
+                    instructions += "\n\nRespond ONLY with a valid JSON object containing your classification."
+                elif evaluation_type == 'rag' and data.get('context'):
+                    instructions += f"\n\nContext:\n{data['context']}"
+
+                # TTS synthesis
+                tts = rt_eval._ensure_tts()
+                voice = config.voice or "alloy"
+                tts_r = tts.synthesize(customer_input, voice)
+
+                # WebSocket send
+                rt_config = RealtimeConfig(
+                    deployment_name=config.deployment_name,
+                    voice=voice,
+                    modalities=["text", "audio"],
+                    instructions=instructions,
+                    temperature=config.temperature,
+                    max_response_output_tokens=config.max_tokens,
+                )
+
+                realtime = rt_eval._ensure_realtime()
+                rt_result = asyncio.run(realtime.send_audio(tts_r.audio.data, rt_config))
+
+                result = {
+                    'response': rt_result.transcript,
+                    'latency': rt_result.session_time_ms / 1000.0,
+                    'tokens': {
+                        'prompt': rt_result.input_tokens,
+                        'completion': rt_result.output_tokens,
+                        'total': rt_result.input_tokens + rt_result.output_tokens,
+                        'cached': 0,
+                        'reasoning': 0,
+                    },
+                    'cost': 0,  # realtime pricing differs — not estimated here
+                    'realtime': {
+                        'ttfa_ms': rt_result.time_to_first_audio_ms,
+                        'session_ms': rt_result.session_time_ms,
+                        'ws_connect_ms': rt_result.ws_connect_time_ms,
+                        'tts_latency_ms': tts_r.tts_latency_ms,
+                        'tts_cached': tts_r.cached,
+                    },
+                }
+
+                if evaluation_type == 'classification':
+                    result['parsed'] = metrics_calc.extract_classification_from_response(
+                        rt_result.transcript
+                    )
+
+                return model_name, result
+
+            except Exception as e:
+                return model_name, {'error': str(e)}
+
         # --- Helper: evaluate one model (runs inside a thread) ----------
         def _eval_one_model(model_name: str):
             if model_name not in client.models:
                 return model_name, {'error': f'Model {model_name} not configured'}
+
+            # ── Realtime models → TTS + WebSocket (not chat/completions) ──
+            config = client.models[model_name]
+            if config.backend == "realtime":
+                return _eval_one_realtime(model_name, config)
+
             try:
                 if evaluation_type == 'classification':
                     messages = prompt_loader.load_classification_prompt(
@@ -1011,27 +1147,46 @@ def create_app(config_path: str = None) -> Flask:
         except RuntimeError as e:
             return jsonify({'error': str(e), 'run_id': run_id}), 409
 
-        evaluator = get_evaluator()
-        if not evaluator:
-            _unregister_job()
-            return jsonify({'error': 'Evaluator not available', 'run_id': run_id}), 500
+        # Detect realtime models — they route through RealtimeEvaluator
+        # (TTS → WebSocket) instead of the text chat/completions path.
+        _client = get_client()
+        _model_cfg = _client.models.get(model_name) if _client else None
+        is_realtime = _model_cfg is not None and _model_cfg.backend == "realtime"
 
-        # Pre-load data in the request thread (fast, needs user context)
-        loader = get_data_loader()
-        try:
-            if evaluation_type == 'classification':
-                scenarios = loader.load_classification_scenarios()[:limit]
-            elif evaluation_type == 'dialog':
-                scenarios = loader.load_dialog_scenarios()[:limit]
-            elif evaluation_type == 'rag':
-                scenarios = loader.load_rag_scenarios()[:limit]
-            elif evaluation_type == 'tool_calling':
-                scenarios = loader.load_tool_calling_scenarios()[:limit]
-            else:
-                scenarios = loader.load_general_tests()[:limit]
-        except Exception as e:
-            _unregister_job()
-            return jsonify({'error': str(e), 'run_id': run_id}), 400
+        if is_realtime:
+            rt_evaluator = get_realtime_evaluator()
+            if not rt_evaluator:
+                _unregister_job()
+                return jsonify({
+                    'error': 'Realtime evaluator not available — check realtime settings in settings.yaml',
+                    'run_id': run_id,
+                }), 500
+        else:
+            evaluator = get_evaluator()
+            if not evaluator:
+                _unregister_job()
+                return jsonify({'error': 'Evaluator not available', 'run_id': run_id}), 500
+
+        # Pre-load data in the request thread (fast, needs user context).
+        # Realtime models load their own data inside RealtimeEvaluator,
+        # so skip pre-loading for them.
+        scenarios = None
+        if not is_realtime:
+            loader = get_data_loader()
+            try:
+                if evaluation_type == 'classification':
+                    scenarios = loader.load_classification_scenarios()[:limit]
+                elif evaluation_type == 'dialog':
+                    scenarios = loader.load_dialog_scenarios()[:limit]
+                elif evaluation_type == 'rag':
+                    scenarios = loader.load_rag_scenarios()[:limit]
+                elif evaluation_type == 'tool_calling':
+                    scenarios = loader.load_tool_calling_scenarios()[:limit]
+                else:
+                    scenarios = loader.load_general_tests()[:limit]
+            except Exception as e:
+                _unregister_job()
+                return jsonify({'error': str(e), 'run_id': run_id}), 400
 
         results_dir = str(_get_user_context().results_dir)
 
@@ -1049,7 +1204,13 @@ def create_app(config_path: str = None) -> Flask:
             """Background worker — runs evaluation and stores result."""
             token = _current_run_id.set(run_id)
             try:
-                if evaluation_type == 'classification':
+                if is_realtime:
+                    # Realtime path: TTS → WebSocket (uses RealtimeEvaluator)
+                    import asyncio
+                    result = asyncio.run(
+                        rt_evaluator.evaluate_async(model_name, evaluation_type)
+                    )
+                elif evaluation_type == 'classification':
                     result = evaluator.evaluate_classification(model_name, scenarios)
                 elif evaluation_type == 'dialog':
                     result = evaluator.evaluate_dialog(model_name, scenarios)

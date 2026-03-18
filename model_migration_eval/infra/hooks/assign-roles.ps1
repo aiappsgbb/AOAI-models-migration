@@ -76,6 +76,7 @@ $roles = @(
     @{ Name = "Cognitive Services OpenAI User"; Id = "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd"; Scope = $aiAccountId }
     @{ Name = "Azure AI Developer"; Id = "64702f94-c441-49e6-a78b-ef80e0188fee"; Scope = $aiAccountId }
     @{ Name = "Azure AI User"; Id = "53ca6127-db72-4b80-b1b0-d745d6d5456d"; Scope = $aiAccountId }
+    @{ Name = "User Access Administrator"; Id = "18d7d88d-d35e-4fb5-a5c3-7773c20a72d9"; Scope = $aiAccountId }
     @{ Name = "Storage Blob Data Contributor"; Id = "ba92f5b4-2d11-453d-a403-e96b0029c9fe"; Scope = $rgId }
 )
 
@@ -95,6 +96,45 @@ foreach ($role in $roles) {
         Write-Host " FAILED" -ForegroundColor Red
         Write-Host "    Error: $_" -ForegroundColor Red
     }
+}
+
+# ── Dedicated Realtime/TTS endpoint (optional) ─────────────────────────────
+# If AZURE_OPENAI_REALTIME_ENDPOINT is configured in the azd environment,
+# the identity also needs OpenAI Contributor + User on that external resource
+# (TTS audio/speech requires the deployments/audio/action data action).
+$realtimeEp = (azd env get-values 2>$null | Select-String "^AZURE_OPENAI_REALTIME_ENDPOINT=" | ForEach-Object { $_ -replace "^AZURE_OPENAI_REALTIME_ENDPOINT=", "" -replace '"', '' })
+if ($realtimeEp -and $realtimeEp -match 'https://([^.]+)\.') {
+    $rtResName = $matches[1]
+    Write-Host "`nLooking up dedicated Realtime/TTS resource '$rtResName'..." -ForegroundColor Yellow
+    $rtRes = az resource list --name $rtResName -o json 2>$null | ConvertFrom-Json
+    if ($rtRes -and $rtRes.Count -gt 0) {
+        $rtResId = $rtRes[0].id
+        Write-Host "  Resource: $rtResName ($rtResId)"
+        $rtRoles = @(
+            @{ Name = "Cognitive Services OpenAI Contributor"; Id = "a001fd3d-188f-4b5d-821b-7da978bf7442"; Scope = $rtResId }
+            @{ Name = "Cognitive Services OpenAI User"; Id = "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd"; Scope = $rtResId }
+        )
+        foreach ($role in $rtRoles) {
+            Write-Host "  Assigning '$($role.Name)' on realtime resource..." -NoNewline
+            try {
+                az role assignment create `
+                    --assignee-object-id $principalId `
+                    --assignee-principal-type ServicePrincipal `
+                    --role $role.Id `
+                    --scope $role.Scope `
+                    --only-show-errors 2>&1 | Out-Null
+                Write-Host " OK" -ForegroundColor Green
+            }
+            catch {
+                Write-Host " FAILED" -ForegroundColor Red
+                Write-Host "    Error: $_" -ForegroundColor Red
+            }
+        }
+    } else {
+        Write-Host "  WARNING: Could not find resource '$rtResName'. Assign roles manually." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "`nNo dedicated Realtime endpoint configured -- TTS/Realtime will use main endpoint." -ForegroundColor Gray
 }
 
 Write-Host "`n=== Done! All roles assigned. ===" -ForegroundColor Green

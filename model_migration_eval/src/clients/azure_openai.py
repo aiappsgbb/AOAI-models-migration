@@ -54,9 +54,17 @@ class ModelConfig:
     seed: Optional[int] = None
     reasoning_effort: Optional[str] = None  # o-series / reasoning models only
     use_max_completion_tokens: Optional[bool] = None  # Auto-detected if None
-    model_family: Optional[str] = None  # "gpt4", "gpt5", "mistral", or "gemini" — determines prompt style guidelines
-    backend: str = "azure"  # "azure" for Azure OpenAI, "gemini" for Google Gemini OpenAI-compat API
+    model_family: Optional[str] = None  # "gpt4", "gpt5", "mistral", "gemini", or "realtime" — determines prompt style guidelines
+    backend: str = "azure"  # "azure" for Azure OpenAI, "gemini" for Google Gemini, "realtime" for Realtime API
     max_concurrent: Optional[int] = None  # Per-model concurrency limit (None → use global default)
+    # Realtime-specific settings (only used when backend="realtime")
+    voice: Optional[str] = None  # TTS/realtime voice: "alloy", "echo", "shimmer", etc.
+    turn_detection: Optional[str] = None  # "server_vad" or None for manual
+
+    @property
+    def modality(self) -> str:
+        """Return 'realtime' for speech-to-speech models, 'text' otherwise."""
+        return 'realtime' if self.backend == 'realtime' else 'text'
     
 
 @dataclass

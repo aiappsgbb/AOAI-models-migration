@@ -7,9 +7,11 @@
 //   2. "Cognitive Services OpenAI User"        — chat/completions inference
 //   3. "Azure AI Developer"                    — Foundry project operations
 //   4. "Azure AI User"                         — Foundry asset store access
+//   5. "User Access Administrator"             — auto-assign Foundry reader
+//      roles to users on login (optional — only when enabled)
 //
 // Role on the resource group:
-//   5. "Storage Blob Data Contributor"          — dataset uploads to backing storage
+//   6. "Storage Blob Data Contributor"          — dataset uploads to backing storage
 //
 // AI Foundry projects are child resources of Cognitive Services accounts:
 //   Microsoft.CognitiveServices/accounts/{accountName}/projects/{projectName}
@@ -25,6 +27,9 @@ param projectName string
 @description('Principal ID of the managed identity to grant access to.')
 param principalId string
 
+@description('Enable User Access Administrator role so the app can auto-assign Foundry reader roles to users on login.')
+param enableAutoAssign bool = false
+
 // Cognitive Services OpenAI Contributor — model management + data-plane write
 var csOpenAIContributorRoleId = 'a001fd3d-188f-4b5d-821b-7da978bf7442'
 
@@ -36,6 +41,9 @@ var aiDeveloperRoleId = '64702f94-c441-49e6-a78b-ef80e0188fee'
 
 // Azure AI User — Foundry asset store read/browse access
 var aiUserRoleId = '53ca6127-db72-4b80-b1b0-d745d6d5456d'
+
+// User Access Administrator — auto-assign Reader + AI User to users on login
+var userAccessAdminRoleId = '18d7d88d-d35e-4fb5-a5c3-7773c20a72d9'
 
 // Storage Blob Data Contributor — upload evaluation JSONL datasets
 var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
@@ -81,6 +89,18 @@ resource aiUserAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' =
   scope: account
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', aiUserRoleId)
+    principalId: principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// User Access Administrator — only when AUTO_ASSIGN_FOUNDRY_READER is enabled.
+// Allows the managed identity to grant Reader + Azure AI User to users on login.
+resource userAccessAdminAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (enableAutoAssign) {
+  name: guid(account.id, principalId, userAccessAdminRoleId)
+  scope: account
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', userAccessAdminRoleId)
     principalId: principalId
     principalType: 'ServicePrincipal'
   }

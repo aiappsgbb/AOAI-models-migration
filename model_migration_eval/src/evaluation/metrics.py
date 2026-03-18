@@ -814,7 +814,13 @@ class MetricsCalculator:
         return sig
 
     def _is_valid_json(self, text, return_parsed: bool = False) -> Any:
-        """Check if text is valid JSON.  Accepts str or already-parsed dict/list."""
+        """Check if text is valid JSON.  Accepts str or already-parsed dict/list.
+
+        If the raw text fails to parse, this method attempts several
+        recovery strategies:
+        1. Extract a JSON object/array embedded in surrounding prose.
+        2. Repair truncated JSON (close open strings, arrays, objects).
+        """
         try:
             # Already parsed (SDK v2 json_object mode can return dict)
             if isinstance(text, (dict, list)):
@@ -824,18 +830,112 @@ class MetricsCalculator:
                 return (False, None) if return_parsed else False
 
             # Try to find JSON in the text
-            text = text.strip()
+            cleaned = text.strip()
             
             # Handle markdown code blocks
-            if text.startswith('```'):
-                match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+            if cleaned.startswith('```'):
+                match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', cleaned)
                 if match:
-                    text = match.group(1)
-                    
-            parsed = json.loads(text)
-            return (True, parsed) if return_parsed else True
-        except (json.JSONDecodeError, TypeError, AttributeError):
+                    cleaned = match.group(1)
+
+            # --- Attempt 1: direct parse --------------------------------
+            try:
+                parsed = json.loads(cleaned)
+                return (True, parsed) if return_parsed else True
+            except json.JSONDecodeError:
+                pass
+
+            # --- Attempt 2: extract embedded JSON object/array ----------
+            # The model may prefix its JSON with conversational text,
+            # e.g. "Here is my classification:\n{...}".
+            json_match = re.search(r'(\{[\s\S]*\}|\[[\s\S]*\])', cleaned)
+            if json_match:
+                try:
+                    parsed = json.loads(json_match.group(1))
+                    return (True, parsed) if return_parsed else True
+                except json.JSONDecodeError:
+                    pass
+
+            # --- Attempt 3: repair truncated JSON -----------------------
+            # The realtime API may truncate the response mid-JSON when
+            # the output-token budget is exhausted.  Try to close any
+            # open strings, arrays, and objects.
+            repaired = self._repair_truncated_json(cleaned)
+            if repaired is not None:
+                return (True, repaired) if return_parsed else True
+
             return (False, None) if return_parsed else False
+        except (TypeError, AttributeError):
+            return (False, None) if return_parsed else False
+
+    @staticmethod
+    def _repair_truncated_json(text: str) -> Optional[Dict]:
+        """Attempt to repair JSON truncated mid-stream.
+
+        Returns the parsed dict/list on success, or *None* on failure.
+        Strategy: find the opening ``{`` or ``[``, then walk character-by-
+        character tracking nesting of braces, brackets and strings.
+        Append the minimal closing tokens to produce valid JSON.
+        """
+        # Find the first { or [
+        start = None
+        for i, ch in enumerate(text):
+            if ch in ('{', '['):
+                start = i
+                break
+        if start is None:
+            return None
+
+        fragment = text[start:]
+
+        # Track nesting via a simple stack-based state machine.
+        stack: List[str] = []      # expected closing chars
+        in_string = False
+        escape_next = False
+
+        for ch in fragment:
+            if escape_next:
+                escape_next = False
+                continue
+            if ch == '\\' and in_string:
+                escape_next = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            # Outside a string
+            if ch == '{':
+                stack.append('}')
+            elif ch == '[':
+                stack.append(']')
+            elif ch in ('}', ']'):
+                if stack and stack[-1] == ch:
+                    stack.pop()
+
+        # Build suffix to close all open constructs
+        if not stack and not in_string:
+            # Text is already balanced — shouldn't need repair
+            return None
+
+        suffix = ''
+        if in_string:
+            suffix += '"'
+        # Close stack in reverse order
+        suffix += ''.join(reversed(stack))
+
+        try:
+            parsed = json.loads(fragment + suffix)
+            if isinstance(parsed, (dict, list)):
+                logger.info(
+                    "Repaired truncated JSON by appending '%s' (%d chars recovered)",
+                    suffix, len(fragment),
+                )
+                return parsed
+        except json.JSONDecodeError:
+            pass
+        return None
             
     def extract_classification_from_response(self, response) -> Dict:
         """

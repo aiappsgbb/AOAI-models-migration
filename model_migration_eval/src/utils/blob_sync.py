@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 # Lazy import to avoid hard dependency when running locally without blob
 _blob_service_client = None
 _container_client = None
+_init_checked = False        # True once we've attempted init (avoids repeated log spam)
 _init_lock = threading.Lock()
 
 # Default configuration
@@ -51,17 +52,22 @@ def _get_container_client():
     that newly-assigned RBAC roles have time to propagate (can take 1-5
     minutes in Azure).
     """
-    global _blob_service_client, _container_client
+    global _blob_service_client, _container_client, _init_checked
     if _container_client is not None:
         return _container_client
+    if _init_checked:
+        return None          # already tried — don't log again
 
     with _init_lock:
         if _container_client is not None:
             return _container_client
+        if _init_checked:
+            return None
 
         account_name = os.environ.get("AZURE_STORAGE_ACCOUNT_NAME", "")
         if not account_name:
-            logger.info("AZURE_STORAGE_ACCOUNT_NAME not set — blob sync disabled")
+            logger.info("AZURE_STORAGE_ACCOUNT_NAME not set -> blob sync disabled")
+            _init_checked = True
             return None
 
         try:
@@ -119,9 +125,10 @@ def _get_container_client():
             )
             return _container_client
         except Exception:
-            logger.exception("Failed to initialise blob sync — running without persistence")
+            logger.exception("Failed to initialise blob sync -> running without persistence")
             _blob_service_client = None
             _container_client = None
+            _init_checked = True
             return None
 
 
@@ -202,7 +209,7 @@ def upload_file(local_path: Path):
         with open(local_path, "rb") as f:
             blob_client.upload_blob(f, overwrite=True)
 
-        logger.debug("Uploaded %s → blob:%s", local_path, blob_name)
+        logger.debug("Uploaded %s -> blob:%s", local_path, blob_name)
     except Exception:
         logger.exception("Failed to upload %s to blob", local_path)
 
@@ -216,7 +223,7 @@ def upload_bytes(blob_name: str, data: bytes):
     try:
         blob_client = client.get_blob_client(blob_name)
         blob_client.upload_blob(io.BytesIO(data), overwrite=True)
-        logger.debug("Uploaded %d bytes → blob:%s", len(data), blob_name)
+        logger.debug("Uploaded %d bytes -> blob:%s", len(data), blob_name)
     except Exception:
         logger.exception("Failed to upload bytes to blob:%s", blob_name)
 

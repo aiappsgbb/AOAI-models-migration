@@ -1,6 +1,6 @@
 # Azure OpenAI Model Migration Evaluation Framework
 
-A comprehensive evaluation framework for migrating production systems between any Azure OpenAI model generations **and external models** (Azure AI Marketplace, Google Gemini) (e.g. GPT-4o → GPT-4.1, GPT-4.1 → GPT-5.2, GPT-4.1 → Mistral-Large-3, GPT-4.1 → Gemini 3 Flash, or any configured pair).  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **5 scenario types** (classification, dialog, general, RAG, and tool calling), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
+A comprehensive evaluation framework for migrating production systems between any Azure OpenAI model generations **and external models** (Azure AI Marketplace, Google Gemini) (e.g. GPT-4o → GPT-4.1, GPT-4.1 → GPT-5.2, GPT-4.1 → Mistral-Large-3, GPT-4.1 → Gemini 3 Flash, or any configured pair).  Now also supports **Speech-to-Speech (S2S) evaluation** via the Azure OpenAI Realtime API (gpt-realtime, gpt-realtime-1.5) with TTS-driven audio input.  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **6 scenario types** (classification, dialog, general, RAG, tool calling, and **realtime speech-to-speech**), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
 
 ---
 
@@ -26,7 +26,7 @@ This framework automates that process end-to-end:
 
 | Area | Highlights |
 |------|------------|
-| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.1, GPT-5.2, Mistral-Large-3, Gemini 3 Flash, reasoning variants, etc.) — each with `model_family` for automatic API behaviour |
+| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.1, GPT-5.2, Mistral-Large-3, Gemini 3 Flash, **GPT-Realtime, GPT-Realtime-1.5**, reasoning variants, etc.) — each with `model_family` for automatic API behaviour |
 | **Multi-Topic** | Switch between self-contained topic archives (prompts + data) without losing anything |
 | **AI Generation** | One-click generation of optimised prompts (4 task types × N models) + 5 test datasets (70 scenarios) tailored to any domain, with dynamic category taxonomy, JSON retry logic, and **selective regeneration** (prompts only, test data only, or both) |
 | **Topic Import** | Import prompts + test data from disk for any source model (web UI or CLI) — target model prompts are auto-generated with **multi-layer category alignment** (deterministic injection → LLM auto-fix → post-generation verification), **error-resilient** parallel generation (individual 429/failure tolerance), and automatic priority & sentiment normalisation.  The topic is archived ready to activate |
@@ -35,7 +35,8 @@ This framework automates that process end-to-end:
 | **General** | Format compliance, completeness, reasoning, safety, structured output |
 | **RAG** | Groundedness, relevance, context keyword overlap, response completeness, latency & cost analytics |
 | **Tool Calling** | Tool selection accuracy, parameter extraction accuracy, response correctness, latency & cost analytics |
-| **Token & Cost** | Per-request token breakdown (prompt/completion/cached/reasoning), cost estimation, cache hit rate, throughput (tok/s) |
+| **Speech-to-Speech (S2S)** | Full TTS → Realtime WebSocket → transcript pipeline for voice model evaluation.  Supports `gpt-realtime` and `gpt-realtime-1.5` via a dedicated endpoint.  Realtime-specific metrics: time-to-first-audio, session time, WebSocket connect time, audio I/O duration, audio token counts, TTS latency, TTS cache hit rate, audio cost per request |
+| **Token & Cost** | Per-request token breakdown (prompt/completion/cached/reasoning), cost estimation, cache hit rate, throughput (tok/s), **audio token pricing** for realtime models |
 | **Consistency** | Multi-run reproducibility scoring, response variance, format consistency |
 | **Model Comparison** | Head-to-head or **batch multi-model** comparison (Model A vs N Model B's) with dimension-by-dimension charts, statistical significance (Welch's t-test), and actionable recommendations |
 | **Prompt Versioning** | Every save creates a timestamped snapshot — preview, restore, or delete any version |
@@ -70,6 +71,8 @@ model_migration_eval/
 │       ├── acr-access.bicep        #   AcrPull role assignment
 │       ├── foundry-access.bicep    #   OpenAI + Foundry + Storage RBAC roles
 │       ├── foundry-resource.bicep  #   AI Services account + model deployments + Foundry project
+│       ├── realtime-access.bicep   #   OpenAI Contributor + User roles on external TTS/Realtime endpoint
+│       ├── storage-resource.bicep  #   Storage Account + blob container for user-data persistence
 │       ├── openai-access.bicep     #   Cognitive Services OpenAI User role (legacy)
 │       └── openai-resource.bicep   #   Azure OpenAI account (legacy — replaced by foundry-resource)
 │   └── hooks/
@@ -134,10 +137,14 @@ model_migration_eval/
 │   │   ├── session.py              #   Flask session middleware & public routes
 │   │   └── user_context.py         #   Per-user directory layout & seeding
 │   ├── clients/
-│   │   └── azure_openai.py         # Azure OpenAI client (sync/async/streaming)
+│   │   ├── azure_openai.py         # Azure OpenAI client (sync/async/streaming)
+│   │   ├── tts_client.py           # TTS client — text→PCM16 audio via gpt-4o-mini-tts (with disk cache)
+│   │   └── realtime_client.py      # Realtime WebSocket client — audio→transcript+audio via gpt-realtime
 │   ├── evaluation/
 │   │   ├── metrics.py              # MetricsCalculator — classification, dialog quality, latency, cost, consistency
 │   │   ├── evaluator.py            # ModelEvaluator + EvaluationResult (classification/dialog/general/RAG/tool_calling)
+│   │   ├── realtime_evaluator.py   # RealtimeEvaluator — TTS→WebSocket→Transcript→Metrics pipeline for voice models
+│   │   ├── realtime_metrics.py     # RealtimeMetrics dataclass (TTFA, session time, audio tokens, TTS cache, costs)
 │   │   ├── comparator.py           # ModelComparator + ComparisonReport with statistical significance
 │   │   └── foundry_evaluator.py    # Microsoft Foundry Control Plane integration (optional)
 │   ├── utils/
@@ -211,6 +218,9 @@ AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_API_KEY=your-api-key-here
 FOUNDRY_PROJECT_ENDPOINT=https://your-hub.services.ai.azure.com/api/projects/your-project  # Optional
 
+# Realtime / Speech-to-Speech (optional — only needed if using gpt-realtime models)
+AZURE_OPENAI_REALTIME_ENDPOINT=    # Dedicated endpoint for TTS + Realtime voice models
+
 # Google Gemini (optional — only needed if using Gemini models)
 GEMINI_API_KEY=            # Get from https://aistudio.google.com/
 
@@ -266,7 +276,7 @@ gemini:
   api_key: "${GEMINI_API_KEY}"              # Get from https://aistudio.google.com/
 ```
 
-You can add as many models as you need — including Azure AI Marketplace models like Mistral and external models like Gemini (see [Model Configuration](#-model-configuration) below).
+You can add as many models as you need — including Azure AI Marketplace models like Mistral, external models like Gemini, and **Realtime (speech-to-speech) models** (see [Model Configuration](#-model-configuration) below).
 
 ### 3. Launch the Web Interface
 
@@ -1338,20 +1348,23 @@ gemini:
 | `frequency_penalty` | Repetition penalty (optional) | **Omitted for reasoning models** |
 | `presence_penalty` | Topic penalty (optional) | **Omitted for reasoning models** |
 | `reasoning_effort` | Only for reasoning models | `low` / `medium` / `high` — GPT-5, o1, o3, o4 |
-| `max_concurrent` | Max parallel API calls for this model (optional) | Default: `5`. Set to `1` for rate-limited models like Gemini free tier |
+| `max_concurrent` | Max parallel API calls for this model (optional) | Default: `5`. Set to `1` for rate-limited models like Gemini free tier. Set to `2` for realtime models (expensive sessions) |
+| `voice` | Voice for Realtime API output (optional) | `alloy`, `echo`, `shimmer`, etc. — only used by `realtime` backend models |
+| `turn_detection` | Turn detection mode (optional) | `server_vad` (default) — only used by `realtime` backend models |
 
 ### Model Family Behaviour
 
 The `model_family` field controls automatic API-level differences:
 
-| Behaviour | `model_family: "gpt4"` | `model_family: "gpt5"` | `model_family: "mistral"` | `model_family: "gemini"` |
-|-----------|------------------------|------------------------|---------------------------|-------------------------|
-| **Max tokens parameter** | `max_tokens` | `max_completion_tokens` (auto-converted) | `max_tokens` | `max_tokens` |
-| **System message role** | `system` | `developer` | `system` | `system` |
-| **Sampling parameters** | Always sent (temperature, top_p, penalties) | Sent unless `reasoning_effort` is present | Always sent | Always sent |
-| **Seed parameter** | Sent if configured | Sent if configured | Sent if configured | **Not sent** (unsupported) |
-| **Last-message guard** | Not needed | Not needed | Auto-appends a minimal `user` message if the last message is not `user` or `tool` (prevents Mistral error 3230) | Not needed |
-| **Prompt style** | Explicit chain-of-thought, verbose rules | Native reasoning, concise | Detailed instructions, structured examples, few-shot | Explicit CoT, few-shot examples, structured output |
+| Behaviour | `model_family: "gpt4"` | `model_family: "gpt5"` | `model_family: "mistral"` | `model_family: "gemini"` | `model_family: "realtime"` |
+|-----------|------------------------|------------------------|---------------------------|-------------------------|---------------------------|
+| **Max tokens parameter** | `max_tokens` | `max_completion_tokens` (auto-converted) | `max_tokens` | `max_tokens` | `max_response_output_tokens` |
+| **System message role** | `system` | `developer` | `system` | `system` | `instructions` (Realtime session config) |
+| **Sampling parameters** | Always sent (temperature, top_p, penalties) | Sent unless `reasoning_effort` is present | Always sent | Always sent | `temperature` only |
+| **Seed parameter** | Sent if configured | Sent if configured | Sent if configured | **Not sent** (unsupported) | **Not sent** |
+| **Last-message guard** | Not needed | Not needed | Auto-appends a minimal `user` message if the last message is not `user` or `tool` (prevents Mistral error 3230) | Not needed | Not applicable |
+| **Prompt style** | Explicit chain-of-thought, verbose rules | Native reasoning, concise | Detailed instructions, structured examples, few-shot | Explicit CoT, few-shot examples, structured output | Conversational, voice-optimised |
+| **Evaluation path** | Text chat/completions | Text chat/completions | Text chat/completions | Text chat/completions | TTS → Realtime WebSocket → Transcript |
 
 > **Auto-detection:** The client reads `model_family` and `backend` from the config and automatically converts `max_tokens` → `max_completion_tokens` and `system` → `developer` role for `gpt5` family models, applies the last-message guard for `mistral` family models, and routes requests to the Gemini OpenAI-compatible endpoint for `gemini` backend models.  No manual API changes needed.
 
@@ -1396,6 +1409,107 @@ Google Gemini models are accessed via the [OpenAI-compatible endpoint](https://a
 | **Prompt seeding** | Gemini prompt templates are seeded from shared prompts on first user login, just like all other models |
 
 > **Tip:** For production workloads, upgrade to a [paid Gemini API plan](https://ai.google.dev/pricing) which provides significantly higher rate limits (up to 2,000 RPM).
+
+### Realtime (Speech-to-Speech) Configuration
+
+Realtime models evaluate voice model quality by converting text test cases to audio via TTS, sending the audio through the Azure OpenAI Realtime WebSocket API, and evaluating the resulting transcript against the same metrics used for text models (classification, dialog, RAG, tool calling).
+
+#### Architecture: TTS → Realtime WebSocket → Transcript → Metrics
+
+```
+                                         ┌──────────────────────────┐
+  Text Test Case                         │  Azure OpenAI            │
+  "My bill is too high"                  │  Realtime API            │
+         │                               │  (WebSocket)             │
+         ▼                               │                          │
+  ┌──────────────┐   PCM16 audio         │  ┌────────────────────┐  │
+  │  TTS Client  │ ───────────────────► │  │ gpt-realtime(-1.5) │  │
+  │  gpt-4o-     │   24 kHz mono        │  │                    │  │
+  │  mini-tts    │                       │  │  audio + text      │  │
+  └──────────────┘                       │  │  response          │  │
+         │                               │  └────────────────────┘  │
+    .cache/tts_audio/                    │           │              │
+    (disk cache)                         └───────────┼──────────────┘
+                                                     │
+                                                     ▼
+                                              Transcript text
+                                                     │
+                                                     ▼
+                                          ┌──────────────────┐
+                                          │ MetricsCalculator │
+                                          │ (same as text)    │
+                                          └──────────────────┘
+```
+
+#### Prerequisites
+
+| Requirement | Details |
+|-------------|---------|
+| **Realtime model deployment** | Deploy `gpt-realtime` and/or `gpt-realtime-1.5` on your Azure OpenAI (AI Services) resource |
+| **TTS model deployment** | Deploy `gpt-4o-mini-tts` on the same resource (or on the dedicated realtime endpoint) |
+| **RBAC roles** | `Cognitive Services OpenAI Contributor` (required for TTS `audio/speech` data action) + `Cognitive Services OpenAI User` on the realtime endpoint resource |
+| **Optional: Dedicated endpoint** | Set `AZURE_OPENAI_REALTIME_ENDPOINT` in `.env` to use a separate endpoint for TTS + Realtime — avoids quota contention with text models |
+
+#### Configuration in `settings.yaml`
+
+```yaml
+azure:
+  models:
+    # Add realtime models alongside your text models
+    gpt_realtime_1:
+      deployment_name: "gpt-realtime"
+      model_family: "realtime"
+      backend: "realtime"
+      model_version: "2025-08-28"
+      max_tokens: 4096
+      temperature: 0.8
+      voice: "alloy"
+      turn_detection: "server_vad"
+      max_concurrent: 2
+
+    gpt_realtime_15:
+      deployment_name: "gpt-realtime-1.5"
+      model_family: "realtime"
+      backend: "realtime"
+      model_version: "2026-02-23"
+      max_tokens: 4096
+      temperature: 0.8
+      voice: "alloy"
+      turn_detection: "server_vad"
+      max_concurrent: 2
+
+# Optional: dedicated endpoint for voice models
+realtime:
+  endpoint: "${AZURE_OPENAI_REALTIME_ENDPOINT}"
+  api_version: "2025-04-01-preview"
+  tts:
+    deployment_name: "gpt-4o-mini-tts"
+    voice: "alloy"
+    speed: 1.0
+    response_format: "pcm"
+    cache_enabled: true
+    cache_dir: ".cache/tts_audio"
+```
+
+#### How Evaluation Works
+
+1. **Text → Audio** — The `TTSClient` converts each text test case to PCM16 24 kHz mono audio via the `gpt-4o-mini-tts` deployment.  Audio is cached to disk (`.cache/tts_audio/`) to avoid redundant TTS calls on re-runs.
+2. **Audio → WebSocket** — The `RealtimeClient` opens a WebSocket session to the Realtime API with the model's system prompt as `instructions`, sends the audio, and collects the response (transcript + audio).
+3. **Transcript → Metrics** — The response transcript is evaluated using the same `MetricsCalculator` as text models — classification accuracy, dialog quality, RAG groundedness, tool calling accuracy, etc.
+4. **Realtime Metrics** — Additional voice-specific metrics are computed: time-to-first-audio, session duration, WebSocket connect time, audio I/O duration, audio token counts, TTS latency, TTS cache hit rate, and audio cost per request.
+
+#### TTS Audio Cache
+
+Synthesised audio is cached to `.cache/tts_audio/` (one `.pcm16` + `.meta.json` per text/voice combination).  This saves TTS API calls and latency on repeated evaluation runs.  Disable caching by setting `tts.cache_enabled: false` in `settings.yaml`.
+
+#### RBAC for Dedicated Realtime Endpoint
+
+If you use a dedicated endpoint, the Service Principal (or managed identity) needs roles on that resource.  Both `deploy.ps1` and the Bicep `realtime-access.bicep` module handle this automatically:
+
+| Role | Why |
+|------|-----|
+| **Cognitive Services OpenAI Contributor** | TTS `audio/speech` endpoint requires `deployments/audio/action` data action |
+| **Cognitive Services OpenAI User** | Realtime WebSocket `chat/completions` data-plane access |
 
 ### Adding a New Model — Step by Step
 
@@ -1765,10 +1879,12 @@ The project uses **[Azure Developer CLI (azd)](https://learn.microsoft.com/azure
 │  │  Registry    │  │  Flask on port 5000  │  │  (id-web-…)       │ │
 │  └──────────────┘  └──────────────────────┘  └───────────────────┘ │
 │                                                                     │
-│  RBAC role assignments (optional, if resource IDs provided):        │
-│  • Cognitive Services OpenAI User → Azure OpenAI account            │
-│  • Azure AI Developer → AI Foundry project                          │
-│  • AcrPull → Container Registry                                     │
+│  RBAC role assignments (automatic):                                         │
+│  • Cognitive Services OpenAI Contributor + User → AI Services account       │
+│  • Azure AI Developer + User → AI Foundry project                           │
+│  • Storage Blob Data Contributor → Storage Account                          │
+│  • AcrPull → Container Registry                                             │
+│  • (Optional) OpenAI Contributor + User → Dedicated Realtime/TTS endpoint   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1781,6 +1897,8 @@ The Bicep templates are located in the `infra/` folder:
 | `infra/modules/acr-access.bicep` | Assigns the **AcrPull** role to the managed identity on the Container Registry |
 | `infra/modules/foundry-resource.bicep` | Creates the **AI Services account** (kind: AIServices) with model deployments + Foundry project |
 | `infra/modules/foundry-access.bicep` | Assigns **OpenAI + Foundry + Storage RBAC roles** to the managed identity |
+| `infra/modules/realtime-access.bicep` | Assigns **OpenAI Contributor + User roles** on an external Cognitive Services account for TTS + Realtime WebSocket |
+| `infra/modules/storage-resource.bicep` | Creates a **Storage Account** + blob container for persisting user data across container restarts |
 | `infra/modules/openai-access.bicep` | Assigns **Cognitive Services OpenAI User** role (legacy — superseded by foundry-access) |
 | `infra/modules/openai-resource.bicep` | Creates an Azure OpenAI account (legacy — superseded by foundry-resource) |
 
@@ -1795,7 +1913,8 @@ The Bicep templates are located in the `infra/` folder:
 | **Container Apps Environment** | Serverless container host |
 | **User-Assigned Managed Identity** | Keyless authentication — no API keys needed |
 | **Container App** | Flask web service (1 vCPU, 2 Gi memory, scale 0–3 replicas) |
-| **RBAC Role Assignments** | Automatic role binding for Azure OpenAI and AI Foundry (if resource IDs provided) |
+| **Storage Account** | GPv2 with blob container `userdata` for persisting user files across container restarts |
+| **RBAC Role Assignments** | Automatic role binding for Azure OpenAI, AI Foundry, Storage, and optionally a dedicated Realtime/TTS endpoint |
 
 ### Authentication Model
 
@@ -1891,6 +2010,8 @@ Open this URL in your browser to access the web interface.
 |----------|:--------:|-------------|
 | `AZURE_OPENAI_ENDPOINT` | ✅ | Azure OpenAI endpoint URL |
 | `FOUNDRY_PROJECT_ENDPOINT` | — | AI Foundry project endpoint (enables LLM-as-judge) |
+| `AZURE_OPENAI_REALTIME_ENDPOINT` | — | Dedicated endpoint for TTS + Realtime voice models (if separate from main endpoint) |
+| `GEMINI_API_KEY` | — | Google Gemini API key (enables Gemini model evaluations) |
 | `AZURE_OPENAI_ACCOUNT_RESOURCE_ID` | — | Full resource ID of the OpenAI account (enables automatic RBAC) |
 | `AI_FOUNDRY_PROJECT_RESOURCE_ID` | — | Full resource ID of the AI Foundry project (enables automatic RBAC) |
 
@@ -1967,7 +2088,7 @@ azd up
 .\infra\hooks\assign-roles.ps1 -EnvironmentName <your-azd-env-name>
 ```
 
-The script uses Azure CLI (`az role assignment create`) instead of ARM/Graph, which is not blocked by the same Conditional Access policies. It assigns all 6 required roles:
+The script uses Azure CLI (`az role assignment create`) instead of ARM/Graph, which is not blocked by the same Conditional Access policies. It assigns all 6 required roles (plus 2 optional realtime roles):
 
 | Role | Scope | Purpose |
 |------|-------|---------|
@@ -1977,6 +2098,8 @@ The script uses Azure CLI (`az role assignment create`) instead of ARM/Graph, wh
 | **Azure AI Developer** | AI Services account | Foundry project operations |
 | **Azure AI User** | AI Services account | Foundry asset store access |
 | **Storage Blob Data Contributor** | Resource Group | Upload evaluation datasets to backing storage |
+| **Cognitive Services OpenAI Contributor** | Realtime endpoint *(optional)* | TTS `audio/speech` data action on dedicated voice endpoint |
+| **Cognitive Services OpenAI User** | Realtime endpoint *(optional)* | Realtime WebSocket access on dedicated voice endpoint |
 
 #### Alternative: Ask Your Tenant Admin
 
@@ -2204,6 +2327,25 @@ All endpoints are available at `http://127.0.0.1:<port>/api/`.
 | Format compliance | Correct output format | Structural validation |
 | Completeness | All required tool call elements present | Content coverage check |
 
+### Realtime (S2S) Metrics (voice models only)
+
+In addition to the standard metrics above (which apply to the transcript), realtime models report voice-specific metrics:
+
+| Metric | Description |
+|--------|-------------|
+| Mean time-to-first-audio (ms) | Average time from WebSocket session start to first audio chunk received |
+| Mean session time (ms) | Average total WebSocket session duration |
+| P95 session time (ms) | 95th percentile session duration |
+| Mean WebSocket connect time (ms) | Average time to establish the WebSocket connection |
+| Mean input audio duration (ms) | Average duration of TTS-generated audio sent to the model |
+| Mean output audio duration (ms) | Average duration of audio received from the model |
+| Mean input audio tokens | Average audio tokens consumed by input |
+| Mean output audio tokens | Average audio tokens in model response |
+| Mean TTS latency (ms) | Average time for text-to-speech synthesis (excludes cache hits) |
+| TTS cache hit rate (%) | Percentage of TTS requests served from disk cache |
+| Audio cost per request ($) | Estimated cost per request based on audio token pricing |
+| Total audio cost ($) | Aggregate audio cost across all scenarios |
+
 ### Latency & Cost Metrics (all types)
 
 | Metric | Description |
@@ -2278,6 +2420,7 @@ When comparing two models, each dimension shows:
 | `python-dotenv` | ≥1.0.0 | `.env` file management |
 | `pyyaml` | ≥6.0.1 | YAML config parsing |
 | `httpx` | ≥0.26.0 | HTTP transport for async client |
+| `websockets` | ≥12.0 | WebSocket client for Realtime API (speech-to-speech) |
 | `pytest` | ≥7.4.0 | Testing |
 | `pytest-asyncio` | ≥0.21.0 | Async test support |
 
@@ -2296,7 +2439,11 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 | `EmailSender` | `src.auth.email_sender` | Abstract email backend — `SmtpEmailSender` (production) + `ConsoleEmailSender` (dev) |
 | `UserContext` | `src.auth.user_context` | Per-user directory layout, path resolution, and first-login seeding |
 | `AzureOpenAIClient` | `src.clients.azure_openai` | Wraps the OpenAI SDK — connection management, chat completions, streaming.  Supports Azure OpenAI, Marketplace models (Mistral), and Google Gemini via `model_family` + `backend`-based routing |
-| `ModelEvaluator` | `src.evaluation.evaluator` | Runs classification/dialog/general/RAG/tool_calling evaluations against a single model |
+| `TTSClient` | `src.clients.tts_client` | Text-to-Speech client — converts text to PCM16 24 kHz mono audio via `gpt-4o-mini-tts`.  Disk cache (`.cache/tts_audio/`) avoids redundant TTS calls |
+| `RealtimeClient` | `src.clients.realtime_client` | Realtime WebSocket client — sends PCM16 audio to the Azure OpenAI Realtime API, collects transcript + audio response + tool calls |
+| `ModelEvaluator` | `src.evaluation.evaluator` | Runs classification/dialog/general/RAG/tool_calling evaluations against a single model (text path) |
+| `RealtimeEvaluator` | `src.evaluation.realtime_evaluator` | Orchestrates the TTS → Realtime WebSocket → Transcript → Metrics pipeline for voice models.  Supports all 5 evaluation types with realtime-specific audio metrics |
+| `RealtimeMetrics` | `src.evaluation.realtime_metrics` | Dataclass for voice-specific metrics: TTFA, session time, WS connect time, audio durations, audio tokens, TTS cache stats, audio cost |
 | `EvaluationResult` | `src.evaluation.evaluator` | Dataclass container for evaluation output — serialises to/from JSON |
 | `ModelComparator` | `src.evaluation.comparator` | Compares evaluation results between two models (or batch: one model vs N candidates) with significance analysis |
 | `ComparisonReport` | `src.evaluation.comparator` | Dataclass for comparison output — dimensions, winner, recommendations, optional `batch_id` for grouping |
@@ -2335,4 +2482,4 @@ MIT License
 
 ---
 
-*Last Updated: July 2026*
+*Last Updated: March 2026*

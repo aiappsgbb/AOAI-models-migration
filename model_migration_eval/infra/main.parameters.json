@@ -35,6 +35,21 @@
     "geminiApiKey": {
       "value": "${GEMINI_API_KEY}"
     },
+    "realtimeEndpoint": {
+      "value": "${AZURE_OPENAI_REALTIME_ENDPOINT}"
+    },
+    "realtimeAccountName": {
+      "value": "${AZURE_OPENAI_REALTIME_ACCOUNT_NAME}"
+    },
+    "realtimeAccountResourceGroup": {
+      "value": "${AZURE_OPENAI_REALTIME_ACCOUNT_RG}"
+    },
+    "authEasyAuthAutoLogin": {
+      "value": "${AUTH_EASYAUTH_AUTO_LOGIN}"
+    },
+    "enableAutoAssignFoundryReader": {
+      "value": "${ENABLE_AUTO_ASSIGN_FOUNDRY_READER}"
+    },
     "deployerPrincipalId": {
       "value": "${DEPLOYER_PRINCIPAL_ID}"
     }

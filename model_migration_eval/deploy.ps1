@@ -150,6 +150,42 @@ function Ensure-ServicePrincipalRBAC {
         Write-Host "  FOUNDRY_PROJECT_ENDPOINT not in .env -- skipping Foundry role assignment." -ForegroundColor Yellow
     }
 
+    # --- Assign roles on dedicated Realtime/TTS endpoint (if configured) ---
+    $realtimeEp = $envVarsLocal["AZURE_OPENAI_REALTIME_ENDPOINT"]
+    if ($realtimeEp -and $realtimeEp -match 'https://([^.]+)\.') {
+        $rtResName = $matches[1]
+        Write-Host ""
+        Write-Host "  Looking up Realtime/TTS AI resource '$rtResName'..." -ForegroundColor Gray
+        $rtResId = az resource list --name $rtResName --query "[0].id" -o tsv 2>$null
+
+        if ($rtResId) {
+            # TTS (audio/speech) requires "Cognitive Services OpenAI Contributor"
+            # which includes the deployments/audio/action data action.
+            $rtRoles = @(
+                "Cognitive Services OpenAI Contributor",
+                "Cognitive Services OpenAI User"
+            )
+            foreach ($role in $rtRoles) {
+                Write-Host "  Assigning '$role' on realtime resource..." -ForegroundColor Cyan
+                az role assignment create `
+                    --assignee $SpAppId `
+                    --role $role `
+                    --scope $rtResId `
+                    --output none 2>$null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host "    OK" -ForegroundColor Green
+                } else {
+                    Write-Host "    May already exist or insufficient permissions" -ForegroundColor Yellow
+                }
+            }
+        } else {
+            Write-Host "  WARNING: Could not find realtime resource '$rtResName'." -ForegroundColor Yellow
+            Write-Host "  Assign 'Cognitive Services OpenAI Contributor' to $SpAppId manually." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  AZURE_OPENAI_REALTIME_ENDPOINT not in .env -- using main endpoint for TTS/Realtime." -ForegroundColor Gray
+    }
+
 }
 
 # =============================================================================
@@ -347,6 +383,18 @@ function Show-EnvValidation {
         Write-Host "  GEMINI_API_KEY = $masked" -ForegroundColor Green
     } else {
         Write-Host "  GEMINI_API_KEY = (not set - Gemini models disabled)" -ForegroundColor Gray
+    }
+
+    # Realtime / TTS (optional)
+    Write-Host ""
+    Write-Host "--- Realtime / TTS (optional) ---" -ForegroundColor Cyan
+    $rtVal = $finalEnv["AZURE_OPENAI_REALTIME_ENDPOINT"]
+    if ($rtVal) {
+        $masked = $rtVal.Substring(0, [Math]::Min(40, $rtVal.Length)) + "..."
+        Write-Host "  AZURE_OPENAI_REALTIME_ENDPOINT = $masked" -ForegroundColor Green
+        Write-Host "  (Speech-to-speech evaluation enabled via dedicated realtime endpoint)" -ForegroundColor Gray
+    } else {
+        Write-Host "  AZURE_OPENAI_REALTIME_ENDPOINT = (not set - using main endpoint for Realtime/TTS)" -ForegroundColor Gray
     }
 
     # RBAC auto-assign (optional)

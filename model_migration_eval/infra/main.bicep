@@ -4,9 +4,13 @@
 //
 // Always creates all resources from scratch using a SINGLE AI Services
 // account (kind: AIServices) which:
-//   • Hosts all model deployments (gpt-4.1, gpt-4o, gpt-4.1-mini, gpt-5.4, gpt-5.1, gpt-5.2)
+//   • Hosts all model deployments (gpt-4.1, gpt-4o, gpt-4.1-mini, gpt-5.4, gpt-5.1, gpt-5.2,
+//     gpt-realtime, gpt-realtime-1.5, gpt-4o-mini-tts)
 //   • Acts as AI Foundry hub with a project for evaluations
 //   • Provides the OpenAI-compatible endpoint for the app
+//
+// Optionally assigns RBAC roles on a SEPARATE Cognitive Services account
+// used as the dedicated Realtime/TTS voice endpoint (via realtime-access.bicep).
 //
 // This avoids the 'kind: OpenAI' SKU which requires a separate quota.
 // ---------------------------------------------------------------------------
@@ -48,6 +52,9 @@ param authEmailProvider string = ''
 @description('EasyAuth auto-login: "true" (default) to auto sign-in via Container Apps EasyAuth headers, "false" to always show login page. Overrides settings.yaml.')
 param authEasyAuthAutoLogin string = ''
 
+@description('Enable auto-assignment of Foundry Reader roles to users on login. Grants User Access Administrator to the managed identity. Default: false.')
+param enableAutoAssignFoundryReader bool = false
+
 @secure()
 @description('Flask session signing key (stored as Container Apps secret). Auto-generated if empty.')
 param flaskSecretKey string = ''
@@ -55,6 +62,15 @@ param flaskSecretKey string = ''
 @secure()
 @description('Google Gemini API key for Gemini model evaluations (optional). Get from https://aistudio.google.com/')
 param geminiApiKey string = ''
+
+@description('Optional dedicated Azure OpenAI endpoint for Realtime/TTS voice models. Leave empty to use the main AI Services endpoint. Auth is always via Entra ID.')
+param realtimeEndpoint string = ''
+
+@description('Name of the external Cognitive Services account hosting the dedicated Realtime/TTS models. Required when realtimeEndpoint is set so RBAC roles can be assigned. Example: "my-voice-account".')
+param realtimeAccountName string = ''
+
+@description('Resource group of the external Cognitive Services account for Realtime/TTS. Required when realtimeAccountName is set.')
+param realtimeAccountResourceGroup string = ''
 
 @description('Principal ID (object ID) of the deployer for Storage RBAC. Auto-populated by azd for the logged-in user. Leave empty to skip.')
 param deployerPrincipalId string = ''
@@ -81,6 +97,11 @@ var modelDeployments = [
   { name: 'gpt-5.4', model: 'gpt-5.4', version: '2026-03-05', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.1', model: 'gpt-5.1', version: '2025-11-13', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.2', model: 'gpt-5.2', version: '2025-12-11', skuName: 'GlobalStandard', capacity: 1000 }
+  // Realtime (speech-to-speech) models
+  { name: 'gpt-realtime', model: 'gpt-realtime', version: '2025-08-28', skuName: 'GlobalStandard', capacity: 100 }
+  { name: 'gpt-realtime-1.5', model: 'gpt-realtime-1.5', version: '2026-02-23', skuName: 'GlobalStandard', capacity: 100 }
+  // TTS model for converting text test cases to audio
+  { name: 'gpt-4o-mini-tts', model: 'gpt-4o-mini-tts', version: '2025-03-20', skuName: 'GlobalStandard', capacity: 100 }
   // Note: Mistral removed — requires Marketplace subscription agreement that
   // blocks the entire @batchSize(1) loop when it fails, preventing subsequent
   // resources (Foundry project) from being created.
@@ -172,6 +193,22 @@ module foundryAccess './modules/foundry-access.bicep' = {
     accountName: aiServices.outputs.accountName
     projectName: aiServices.outputs.projectName
     principalId: webIdentity.outputs.principalId
+    enableAutoAssign: enableAutoAssignFoundryReader
+  }
+}
+
+// ── RBAC: Dedicated Realtime/TTS endpoint (optional, external resource) ────
+// When a separate Cognitive Services account is used for voice models,
+// the managed identity needs OpenAI Contributor (TTS audio/action) + User
+// roles on that account as well.
+// Both accountName AND resourceGroup must be set; if only one is provided
+// the module is skipped to avoid a deployment error on an empty scope.
+module realtimeAccess './modules/realtime-access.bicep' = if (!empty(realtimeAccountName) && !empty(realtimeAccountResourceGroup)) {
+  name: 'realtime-access'
+  scope: resourceGroup(realtimeAccountResourceGroup)
+  params: {
+    accountName: realtimeAccountName
+    principalId: webIdentity.outputs.principalId
   }
 }
 
@@ -230,7 +267,10 @@ var easyAuthEnv = empty(authEasyAuthAutoLogin) ? [] : [
 var geminiEnv = empty(geminiApiKey) ? [] : [
   { name: 'GEMINI_API_KEY', value: geminiApiKey }
 ]
-var containerEnv = concat(baseEnv, smtpEnv, authEnv, codeVerifEnv, emailProviderEnv, easyAuthEnv, geminiEnv)
+var realtimeEnv = empty(realtimeEndpoint) ? [] : [
+  { name: 'AZURE_OPENAI_REALTIME_ENDPOINT', value: realtimeEndpoint }
+]
+var containerEnv = concat(baseEnv, smtpEnv, authEnv, codeVerifEnv, emailProviderEnv, easyAuthEnv, geminiEnv, realtimeEnv)
 
 module web 'br/public:avm/res/app/container-app:0.10.0' = {
   name: 'web-container-app'

@@ -498,17 +498,22 @@
 
         function renderModelBOptions() {
             const modelA = document.getElementById('model-a').value;
+            const modelAObj = _allModels.find(m => m.name === modelA);
+            const modelAModality = modelAObj ? (modelAObj.modality || 'text') : 'text';
             const container = document.getElementById('model-b-options');
             const prevSelected = getSelectedModelBs();
             container.innerHTML = '';
             _allModels.forEach(m => {
                 if (m.name === modelA) return; // hide Model A from B options
+                const mModality = m.modality || 'text';
+                if (mModality !== modelAModality) return; // same modality only
                 const div = document.createElement('div');
                 div.className = 'px-3 py-1.5 hover:bg-gray-50 flex items-center cursor-pointer';
                 const checked = prevSelected.includes(m.name) ? 'checked' : '';
                 div.innerHTML = `<label class="flex items-center cursor-pointer w-full text-sm">
                     <input type="checkbox" value="${m.name}" ${checked} class="h-3.5 w-3.5 text-brand-500 rounded border-gray-300 mr-2">
                     ${escapeHtml(m.display_name || m.deployment)}
+                    ${mModality === 'realtime' ? '<span class="ml-1 text-xs text-purple-500" title="Speech-to-Speech">🎙️</span>' : ''}
                 </label>`;
                 div.querySelector('input').addEventListener('change', updateModelBDisplay);
                 container.appendChild(div);
@@ -544,15 +549,41 @@
                 _allModels = (data.models || []).sort((a, b) => (a.display_name || a.deployment).localeCompare(b.display_name || b.deployment));
                 const selA = document.getElementById('model-a');
                 selA.innerHTML = '';
-                _allModels.forEach((m) => {
-                    const label = m.display_name || m.deployment;
-                    modelNames[m.name] = label;
-                    selA.appendChild(new Option(label, m.name));
-                });
-                // Read URL query params or localStorage to override defaults
+
+                // Group models by modality for the Model A selector
+                const textModels = _allModels.filter(m => (m.modality || 'text') === 'text');
+                const realtimeModels = _allModels.filter(m => (m.modality || 'text') === 'realtime');
+
+                if (textModels.length > 0 && realtimeModels.length > 0) {
+                    const grpText = document.createElement('optgroup');
+                    grpText.label = '📝 Text Models';
+                    textModels.forEach(m => {
+                        const label = m.display_name || m.deployment;
+                        modelNames[m.name] = label;
+                        grpText.appendChild(new Option(label, m.name));
+                    });
+                    selA.appendChild(grpText);
+                    const grpRT = document.createElement('optgroup');
+                    grpRT.label = '🎙️ Realtime (S2S) Models';
+                    realtimeModels.forEach(m => {
+                        const label = m.display_name || m.deployment;
+                        modelNames[m.name] = label;
+                        grpRT.appendChild(new Option(label, m.name));
+                    });
+                    selA.appendChild(grpRT);
+                } else {
+                    _allModels.forEach((m) => {
+                        const label = m.display_name || m.deployment;
+                        modelNames[m.name] = label;
+                        selA.appendChild(new Option(label, m.name));
+                    });
+                }
+                // Default to first text model (not realtime)
+                if (textModels.length > 0) selA.value = textModels[0].name;
+                // URL query param overrides the default (e.g. from Prompts page link)
                 const params = new URLSearchParams(window.location.search);
-                const qA = params.get('model_a') || (function(){ try { return localStorage.getItem('compare_model_a'); } catch(e){ return null; } })();
-                if (qA && _allModels.some(m => m.name === qA)) selA.value = qA;
+                const qA = params.get('model_a');
+                if (qA && selA.querySelector(`option[value="${qA}"]`)) selA.value = qA;
                 // Render model B options (excluding model A)
                 renderModelBOptions();
                 // Auto-select second model if nothing selected

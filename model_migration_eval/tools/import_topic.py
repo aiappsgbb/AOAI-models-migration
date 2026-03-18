@@ -390,6 +390,11 @@ def _build_target_generation_meta_prompt(
                 f"You may freely create subcategories, descriptions, and examples\n"
                 f"adapted to this model's style, but the primary category codes\n"
                 f"MUST be identical to the list above.\n"
+                f"IMPORTANT: If you include subcategories, each subcategory MUST\n"
+                f"have a brief description or 'When to use' explanation — NEVER\n"
+                f"list bare subcategory codes without descriptions, even for\n"
+                f"models that favour concise prompts. Subcategory descriptions\n"
+                f"are essential for accurate classification.\n"
                 f"\n{_CANONICAL_CLASSIFICATION_SCHEMA}"
             )
 

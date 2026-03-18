@@ -2005,6 +2005,11 @@ Create {task_description.get(task, task)}
                 subcat_rule = (
                     f"You may create subcategories adapted to this model's style,\n"
                     f"but they MUST be descriptive snake_case codes.\n"
+                    f"IMPORTANT: If you include subcategories, each subcategory MUST\n"
+                    f"have a brief description or 'When to use' explanation — NEVER\n"
+                    f"list bare subcategory codes without descriptions, even for\n"
+                    f"models that favour concise prompts. Subcategory descriptions\n"
+                    f"are essential for accurate classification.\n"
                 )
 
             sentiment_rule = (

@@ -10,6 +10,8 @@
     "gpt51",
     "gpt52",
     "gpt5_reasoning",
+    "gpt_realtime_1",
+    "gpt_realtime_15",
     "mistral_large_3"
   ],
   "archived_at": "2026-03-13T11:38:19.106132",

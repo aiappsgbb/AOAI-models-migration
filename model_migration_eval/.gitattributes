@@ -1,0 +1,11 @@
+# Normalize line endings to LF in the repo, auto-convert on checkout
+* text=auto
+
+# Force LF for scripts that may run on Linux (Docker / CI)
+*.sh text eol=lf
+Dockerfile text eol=lf
+
+# Force CRLF for Windows-only scripts
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf

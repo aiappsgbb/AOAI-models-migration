@@ -232,6 +232,7 @@ class EvaluationResult:
     latency_metrics: Optional[LatencyMetrics] = None
     quality_metrics: Optional[QualityMetrics] = None
     tool_calling_metrics: Optional[ToolCallingMetrics] = None
+    realtime_metrics: Optional['RealtimeMetrics'] = None
     raw_results: List[Dict] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
     
@@ -246,6 +247,7 @@ class EvaluationResult:
             'latency_metrics': self.latency_metrics.to_dict() if self.latency_metrics else None,
             'quality_metrics': self.quality_metrics.to_dict() if self.quality_metrics else None,
             'tool_calling_metrics': self.tool_calling_metrics.to_dict() if self.tool_calling_metrics else None,
+            'realtime_metrics': self.realtime_metrics.to_dict() if self.realtime_metrics else None,
             'raw_results': self.raw_results,
             'error_count': len(self.errors),
             'errors': self.errors,

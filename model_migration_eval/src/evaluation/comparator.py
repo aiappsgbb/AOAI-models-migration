@@ -27,6 +27,8 @@ from .metrics import (
     ToolCallingMetrics,
     MetricsCalculator
 )
+from .realtime_evaluator import RealtimeEvaluator
+from .realtime_metrics import RealtimeMetrics
 from ..clients.azure_openai import AzureOpenAIClient
 
 logger = logging.getLogger(__name__)
@@ -162,6 +164,8 @@ class ModelComparator:
         parallel_models: bool = True,
         config_path: str = "config/settings.yaml",
         acceptance_thresholds: Optional[Dict[str, Dict[str, float]]] = None,
+        prompt_loader = None,
+        data_loader = None,
     ):
         """
         Initialize the comparator.
@@ -173,11 +177,17 @@ class ModelComparator:
             parallel_models: If True, evaluate both models simultaneously
             config_path: Path to settings.yaml (only used if acceptance_thresholds not given)
             acceptance_thresholds: Pre-loaded thresholds dict (avoids re-reading YAML)
+            prompt_loader: Optional PromptLoader for user-specific prompts
+            data_loader: Optional DataLoader for user-specific test data
         """
         self.client = client
         self.evaluator = evaluator or ModelEvaluator(client)
         self.foundry_evaluator = foundry_evaluator
         self.parallel_models = parallel_models
+        self._prompt_loader = prompt_loader
+        self._data_loader = data_loader
+        self._realtime_evaluator: Optional[RealtimeEvaluator] = None
+        self._realtime_settings: Dict[str, Any] = {}  # from settings.yaml → realtime
         
         # Significance thresholds
         self.thresholds = {
@@ -386,6 +396,7 @@ class ModelComparator:
                 f"({idx + 1}/{total})"
             )
             try:
+                self._validate_modality(model_a, model_b)
                 result_b = await self._evaluate_single_model_async(model_b, evaluation_type)
 
                 # Foundry for model_b
@@ -484,7 +495,15 @@ class ModelComparator:
         model: str,
         evaluation_type: str,
     ) -> 'EvaluationResult':
-        """Evaluate a single model for the given evaluation type."""
+        """Evaluate a single model for the given evaluation type.
+
+        Dispatches to the ``RealtimeEvaluator`` when the model's backend
+        is ``"realtime"``, otherwise uses the standard ``ModelEvaluator``.
+        """
+        cfg = self.client.models.get(model)
+        if cfg and cfg.backend == "realtime":
+            return await self._evaluate_realtime_model(model, evaluation_type)
+
         if evaluation_type == "classification":
             return await self.evaluator.evaluate_classification_async(model)
         elif evaluation_type == "dialog":
@@ -495,6 +514,44 @@ class ModelComparator:
             return await self.evaluator.evaluate_tool_calling_async(model)
         else:
             return await self.evaluator.evaluate_general_async(model)
+
+    async def _evaluate_realtime_model(
+        self,
+        model: str,
+        evaluation_type: str,
+    ) -> 'EvaluationResult':
+        """Lazy-init and delegate to the ``RealtimeEvaluator``.
+
+        Reads ``self._realtime_settings`` (populated from
+        ``settings.yaml → realtime``) to configure a dedicated voice
+        endpoint and TTS model.
+        """
+        if self._realtime_evaluator is None:
+            from ..clients.tts_client import load_tts_config_from_settings
+            # Resolve optional dedicated endpoint for voice models
+            rt_cfg = self._realtime_settings
+            raw_ep = rt_cfg.get('endpoint', '')
+            realtime_endpoint = self.client._resolve_env_var(raw_ep) if raw_ep else None
+            raw_apiv = rt_cfg.get('api_version', '')
+            realtime_api_version = self.client._resolve_env_var(raw_apiv) if raw_apiv else None
+
+            # Build TTS config from settings (not hardcoded)
+            tts_config = load_tts_config_from_settings(
+                {'realtime': rt_cfg}
+            )
+
+            self._realtime_evaluator = RealtimeEvaluator(
+                azure_client=self.client,
+                prompt_loader=self._prompt_loader,
+                data_loader=self._data_loader,
+                tts_config=tts_config,
+                max_concurrent=2,
+                realtime_endpoint=realtime_endpoint if realtime_endpoint else None,
+                realtime_api_version=realtime_api_version if realtime_api_version else None,
+            )
+        return await self._realtime_evaluator.evaluate_async(
+            model, evaluation_type
+        )
 
     async def _submit_foundry_single(
         self,
@@ -562,9 +619,16 @@ class ModelComparator:
         model_b: str,
         evaluation_type: str
     ) -> Tuple[EvaluationResult, EvaluationResult]:
-        """Run evaluations for both models, optionally in parallel."""
+        """Run evaluations for both models, optionally in parallel.
+
+        Validates that both models share the same modality (text vs realtime).
+        """
+        self._validate_modality(model_a, model_b)
 
         def _get_coro(model: str):
+            cfg = self.client.models.get(model)
+            if cfg and cfg.backend == "realtime":
+                return self._evaluate_realtime_model(model, evaluation_type)
             if evaluation_type == "classification":
                 return self.evaluator.evaluate_classification_async(model)
             elif evaluation_type == "dialog":
@@ -588,6 +652,23 @@ class ModelComparator:
             result_b = await _get_coro(model_b)
 
         return result_a, result_b
+
+    def _validate_modality(self, model_a: str, model_b: str) -> None:
+        """Raise ``ValueError`` if models have different modalities.
+
+        Prevents comparing a text model against a realtime (S2S) model.
+        """
+        cfg_a = self.client.models.get(model_a)
+        cfg_b = self.client.models.get(model_b)
+        if cfg_a is None or cfg_b is None:
+            return  # let downstream code handle missing models
+        if cfg_a.modality != cfg_b.modality:
+            raise ValueError(
+                f"Cannot compare models of different modalities: "
+                f"{model_a} ({cfg_a.modality}) vs {model_b} ({cfg_b.modality}). "
+                f"Realtime (speech-to-speech) models can only be compared with "
+                f"other realtime models."
+            )
 
     async def _run_foundry_parallel(
         self,
@@ -796,6 +877,35 @@ class ModelComparator:
                     )
                 except (TypeError, ValueError):
                     continue
+
+        # Realtime (speech-to-speech) metrics
+        if result_a.realtime_metrics and result_b.realtime_metrics:
+            rt_a = result_a.realtime_metrics
+            rt_b = result_b.realtime_metrics
+            if rt_a.mean_time_to_first_audio_ms > 0 or rt_b.mean_time_to_first_audio_ms > 0:
+                dimensions.append(
+                    self._create_dimension("Time to First Audio (ms)", rt_a.mean_time_to_first_audio_ms, rt_b.mean_time_to_first_audio_ms, higher_better=False)
+                )
+            if rt_a.mean_session_time_ms > 0 or rt_b.mean_session_time_ms > 0:
+                dimensions.append(
+                    self._create_dimension("Mean Session Time (ms)", rt_a.mean_session_time_ms, rt_b.mean_session_time_ms, higher_better=False)
+                )
+            if rt_a.p95_session_time_ms > 0 or rt_b.p95_session_time_ms > 0:
+                dimensions.append(
+                    self._create_dimension("P95 Session Time (ms)", rt_a.p95_session_time_ms, rt_b.p95_session_time_ms, higher_better=False)
+                )
+            if rt_a.mean_ws_connect_time_ms > 0 or rt_b.mean_ws_connect_time_ms > 0:
+                dimensions.append(
+                    self._create_dimension("WS Connect Time (ms)", rt_a.mean_ws_connect_time_ms, rt_b.mean_ws_connect_time_ms, higher_better=False)
+                )
+            if rt_a.audio_cost_per_request > 0 or rt_b.audio_cost_per_request > 0:
+                dimensions.append(
+                    self._create_dimension("Audio Cost/Request (USD)", rt_a.audio_cost_per_request, rt_b.audio_cost_per_request, higher_better=False)
+                )
+            if rt_a.tts_cache_hit_rate > 0 or rt_b.tts_cache_hit_rate > 0:
+                dimensions.append(
+                    self._create_dimension("TTS Cache Hit Rate %", rt_a.tts_cache_hit_rate, rt_b.tts_cache_hit_rate, higher_better=True)
+                )
 
         return dimensions
         
