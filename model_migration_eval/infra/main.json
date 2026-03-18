@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "8270041394755520268"
+      "templateHash": "18094738927282219973"
     }
   },
   "parameters": {
@@ -103,9 +103,9 @@
     },
     "realtimeLocation": {
       "type": "string",
-      "defaultValue": "",
+      "defaultValue": "swedencentral",
       "metadata": {
-        "description": "Azure region for the dedicated Realtime/TTS voice endpoint (e.g. eastus2). Voice models often need a different region due to quota constraints. Leave empty to deploy voice models in the primary region."
+        "description": "Azure region for the dedicated Realtime/TTS voice endpoint. Voice models are deployed to a separate OpenAI account which must be in a region with gpt-realtime quota. Defaults to swedencentral."
       }
     },
     "deployerPrincipalId": {
@@ -190,7 +190,7 @@
         "capacity": 2
       }
     ],
-    "effectiveRealtimeLocation": "[if(not(empty(parameters('realtimeLocation'))), parameters('realtimeLocation'), parameters('location'))]",
+    "effectiveRealtimeLocation": "[if(not(empty(parameters('realtimeLocation'))), parameters('realtimeLocation'), 'swedencentral')]",
     "voiceAccountName": "[format('oai-voice-{0}-{1}', variables('envNameLower'), variables('resourceSuffix'))]",
     "tags": {
       "azd-env-name": "[parameters('environmentName')]"

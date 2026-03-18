@@ -145,6 +145,7 @@ jobs:
           FOUNDRY_PROJECT_ENDPOINT: ${{ secrets.FOUNDRY_PROJECT_ENDPOINT }}
           AZURE_OPENAI_ACCOUNT_RESOURCE_ID: ${{ secrets.AZURE_OPENAI_ACCOUNT_RESOURCE_ID }}
           AI_FOUNDRY_PROJECT_RESOURCE_ID: ${{ secrets.AI_FOUNDRY_PROJECT_RESOURCE_ID }}
+          AZURE_OPENAI_REALTIME_LOCATION: ${{ vars.AZURE_OPENAI_REALTIME_LOCATION }}
           ## Define the additional variables or secrets that are required only for provision
 
       - name: Provision Infrastructure (Resource Group Scope)
@@ -158,6 +159,7 @@ jobs:
           FOUNDRY_PROJECT_ENDPOINT: ${{ secrets.FOUNDRY_PROJECT_ENDPOINT }}
           AZURE_OPENAI_ACCOUNT_RESOURCE_ID: ${{ secrets.AZURE_OPENAI_ACCOUNT_RESOURCE_ID }}
           AI_FOUNDRY_PROJECT_RESOURCE_ID: ${{ secrets.AI_FOUNDRY_PROJECT_RESOURCE_ID }}
+          AZURE_OPENAI_REALTIME_LOCATION: ${{ vars.AZURE_OPENAI_REALTIME_LOCATION }}
           ## Define the additional variables or secrets that are required only for provision
 
       - name: Deploy Application
