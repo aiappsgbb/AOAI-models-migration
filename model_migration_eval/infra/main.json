@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "8948891026049555169"
+      "templateHash": "4481310244205541400"
     }
   },
   "parameters": {
@@ -101,25 +101,11 @@
         "description": "Google Gemini API key for Gemini model evaluations (optional). Get from https://aistudio.google.com/"
       }
     },
-    "realtimeEndpoint": {
+    "realtimeLocation": {
       "type": "string",
       "defaultValue": "",
       "metadata": {
-        "description": "Optional dedicated Azure OpenAI endpoint for Realtime/TTS voice models. Leave empty to use the main AI Services endpoint. Auth is always via Entra ID."
-      }
-    },
-    "realtimeAccountName": {
-      "type": "string",
-      "defaultValue": "",
-      "metadata": {
-        "description": "Name of the external Cognitive Services account hosting the dedicated Realtime/TTS models. Required when realtimeEndpoint is set so RBAC roles can be assigned. Example: \"my-voice-account\"."
-      }
-    },
-    "realtimeAccountResourceGroup": {
-      "type": "string",
-      "defaultValue": "",
-      "metadata": {
-        "description": "Resource group of the external Cognitive Services account for Realtime/TTS. Required when realtimeAccountName is set."
+        "description": "Azure region for the dedicated Realtime/TTS voice endpoint (e.g. eastus2). Voice models often need a different region due to quota constraints. Leave empty to deploy voice models in the primary region."
       }
     },
     "deployerPrincipalId": {
@@ -179,7 +165,9 @@
         "version": "2025-12-11",
         "skuName": "GlobalStandard",
         "capacity": 1000
-      },
+      }
+    ],
+    "voiceModelDeployments": [
       {
         "name": "gpt-realtime",
         "model": "gpt-realtime",
@@ -202,6 +190,8 @@
         "capacity": 100
       }
     ],
+    "effectiveRealtimeLocation": "[if(not(empty(parameters('realtimeLocation'))), parameters('realtimeLocation'), parameters('location'))]",
+    "voiceAccountName": "[format('oai-voice-{0}-{1}', variables('envNameLower'), variables('resourceSuffix'))]",
     "tags": {
       "azd-env-name": "[parameters('environmentName')]"
     },
@@ -219,8 +209,7 @@
     "codeVerifEnv": "[if(empty(parameters('authCodeVerification')), createArray(), createArray(createObject('name', 'AUTH_CODE_VERIFICATION', 'value', parameters('authCodeVerification'))))]",
     "emailProviderEnv": "[if(empty(parameters('authEmailProvider')), createArray(), createArray(createObject('name', 'AUTH_EMAIL_PROVIDER', 'value', parameters('authEmailProvider'))))]",
     "easyAuthEnv": "[if(empty(parameters('authEasyAuthAutoLogin')), createArray(), createArray(createObject('name', 'AUTH_EASYAUTH_AUTO_LOGIN', 'value', parameters('authEasyAuthAutoLogin'))))]",
-    "geminiEnv": "[if(empty(parameters('geminiApiKey')), createArray(), createArray(createObject('name', 'GEMINI_API_KEY', 'value', parameters('geminiApiKey'))))]",
-    "realtimeEnv": "[if(empty(parameters('realtimeEndpoint')), createArray(), createArray(createObject('name', 'AZURE_OPENAI_REALTIME_ENDPOINT', 'value', parameters('realtimeEndpoint'))))]"
+    "geminiEnv": "[if(empty(parameters('geminiApiKey')), createArray(), createArray(createObject('name', 'GEMINI_API_KEY', 'value', parameters('geminiApiKey'))))]"
   },
   "resources": [
     {
@@ -9114,11 +9103,146 @@
       ]
     },
     {
-      "condition": "[and(not(empty(parameters('realtimeAccountName'))), not(empty(parameters('realtimeAccountResourceGroup'))))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "realtime-services",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('voiceAccountName')]"
+          },
+          "location": {
+            "value": "[variables('effectiveRealtimeLocation')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "deployments": {
+            "value": "[variables('voiceModelDeployments')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "9289893975326739316"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure OpenAI account (must be globally unique)."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the resource (e.g. eastus2)."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags."
+              }
+            },
+            "deployments": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Voice model deployments. Each: { name, model, version, skuName?, capacity? }"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2025-06-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "OpenAI",
+              "sku": {
+                "name": "S0"
+              },
+              "properties": {
+                "customSubDomainName": "[parameters('name')]",
+                "publicNetworkAccess": "Enabled"
+              }
+            },
+            {
+              "copy": {
+                "name": "modelDeployment",
+                "count": "[length(parameters('deployments'))]",
+                "mode": "serial",
+                "batchSize": 1
+              },
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-06-01",
+              "name": "[format('{0}/{1}', parameters('name'), parameters('deployments')[copyIndex()].name)]",
+              "sku": {
+                "name": "[coalesce(tryGet(parameters('deployments')[copyIndex()], 'skuName'), 'GlobalStandard')]",
+                "capacity": "[coalesce(tryGet(parameters('deployments')[copyIndex()], 'capacity'), 100)]"
+              },
+              "properties": {
+                "model": {
+                  "format": "OpenAI",
+                  "name": "[parameters('deployments')[copyIndex()].model]",
+                  "version": "[parameters('deployments')[copyIndex()].version]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('name'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Account name"
+              },
+              "value": "[parameters('name')]"
+            },
+            "endpoint": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure OpenAI endpoint (https://<name>.openai.azure.com/)"
+              },
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('name')), '2025-06-01').endpoint]"
+            },
+            "deploymentNames": {
+              "type": "array",
+              "metadata": {
+                "description": "Names of deployed voice models"
+              },
+              "copy": {
+                "count": "[length(parameters('deployments'))]",
+                "input": "[parameters('deployments')[copyIndex()].name]"
+              }
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('resourceGroupName'))]"
+      ]
+    },
+    {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "realtime-access",
-      "resourceGroup": "[parameters('realtimeAccountResourceGroup')]",
+      "resourceGroup": "[variables('resourceGroupName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -9126,7 +9250,7 @@
         "mode": "Incremental",
         "parameters": {
           "accountName": {
-            "value": "[parameters('realtimeAccountName')]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'realtime-services'), '2025-04-01').outputs.accountName.value]"
           },
           "principalId": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'web-identity'), '2025-04-01').outputs.principalId.value]"
@@ -9187,6 +9311,8 @@
         }
       },
       "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'realtime-services')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('resourceGroupName'))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'web-identity')]"
       ]
     },
@@ -9435,7 +9561,7 @@
               {
                 "image": "[variables('containerImage')]",
                 "name": "main",
-                "env": "[concat(createArray(createObject('name', 'PYTHONUNBUFFERED', 'value', '1'), createObject('name', 'AZURE_OPENAI_ENDPOINT', 'value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-services'), '2025-04-01').outputs.endpoint.value), createObject('name', 'FOUNDRY_PROJECT_ENDPOINT', 'value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-services'), '2025-04-01').outputs.projectEndpoint.value), createObject('name', 'AZURE_CLIENT_ID', 'value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'web-identity'), '2025-04-01').outputs.clientId.value), createObject('name', 'AZURE_TENANT_ID', 'value', tenant().tenantId), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.applicationInsightsConnectionString.value), createObject('name', 'AZURE_STORAGE_ACCOUNT_NAME', 'value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'storage'), '2025-04-01').outputs.accountName.value)), variables('smtpEnv'), variables('authEnv'), variables('codeVerifEnv'), variables('emailProviderEnv'), variables('easyAuthEnv'), variables('geminiEnv'), variables('realtimeEnv'))]",
+                "env": "[concat(createArray(createObject('name', 'PYTHONUNBUFFERED', 'value', '1'), createObject('name', 'AZURE_OPENAI_ENDPOINT', 'value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-services'), '2025-04-01').outputs.endpoint.value), createObject('name', 'FOUNDRY_PROJECT_ENDPOINT', 'value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-services'), '2025-04-01').outputs.projectEndpoint.value), createObject('name', 'AZURE_CLIENT_ID', 'value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'web-identity'), '2025-04-01').outputs.clientId.value), createObject('name', 'AZURE_TENANT_ID', 'value', tenant().tenantId), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.applicationInsightsConnectionString.value), createObject('name', 'AZURE_STORAGE_ACCOUNT_NAME', 'value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'storage'), '2025-04-01').outputs.accountName.value)), variables('smtpEnv'), variables('authEnv'), variables('codeVerifEnv'), variables('emailProviderEnv'), variables('easyAuthEnv'), variables('geminiEnv'), createArray(createObject('name', 'AZURE_OPENAI_REALTIME_ENDPOINT', 'value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'realtime-services'), '2025-04-01').outputs.endpoint.value)))]",
                 "resources": {
                   "cpu": "[json('1.0')]",
                   "memory": "2.0Gi"
@@ -10455,6 +10581,7 @@
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-services')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'container-apps-stack')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'monitoring')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'realtime-services')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('resourceGroupName'))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'storage')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'web-identity')]"
@@ -10505,6 +10632,14 @@
     "AZURE_STORAGE_ACCOUNT_NAME": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'storage'), '2025-04-01').outputs.accountName.value]"
+    },
+    "AZURE_OPENAI_REALTIME_ENDPOINT": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'realtime-services'), '2025-04-01').outputs.endpoint.value]"
+    },
+    "VOICE_MODEL_DEPLOYMENTS": {
+      "type": "array",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', 'realtime-services'), '2025-04-01').outputs.deploymentNames.value]"
     }
   }
 }

@@ -35,14 +35,8 @@
     "geminiApiKey": {
       "value": "${GEMINI_API_KEY}"
     },
-    "realtimeEndpoint": {
-      "value": "${AZURE_OPENAI_REALTIME_ENDPOINT}"
-    },
-    "realtimeAccountName": {
-      "value": "${AZURE_OPENAI_REALTIME_ACCOUNT_NAME}"
-    },
-    "realtimeAccountResourceGroup": {
-      "value": "${AZURE_OPENAI_REALTIME_ACCOUNT_RG}"
+    "realtimeLocation": {
+      "value": "${AZURE_OPENAI_REALTIME_LOCATION}"
     },
     "authEasyAuthAutoLogin": {
       "value": "${AUTH_EASYAUTH_AUTO_LOGIN}"

@@ -98,43 +98,37 @@ foreach ($role in $roles) {
     }
 }
 
-# ── Dedicated Realtime/TTS endpoint (optional) ─────────────────────────────
-# If AZURE_OPENAI_REALTIME_ENDPOINT is configured in the azd environment,
-# the identity also needs OpenAI Contributor + User on that external resource
-# (TTS audio/speech requires the deployments/audio/action data action).
-$realtimeEp = (azd env get-values 2>$null | Select-String "^AZURE_OPENAI_REALTIME_ENDPOINT=" | ForEach-Object { $_ -replace "^AZURE_OPENAI_REALTIME_ENDPOINT=", "" -replace '"', '' })
-if ($realtimeEp -and $realtimeEp -match 'https://([^.]+)\.') {
-    $rtResName = $matches[1]
-    Write-Host "`nLooking up dedicated Realtime/TTS resource '$rtResName'..." -ForegroundColor Yellow
-    $rtRes = az resource list --name $rtResName -o json 2>$null | ConvertFrom-Json
-    if ($rtRes -and $rtRes.Count -gt 0) {
-        $rtResId = $rtRes[0].id
-        Write-Host "  Resource: $rtResName ($rtResId)"
-        $rtRoles = @(
-            @{ Name = "Cognitive Services OpenAI Contributor"; Id = "a001fd3d-188f-4b5d-821b-7da978bf7442"; Scope = $rtResId }
-            @{ Name = "Cognitive Services OpenAI User"; Id = "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd"; Scope = $rtResId }
-        )
-        foreach ($role in $rtRoles) {
-            Write-Host "  Assigning '$($role.Name)' on realtime resource..." -NoNewline
-            try {
-                az role assignment create `
-                    --assignee-object-id $principalId `
-                    --assignee-principal-type ServicePrincipal `
-                    --role $role.Id `
-                    --scope $role.Scope `
-                    --only-show-errors 2>&1 | Out-Null
-                Write-Host " OK" -ForegroundColor Green
-            }
-            catch {
-                Write-Host " FAILED" -ForegroundColor Red
-                Write-Host "    Error: $_" -ForegroundColor Red
-            }
+# ── Dedicated Realtime/TTS voice account (managed by Bicep) ─────────────────
+# The voice OpenAI account is now created by infra/modules/realtime-resource.bicep
+# in the same resource group. Discover it by kind=OpenAI and assign roles.
+Write-Host "`nLooking up dedicated voice (OpenAI) account..." -ForegroundColor Yellow
+$voiceAccounts = @($allAiAccounts | Where-Object { $_.kind -eq 'OpenAI' })
+if ($voiceAccounts.Count -gt 0) {
+    $voiceAccountId = $voiceAccounts[0].id
+    $voiceAccountName = $voiceAccounts[0].name
+    Write-Host "  Voice account: $voiceAccountName"
+    $rtRoles = @(
+        @{ Name = "Cognitive Services OpenAI Contributor"; Id = "a001fd3d-188f-4b5d-821b-7da978bf7442"; Scope = $voiceAccountId }
+        @{ Name = "Cognitive Services OpenAI User"; Id = "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd"; Scope = $voiceAccountId }
+    )
+    foreach ($role in $rtRoles) {
+        Write-Host "  Assigning '$($role.Name)' on voice account..." -NoNewline
+        try {
+            az role assignment create `
+                --assignee-object-id $principalId `
+                --assignee-principal-type ServicePrincipal `
+                --role $role.Id `
+                --scope $role.Scope `
+                --only-show-errors 2>&1 | Out-Null
+            Write-Host " OK" -ForegroundColor Green
         }
-    } else {
-        Write-Host "  WARNING: Could not find resource '$rtResName'. Assign roles manually." -ForegroundColor Yellow
+        catch {
+            Write-Host " FAILED" -ForegroundColor Red
+            Write-Host "    Error: $_" -ForegroundColor Red
+        }
     }
 } else {
-    Write-Host "`nNo dedicated Realtime endpoint configured -- TTS/Realtime will use main endpoint." -ForegroundColor Gray
+    Write-Host "  No voice (kind=OpenAI) account found in $rg -- Realtime roles skipped." -ForegroundColor Gray
 }
 
 Write-Host "`n=== Done! All roles assigned. ===" -ForegroundColor Green

@@ -63,14 +63,8 @@ param flaskSecretKey string = ''
 @description('Google Gemini API key for Gemini model evaluations (optional). Get from https://aistudio.google.com/')
 param geminiApiKey string = ''
 
-@description('Optional dedicated Azure OpenAI endpoint for Realtime/TTS voice models. Leave empty to use the main AI Services endpoint. Auth is always via Entra ID.')
-param realtimeEndpoint string = ''
-
-@description('Name of the external Cognitive Services account hosting the dedicated Realtime/TTS models. Required when realtimeEndpoint is set so RBAC roles can be assigned. Example: "my-voice-account".')
-param realtimeAccountName string = ''
-
-@description('Resource group of the external Cognitive Services account for Realtime/TTS. Required when realtimeAccountName is set.')
-param realtimeAccountResourceGroup string = ''
+@description('Azure region for the dedicated Realtime/TTS voice endpoint (e.g. eastus2). Voice models often need a different region due to quota constraints. Leave empty to deploy voice models in the primary region.')
+param realtimeLocation string = ''
 
 @description('Principal ID (object ID) of the deployer for Storage RBAC. Auto-populated by azd for the logged-in user. Leave empty to skip.')
 param deployerPrincipalId string = ''
@@ -97,16 +91,22 @@ var modelDeployments = [
   { name: 'gpt-5.4', model: 'gpt-5.4', version: '2026-03-05', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.1', model: 'gpt-5.1', version: '2025-11-13', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.2', model: 'gpt-5.2', version: '2025-12-11', skuName: 'GlobalStandard', capacity: 1000 }
-  // Realtime (speech-to-speech) models
-  { name: 'gpt-realtime', model: 'gpt-realtime', version: '2025-08-28', skuName: 'GlobalStandard', capacity: 100 }
-  { name: 'gpt-realtime-1.5', model: 'gpt-realtime-1.5', version: '2026-02-23', skuName: 'GlobalStandard', capacity: 100 }
-  // TTS model for converting text test cases to audio
-  { name: 'gpt-4o-mini-tts', model: 'gpt-4o-mini-tts', version: '2025-03-20', skuName: 'GlobalStandard', capacity: 100 }
   // Note: Mistral removed — requires Marketplace subscription agreement that
   // blocks the entire @batchSize(1) loop when it fails, preventing subsequent
   // resources (Foundry project) from being created.
   // { name: 'Mistral-Large-3', model: 'Mistral-Large-3', version: '1', format: 'Mistral AI', skuName: 'GlobalStandard', capacity: 100 }
 ]
+
+// Voice model deployments — deployed to a dedicated Azure OpenAI account
+// in a region with Realtime/TTS quota (may differ from the primary region).
+var voiceModelDeployments = [
+  { name: 'gpt-realtime', model: 'gpt-realtime', version: '2025-08-28', skuName: 'GlobalStandard', capacity: 100 }
+  { name: 'gpt-realtime-1.5', model: 'gpt-realtime-1.5', version: '2026-02-23', skuName: 'GlobalStandard', capacity: 100 }
+  { name: 'gpt-4o-mini-tts', model: 'gpt-4o-mini-tts', version: '2025-03-20', skuName: 'GlobalStandard', capacity: 100 }
+]
+
+var effectiveRealtimeLocation = !empty(realtimeLocation) ? realtimeLocation : location
+var voiceAccountName = 'oai-voice-${envNameLower}-${resourceSuffix}'
 
 var tags = {
   'azd-env-name': environmentName
@@ -197,17 +197,25 @@ module foundryAccess './modules/foundry-access.bicep' = {
   }
 }
 
-// ── RBAC: Dedicated Realtime/TTS endpoint (optional, external resource) ────
-// When a separate Cognitive Services account is used for voice models,
-// the managed identity needs OpenAI Contributor (TTS audio/action) + User
-// roles on that account as well.
-// Both accountName AND resourceGroup must be set; if only one is provided
-// the module is skipped to avoid a deployment error on an empty scope.
-module realtimeAccess './modules/realtime-access.bicep' = if (!empty(realtimeAccountName) && !empty(realtimeAccountResourceGroup)) {
-  name: 'realtime-access'
-  scope: resourceGroup(realtimeAccountResourceGroup)
+// ── Dedicated Azure OpenAI account for voice models (Realtime + TTS) ───────
+// Deployed in a potentially different region to avoid quota issues.
+module realtimeServices './modules/realtime-resource.bicep' = {
+  name: 'realtime-services'
+  scope: rg
   params: {
-    accountName: realtimeAccountName
+    name: voiceAccountName
+    location: effectiveRealtimeLocation
+    tags: tags
+    deployments: voiceModelDeployments
+  }
+}
+
+// ── RBAC: Voice endpoint (OpenAI Contributor + User) ───────────────────────
+module realtimeAccess './modules/realtime-access.bicep' = {
+  name: 'realtime-access'
+  scope: rg
+  params: {
+    accountName: realtimeServices.outputs.accountName
     principalId: webIdentity.outputs.principalId
   }
 }
@@ -267,8 +275,8 @@ var easyAuthEnv = empty(authEasyAuthAutoLogin) ? [] : [
 var geminiEnv = empty(geminiApiKey) ? [] : [
   { name: 'GEMINI_API_KEY', value: geminiApiKey }
 ]
-var realtimeEnv = empty(realtimeEndpoint) ? [] : [
-  { name: 'AZURE_OPENAI_REALTIME_ENDPOINT', value: realtimeEndpoint }
+var realtimeEnv = [
+  { name: 'AZURE_OPENAI_REALTIME_ENDPOINT', value: realtimeServices.outputs.endpoint }
 ]
 var containerEnv = concat(baseEnv, smtpEnv, authEnv, codeVerifEnv, emailProviderEnv, easyAuthEnv, geminiEnv, realtimeEnv)
 
@@ -349,3 +357,5 @@ output AZURE_OPENAI_ENDPOINT string = aiServices.outputs.endpoint
 output FOUNDRY_PROJECT_ENDPOINT string = aiServices.outputs.projectEndpoint
 output MODEL_DEPLOYMENTS array = aiServices.outputs.deploymentNames
 output AZURE_STORAGE_ACCOUNT_NAME string = storage.outputs.accountName
+output AZURE_OPENAI_REALTIME_ENDPOINT string = realtimeServices.outputs.endpoint
+output VOICE_MODEL_DEPLOYMENTS array = realtimeServices.outputs.deploymentNames
