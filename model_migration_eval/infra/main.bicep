@@ -66,6 +66,9 @@ param geminiApiKey string = ''
 @description('Azure region for the dedicated Realtime/TTS voice endpoint. Voice models are deployed to a separate OpenAI account which must be in a region with gpt-realtime quota. Defaults to swedencentral.')
 param realtimeLocation string = 'swedencentral'
 
+@description('Deploy voice models (gpt-realtime, gpt-4o-mini-tts) to a dedicated account. Set to false if the subscription does not have access to Realtime models.')
+param deployVoiceModels bool = true
+
 @description('Principal ID (object ID) of the deployer for Storage RBAC. Auto-populated by azd for the logged-in user. Leave empty to skip.')
 param deployerPrincipalId string = ''
 
@@ -204,7 +207,8 @@ module foundryAccess './modules/foundry-access.bicep' = {
 
 // ── Dedicated Azure OpenAI account for voice models (Realtime + TTS) ───────
 // Deployed in a potentially different region to avoid quota issues.
-module realtimeServices './modules/realtime-resource.bicep' = {
+// Skipped when deployVoiceModels is false (subscription lacks access).
+module realtimeServices './modules/realtime-resource.bicep' = if (deployVoiceModels) {
   name: 'realtime-services'
   scope: rg
   params: {
@@ -216,11 +220,11 @@ module realtimeServices './modules/realtime-resource.bicep' = {
 }
 
 // ── RBAC: Voice endpoint (OpenAI Contributor + User) ───────────────────────
-module realtimeAccess './modules/realtime-access.bicep' = {
+module realtimeAccess './modules/realtime-access.bicep' = if (deployVoiceModels) {
   name: 'realtime-access'
   scope: rg
   params: {
-    accountName: realtimeServices.outputs.accountName
+    accountName: realtimeServices!.outputs.accountName
     principalId: webIdentity.outputs.principalId
   }
 }
@@ -280,9 +284,9 @@ var easyAuthEnv = empty(authEasyAuthAutoLogin) ? [] : [
 var geminiEnv = empty(geminiApiKey) ? [] : [
   { name: 'GEMINI_API_KEY', value: geminiApiKey }
 ]
-var realtimeEnv = [
-  { name: 'AZURE_OPENAI_REALTIME_ENDPOINT', value: realtimeServices.outputs.endpoint }
-]
+var realtimeEnv = deployVoiceModels ? [
+  { name: 'AZURE_OPENAI_REALTIME_ENDPOINT', value: realtimeServices!.outputs.endpoint }
+] : []
 var containerEnv = concat(baseEnv, smtpEnv, authEnv, codeVerifEnv, emailProviderEnv, easyAuthEnv, geminiEnv, realtimeEnv)
 
 module web 'br/public:avm/res/app/container-app:0.10.0' = {
@@ -362,5 +366,5 @@ output AZURE_OPENAI_ENDPOINT string = aiServices.outputs.endpoint
 output FOUNDRY_PROJECT_ENDPOINT string = aiServices.outputs.projectEndpoint
 output MODEL_DEPLOYMENTS array = aiServices.outputs.deploymentNames
 output AZURE_STORAGE_ACCOUNT_NAME string = storage.outputs.accountName
-output AZURE_OPENAI_REALTIME_ENDPOINT string = realtimeServices.outputs.endpoint
-output VOICE_MODEL_DEPLOYMENTS array = realtimeServices.outputs.deploymentNames
+output AZURE_OPENAI_REALTIME_ENDPOINT string = deployVoiceModels ? realtimeServices!.outputs.endpoint : ''
+output VOICE_MODEL_DEPLOYMENTS array = deployVoiceModels ? realtimeServices!.outputs.deploymentNames : []

@@ -38,6 +38,9 @@
     "realtimeLocation": {
       "value": "${AZURE_OPENAI_REALTIME_LOCATION}"
     },
+    "deployVoiceModels": {
+      "value": "${DEPLOY_VOICE_MODELS}"
+    },
     "authEasyAuthAutoLogin": {
       "value": "${AUTH_EASYAUTH_AUTO_LOGIN}"
     },
