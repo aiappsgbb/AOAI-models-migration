@@ -66,8 +66,8 @@ param geminiApiKey string = ''
 @description('Azure region for the dedicated Realtime/TTS voice endpoint. Voice models are deployed to a separate OpenAI account which must be in a region with gpt-realtime quota. Defaults to swedencentral.')
 param realtimeLocation string = 'swedencentral'
 
-@description('Deploy voice models (gpt-realtime, gpt-4o-mini-tts) to a dedicated account. Set to false if the subscription does not have access to Realtime models.')
-param deployVoiceModels bool = true
+@description('Deploy voice models (gpt-realtime) to a dedicated account. Set to "false" if the subscription does not have access to Realtime models. Default: true.')
+param deployVoiceModels string = 'true'
 
 @description('Principal ID (object ID) of the deployer for Storage RBAC. Auto-populated by azd for the logged-in user. Leave empty to skip.')
 param deployerPrincipalId string = ''
@@ -94,21 +94,27 @@ var modelDeployments = [
   { name: 'gpt-5.4', model: 'gpt-5.4', version: '2026-03-05', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.1', model: 'gpt-5.1', version: '2025-11-13', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.2', model: 'gpt-5.2', version: '2025-12-11', skuName: 'GlobalStandard', capacity: 1000 }
+  // TTS model — lives in the primary AI Services account because
+  // gpt-4o-mini-tts is only available in eastus2 (not swedencentral).
+  { name: 'gpt-4o-mini-tts', model: 'gpt-4o-mini-tts', version: '2025-03-20', skuName: 'GlobalStandard', capacity: 100 }
   // Note: Mistral removed — requires Marketplace subscription agreement that
   // blocks the entire @batchSize(1) loop when it fails, preventing subsequent
   // resources (Foundry project) from being created.
   // { name: 'Mistral-Large-3', model: 'Mistral-Large-3', version: '1', format: 'Mistral AI', skuName: 'GlobalStandard', capacity: 100 }
 ]
 
-// Voice model deployments — deployed to a dedicated Azure OpenAI account
-// in a region with Realtime/TTS quota (may differ from the primary region).
-// Capacity is kept low (1-2 RPM) to fit within default quotas; increase after
+// Voice model deployments — deployed to a dedicated AI Services account
+// in a region with Realtime quota (may differ from the primary region).
+// Capacity is kept low (1 RPM) to fit within default quotas; increase after
 // requesting additional quota in the Azure portal.
+// Note: gpt-4o-mini-tts is NOT here — it's only in eastus2 (primary account).
 var voiceModelDeployments = [
   { name: 'gpt-realtime', model: 'gpt-realtime', version: '2025-08-28', skuName: 'GlobalStandard', capacity: 1 }
   { name: 'gpt-realtime-1.5', model: 'gpt-realtime-1.5', version: '2026-02-23', skuName: 'GlobalStandard', capacity: 1 }
-  { name: 'gpt-4o-mini-tts', model: 'gpt-4o-mini-tts', version: '2025-03-20', skuName: 'GlobalStandard', capacity: 2 }
 ]
+
+// Convert string param to bool (handles empty string from unset env var)
+var enableVoiceModels = toLower(deployVoiceModels) == 'true'
 
 // Use the explicit realtimeLocation; falls back to param default (swedencentral)
 // if the env var is empty. Never use the primary 'location' — the primary
@@ -208,7 +214,7 @@ module foundryAccess './modules/foundry-access.bicep' = {
 // ── Dedicated Azure OpenAI account for voice models (Realtime + TTS) ───────
 // Deployed in a potentially different region to avoid quota issues.
 // Skipped when deployVoiceModels is false (subscription lacks access).
-module realtimeServices './modules/realtime-resource.bicep' = if (deployVoiceModels) {
+module realtimeServices './modules/realtime-resource.bicep' = if (enableVoiceModels) {
   name: 'realtime-services'
   scope: rg
   params: {
@@ -220,7 +226,7 @@ module realtimeServices './modules/realtime-resource.bicep' = if (deployVoiceMod
 }
 
 // ── RBAC: Voice endpoint (OpenAI Contributor + User) ───────────────────────
-module realtimeAccess './modules/realtime-access.bicep' = if (deployVoiceModels) {
+module realtimeAccess './modules/realtime-access.bicep' = if (enableVoiceModels) {
   name: 'realtime-access'
   scope: rg
   params: {
@@ -284,7 +290,7 @@ var easyAuthEnv = empty(authEasyAuthAutoLogin) ? [] : [
 var geminiEnv = empty(geminiApiKey) ? [] : [
   { name: 'GEMINI_API_KEY', value: geminiApiKey }
 ]
-var realtimeEnv = deployVoiceModels ? [
+var realtimeEnv = enableVoiceModels ? [
   { name: 'AZURE_OPENAI_REALTIME_ENDPOINT', value: realtimeServices!.outputs.endpoint }
 ] : []
 var containerEnv = concat(baseEnv, smtpEnv, authEnv, codeVerifEnv, emailProviderEnv, easyAuthEnv, geminiEnv, realtimeEnv)
@@ -366,5 +372,5 @@ output AZURE_OPENAI_ENDPOINT string = aiServices.outputs.endpoint
 output FOUNDRY_PROJECT_ENDPOINT string = aiServices.outputs.projectEndpoint
 output MODEL_DEPLOYMENTS array = aiServices.outputs.deploymentNames
 output AZURE_STORAGE_ACCOUNT_NAME string = storage.outputs.accountName
-output AZURE_OPENAI_REALTIME_ENDPOINT string = deployVoiceModels ? realtimeServices!.outputs.endpoint : ''
-output VOICE_MODEL_DEPLOYMENTS array = deployVoiceModels ? realtimeServices!.outputs.deploymentNames : []
+output AZURE_OPENAI_REALTIME_ENDPOINT string = enableVoiceModels ? realtimeServices!.outputs.endpoint : ''
+output VOICE_MODEL_DEPLOYMENTS array = enableVoiceModels ? realtimeServices!.outputs.deploymentNames : []
