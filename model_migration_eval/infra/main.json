@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "4481310244205541400"
+      "templateHash": "8270041394755520268"
     }
   },
   "parameters": {
@@ -173,21 +173,21 @@
         "model": "gpt-realtime",
         "version": "2025-08-28",
         "skuName": "GlobalStandard",
-        "capacity": 100
+        "capacity": 1
       },
       {
         "name": "gpt-realtime-1.5",
         "model": "gpt-realtime-1.5",
         "version": "2026-02-23",
         "skuName": "GlobalStandard",
-        "capacity": 100
+        "capacity": 1
       },
       {
         "name": "gpt-4o-mini-tts",
         "model": "gpt-4o-mini-tts",
         "version": "2025-03-20",
         "skuName": "GlobalStandard",
-        "capacity": 100
+        "capacity": 2
       }
     ],
     "effectiveRealtimeLocation": "[if(not(empty(parameters('realtimeLocation'))), parameters('realtimeLocation'), parameters('location'))]",

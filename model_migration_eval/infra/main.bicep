@@ -99,10 +99,12 @@ var modelDeployments = [
 
 // Voice model deployments — deployed to a dedicated Azure OpenAI account
 // in a region with Realtime/TTS quota (may differ from the primary region).
+// Capacity is kept low (1-2 RPM) to fit within default quotas; increase after
+// requesting additional quota in the Azure portal.
 var voiceModelDeployments = [
-  { name: 'gpt-realtime', model: 'gpt-realtime', version: '2025-08-28', skuName: 'GlobalStandard', capacity: 100 }
-  { name: 'gpt-realtime-1.5', model: 'gpt-realtime-1.5', version: '2026-02-23', skuName: 'GlobalStandard', capacity: 100 }
-  { name: 'gpt-4o-mini-tts', model: 'gpt-4o-mini-tts', version: '2025-03-20', skuName: 'GlobalStandard', capacity: 100 }
+  { name: 'gpt-realtime', model: 'gpt-realtime', version: '2025-08-28', skuName: 'GlobalStandard', capacity: 1 }
+  { name: 'gpt-realtime-1.5', model: 'gpt-realtime-1.5', version: '2026-02-23', skuName: 'GlobalStandard', capacity: 1 }
+  { name: 'gpt-4o-mini-tts', model: 'gpt-4o-mini-tts', version: '2025-03-20', skuName: 'GlobalStandard', capacity: 2 }
 ]
 
 var effectiveRealtimeLocation = !empty(realtimeLocation) ? realtimeLocation : location
