@@ -24,14 +24,14 @@ param tags object = {}
 @description('Voice model deployments. Each: { name, model, version, skuName?, capacity? }')
 param deployments array = []
 
-// ── Azure OpenAI account (kind: OpenAI) ────────────────────────────────────
-// Using kind: OpenAI (not AIServices) because this account only hosts
-// voice models and doesn't need Foundry/project management capabilities.
+// ── Azure Cognitive Services account (kind: AIServices) ────────────────────
+// Using kind: AIServices (the modern unified type) because the subscription
+// may not have the legacy 'OpenAI' kind enabled.
 resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   name: name
   location: location
   tags: tags
-  kind: 'OpenAI'
+  kind: 'AIServices'
   sku: {
     name: 'S0'
   }

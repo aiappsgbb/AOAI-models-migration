@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "18094738927282219973"
+      "templateHash": "7520781394348854681"
     }
   },
   "parameters": {
@@ -9133,7 +9133,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "9289893975326739316"
+              "templateHash": "18115126584025111175"
             }
           },
           "parameters": {
@@ -9171,7 +9171,7 @@
               "name": "[parameters('name')]",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
-              "kind": "OpenAI",
+              "kind": "AIServices",
               "sku": {
                 "name": "S0"
               },
