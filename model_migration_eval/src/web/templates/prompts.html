@@ -11,6 +11,12 @@
     {% set active_page = 'prompts' %}
     {% include '_sidebar.html' %}
 
+    <!-- Floating scroll-back button -->
+    <button id="btn-scroll-back" class="fixed bottom-6 right-6 z-50 hidden items-center gap-2 px-4 py-2.5 bg-brand-600 text-white rounded-full shadow-lg hover:bg-brand-700 transition-all text-sm font-medium" title="Scroll back to selected prompt">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        Back to prompt
+    </button>
+
     <main class="flex-1 max-w-7xl mx-auto w-full px-8 py-6">
         <h1 class="fluent-page-title mb-1">Prompt Templates</h1>
         <p id="active-topic-subtitle" class="text-sm text-brand-600 font-semibold mb-6"></p>
@@ -597,6 +603,18 @@
 
         function $(id) { return document.getElementById(id); }
 
+        // ── Scroll-back to selected prompt ──────────────────────────
+        let lastClickedPromptBtn = null;
+        $('btn-scroll-back').addEventListener('click', () => {
+            if (lastClickedPromptBtn) {
+                lastClickedPromptBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Hide the button after scrolling back
+                const backBtn = $('btn-scroll-back');
+                backBtn.classList.add('hidden');
+                backBtn.classList.remove('flex');
+            }
+        });
+
         // ── Sidebar Tab Switching ─────────────────────────────────────
         function switchSidebarTab(tab) {
             const tabs = ['manage', 'generate'];
@@ -689,7 +707,15 @@
                     btn.addEventListener('click', () => {
                         document.querySelectorAll('.prompt-btn').forEach(b => b.classList.remove('bg-blue-100', 'text-blue-800', 'font-medium'));
                         btn.classList.add('bg-blue-100', 'text-blue-800', 'font-medium');
+                        // Save reference to the clicked button for scroll-back
+                        lastClickedPromptBtn = btn;
                         loadPrompt(btn.dataset.model, btn.dataset.type);
+                        // Scroll to top of the page for easy review
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        // Show the scroll-back button
+                        const backBtn = $('btn-scroll-back');
+                        backBtn.classList.remove('hidden');
+                        backBtn.classList.add('flex');
                     });
                 });
             } catch (err) {
@@ -780,7 +806,7 @@
                         gpt5: { color: 'purple-500', traits: ['Leverage native reasoning', 'Streamlined structure', 'YAML/JSON schemas'] },
                         gemini: { color: 'emerald-600', traits: ['Concise Markdown-style prompts', 'Relies on native multimodal understanding', 'Minimal few-shot — strong zero-shot performance'] },
                         mistral: { color: 'amber-600', traits: ['Explicit CoT + few-shot examples', 'Strong multilingual capability', 'Detailed JSON schema in prompt'] },
-                        realtime: { color: 'rose-500', traits: ['Voice-optimised: # section headers, bullet points, 2–3 sentences/turn', 'Unclear audio handling with sample clarification phrases', 'Tool preambles before every function call', 'Variety rules to avoid robotic repetition', 'Classification outputs text-only JSON (no audio)'] },
+                        realtime: { color: 'rose-500', traits: ['Unclear audio handling with sample clarification phrases', 'Tool preambles before every function call', 'Variety rules to avoid robotic repetition', 'Classification outputs text-only JSON (no audio)'] },
                     };
                     keyDiffContainer.innerHTML = Object.entries(families).map(([fam, models]) => {
                         const info = familyInfo[fam] || familyInfo.gpt4;

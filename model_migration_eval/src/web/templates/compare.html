@@ -586,6 +586,15 @@
                 if (qA && selA.querySelector(`option[value="${qA}"]`)) selA.value = qA;
                 // Render model B options (excluding model A)
                 renderModelBOptions();
+                // Pre-select model_b from URL params (from Prompts page link)
+                const qB = params.get('model_b');
+                if (qB) {
+                    const cbB = document.querySelector(`#model-b-options input[value="${qB}"]`);
+                    if (cbB) {
+                        cbB.checked = true;
+                        updateModelBDisplay();
+                    }
+                }
                 // Auto-select second model if nothing selected
                 if (getSelectedModelBs().length === 0 && _allModels.length >= 2) {
                     const secondModel = _allModels.find(m => m.name !== selA.value);
