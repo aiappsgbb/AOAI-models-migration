@@ -4,8 +4,8 @@
 //
 // Always creates all resources from scratch using a SINGLE AI Services
 // account (kind: AIServices) which:
-//   • Hosts all model deployments (gpt-4.1, gpt-4o, gpt-4.1-mini, gpt-5.4, gpt-5.1, gpt-5.2,
-//     Phi-4, gpt-realtime, gpt-realtime-1.5, gpt-4o-mini-tts)
+//   • Hosts all model deployments (gpt-4.1, gpt-4o, gpt-4.1-mini, gpt-5.4, gpt-5.4-mini,
+//     gpt-5.1, gpt-5.2, Phi-4, gpt-realtime, gpt-realtime-1.5, gpt-4o-mini-tts)
 //   • Acts as AI Foundry hub with a project for evaluations
 //   • Provides the OpenAI-compatible endpoint for the app
 //
@@ -92,6 +92,7 @@ var modelDeployments = [
   { name: 'gpt-4o', model: 'gpt-4o', version: '2024-08-06', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-4.1-mini', model: 'gpt-4.1-mini', version: '2025-04-14', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.4', model: 'gpt-5.4', version: '2026-03-05', skuName: 'GlobalStandard', capacity: 1000 }
+  { name: 'gpt-5.4-mini', model: 'gpt-5.4-mini', version: '2026-03-05', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.1', model: 'gpt-5.1', version: '2025-11-13', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.2', model: 'gpt-5.2', version: '2025-12-11', skuName: 'GlobalStandard', capacity: 1000 }
   // TTS model — lives in the primary AI Services account because

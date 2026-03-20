@@ -229,6 +229,22 @@ MODEL_GUIDANCE: dict[str, str] = {
         "- Handles ambiguity and nuance better than any previous model\n"
         "- Optimal for production workloads needing top-tier quality"
     ),
+    "gpt-5.4-mini": (
+        "\nModel-specific guidance (GPT-5.4-mini — cost-effective GPT-5):\n"
+        "- Most cost-effective model in the GPT-5 family — built for\n"
+        "  high-throughput batch pipelines and latency-sensitive apps\n"
+        "- Excellent at classification, extraction, and structured output\n"
+        "- Native reasoning (like all GPT-5 models) but with shallower\n"
+        "  depth — keep prompts focused and concise\n"
+        "- Shorter, more direct prompts yield better results — eliminate\n"
+        "  non-essential instructions\n"
+        "- Fewer few-shot examples (1-2) work better than many\n"
+        "- Use max_completion_tokens (not max_tokens) per GPT-5 convention\n"
+        "- No explicit CoT needed — model reasons internally but benefits\n"
+        "  from clear, declarative task descriptions\n"
+        "- Strong structured output (JSON mode) — specify the exact schema\n"
+        "- Ideal for production workloads balancing quality and cost"
+    ),
 
     # ── Mistral family ─────────────────────────────────────────────────
     "Mistral-Large-3": (

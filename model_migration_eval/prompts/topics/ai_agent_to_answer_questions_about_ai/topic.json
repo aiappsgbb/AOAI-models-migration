@@ -6,6 +6,7 @@
     "gpt41_mini",
     "gpt4o",
     "gpt5",
+    "gpt54_mini",
     "gemini3_flash",
     "gpt_realtime_1",
     "gpt_realtime_15"

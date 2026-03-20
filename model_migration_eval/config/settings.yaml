@@ -45,6 +45,13 @@ azure:
       model_version: "2026-03-05"
       max_tokens: 8192
       temperature: 0.1
+
+    gpt54_mini:
+      deployment_name: "gpt-5.4-mini"
+      model_family: "gpt5"
+      model_version: "2026-03-05"
+      max_tokens: 16384
+      temperature: 0.1
       
     gpt51:
       deployment_name: "gpt-5.1"
@@ -191,6 +198,10 @@ cost_rates:
     output: 0.02
     cached_input: 0.0025
     reasoning: 0.015
+  gpt54_mini:
+    input: 0.0004
+    output: 0.0016
+    cached_input: 0.0002
   gpt51:
     input: 0.005
     output: 0.02
