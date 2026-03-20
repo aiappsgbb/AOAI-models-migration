@@ -333,11 +333,19 @@ def create_app(config_path: str = None) -> Flask:
                 app.logger.info('Restored user %s from blob storage', user.id)
 
         uctx.ensure_dirs(model_keys=model_keys)
+        # seed_from_shared is idempotent — only copies prompts for model
+        # dirs that have no .md files.  Always calling it ensures that
+        # models added after the user was created get default prompts.
+        seeded = uctx.seed_from_shared(
+            shared_prompts='prompts',
+            shared_data='data/synthetic',
+        )
+        if seeded:
+            # If new model dirs were seeded AND the user has an active
+            # topic, overwrite those defaults with the topic's prompts
+            # so the user doesn't end up with mismatched prompts.
+            uctx.seed_new_models_from_active_topic(seeded)
         if not already_exists:
-            uctx.seed_from_shared(
-                shared_prompts='prompts',
-                shared_data='data/synthetic',
-            )
             # Persist newly-seeded user to blob so it survives restarts
             blob_sync.upload_user_tree(user.id)
             blob_sync.upload_auth_db()
@@ -393,14 +401,22 @@ def create_app(config_path: str = None) -> Flask:
 
                 if not restored:
                     app.logger.info('User dirs missing after restart — re-seeding %s', user_id)
-                    model_keys = list(
-                        app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys()
-                    )
-                    uctx.ensure_dirs(model_keys=model_keys)
-                    uctx.seed_from_shared(
-                        shared_prompts='prompts',
-                        shared_data='data/synthetic',
-                    )
+
+                # Always ensure dirs + seed after restore (or from scratch).
+                # Blob data may predate newly-added models, so ensure_dirs
+                # creates their directories and seed_from_shared fills them
+                # with default prompts.  Both are idempotent.
+                model_keys = list(
+                    app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys()
+                )
+                uctx.ensure_dirs(model_keys=model_keys)
+                seeded = uctx.seed_from_shared(
+                    shared_prompts='prompts',
+                    shared_data='data/synthetic',
+                )
+                if seeded:
+                    uctx.seed_new_models_from_active_topic(seeded)
+                if not restored:
                     blob_sync.upload_user_tree(user_id)
 
                 _invalidate_user(user_id)   # clear stale cached managers
