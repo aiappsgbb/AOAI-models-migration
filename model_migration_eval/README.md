@@ -1,12 +1,12 @@
 # Azure OpenAI Model Migration Evaluation Framework
 
-A comprehensive evaluation framework for migrating production systems between any Azure OpenAI model generations **and external models** (Azure AI Marketplace, Google Gemini) (e.g. GPT-4o → GPT-4.1, GPT-4.1 → GPT-5.2, GPT-4.1 → Mistral-Large-3, GPT-4.1 → Gemini 3 Flash, or any configured pair).  Now also supports **Speech-to-Speech (S2S) evaluation** via the Azure OpenAI Realtime API (gpt-realtime, gpt-realtime-1.5) with TTS-driven audio input.  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **6 scenario types** (classification, dialog, general, RAG, tool calling, and **realtime speech-to-speech**), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
+A comprehensive evaluation framework for migrating production systems between any Azure OpenAI model generations **and external models** (Azure AI Marketplace, Google Gemini, Microsoft SLMs) (e.g. GPT-4o → GPT-4.1, GPT-4.1 → GPT-5.4, GPT-4.1 → GPT-5.4-mini, GPT-4.1 → Phi-4, GPT-4.1 → Mistral-Large-3, GPT-4.1 → Gemini 3 Flash, or any configured pair).  Now also supports **Speech-to-Speech (S2S) evaluation** via the Azure OpenAI Realtime API (gpt-realtime, gpt-realtime-1.5) with TTS-driven audio input.  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **6 scenario types** (classification, dialog, general, RAG, tool calling, and **realtime speech-to-speech**), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
 
 ---
 
 ## 🎯 Overview
 
-When you upgrade or switch a model deployment in Azure AI Foundry — from GPT-4o to GPT-4.1, from GPT-4.1 to GPT-5.2, or even to a Marketplace model like Mistral-Large-3 or an external model like Gemini 3 Flash, for example — you need to answer questions like:
+When you upgrade or switch a model deployment in Azure AI Foundry — from GPT-4o to GPT-4.1, from GPT-4.1 to GPT-5.4, from GPT-4.1-mini to GPT-5.4-mini, or even to a Marketplace model like Mistral-Large-3, a Microsoft SLM like Phi-4, or an external model like Gemini 3 Flash, for example — you need to answer questions like:
 
 - *"Does the new model still classify tickets correctly?"*
 - *"Is latency better or worse?"*
@@ -26,7 +26,7 @@ This framework automates that process end-to-end:
 
 | Area | Highlights |
 |------|------------|
-| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.1, GPT-5.2, Mistral-Large-3, Gemini 3 Flash, **GPT-Realtime, GPT-Realtime-1.5**, reasoning variants, etc.) — each with `model_family` for automatic API behaviour |
+| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.4, GPT-5.4-mini, GPT-5.1, GPT-5.2, Phi-4, Mistral-Large-3, Gemini 3 Flash, **GPT-Realtime, GPT-Realtime-1.5**, reasoning variants, etc.) — each with `model_family` for automatic API behaviour |
 | **Multi-Topic** | Switch between self-contained topic archives (prompts + data) without losing anything |
 | **AI Generation** | One-click generation of optimised prompts (4 task types × N models) + 5 test datasets (70 scenarios) tailored to any domain, with dynamic category taxonomy, JSON retry logic, and **selective regeneration** (prompts only, test data only, or both) |
 | **Topic Import** | Import prompts + test data from disk for any source model (web UI or CLI) — target model prompts are auto-generated with **multi-layer category alignment** (deterministic injection → LLM auto-fix → post-generation verification), **error-resilient** parallel generation (individual 429/failure tolerance), and automatic priority & sentiment normalisation.  The topic is archived ready to activate |
@@ -114,11 +114,14 @@ model_migration_eval/
 │   │   └── dialog_agent_system.md
 │   ├── gpt4o/                      #   GPT-4o optimised prompts
 │   ├── gpt41_mini/                 #   GPT-4.1-mini optimised prompts
-│   ├── gpt5/                       #   GPT-5.2 optimised prompts
+│   ├── gpt5/                       #   GPT-5.4 optimised prompts
 │   │   ├── classification_agent_system.md
 │   │   └── dialog_agent_system.md
+│   ├── gpt54_mini/                 #   GPT-5.4-mini optimised prompts
 │   ├── gpt51/                      #   GPT-5.1 optimised prompts
+│   ├── gpt52/                      #   GPT-5.2 optimised prompts
 │   ├── gpt5_reasoning/             #   GPT-5.1 reasoning (falls back to gpt5/ prompts)
+│   ├── phi4/                       #   Phi-4 SLM optimised prompts
 │   ├── mistral_large_3/            #   Mistral-Large-3 optimised prompts
 │   ├── gemini3_flash/              #   Gemini 3 Flash optimised prompts
 │   ├── history/                    #   Version history (auto-managed)
@@ -251,10 +254,24 @@ azure:
       temperature: 0.1
 
     gpt5:
-      deployment_name: "gpt-5.2"          # Your GPT-5.2 deployment name
+      deployment_name: "gpt-5.4"          # Your GPT-5.4 deployment name
       model_family: "gpt5"
-      model_version: "2025-01-01"
-      max_tokens: 8192
+      model_version: "2026-03-05"
+      max_tokens: 16384
+      temperature: 0.1
+
+    gpt54_mini:
+      deployment_name: "gpt-5.4-mini"     # Cost-effective GPT-5 mini
+      model_family: "gpt5"
+      model_version: "2026-03-05"
+      max_tokens: 16384
+      temperature: 0.1
+
+    phi4:
+      deployment_name: "Phi-4"            # Microsoft Phi-4 SLM
+      model_family: "phi"
+      model_version: "2"
+      max_tokens: 4096
       temperature: 0.1
 
     mistral_large_3:
@@ -276,7 +293,7 @@ gemini:
   api_key: "${GEMINI_API_KEY}"              # Get from https://aistudio.google.com/
 ```
 
-You can add as many models as you need — including Azure AI Marketplace models like Mistral, external models like Gemini, and **Realtime (speech-to-speech) models** (see [Model Configuration](#-model-configuration) below).
+You can add as many models as you need — including Azure AI Marketplace models like Mistral, Microsoft SLMs like Phi-4, external models like Gemini, and **Realtime (speech-to-speech) models** (see [Model Configuration](#-model-configuration) below).
 
 ### 3. Launch the Web Interface
 
@@ -456,6 +473,8 @@ data/users/<user_id>/
 │   ├── gpt4/                    # Active prompt templates per model
 │   ├── gpt4o/
 │   ├── gpt5/
+│   ├── gpt54_mini/              # GPT-5.4-mini optimised prompts
+│   ├── phi4/                    # Phi-4 SLM prompts
 │   ├── mistral_large_3/         # Marketplace model prompts
 │   ├── gemini3_flash/           # Gemini model prompts
 │   ├── history/                 # User's own version history (starts empty)
@@ -712,9 +731,12 @@ prompts/
 ├── gpt4/
 │   ├── classification_agent_system.md   ← GPT-4 classification prompt
 │   └── dialog_agent_system.md           ← GPT-4 dialog prompt
-└── gpt5/
-    ├── classification_agent_system.md   ← GPT-5 classification prompt
-    └── dialog_agent_system.md           ← GPT-5 dialog prompt
+├── gpt5/
+│   ├── classification_agent_system.md   ← GPT-5 classification prompt
+│   └── dialog_agent_system.md           ← GPT-5 dialog prompt
+├── gpt54_mini/                          ← GPT-5.4-mini prompts
+├── phi4/                                ← Phi-4 SLM prompts
+└── ...
 ```
 
 The entire file content is sent as the `system` message.  Changes take effect on the next API call — no server restart needed when editing via the UI.
@@ -768,6 +790,14 @@ A full generation (scope `all`) produces:
 | `gpt5/dialog_agent_system.md` | Dialog prompt optimised for GPT-5 |
 | `gpt5/rag_agent_system.md` | RAG prompt optimised for GPT-5 |
 | `gpt5/tool_calling_agent_system.md` | Tool calling prompt optimised for GPT-5 |
+| `gpt54_mini/classification_agent_system.md` | Classification prompt optimised for GPT-5.4-mini (concise, cost-effective) |
+| `gpt54_mini/dialog_agent_system.md` | Dialog prompt optimised for GPT-5.4-mini |
+| `gpt54_mini/rag_agent_system.md` | RAG prompt optimised for GPT-5.4-mini |
+| `gpt54_mini/tool_calling_agent_system.md` | Tool calling prompt optimised for GPT-5.4-mini |
+| `phi4/classification_agent_system.md` | Classification prompt optimised for Phi-4 (structured, explicit rules) |
+| `phi4/dialog_agent_system.md` | Dialog prompt optimised for Phi-4 |
+| `phi4/rag_agent_system.md` | RAG prompt optimised for Phi-4 |
+| `phi4/tool_calling_agent_system.md` | Tool calling prompt optimised for Phi-4 |
 | `mistral_large_3/classification_agent_system.md` | Classification prompt optimised for Mistral (structured examples, few-shot) |
 | `mistral_large_3/dialog_agent_system.md` | Dialog prompt optimised for Mistral |
 | `mistral_large_3/rag_agent_system.md` | RAG prompt optimised for Mistral |
@@ -1260,7 +1290,7 @@ data/synthetic/
 
 Edit the `models` section in `config/settings.yaml`.  Each key becomes a model name used in the CLI, API, and web UI.
 
-### Example: 8-Model Setup (Azure OpenAI + Marketplace + Gemini)
+### Example: 12-Model Setup (Azure OpenAI + SLM + Marketplace + Gemini)
 
 ```yaml
 azure:
@@ -1291,10 +1321,17 @@ azure:
       temperature: 0.1
 
     gpt5:
-      deployment_name: "gpt-5.2"
+      deployment_name: "gpt-5.4"
       model_family: "gpt5"
-      model_version: "2025-01-01"
-      max_tokens: 8192
+      model_version: "2026-03-05"
+      max_tokens: 16384
+      temperature: 0.1
+
+    gpt54_mini:
+      deployment_name: "gpt-5.4-mini"
+      model_family: "gpt5"
+      model_version: "2026-03-05"
+      max_tokens: 16384
       temperature: 0.1
 
     gpt51:
@@ -1310,6 +1347,13 @@ azure:
       model_version: "2025-01-01"
       max_tokens: 16384
       reasoning_effort: "medium"    # low, medium, high (o-series / gpt-5)
+
+    phi4:
+      deployment_name: "Phi-4"             # Microsoft Phi-4 SLM (model catalog)
+      model_family: "phi"
+      model_version: "2"
+      max_tokens: 4096
+      temperature: 0.1
 
     mistral_large_3:
       deployment_name: "Mistral-Large-3"    # Azure AI Marketplace model
@@ -1339,7 +1383,7 @@ gemini:
 | Parameter | Description | Notes |
 |-----------|-------------|-------|
 | `deployment_name` | Deployment name in Azure AI Foundry (or model name for Gemini) | As shown in Azure Portal → Deployments |
-| `model_family` | Prompt-style family grouping | `gpt4`, `gpt5`, `mistral`, or `gemini` — determines API behaviour (see below) |
+| `model_family` | Prompt-style family grouping | `gpt4`, `gpt5`, `phi`, `mistral`, or `gemini` — determines API behaviour (see below) |
 | `backend` | API backend to use | `azure` (default) or `gemini` — `gemini` routes to Google’s OpenAI-compat endpoint |
 | `model_version` | Model version string | From deployment details |
 | `max_tokens` | Maximum response tokens | Model-dependent |
@@ -1356,17 +1400,17 @@ gemini:
 
 The `model_family` field controls automatic API-level differences:
 
-| Behaviour | `model_family: "gpt4"` | `model_family: "gpt5"` | `model_family: "mistral"` | `model_family: "gemini"` | `model_family: "realtime"` |
-|-----------|------------------------|------------------------|---------------------------|-------------------------|---------------------------|
-| **Max tokens parameter** | `max_tokens` | `max_completion_tokens` (auto-converted) | `max_tokens` | `max_tokens` | `max_response_output_tokens` |
-| **System message role** | `system` | `developer` | `system` | `system` | `instructions` (Realtime session config) |
-| **Sampling parameters** | Always sent (temperature, top_p, penalties) | Sent unless `reasoning_effort` is present | Always sent | Always sent | `temperature` only |
-| **Seed parameter** | Sent if configured | Sent if configured | Sent if configured | **Not sent** (unsupported) | **Not sent** |
-| **Last-message guard** | Not needed | Not needed | Auto-appends a minimal `user` message if the last message is not `user` or `tool` (prevents Mistral error 3230) | Not needed | Not applicable |
-| **Prompt style** | Explicit chain-of-thought, verbose rules | Native reasoning, concise | Detailed instructions, structured examples, few-shot | Explicit CoT, few-shot examples, structured output | Conversational, voice-optimised |
-| **Evaluation path** | Text chat/completions | Text chat/completions | Text chat/completions | Text chat/completions | TTS → Realtime WebSocket → Transcript |
+| Behaviour | `model_family: "gpt4"` | `model_family: "gpt5"` | `model_family: "phi"` | `model_family: "mistral"` | `model_family: "gemini"` | `model_family: "realtime"` |
+|-----------|------------------------|------------------------|----------------------|---------------------------|-------------------------|---------------------------|
+| **Max tokens parameter** | `max_tokens` | `max_completion_tokens` (auto-converted) | `max_tokens` | `max_tokens` | `max_tokens` | `max_response_output_tokens` |
+| **System message role** | `system` | `developer` | `system` | `system` | `system` | `instructions` (Realtime session config) |
+| **Sampling parameters** | Always sent (temperature, top_p, penalties) | Sent unless `reasoning_effort` is present | Always sent | Always sent | Always sent | `temperature` only |
+| **Seed parameter** | Sent if configured | Sent if configured | Sent if configured | Sent if configured | **Not sent** (unsupported) | **Not sent** |
+| **Last-message guard** | Not needed | Not needed | Not needed | Auto-appends a minimal `user` message if the last message is not `user` or `tool` (prevents Mistral error 3230) | Not needed | Not applicable |
+| **Prompt style** | Explicit chain-of-thought, verbose rules | Native reasoning, concise | Structured rules, explicit constraints, focused prompts | Detailed instructions, structured examples, few-shot | Explicit CoT, few-shot examples, structured output | Conversational, voice-optimised |
+| **Evaluation path** | Text chat/completions | Text chat/completions | Text chat/completions | Text chat/completions | Text chat/completions | TTS → Realtime WebSocket → Transcript |
 
-> **Auto-detection:** The client reads `model_family` and `backend` from the config and automatically converts `max_tokens` → `max_completion_tokens` and `system` → `developer` role for `gpt5` family models, applies the last-message guard for `mistral` family models, and routes requests to the Gemini OpenAI-compatible endpoint for `gemini` backend models.  No manual API changes needed.
+> **Auto-detection:** The client reads `model_family` and `backend` from the config and automatically converts `max_tokens` → `max_completion_tokens` and `system` → `developer` role for `gpt5` family models, applies the last-message guard for `mistral` family models, keeps standard `system`/`max_tokens` for `phi` family models, and routes requests to the Gemini OpenAI-compatible endpoint for `gemini` backend models.  No manual API changes needed.
 
 ### Reasoning vs. Non-Reasoning Models
 
