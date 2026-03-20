@@ -79,6 +79,26 @@ FAMILY_GUIDANCE: dict[str, str] = {
         "- Gemini excels at multilingual and multimodal tasks\n"
         "- Use temperature=0.1 for reproducibility"
     ),
+    "phi": (
+        "Phi family (SLM) — base best practices:\n"
+        "- Small Language Model (14B parameters) — compensate with explicit,\n"
+        "  well-structured instructions and concrete examples\n"
+        "- Use explicit Chain-of-Thought (CoT) reasoning instructions —\n"
+        "  Phi does NOT have native reasoning; spell out step-by-step logic\n"
+        "- Include 2-3 high-quality few-shot examples for consistency\n"
+        "- Keep prompts focused and well-organized with clear Markdown\n"
+        "  section headings — context window is 16K tokens (much smaller\n"
+        "  than GPT-4.1's 1M), so every token counts\n"
+        "- Be very explicit about JSON output schema with complete examples\n"
+        "  — include exact field names, types, and constraints\n"
+        "- Use standard 'system' role and 'max_tokens' (NOT developer role,\n"
+        "  NOT max_completion_tokens)\n"
+        "- Use temperature=0.1 for reproducibility; seed is NOT supported\n"
+        "- Primarily optimised for English; limited multilingual capability\n"
+        "- Excels at mathematical reasoning and complex logic\n"
+        "- Uses chat format with <|im_start|> / <|im_end|> tokens internally\n"
+        "  — structure prompts as clear system/user/assistant turns"
+    ),
     "realtime": (
         "Realtime (speech-to-speech) family — base best practices:\n"
         "- These are VOICE models — prompts are session 'instructions' sent\n"
@@ -252,6 +272,27 @@ MODEL_GUIDANCE: dict[str, str] = {
         "  high-volume production workloads"
     ),
 
+    # ── Phi family (SLMs) ──────────────────────────────────────────────
+    "Phi-4": (
+        "\nModel-specific guidance (Phi-4 — 14B SLM):\n"
+        "- State-of-the-art SLM specialising in complex reasoning, math,\n"
+        "  and structured output — outperforms many larger models on MATH\n"
+        "  and GPQA benchmarks\n"
+        "- 16K context window — keep prompts concise and prioritise the\n"
+        "  most critical rules; avoid embedding large reference documents\n"
+        "- Dense decoder-only Transformer (14B params) — strong quality\n"
+        "  for its size but needs more explicit guidance than frontier models\n"
+        "- Trained on high-quality synthetic data, academic books, and Q&A\n"
+        "  — particularly strong at logical reasoning and code (Python)\n"
+        "- Include complete JSON schema examples in the prompt — Phi-4\n"
+        "  follows schemas reliably when they are fully specified\n"
+        "- Explicit CoT prompting significantly improves multi-step tasks\n"
+        "- Few-shot examples (2-3) dramatically improve output consistency\n"
+        "- Cost-effective alternative for classification, extraction, and\n"
+        "  structured output tasks where frontier models are overkill\n"
+        "- MIT licensed — flexible for commercial use"
+    ),
+
     # ── Realtime (speech-to-speech) models ─────────────────────────────
     "gpt-realtime": (
         "\nModel-specific guidance (gpt-realtime — speech-to-speech):\n"
@@ -327,6 +368,8 @@ def resolve_model_family(
         return "realtime"
     if any(x in model_key.lower() for x in ("gpt5", "o1", "o3", "o4", "reasoning")):
         return "gpt5"
+    if any(x in model_key.lower() for x in ("phi",)):
+        return "phi"
     if any(x in model_key.lower() for x in ("mistral",)):
         return "mistral"
     if any(x in model_key.lower() for x in ("gemini",)):

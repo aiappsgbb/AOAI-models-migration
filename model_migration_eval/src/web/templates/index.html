@@ -400,7 +400,7 @@
                 // Populate Quick Evaluation model checkboxes dynamically
                 const cbContainer = document.getElementById('test-model-checkboxes');
                 if (cbContainer) {
-                    const familyColors = { gpt4: 'blue', gpt5: 'purple', mistral: 'amber' };
+                    const familyColors = { gpt4: 'blue', gpt5: 'purple', phi: 'teal', mistral: 'amber', gemini: 'emerald', realtime: 'rose' };
                     cbContainer.innerHTML = models.map(m => {
                         const color = familyColors[m.model_family] || 'blue';
                         return `<label class="flex items-center">
@@ -527,7 +527,7 @@
                 for (const [model, result] of Object.entries(data)) {
                     html += `<div class="mb-4 p-3 bg-white rounded border">`;
                     const mFamily = (availableModels.find(m => m.name === model) || {}).model_family;
-                    const mColor = mFamily === 'gpt5' ? 'purple' : mFamily === 'mistral' ? 'amber' : 'blue';
+                    const mColor = mFamily === 'gpt5' ? 'purple' : mFamily === 'phi' ? 'teal' : mFamily === 'mistral' ? 'amber' : mFamily === 'gemini' ? 'emerald' : mFamily === 'realtime' ? 'rose' : 'blue';
                     html += `<h4 class="font-bold text-${mColor}-600 mb-2">${displayName(model)}</h4>`;
                     
                     if (result.error) {

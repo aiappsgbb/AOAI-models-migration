@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "3111624060331789929"
+      "templateHash": "2542811489651626477"
     }
   },
   "parameters": {
@@ -179,6 +179,14 @@
         "version": "2025-03-20",
         "skuName": "GlobalStandard",
         "capacity": 100
+      },
+      {
+        "name": "Phi-4",
+        "model": "Phi-4",
+        "version": "2",
+        "format": "Microsoft",
+        "skuName": "GlobalStandard",
+        "capacity": 1
       }
     ],
     "voiceModelDeployments": [

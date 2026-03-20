@@ -67,12 +67,12 @@ azure:
       max_tokens: 16384
       reasoning_effort: "medium"  # low, medium, high
 
-#    mistral_large_3:
-#      deployment_name: "Mistral-Large-3"
-#      model_family: "mistral"
-#      model_version: "2025-03-01"
-#      max_tokens: 8192
-#      temperature: 0.1
+    mistral_large_3:
+      deployment_name: "Mistral-Large-3"
+      model_family: "mistral"
+      model_version: "2025-03-01"
+      max_tokens: 8192
+      temperature: 0.1
 
 #    gemini3_flash:
 #      deployment_name: "gemini-3-flash-preview"
@@ -82,6 +82,14 @@ azure:
 #      max_tokens: 8192
 #      temperature: 0.1
 #      max_concurrent: 1                       # Gemini free tier: 5 RPM, ~20 RPD — sequential to avoid 429
+
+    # ── Microsoft Phi (SLM) ────────────────────────────────────────
+    phi4:
+      deployment_name: "Phi-4"
+      model_family: "phi"
+      model_version: "2024-12-12"
+      max_tokens: 4096
+      temperature: 0.1
 
     # ── Speech-to-Speech (Realtime API) ────────────────────────────
     gpt_realtime_1:
@@ -201,6 +209,10 @@ cost_rates:
     input: 0.00015
     output: 0.0006
     cached_input: 0.0000375
+  phi4:
+    input: 0.00014
+    output: 0.00056
+    cached_input: 0.00007
   gpt_realtime_1:
     input: 0.005
     output: 0.02

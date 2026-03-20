@@ -5,7 +5,7 @@
 // Always creates all resources from scratch using a SINGLE AI Services
 // account (kind: AIServices) which:
 //   • Hosts all model deployments (gpt-4.1, gpt-4o, gpt-4.1-mini, gpt-5.4, gpt-5.1, gpt-5.2,
-//     gpt-realtime, gpt-realtime-1.5, gpt-4o-mini-tts)
+//     Phi-4, gpt-realtime, gpt-realtime-1.5, gpt-4o-mini-tts)
 //   • Acts as AI Foundry hub with a project for evaluations
 //   • Provides the OpenAI-compatible endpoint for the app
 //
@@ -97,6 +97,8 @@ var modelDeployments = [
   // TTS model — lives in the primary AI Services account because
   // gpt-4o-mini-tts is only available in eastus2 (not swedencentral).
   { name: 'gpt-4o-mini-tts', model: 'gpt-4o-mini-tts', version: '2025-03-20', skuName: 'GlobalStandard', capacity: 100 }
+  // Phi-4 SLM — Microsoft model catalog (format: 'Microsoft')
+  { name: 'Phi-4', model: 'Phi-4', version: '2', format: 'Microsoft', skuName: 'GlobalStandard', capacity: 1 }
   // Note: Mistral removed — requires Marketplace subscription agreement that
   // blocks the entire @batchSize(1) loop when it fails, preventing subsequent
   // resources (Foundry project) from being created.

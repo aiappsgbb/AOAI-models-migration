@@ -396,9 +396,13 @@ class AzureOpenAIClient:
             config = yaml.safe_load(f)
             
         models_config = config.get('azure', {}).get('models', {})
+        logger.info("register_models_from_config: found %d models in %s: %s",
+                     len(models_config), config_path, list(models_config.keys()))
         for name, params in models_config.items():
             # ModelConfig accepts 'backend' from YAML (defaults to "azure")
             self.register_model(name, ModelConfig(**params))
+        logger.info("register_models_from_config: registered %d models: %s",
+                     len(self.models), list(self.models.keys()))
             
     def enable_caching(self, cache_dir: str = ".cache/prompts"):
         """Enable response caching for repeated queries"""

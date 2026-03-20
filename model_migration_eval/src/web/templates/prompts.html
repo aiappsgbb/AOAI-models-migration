@@ -665,12 +665,29 @@
 
             $('model-selector').classList.toggle('hidden', view !== 'single');
 
-            // Force reload compare when switching to it so selectors refresh
-            if (view === 'compare') { viewLoaded.compare = false; }
+            // ── Compare view: always sync dropdowns with single-view selection ─
+            if (view === 'compare') {
+                viewLoaded.compare = false;
+                const cmpA = $('compare-model-a');
+                const cmpB = $('compare-model-b');
+                // Model A = the model the user was viewing in single view
+                if (currentModel) {
+                    cmpA.value = currentModel;
+                }
+                // Model B: pick a different model so A ≠ B
+                if (cmpA.value === cmpB.value) {
+                    const other = availableModels.find(m => m.name !== cmpA.value);
+                    if (other) cmpB.value = other.name;
+                }
+                // Load compare content for the active prompt type
+                if (currentPromptType) {
+                    loadComparePrompts(currentPromptType);
+                    viewLoaded.compare = true;
+                }
+            }
 
             // Only reload content the first time a tab is visited (preserves results on revisit)
             if (view === 'history' && !viewLoaded.history) { loadHistory(); viewLoaded.history = true; }
-            if (view === 'compare' && currentPromptType && !viewLoaded.compare) { loadComparePrompts(currentPromptType); viewLoaded.compare = true; }
             if (view === 'single' && currentPromptType && !viewLoaded.single) { loadSinglePrompt(currentModel, currentPromptType); viewLoaded.single = true; }
             if (view === 'data' && !viewLoaded.data) { loadDataOverview(); viewLoaded.data = true; }
         }
@@ -687,7 +704,7 @@
                     if (['templates', 'history', 'topics'].includes(model)) continue;
                     const mInfo = availableModels.find(m => m.name === model) || {};
                     const mFamily = mInfo.model_family || 'gpt4';
-                    const headColor = mFamily === 'gpt5' ? 'text-purple-700' : mFamily === 'gemini' ? 'text-emerald-700' : mFamily === 'mistral' ? 'text-amber-700' : 'text-blue-700';
+                    const headColor = mFamily === 'gpt5' ? 'text-purple-700' : mFamily === 'gemini' ? 'text-emerald-700' : mFamily === 'mistral' ? 'text-amber-700' : mFamily === 'phi' ? 'text-teal-700' : 'text-blue-700';
                     const section = document.createElement('div');
                     section.innerHTML = `
                         <h3 class="font-medium ${headColor} mb-2">${displayName(model) || model.toUpperCase()}</h3>
@@ -761,7 +778,7 @@
                 importTargets.innerHTML = availableModels.map(m => {
                     const checked = m.name !== srcVal ? 'checked' : '';
                     const familyLabel = (m.model_family || 'gpt4').toUpperCase();
-                    const familyBadgeColors = { gpt5: 'bg-purple-100 text-purple-700', mistral: 'bg-amber-100 text-amber-700', realtime: 'bg-rose-100 text-rose-700' };
+                    const familyBadgeColors = { gpt5: 'bg-purple-100 text-purple-700', mistral: 'bg-amber-100 text-amber-700', phi: 'bg-teal-100 text-teal-700', realtime: 'bg-rose-100 text-rose-700' };
                     const badgeClasses = familyBadgeColors[m.model_family] || 'bg-blue-100 text-blue-700';
                     const familyBadge = `<span class="ml-1 text-[9px] ${badgeClasses} px-1 rounded">${familyLabel}</span>`;
                     return `<label class="flex items-center text-xs cursor-pointer whitespace-nowrap">
@@ -804,6 +821,7 @@
                     const familyInfo = {
                         gpt4: { color: 'blue-600', traits: ['Explicit CoT instructions', 'Detailed formatting rules', 'More verbose examples'] },
                         gpt5: { color: 'purple-500', traits: ['Leverage native reasoning', 'Streamlined structure', 'YAML/JSON schemas'] },
+                        phi: { color: 'teal-600', traits: ['SLM (14B) — explicit CoT needed', 'Few-shot examples critical', '16K context — concise prompts', 'Strong math & reasoning'] },
                         gemini: { color: 'emerald-600', traits: ['Concise Markdown-style prompts', 'Relies on native multimodal understanding', 'Minimal few-shot — strong zero-shot performance'] },
                         mistral: { color: 'amber-600', traits: ['Explicit CoT + few-shot examples', 'Strong multilingual capability', 'Detailed JSON schema in prompt'] },
                         realtime: { color: 'rose-500', traits: ['Unclear audio handling with sample clarification phrases', 'Tool preambles before every function call', 'Variety rules to avoid robotic repetition', 'Classification outputs text-only JSON (no audio)'] },
@@ -876,7 +894,7 @@
                 const badge = $('prompt-model');
                 badge.textContent = displayName(model);
                 const mFamily = (availableModels.find(m => m.name === model) || {}).model_family;
-                badge.className = `px-3 py-1 rounded-full text-sm font-medium ${mFamily === 'gpt5' ? 'bg-purple-100 text-purple-800' : mFamily === 'gemini' ? 'bg-emerald-100 text-emerald-800' : mFamily === 'mistral' ? 'bg-amber-100 text-amber-800' : mFamily === 'realtime' ? 'bg-rose-100 text-rose-800' : 'bg-blue-100 text-blue-800'}`;
+                badge.className = `px-3 py-1 rounded-full text-sm font-medium ${mFamily === 'gpt5' ? 'bg-purple-100 text-purple-800' : mFamily === 'gemini' ? 'bg-emerald-100 text-emerald-800' : mFamily === 'mistral' ? 'bg-amber-100 text-amber-800' : mFamily === 'phi' ? 'bg-teal-100 text-teal-800' : mFamily === 'realtime' ? 'bg-rose-100 text-rose-800' : 'bg-blue-100 text-blue-800'}`;
                 $('prompt-readonly').innerHTML = `<pre class="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-lg overflow-auto max-h-[700px]">${esc(data.content)}</pre>`;
                 $('btn-toggle-edit').classList.remove('hidden');
                 // Pre-fill editor
