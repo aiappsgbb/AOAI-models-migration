@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "15782078974985677486"
+      "templateHash": "468911867401100534"
     }
   },
   "parameters": {
@@ -162,7 +162,7 @@
       {
         "name": "gpt-5.4-mini",
         "model": "gpt-5.4-mini",
-        "version": "2026-03-05",
+        "version": "2026-03-17",
         "skuName": "GlobalStandard",
         "capacity": 1000
       },
