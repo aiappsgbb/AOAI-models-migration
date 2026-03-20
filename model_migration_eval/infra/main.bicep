@@ -116,7 +116,9 @@ var voiceModelDeployments = [
 ]
 
 // Convert string param to bool (handles empty string from unset env var)
-var enableVoiceModels = toLower(deployVoiceModels) == 'true'
+// When the env var is unset, azd passes an empty string — treat that as 'true' (default).
+// Only skip voice models when explicitly set to 'false'.
+var enableVoiceModels = toLower(deployVoiceModels) != 'false'
 
 // Use the explicit realtimeLocation; falls back to param default (swedencentral)
 // if the env var is empty. Never use the primary 'location' — the primary

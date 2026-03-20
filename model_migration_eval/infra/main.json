@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "2542811489651626477"
+      "templateHash": "18217655833084418025"
     }
   },
   "parameters": {
@@ -205,7 +205,7 @@
         "capacity": 1
       }
     ],
-    "enableVoiceModels": "[equals(toLower(parameters('deployVoiceModels')), 'true')]",
+    "enableVoiceModels": "[not(equals(toLower(parameters('deployVoiceModels')), 'false'))]",
     "effectiveRealtimeLocation": "[if(not(empty(parameters('realtimeLocation'))), parameters('realtimeLocation'), 'swedencentral')]",
     "voiceAccountName": "[format('oai-voice-{0}-{1}', variables('envNameLower'), variables('resourceSuffix'))]",
     "tags": {
