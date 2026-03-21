@@ -44,7 +44,7 @@ This framework automates that process end-to-end:
 | **Results Persistence** | Evaluations and comparisons auto-save to disk — browse, filter, inspect, and delete from the UI |
 | **Verbose Logging** | Rich narrative verbose mode with colour-coded entries (step/ok/warn/err/detail/head) and timestamped progress feed |
 | **Foundry Control Plane** | Optional LLM-as-judge evaluation via Microsoft Foundry Runtime — coherence, fluency, relevance, task adherence, intent resolution — with results visible in the Foundry dashboard |
-| **Multi-User Auth** | Email + OTP authentication with per-user content isolation — each user gets their own prompts, test data, and results |
+| **Multi-User Auth** | Email + OTP authentication with per-user content isolation — each user gets their own prompts, test data, and results.  **Auto-seeding** ensures newly-added models receive prompts matching the user's active topic on next login |
 | **Copilot Studio UI** | Fluent 2 design system inspired by Microsoft Copilot Studio — top header bar, collapsible sidebar, brand-blue palette, flat controls, Segoe UI typography |
 | **Auto-Detection** | SDK automatically uses `max_completion_tokens` for newer-generation and o-series models |
 
@@ -1669,16 +1669,13 @@ prompts/my_new_model/
 
 > **Tip:** Copy from an existing model with the same family.  For example, if your new model is GPT-4-family, copy from `prompts/gpt4/`.
 
-> **⚠️ Per-user prompt directories:** Each user has their own prompt directory under `data/users/<user_id>/prompts/<model_key>/`.  When a user logs in for the first time, prompts are seeded from the global `prompts/` directory.  However, **if you add a new model after users have already logged in**, their per-user directories will **not** be populated automatically.  You must either:
+> **✅ Auto-seeding for new models:** Each user has their own prompt directory under `data/users/<user_id>/prompts/<model_key>/`.  When a user logs in for the first time, prompts are seeded from the global `prompts/` directory.  If you **add a new model after users have already logged in**, the system handles it automatically on their next login:
 >
-> 1. **Copy the prompt files manually** into each existing user's directory:
->    ```bash
->    # Example: copy gpt5 prompts to a new gpt52 model for an existing user
->    cp prompts/gpt52/* data/users/angels_at_microsoft_com/prompts/gpt52/
->    ```
-> 2. **Or use the Prompts page** in the web UI — it will detect the missing prompts and offer to seed them from the best matching model.
+> 1. `ensure_dirs` creates the empty model directory.
+> 2. `seed_from_shared` copies default prompts from the global `prompts/<model_key>/` directory (idempotent — only copies if no `.md` files exist).
+> 3. `seed_new_models_from_active_topic` checks the user's **active topic archive** and overwrites the defaults with topic-specific prompts, so the user never sees a topic mismatch.
 >
-> Without prompt files in the per-user directory, the model will fail with **"Prompt template not found"** when running evaluations.
+> This also works after a **container restart** with blob storage restore — the same three steps run to patch any models added since the user data was last persisted.
 
 If you skip this step, the **prompt fallback chain** kicks in automatically:
 
@@ -2481,7 +2478,7 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 | `UserStore` | `src.auth.user_store` | SQLite-backed user store — get_or_create, email-to-slug conversion |
 | `CodeManager` | `src.auth.code_manager` | OTP generation (SHA-256 hashed), verification with TTL and attempt limits |
 | `EmailSender` | `src.auth.email_sender` | Abstract email backend — `SmtpEmailSender` (production) + `ConsoleEmailSender` (dev) |
-| `UserContext` | `src.auth.user_context` | Per-user directory layout, path resolution, and first-login seeding |
+| `UserContext` | `src.auth.user_context` | Per-user directory layout, path resolution, first-login seeding, and **auto-seeding of newly-added models** (copies defaults then patches from the user's active topic archive) |
 | `AzureOpenAIClient` | `src.clients.azure_openai` | Wraps the OpenAI SDK — connection management, chat completions, streaming.  Supports Azure OpenAI, Marketplace models (Mistral), and Google Gemini via `model_family` + `backend`-based routing |
 | `TTSClient` | `src.clients.tts_client` | Text-to-Speech client — converts text to PCM16 24 kHz mono audio via `gpt-4o-mini-tts`.  Disk cache (`.cache/tts_audio/`) avoids redundant TTS calls |
 | `RealtimeClient` | `src.clients.realtime_client` | Realtime WebSocket client — sends PCM16 audio to the Azure OpenAI Realtime API, collects transcript + audio response + tool calls |
