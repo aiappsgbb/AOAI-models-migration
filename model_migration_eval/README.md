@@ -153,6 +153,7 @@ model_migration_eval/
 │   ├── utils/
 │   │   ├── prompt_loader.py        # PromptLoader — template loading with caching
 │   │   ├── prompt_manager.py       # PromptManager — editing, versioning, AI gen, topics
+│   │   ├── model_guidance.py       # Two-tier prompt-engineering guidance (family + deployment)
 │   │   └── data_loader.py          # DataLoader — synthetic scenario loading
 │   └── web/
 │       ├── routes.py               # Flask API routes (2100+ lines, 55+ routes)
@@ -165,7 +166,7 @@ model_migration_eval/
 │           ├── compare.html         # Model comparison with charts
 │           ├── results.html         # Results browser with filters & delete
 │           ├── prompts.html         # Prompt Manager (edit, generate, history, data explorer)
-│           └── import_samples.html  # JSON & CSV import samples reference page
+│           └── import_samples.html  # Import samples + prompt generation best practices
 │
 ├── tools/
 │   ├── add_model.py                 # CLI tool: add a new model (interactive or scripted)
@@ -330,7 +331,7 @@ The UI follows the **Microsoft Copilot Studio** visual language — a **Fluent 2
 | **Compare** | ⚖️ | `/compare` | Head-to-head or **batch multi-model** comparison (Model A vs one or more Model B's) with dimension-by-dimension charts and summary table |
 | **Results** | 📋 | `/results` | Browse, filter, inspect, and delete all saved evaluation/comparison results |
 | **Prompts** | ✏️ | `/prompts` | Full prompt lifecycle: view, edit, AI-generate, version history, and test data explorer |
-| **Import Samples** | 📄 | `/import-samples` | JSON & CSV sample files for all 5 task types — copyable examples with field reference (opens from the Prompts page "Samples" link) |
+| **Import Samples & Prompts** | 📄 | `/import-samples` | JSON & CSV sample files for all 5 task types, plus prompt generation best practices — two-tier model guidance architecture, per-model differences table, and official documentation sources (opens from the Prompts page "Samples & Prompts" link) |
 
 ### Verbose Mode
 
@@ -434,7 +435,7 @@ The Prompts page has four sub-tabs:
 | **Version History** | Filter, preview, restore, or delete (single/bulk) any past prompt version |
 | **Test Data** | Browse, create, and edit test scenarios for all 5 evaluation types via **dynamic web forms** — each type gets a purpose-built form with specialised sub-editors (conversation turns, tool definitions, key-value context, tag lists). Toggle to raw JSON view for advanced editing |
 
-Additionally, the left sidebar includes an **📥 Import Topic** panel with a **Samples** link that opens a reference page (`/import-samples`) showing copyable JSON and CSV examples for all 5 task types (see [Importing External Topics](#importing-external-topics) below).
+Additionally, the left sidebar includes an **📥 Import Topic** panel with a **Samples & Prompts** link that opens a reference page (`/import-samples`) showing copyable JSON and CSV examples for all 5 task types, plus a comprehensive section on prompt generation best practices — the two-tier model guidance architecture, a per-model differences comparison table, and links to official documentation sources for each model family (see [Importing External Topics](#importing-external-topics) below).
 
 ---
 
@@ -829,7 +830,7 @@ If you already have your own system prompt and test data, you can import them di
 #### From the Web UI
 
 1. Go to **Prompts** → sidebar → **📥 Import Topic**.
-2. Click the **Samples** link next to the heading to see copyable JSON and CSV examples for every task type.
+2. Click the **Samples & Prompts** link next to the heading to see copyable JSON and CSV examples for every task type, plus prompt generation best practices.
 3. Enter a **topic name** (e.g. *"Insurance Claims Processing"*).
 4. Upload one or more source model prompts:
    - **Classification prompt** (`.txt` / `.md`)
@@ -845,7 +846,7 @@ If you already have your own system prompt and test data, you can import them di
 6. Select the **generator model** for target prompt creation.
 7. Click **📥 Import Topic**.
 
-> **CSV import:** CSV files are parsed via `csv.DictReader` and automatically converted to JSON on import.  The canonical storage format is always JSON.  See the [Import Samples page](#) (`/import-samples`) for format details and copy-ready examples.
+> **CSV import:** CSV files are parsed via `csv.DictReader` and automatically converted to JSON on import.  The canonical storage format is always JSON.  See the [Import Samples & Prompts page](#) (`/import-samples`) for format details, copy-ready examples, and prompt generation best practices.
 
 The system validates the prompt(s) and test data, generates optimised prompts **in parallel** (via `ThreadPoolExecutor`) for all target models with multi-layer category alignment, priority/sentiment normalisation, and error-resilient execution, then writes everything as an archived topic.  Activate it from the topic selector to start running evaluations.
 
@@ -1383,7 +1384,7 @@ gemini:
 | Parameter | Description | Notes |
 |-----------|-------------|-------|
 | `deployment_name` | Deployment name in Azure AI Foundry (or model name for Gemini) | As shown in Azure Portal → Deployments |
-| `model_family` | Prompt-style family grouping | `gpt4`, `gpt5`, `phi`, `mistral`, or `gemini` — determines API behaviour (see below) |
+| `model_family` | Prompt-style family grouping | `gpt4`, `gpt5`, `phi`, `mistral`, `gemini`, or `realtime` — determines API behaviour (see below) |
 | `backend` | API backend to use | `azure` (default) or `gemini` — `gemini` routes to Google’s OpenAI-compat endpoint |
 | `model_version` | Model version string | From deployment details |
 | `max_tokens` | Maximum response tokens | Model-dependent |
@@ -1460,29 +1461,26 @@ Realtime models evaluate voice model quality by converting text test cases to au
 
 #### Architecture: TTS → Realtime WebSocket → Transcript → Metrics
 
-```
-                                         ┌──────────────────────────┐
-  Text Test Case                         │  Azure OpenAI            │
-  "My bill is too high"                  │  Realtime API            │
-         │                               │  (WebSocket)             │
-         ▼                               │                          │
-  ┌──────────────┐   PCM16 audio         │  ┌────────────────────┐  │
-  │  TTS Client  │ ───────────────────► │  │ gpt-realtime(-1.5) │  │
-  │  gpt-4o-     │   24 kHz mono        │  │                    │  │
-  │  mini-tts    │                       │  │  audio + text      │  │
-  └──────────────┘                       │  │  response          │  │
-         │                               │  └────────────────────┘  │
-    .cache/tts_audio/                    │           │              │
-    (disk cache)                         └───────────┼──────────────┘
-                                                     │
-                                                     ▼
-                                              Transcript text
-                                                     │
-                                                     ▼
-                                          ┌──────────────────┐
-                                          │ MetricsCalculator │
-                                          │ (same as text)    │
-                                          └──────────────────┘
+```mermaid
+flowchart LR
+    A["📝 Text Test Case<br/><i>'My bill is too high'</i>"] --> B["🔊 TTS Client<br/>gpt-4o-mini-tts"]
+    B -- "PCM16 audio<br/>24 kHz mono" --> D["🎙️ gpt-realtime(-1.5)"]
+    B -.-> C[("💾 .cache/tts_audio/<br/>disk cache")]
+
+    subgraph RT["Azure OpenAI Realtime API (WebSocket)"]
+        D
+    end
+
+    D -- "audio + text<br/>response" --> E["📜 Transcript text"]
+    E --> F["📊 MetricsCalculator<br/><i>(same as text models)</i>"]
+
+    style A fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    style B fill:#fef3c7,stroke:#d97706,color:#78350f
+    style C fill:#f3f4f6,stroke:#9ca3af,color:#374151
+    style RT fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    style D fill:#ddd6fe,stroke:#7c3aed,color:#4c1d95
+    style E fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    style F fill:#d1fae5,stroke:#059669,color:#064e3b
 ```
 
 #### Prerequisites
@@ -1621,7 +1619,7 @@ python tools/add_model.py \
 |-----------|:--------:|-------------|
 | `--key` | ✅ | Internal model key (e.g. `gpt45`, `o4_mini`) — becomes API/CLI name and prompt directory |
 | `--deployment` | ✅ | Azure deployment name as shown in AI Foundry portal |
-| `--family` | ✅ | `gpt4`, `gpt5`, `mistral`, or `gemini` — determines API behaviour (see Model Family table above) |
+| `--family` | ✅ | `gpt4`, `gpt5`, `phi`, `mistral`, `gemini`, or `realtime` — determines API behaviour (see Model Family table above) |
 | `--model-version` | — | Model version string from deployment details |
 | `--max-tokens` | — | Max response tokens (default: 4096 for gpt4, 16384 for gpt5) |
 | `--temperature` | — | 0.0–2.0 (default: 0.1; omitted automatically for reasoning models) |
@@ -1647,7 +1645,7 @@ If you prefer to configure manually, add a model in **2 steps**:
 ```yaml
     my_new_model:
       deployment_name: "gpt-4o-mini"   # Your deployment name in Azure AI Foundry
-      model_family: "gpt4"             # "gpt4", "gpt5", or "mistral"
+      model_family: "gpt4"             # "gpt4", "gpt5", "phi", "mistral", "gemini", or "realtime"
       model_version: "2024-07-18"
       max_tokens: 4096
       temperature: 0.1
@@ -1742,22 +1740,33 @@ The framework optionally integrates with [Microsoft Foundry](https://ai.azure.co
 
 ### Architecture: Dual-Write
 
-```
- Local evaluation (fast, free)           Foundry Runtime (LLM-as-judge)
- ┌──────────────┐                        ┌──────────────────────────┐
- │ evaluator.py │──► metrics.py ──►  UI  │  Foundry Control Plane   │
- │ (sklearn,    │       │                │  ┌────────────────────┐  │
- │  numpy)      │       │                │  │ coherence          │  │
- └──────────────┘       │                │  │ fluency            │  │
-                        ▼                │  │ relevance          │  │
-                 foundry_evaluator.py ──►│  │ task_adherence     │  │
-                  export JSONL           │  │ similarity         │  │
-                  upload dataset         │  │ intent_resolution  │  │
-                  create eval + run      │  │ response_complete. │  │
-                                         │  └────────────────────┘  │
-                                         │                          │
-                                         │   📊 report_url          │
-                                         └──────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph LOCAL["Local Evaluation (fast, free)"]
+        A["evaluator.py<br/><i>sklearn, numpy</i>"] --> B["metrics.py"]
+    end
+
+    B --> C["🖥️ Web UI"]
+    B --> D["foundry_evaluator.py"]
+
+    D -- "export JSONL<br/>upload dataset<br/>create eval + run" --> E
+
+    subgraph FOUNDRY["Foundry Runtime (LLM-as-judge)"]
+        E["Foundry Control Plane"]
+        F["Built-in Evaluators<br/><i>coherence · fluency · relevance<br/>task_adherence · similarity<br/>intent_resolution<br/>response_completeness</i>"]
+        E --> F
+        F --> G["📊 report_url"]
+    end
+
+    style LOCAL fill:#d1fae5,stroke:#059669,color:#064e3b
+    style A fill:#bbf7d0,stroke:#059669,color:#064e3b
+    style B fill:#bbf7d0,stroke:#059669,color:#064e3b
+    style C fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    style D fill:#fef3c7,stroke:#d97706,color:#78350f
+    style FOUNDRY fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    style E fill:#ddd6fe,stroke:#7c3aed,color:#4c1d95
+    style F fill:#ddd6fe,stroke:#7c3aed,color:#4c1d95
+    style G fill:#ddd6fe,stroke:#7c3aed,color:#4c1d95
 ```
 
 **Local metrics stay intact** — latency, cost, consistency, classification accuracy (sklearn), empathy/rule heuristics.  Foundry **adds** semantic quality metrics that an LLM evaluates (coherence, fluency, relevance, task adherence).
@@ -1902,31 +1911,65 @@ The project uses **[Azure Developer CLI (azd)](https://learn.microsoft.com/azure
 
 ### Infrastructure Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Resource Group  (rg-<environmentName>)                             │
-│                                                                     │
-│  ┌──────────────┐  ┌──────────────────────┐  ┌───────────────────┐ │
-│  │  Log         │  │  Application         │  │  Container Apps   │ │
-│  │  Analytics   │  │  Insights            │  │  Environment      │ │
-│  │  Workspace   │  │  + Dashboard         │  │  (cae-…)          │ │
-│  └──────┬───────┘  └──────────┬───────────┘  └────────┬──────────┘ │
-│         │                     │                       │            │
-│         └─────────────────────┼───────────────────────┘            │
-│                               │                                    │
-│  ┌──────────────┐  ┌──────────┴───────────┐  ┌───────────────────┐ │
-│  │  Azure       │  │  Container App       │  │  User-Assigned    │ │
-│  │  Container   │  │  (web service)       │  │  Managed Identity │ │
-│  │  Registry    │  │  Flask on port 5000  │  │  (id-web-…)       │ │
-│  └──────────────┘  └──────────────────────┘  └───────────────────┘ │
-│                                                                     │
-│  RBAC role assignments (automatic):                                         │
-│  • Cognitive Services OpenAI Contributor + User → AI Services account       │
-│  • Azure AI Developer + User → AI Foundry project                           │
-│  • Storage Blob Data Contributor → Storage Account                          │
-│  • AcrPull → Container Registry                                             │
-│  • (Optional) OpenAI Contributor + User → Dedicated Realtime/TTS endpoint   │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph RG["Resource Group (rg-&lt;environmentName&gt;)"]
+        direction TB
+
+        subgraph MONITOR["Monitoring"]
+            LOG["📋 Log Analytics<br/>Workspace"]
+            AI["📈 Application Insights<br/>+ Dashboard"]
+        end
+
+        subgraph COMPUTE["Compute"]
+            CAE["☁️ Container Apps<br/>Environment (cae-…)"]
+            CA["🐳 Container App<br/>Flask on port 5000"]
+            CAE --> CA
+        end
+
+        subgraph IDENTITY["Identity & Registry"]
+            ACR["📦 Azure Container<br/>Registry (Basic)"]
+            MI["🔑 User-Assigned<br/>Managed Identity<br/>(id-web-…)"]
+        end
+
+        subgraph STORAGE["Persistence"]
+            SA["💾 Storage Account<br/>GPv2 + blob 'userdata'"]
+        end
+
+        LOG --> AI
+        AI --> CA
+        ACR -- "AcrPull" --> CA
+        MI -- "DefaultAzureCredential" --> CA
+    end
+
+    subgraph RBAC["🛡️ RBAC Role Assignments (automatic)"]
+        R1["Cognitive Services OpenAI<br/>Contributor + User<br/>→ AI Services account"]
+        R2["Azure AI Developer + User<br/>→ AI Foundry project"]
+        R3["Storage Blob Data Contributor<br/>→ Storage Account"]
+        R4["AcrPull<br/>→ Container Registry"]
+        R5["<i>(Optional)</i> OpenAI Contributor + User<br/>→ Dedicated Realtime/TTS endpoint"]
+    end
+
+    MI -.-> RBAC
+
+    style RG fill:#f0f9ff,stroke:#0284c7,color:#0c4a6e
+    style MONITOR fill:#fef3c7,stroke:#d97706,color:#78350f
+    style LOG fill:#fef9c3,stroke:#d97706,color:#78350f
+    style AI fill:#fef9c3,stroke:#d97706,color:#78350f
+    style COMPUTE fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    style CAE fill:#ddd6fe,stroke:#7c3aed,color:#4c1d95
+    style CA fill:#ddd6fe,stroke:#7c3aed,color:#4c1d95
+    style IDENTITY fill:#d1fae5,stroke:#059669,color:#064e3b
+    style ACR fill:#bbf7d0,stroke:#059669,color:#064e3b
+    style MI fill:#bbf7d0,stroke:#059669,color:#064e3b
+    style STORAGE fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    style SA fill:#bfdbfe,stroke:#0284c7,color:#0c4a6e
+    style RBAC fill:#fce7f3,stroke:#db2777,color:#831843
+    style R1 fill:#fbcfe8,stroke:#db2777,color:#831843
+    style R2 fill:#fbcfe8,stroke:#db2777,color:#831843
+    style R3 fill:#fbcfe8,stroke:#db2777,color:#831843
+    style R4 fill:#fbcfe8,stroke:#db2777,color:#831843
+    style R5 fill:#fbcfe8,stroke:#db2777,color:#831843
 ```
 
 The Bicep templates are located in the `infra/` folder:
@@ -2470,6 +2513,163 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 ---
 
 ## 🏗️ Architecture
+
+### System Architecture Diagram
+
+```mermaid
+graph TB
+    %% ── User Layer ──────────────────────────────────────────
+    User([👤 User / Browser])
+
+    %% ── Web Layer ───────────────────────────────────────────
+    subgraph WEB["🌐 Web Layer (Flask)"]
+        direction TB
+        Routes["routes.py<br/>55+ REST endpoints"]
+        Templates["Fluent 2 Templates<br/>HTML + Tailwind + Chart.js"]
+        Auth["Auth Module<br/>Email + OTP sessions"]
+    end
+
+    %% ── Business Logic Layer ────────────────────────────────
+    subgraph LOGIC["⚙️ Business Logic"]
+        direction TB
+        Evaluator["ModelEvaluator<br/>Classification · Dialog<br/>General · RAG · Tool Calling"]
+        RTEvaluator["RealtimeEvaluator<br/>TTS → WebSocket → Transcript"]
+        Comparator["ModelComparator<br/>Head-to-head & batch<br/>Statistical significance"]
+        Metrics["MetricsCalculator<br/>Accuracy · F1 · Latency<br/>Cost · Consistency"]
+        FoundryEval["FoundryEvaluator<br/>LLM-as-judge<br/>(optional)"]
+    end
+
+    %% ── Prompt Engineering Layer ────────────────────────────
+    subgraph PROMPTS["📝 Prompt Engineering"]
+        direction TB
+        PromptMgr["PromptManager<br/>AI generation · Versioning<br/>Topics · Data sync"]
+        Guidance["ModelGuidance<br/>Two-tier guidance<br/>Family + Deployment"]
+        PromptLoader["PromptLoader<br/>Template loading<br/>Caching · Fallback chain"]
+        DataLoader["DataLoader<br/>JSON/CSV scenarios<br/>Auto-normalisation"]
+    end
+
+    %% ── Client Layer ────────────────────────────────────────
+    subgraph CLIENTS["🔌 API Clients"]
+        direction TB
+        AOAIClient["AzureOpenAIClient<br/>Chat completions<br/>Multi-backend routing"]
+        TTSClient["TTSClient<br/>Text → PCM16 audio<br/>Disk cache"]
+        RTClient["RealtimeClient<br/>WebSocket sessions<br/>Audio I/O"]
+    end
+
+    %% ── External Services ───────────────────────────────────
+    subgraph AZURE["☁️ Azure AI Services"]
+        direction TB
+        GPT4["GPT-4.x<br/>GPT-4o · 4.1 · 4.1-mini"]
+        GPT5["GPT-5.x<br/>5.4 · 5.4-mini · 5.1 · 5.2"]
+        Realtime["Realtime API<br/>gpt-realtime · 1.5"]
+        TTS["TTS<br/>gpt-4o-mini-tts"]
+        Foundry["Microsoft Foundry<br/>Control Plane"]
+    end
+
+    subgraph EXTERNAL["🌍 External Models"]
+        direction TB
+        Mistral["Mistral-Large-3<br/>Azure Marketplace"]
+        Phi["Phi-4 SLM<br/>Azure Model Catalog"]
+        Gemini["Gemini 3 Flash<br/>Google AI"]
+    end
+
+    %% ── Storage Layer ───────────────────────────────────────
+    subgraph STORAGE["💾 Storage"]
+        direction TB
+        UserData["Per-user directories<br/>prompts · data · results"]
+        AuthDB["auth.db<br/>SQLite users"]
+        BlobStore["Azure Blob Storage<br/>(cloud deployment)"]
+        Cache["diskcache<br/>API response cache"]
+    end
+
+    %% ── Connections ─────────────────────────────────────────
+    User --> WEB
+    Routes --> Auth
+    Routes --> Templates
+
+    Routes --> Evaluator
+    Routes --> RTEvaluator
+    Routes --> Comparator
+    Routes --> PromptMgr
+
+    Evaluator --> Metrics
+    Evaluator --> AOAIClient
+    Evaluator --> FoundryEval
+    RTEvaluator --> TTSClient
+    RTEvaluator --> RTClient
+    RTEvaluator --> Metrics
+    Comparator --> Evaluator
+
+    PromptMgr --> Guidance
+    PromptMgr --> PromptLoader
+    PromptMgr --> AOAIClient
+    Evaluator --> PromptLoader
+    Evaluator --> DataLoader
+
+    AOAIClient --> GPT4
+    AOAIClient --> GPT5
+    AOAIClient --> Mistral
+    AOAIClient --> Phi
+    AOAIClient --> Gemini
+    TTSClient --> TTS
+    RTClient --> Realtime
+    FoundryEval --> Foundry
+
+    Auth --> AuthDB
+    PromptMgr --> UserData
+    DataLoader --> UserData
+    Evaluator --> UserData
+    UserData -.-> BlobStore
+    AOAIClient --> Cache
+
+    %% ── Styles ──────────────────────────────────────────────
+    classDef webStyle fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px,color:#1e1b4b
+    classDef logicStyle fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#831843
+    classDef promptStyle fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#064e3b
+    classDef clientStyle fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef azureStyle fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef extStyle fill:#f3e8ff,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef storageStyle fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#1e293b
+
+    class Routes,Templates,Auth webStyle
+    class Evaluator,RTEvaluator,Comparator,Metrics,FoundryEval logicStyle
+    class PromptMgr,Guidance,PromptLoader,DataLoader promptStyle
+    class AOAIClient,TTSClient,RTClient clientStyle
+    class GPT4,GPT5,Realtime,TTS,Foundry azureStyle
+    class Mistral,Phi,Gemini extStyle
+    class UserData,AuthDB,BlobStore,Cache storageStyle
+```
+
+### Component Description
+
+| Layer | Component | Description |
+|-------|-----------|-------------|
+| **🌐 Web** | `routes.py` | Flask API layer — 55+ REST endpoints for evaluation, comparison, prompt management, topic CRUD, auth, and health checks. Async job support via HTTP 202 + polling |
+| **🌐 Web** | Fluent 2 Templates | 9 HTML pages (Dashboard, Evaluate, Compare, Results, Prompts, Import Samples, Login) styled with Tailwind CSS + Fluent 2 design tokens + Chart.js charts |
+| **🌐 Web** | Auth Module | Email + OTP authentication (`UserStore`, `CodeManager`, `EmailSender`, `session.py`) with per-user content isolation and auto-seeding of new models |
+| **⚙️ Logic** | `ModelEvaluator` | Runs batch evaluations for a single model across 5 text task types (classification, dialog, general, RAG, tool calling). Parallel scenario execution via `ThreadPoolExecutor` |
+| **⚙️ Logic** | `RealtimeEvaluator` | Voice model pipeline: TTS → Realtime WebSocket → transcript extraction → standard metrics. Adds audio-specific metrics (TTFA, session time, audio tokens, TTS cache) |
+| **⚙️ Logic** | `ModelComparator` | Compares two models (or batch: 1-vs-N) dimension by dimension with percentage change, Welch's t-test significance, winner determination, and actionable recommendations |
+| **⚙️ Logic** | `MetricsCalculator` | Computes all metrics: classification (accuracy, F1, kappa, confusion matrix), dialog (empathy, rule compliance, resolution efficiency), RAG (groundedness, relevance), tool calling (selection + parameter accuracy), latency, cost, consistency |
+| **⚙️ Logic** | `FoundryEvaluator` | Optional integration with Microsoft Foundry Control Plane — uploads JSONL datasets, creates LLM-as-judge evaluations (coherence, fluency, relevance, task adherence), polls for results |
+| **📝 Prompts** | `PromptManager` | Full prompt lifecycle: AI generation (4 types × N models), versioning with timestamped snapshots, topic archival/activation, data sync detection, selective regeneration, JSON sanitisation & retry |
+| **📝 Prompts** | `ModelGuidance` | Two-tier prompt-engineering guidance — family-level base practices (6 families) merged with deployment-specific addenda (15+ models). Single source of truth consumed by the AI generator |
+| **📝 Prompts** | `PromptLoader` | Loads prompt templates from disk with mtime-validated in-memory cache and 3-level fallback chain (user → global → base model → templates) |
+| **📝 Prompts** | `DataLoader` | Loads test scenarios from JSON or CSV with auto-normalisation of legacy schemas, automatic CSV fallback, and pipe-separated field parsing |
+| **🔌 Clients** | `AzureOpenAIClient` | Unified client for all text models — routes to Azure OpenAI, Azure Marketplace (Mistral), or Google Gemini based on `model_family` + `backend`. Handles `max_tokens` ↔ `max_completion_tokens`, `system` ↔ `developer` role, Mistral last-message guard, and Gemini-specific retry with backoff |
+| **🔌 Clients** | `TTSClient` | Converts text to PCM16 24 kHz mono audio via `gpt-4o-mini-tts` with disk-based caching (`.cache/tts_audio/`). Avoids redundant TTS calls on evaluation re-runs |
+| **🔌 Clients** | `RealtimeClient` | WebSocket client for the Azure OpenAI Realtime API — sends audio, receives transcript + audio response + tool calls, measures TTFA and session timing |
+| **☁️ Azure** | GPT-4.x / GPT-5.x | Azure OpenAI text model deployments — from GPT-4o/4.1/4.1-mini to GPT-5.4/5.4-mini/5.1/5.2 and reasoning variants (o1, o3, o4-mini) |
+| **☁️ Azure** | Realtime API | Speech-to-speech via WebSocket — `gpt-realtime` and `gpt-realtime-1.5` with VAD turn detection |
+| **☁️ Azure** | TTS | `gpt-4o-mini-tts` — text-to-speech synthesis for the voice evaluation pipeline |
+| **☁️ Azure** | Microsoft Foundry | Control Plane for LLM-as-judge evaluations — coherence, fluency, relevance, task adherence, safety |
+| **🌍 External** | Mistral-Large-3 | Azure AI Marketplace model — 128K context, multilingual, parallel tool calling |
+| **🌍 External** | Phi-4 SLM | Microsoft Small Language Model (14B params) — Azure Model Catalog, MIT licensed |
+| **🌍 External** | Gemini 3 Flash | Google AI model via OpenAI-compatible API — 1M context, multimodal, `reasoning_effort` support |
+| **💾 Storage** | Per-user directories | Isolated file trees under `data/users/<id>/` — prompts, synthetic test data, evaluation results, topic archives |
+| **💾 Storage** | `auth.db` | SQLite database — user records, OTP hashes, session metadata. Thread-safe per-thread connections |
+| **💾 Storage** | Azure Blob Storage | Cloud persistence for containerised deployments — `userdata` blob container synced on startup/shutdown |
+| **💾 Storage** | `diskcache` | Local response cache for API calls — reduces cost and latency on repeated evaluations |
 
 ### Core Classes
 
