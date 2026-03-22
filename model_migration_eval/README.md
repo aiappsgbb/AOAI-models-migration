@@ -1913,27 +1913,27 @@ The project uses **[Azure Developer CLI (azd)](https://learn.microsoft.com/azure
 
 ```mermaid
 flowchart TB
-    subgraph RG["Resource Group (rg-&lt;environmentName&gt;)"]
+    subgraph RG["Resource Group rg-environmentName"]
         direction TB
 
         subgraph MONITOR["Monitoring"]
-            LOG["📋 Log Analytics<br/>Workspace"]
-            AI["📈 Application Insights<br/>+ Dashboard"]
+            LOG["Log Analytics Workspace"]
+            AI["Application Insights + Dashboard"]
         end
 
         subgraph COMPUTE["Compute"]
-            CAE["☁️ Container Apps<br/>Environment (cae-…)"]
-            CA["🐳 Container App<br/>Flask on port 5000"]
+            CAE["Container Apps Environment"]
+            CA["Container App - Flask port 5000"]
             CAE --> CA
         end
 
-        subgraph IDENTITY["Identity & Registry"]
-            ACR["📦 Azure Container<br/>Registry (Basic)"]
-            MI["🔑 User-Assigned<br/>Managed Identity<br/>(id-web-…)"]
+        subgraph IDENTITY["Identity and Registry"]
+            ACR["Azure Container Registry"]
+            MI["User-Assigned Managed Identity"]
         end
 
         subgraph STORAGE["Persistence"]
-            SA["💾 Storage Account<br/>GPv2 + blob 'userdata'"]
+            SA["Storage Account GPv2 + blob userdata"]
         end
 
         LOG --> AI
@@ -1942,12 +1942,12 @@ flowchart TB
         MI -- "DefaultAzureCredential" --> CA
     end
 
-    subgraph RBAC["🛡️ RBAC Role Assignments (automatic)"]
-        R1["Cognitive Services OpenAI<br/>Contributor + User<br/>→ AI Services account"]
-        R2["Azure AI Developer + User<br/>→ AI Foundry project"]
-        R3["Storage Blob Data Contributor<br/>→ Storage Account"]
-        R4["AcrPull<br/>→ Container Registry"]
-        R5["<i>(Optional)</i> OpenAI Contributor + User<br/>→ Dedicated Realtime/TTS endpoint"]
+    subgraph RBAC["RBAC Role Assignments - automatic"]
+        R1["Cognitive Services OpenAI Contributor + User → AI Services"]
+        R2["Azure AI Developer + User → AI Foundry project"]
+        R3["Storage Blob Data Contributor → Storage Account"]
+        R4["AcrPull → Container Registry"]
+        R5["Optional: OpenAI Contributor + User → Realtime/TTS endpoint"]
     end
 
     MI -.-> RBAC
