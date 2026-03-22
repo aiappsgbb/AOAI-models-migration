@@ -160,7 +160,7 @@
                         </h2>
                         <a href="/import-samples" target="_blank" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
                             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                            Samples
+                            Samples &amp; Prompts
                         </a>
                     </div>
                     <p class="text-xs text-gray-500 mb-3">Import an external topic from your own prompt(s) and test data files. Optimised prompts will be generated automatically for each target model following its best practices.</p>
@@ -702,6 +702,8 @@
 
                 for (const [model, prompts] of Object.entries(data)) {
                     if (['templates', 'history', 'topics'].includes(model)) continue;
+                    // Only show prompts for models that are active in settings.yaml
+                    if (!availableModels.find(m => m.name === model)) continue;
                     const mInfo = availableModels.find(m => m.name === model) || {};
                     const mFamily = mInfo.model_family || 'gpt4';
                     const headColor = mFamily === 'gpt5' ? 'text-purple-700' : mFamily === 'gemini' ? 'text-emerald-700' : mFamily === 'mistral' ? 'text-amber-700' : mFamily === 'phi' ? 'text-teal-700' : 'text-blue-700';
@@ -822,7 +824,7 @@
                         gpt4: { color: 'blue-600', traits: ['Explicit CoT instructions', 'Detailed formatting rules', 'More verbose examples'] },
                         gpt5: { color: 'purple-500', traits: ['Leverage native reasoning', 'Streamlined structure', 'YAML/JSON schemas'] },
                         phi: { color: 'teal-600', traits: ['SLM (14B) — explicit CoT needed', 'Few-shot examples critical', '16K context — concise prompts', 'Strong math & reasoning'] },
-                        gemini: { color: 'emerald-600', traits: ['Concise Markdown-style prompts', 'Relies on native multimodal understanding', 'Minimal few-shot — strong zero-shot performance'] },
+                        gemini: { color: 'emerald-600', traits: ['Explicit CoT for complex reasoning', 'Structured prompts with section headers', 'reasoning_effort (none/low/medium/high)', 'No seed support — use temperature=0.1', 'Multimodal & multilingual capable', '1M-token context (Flash)'] },
                         mistral: { color: 'amber-600', traits: ['Explicit CoT + few-shot examples', 'Strong multilingual capability', 'Detailed JSON schema in prompt'] },
                         realtime: { color: 'rose-500', traits: ['Unclear audio handling with sample clarification phrases', 'Tool preambles before every function call', 'Variety rules to avoid robotic repetition', 'Classification outputs text-only JSON (no audio)'] },
                     };
