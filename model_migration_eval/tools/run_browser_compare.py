@@ -250,13 +250,28 @@ def _run_browser(args, base_url, screenshots_dir, report_path, results, PwTimeou
 
         # ─────────────────────────────────────────────────────────
         # 3. RUN COMPARISONS  (loop over Model A × eval types)
+        #    When running all models as A we skip symmetric pairs:
+        #    if (gpt4, gpt52) was already compared for "classification",
+        #    we won't re-compare (gpt52, gpt4) for the same type.
         # ─────────────────────────────────────────────────────────
-        total = len(model_a_list) * len(eval_types)
+        # Track compared pairs per eval_type to avoid duplicates
+        # Key: eval_type → set of frozenset({model_a, model_b})
+        compared_pairs: dict[str, set[frozenset]] = {et: set() for et in eval_types}
+        multi_a = len(model_a_list) > 1 and args.models_b is None
+
+        # Pre-calculate total (accounting for dedup when running all-vs-all)
+        if multi_a:
+            n_text = len(model_a_list)
+            # Each eval type: C(n,2) unique pairs instead of n*(n-1)
+            total = (n_text * (n_text - 1) // 2) * len(eval_types)
+        else:
+            total = len(model_a_list) * len(eval_types)
         counter = 0
 
         log.info(
-            "▸ Comparison plan: %d Model A's × %d eval types = %d total runs",
+            "▸ Comparison plan: %d Model A's × %d eval types = %d total runs%s",
             len(model_a_list), len(eval_types), total,
+            " (symmetric pairs deduplicated)" if multi_a else "",
         )
 
         for model_a in model_a_list:
@@ -269,30 +284,48 @@ def _run_browser(args, base_url, screenshots_dir, report_path, results, PwTimeou
             else:
                 models_b = [m for m in model_map.keys() if m != model_a]
 
-            log.info(
-                "▸ %s (A) vs %d models (B) × %d types",
-                model_map.get(model_a, model_a), len(models_b), len(eval_types),
-            )
-            log.info("  Models B: %s", ", ".join(models_b))
-
             for eval_type in eval_types:
+                # Filter out already-compared symmetric pairs
+                if multi_a:
+                    filtered_b = [
+                        mb for mb in models_b
+                        if frozenset({model_a, mb}) not in compared_pairs[eval_type]
+                    ]
+                    n_skipped = len(models_b) - len(filtered_b)
+                else:
+                    filtered_b = models_b
+                    n_skipped = 0
+
+                if not filtered_b:
+                    log.info(
+                        "  » %s × %s — all pairs already compared, skipping",
+                        model_map.get(model_a, model_a), eval_type,
+                    )
+                    continue
+
                 counter += 1
-                res = CompareResult(model_a, eval_type, models_b_count=len(models_b))
+                res = CompareResult(model_a, eval_type, models_b_count=len(filtered_b))
                 results.append(res)
+
+                skip_note = f" ({n_skipped} already compared)" if n_skipped else ""
                 log.info(
-                    "━━━ [%d/%d] %s vs %d models × %s ━━━",
+                    "━━━ [%d/%d] %s vs %d models × %s%s ━━━",
                     counter, total,
                     model_map.get(model_a, model_a),
-                    len(models_b), eval_type,
+                    len(filtered_b), eval_type, skip_note,
                 )
                 t0 = time.time()
 
                 try:
                     _run_single_comparison(
-                        page, model_a, models_b, eval_type,
+                        page, model_a, filtered_b, eval_type,
                         args, res, screenshots_dir, counter, total,
                         foundry_available, PwTimeout, model_map,
                     )
+                    # Mark all pairs as compared on success
+                    if res.status in ("pass", "fail"):
+                        for mb in filtered_b:
+                            compared_pairs[eval_type].add(frozenset({model_a, mb}))
                 except PwTimeout:
                     res.status = "error"
                     res.detail = f"Playwright timeout after {args.timeout}s"
@@ -425,16 +458,21 @@ def _run_single_comparison(
         res.status = "error"
         res.detail = error_msg[:200]
         log.error("  ✗ Comparison error: %s", res.detail)
-        _screenshot(page, screenshots_dir, model_a, eval_type, "ERROR")
+        fname = f"{model_a}_vs_all_{eval_type}_ERROR.png"
+        try:
+            page.screenshot(path=str(screenshots_dir / fname), full_page=True)
+        except Exception:
+            pass
         return
 
     # ── Extract results ──
     res.models_b_count = len(actual_models_b)
     _extract_comparison_results(page, res, eval_type, len(actual_models_b))
 
-    # ── Screenshot ──
-    _screenshot(page, screenshots_dir, model_a, eval_type, res.status.upper())
-    res.screenshot = f"{model_a}_{eval_type}_{res.status.upper()}.png"
+    # ── Screenshots — one per Model B tab + summary ──
+    _screenshot_all_tabs(page, screenshots_dir, model_a, eval_type,
+                         res.status.upper(), actual_models_b)
+    res.screenshot = f"{model_a}_vs_*_{eval_type}_{res.status.upper()}.png"
 
 
 def _wait_for_comparison_completion(page, timeout_secs, num_models_b, model_map, model_a):
@@ -540,14 +578,49 @@ def _extract_comparison_results(page, res: CompareResult, eval_type: str, num_mo
         res.detail = f"Completed (result extraction error: {exc})"
 
 
-def _screenshot(page, directory: Path, model_a: str, eval_type: str, tag: str):
-    """Save a full-page screenshot."""
-    fname = f"{model_a}_vs_all_{eval_type}_{tag}.png"
-    path = directory / fname
+def _screenshot_all_tabs(page, directory: Path, model_a: str, eval_type: str,
+                         tag: str, actual_models_b: list[str]):
+    """Take a full-page screenshot for every batch tab (each Model B + summary).
+
+    For batch comparisons the page shows tabs like:
+        [vs gpt-4o] [vs gpt-5.1] … [📊 Summary]
+    Clicking each tab re-renders #results-section with that pair's results.
+    We iterate all tabs so every Model B comparison is captured.
+    For single-model comparisons (no tabs) we just take one screenshot.
+    """
     try:
-        page.screenshot(path=str(path), full_page=True)
+        batch_tabs = page.locator("#batch-tabs button")
+        tab_count = batch_tabs.count()
     except Exception:
-        pass
+        tab_count = 0
+
+    if tab_count <= 1:
+        # Single comparison or no tabs — one screenshot
+        fname = f"{model_a}_vs_all_{eval_type}_{tag}.png"
+        try:
+            page.screenshot(path=str(directory / fname), full_page=True)
+        except Exception:
+            pass
+        return
+
+    # Multiple tabs: click each one and screenshot
+    for i in range(tab_count):
+        btn = batch_tabs.nth(i)
+        tab_key = btn.get_attribute("data-tab") or f"tab{i}"
+        try:
+            btn.click()
+            page.wait_for_timeout(600)  # let the results re-render
+
+            if tab_key == "__summary__":
+                fname = f"{model_a}_vs_SUMMARY_{eval_type}_{tag}.png"
+            else:
+                fname = f"{model_a}_vs_{tab_key}_{eval_type}_{tag}.png"
+
+            page.screenshot(path=str(directory / fname), full_page=True)
+        except Exception:
+            pass
+
+    log.info("    📸 %d screenshots saved for %s × %s", tab_count, model_a, eval_type)
 
 
 # ---------------------------------------------------------------------------
