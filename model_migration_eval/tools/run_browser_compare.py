@@ -40,6 +40,7 @@ Prerequisites:
 """
 
 import argparse
+import csv
 import json
 import logging
 import sys
@@ -105,8 +106,8 @@ def _cli():
                    help="Model B keys (default: all models except Model A)")
     p.add_argument("--types", nargs="*", default=None,
                    help="Evaluation types (default: all 5)")
-    p.add_argument("--timeout", type=int, default=600,
-                   help="Max seconds per comparison run (default: 600)")
+    p.add_argument("--timeout", type=int, default=1800,
+                   help="Max seconds per comparison run (default: 1800 = 30 min)")
     p.add_argument("--foundry", action="store_true",
                    help="Enable Foundry LLM-as-judge scoring")
     p.add_argument("--headless", action="store_true",
@@ -140,7 +141,7 @@ def run():
     base_url = args.base_url.rstrip("/")
     screenshots_dir = Path("tools/compare_screenshots") / _ts()
     screenshots_dir.mkdir(parents=True, exist_ok=True)
-    report_path = screenshots_dir / "report.json"
+    report_path = screenshots_dir / "report.csv"
 
     results: list[CompareResult] = []
 
@@ -348,11 +349,24 @@ def _run_single_comparison(
     log.info("  ▸ Model A: %s", model_map.get(model_a, model_a))
 
     # Wait for Model B options to re-render after Model A change
+    # (the page filters by modality — realtime models won't appear for text A)
     page.wait_for_timeout(800)
 
+    # Read which Model B checkboxes actually exist in the DOM
+    available_b = page.evaluate(
+        "() => Array.from(document.querySelectorAll('#model-b-options input[type=checkbox]'))"
+        ".map(cb => cb.value)"
+    )
+    # Intersect desired models_b with what the page actually offers
+    actual_models_b = [m for m in models_b if m in available_b] if models_b else available_b
+    if len(actual_models_b) < len(models_b):
+        skipped_modality = set(models_b) - set(available_b)
+        if skipped_modality:
+            log.info("  ℹ %d model(s) hidden by modality filter: %s",
+                     len(skipped_modality), ", ".join(sorted(skipped_modality)))
+
     # ── Select Model B's via JavaScript (reliable, avoids UI race conditions) ──
-    # Clear all checkboxes and set only the desired ones
-    models_b_json = json.dumps(models_b)
+    actual_b_json = json.dumps(actual_models_b)
     page.evaluate(f"""() => {{
         // Uncheck all B checkboxes first
         document.querySelectorAll('#model-b-options input[type=checkbox]')
@@ -361,7 +375,7 @@ def _run_single_comparison(
         const sa = document.getElementById('model-b-select-all');
         if (sa) sa.checked = false;
         // Check desired models
-        const wanted = {models_b_json};
+        const wanted = {actual_b_json};
         wanted.forEach(m => {{
             const cb = document.querySelector('#model-b-options input[value="' + m + '"]');
             if (cb) cb.checked = true;
@@ -373,14 +387,14 @@ def _run_single_comparison(
 
     # Verify selection via display text
     display_text = page.locator("#model-b-display").inner_text()
-    log.info("  ▸ Models B: %s", display_text)
+    log.info("  ▸ Models B (%d): %s", len(actual_models_b), display_text)
 
     # Verify correct count
     selected_count = page.evaluate(
         "() => document.querySelectorAll('#model-b-options input[type=checkbox]:checked').length"
     )
-    if selected_count != len(models_b):
-        log.warning("  ⚠ Expected %d Model B's selected, got %d", len(models_b), selected_count)
+    if selected_count != len(actual_models_b):
+        log.warning("  ⚠ Expected %d Model B's selected, got %d", len(actual_models_b), selected_count)
 
     # ── Select eval type ──
     page.select_option("#eval-type", eval_type)
@@ -402,7 +416,7 @@ def _run_single_comparison(
     run_btn.click()
 
     # ── Wait for completion ──
-    _wait_for_comparison_completion(page, args.timeout, len(models_b), model_map, model_a)
+    _wait_for_comparison_completion(page, args.timeout, len(actual_models_b), model_map, model_a)
 
     # ── Check for errors ──
     error_visible = page.locator("#error-state").is_visible()
@@ -415,7 +429,8 @@ def _run_single_comparison(
         return
 
     # ── Extract results ──
-    _extract_comparison_results(page, res, eval_type, len(models_b))
+    res.models_b_count = len(actual_models_b)
+    _extract_comparison_results(page, res, eval_type, len(actual_models_b))
 
     # ── Screenshot ──
     _screenshot(page, screenshots_dir, model_a, eval_type, res.status.upper())
@@ -618,17 +633,21 @@ def _print_summary(results: list[CompareResult], model_a_label: str):
 
 
 def _save_report(results: list[CompareResult], report_path: Path, args):
-    """Save a JSON report."""
-    total_elapsed = sum(r.elapsed for r in results)
-    report = {
-        "timestamp": datetime.now().isoformat(),
-        "base_url": args.base_url,
-        "email": args.email,
-        "model_a": args.model_a or "ALL",
-        "foundry": args.foundry,
-        "elapsed_total": round(total_elapsed, 1),
-        "results": [
-            {
+    """Save a CSV report."""
+    fieldnames = [
+        "timestamp", "model_a", "eval_type", "status", "winner",
+        "dimensions", "high_impact", "models_b_count", "detail",
+        "elapsed", "screenshot", "foundry_status", "foundry_detail",
+        "email", "base_url", "foundry_enabled",
+    ]
+    ts = datetime.now().isoformat()
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(report_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for r in results:
+            writer.writerow({
+                "timestamp": ts,
                 "model_a": r.model_a,
                 "eval_type": r.eval_type,
                 "status": r.status,
@@ -638,16 +657,13 @@ def _save_report(results: list[CompareResult], report_path: Path, args):
                 "models_b_count": r.models_b_count,
                 "detail": r.detail,
                 "elapsed": r.elapsed,
-                "screenshot": r.screenshot,
-                "foundry_status": r.foundry_status,
+                "screenshot": r.screenshot or "",
+                "foundry_status": r.foundry_status or "",
                 "foundry_detail": r.foundry_detail,
-            }
-            for r in results
-        ],
-    }
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(report_path, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2, ensure_ascii=False)
+                "email": args.email,
+                "base_url": args.base_url,
+                "foundry_enabled": args.foundry,
+            })
 
     log.info("📄 Report saved to %s", report_path)
     print(f"  📄 {report_path}")

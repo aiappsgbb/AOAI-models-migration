@@ -40,6 +40,7 @@ Prerequisites:
 """
 
 import argparse
+import csv
 import json
 import logging
 import sys
@@ -123,7 +124,7 @@ def run(args: argparse.Namespace):
     base_url = args.base_url.rstrip("/")
     screenshots_dir = Path("tools/eval_screenshots") / _ts()
     screenshots_dir.mkdir(parents=True, exist_ok=True)
-    report_path = screenshots_dir / "report.json"
+    report_path = screenshots_dir / "report.csv"
 
     results: list[EvalResult] = []
 
@@ -138,16 +139,32 @@ def run(args: argparse.Namespace):
     if results:
         elapsed_total = sum(r.elapsed for r in results)
         _print_summary(results, elapsed_total, report_path)
-        report = {
-            "timestamp": datetime.now().isoformat(),
-            "base_url": base_url,
-            "email": args.email,
-            "limit": args.limit,
-            "foundry": args.foundry,
-            "elapsed_total": round(elapsed_total, 1),
-            "results": [r.to_dict() for r in results],
-        }
-        report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        fieldnames = [
+            "timestamp", "model", "eval_type", "status", "accuracy",
+            "detail", "elapsed", "screenshot", "foundry_status",
+            "foundry_detail", "email", "base_url", "limit", "foundry_enabled",
+        ]
+        ts = datetime.now().isoformat()
+        with open(report_path, "w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for r in results:
+                writer.writerow({
+                    "timestamp": ts,
+                    "model": r.model,
+                    "eval_type": r.eval_type,
+                    "status": r.status,
+                    "accuracy": r.accuracy or "",
+                    "detail": r.detail,
+                    "elapsed": r.elapsed,
+                    "screenshot": r.screenshot or "",
+                    "foundry_status": r.foundry_status or "",
+                    "foundry_detail": r.foundry_detail,
+                    "email": args.email,
+                    "base_url": base_url,
+                    "limit": args.limit,
+                    "foundry_enabled": args.foundry,
+                })
         log.info("📄 Report saved to %s", report_path)
 
     n_fail = sum(1 for r in results if r.status in ("fail", "error"))
