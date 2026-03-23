@@ -133,6 +133,14 @@
                             </div>
                         </div>
                     </details>
+                    <!-- Collapsible custom instructions -->
+                    <details class="mt-3 border border-gray-200 rounded-lg bg-gray-50" id="gen-instructions-details">
+                        <summary class="cursor-pointer text-xs font-medium text-[var(--text-secondary)] px-3 py-2 select-none">📝 Instructions <span class="text-[10px] text-gray-400 font-normal">(optional)</span></summary>
+                        <div class="px-3 pb-3 pt-1">
+                            <p class="text-[10px] text-gray-400 mb-1.5">Custom instructions to guide prompt &amp; test data generation. Examples: max tokens per test case, tone (formal/informal), topic restrictions, language, technical constraints, etc.</p>
+                            <textarea id="gen-instructions" rows="4" class="fluent-input text-sm w-full" placeholder="e.g.&#10;- Max 150 tokens per test case&#10;- Tone: formal and professional&#10;- Focus on billing and technical support scenarios&#10;- All test data in Spanish&#10;- Include edge cases for elderly users"></textarea>
+                        </div>
+                    </details>
                     <label class="block text-sm font-medium text-gray-700 mt-3 mb-1">Generator model</label>
                     <select id="gen-model" class="fluent-input text-sm">
                         <!-- populated dynamically -->
@@ -1009,12 +1017,15 @@
             const btn     = $('btn-generate');
             const spinner = $('gen-spinner');
 
+            const instructions = ($('gen-instructions') ? $('gen-instructions').value.trim() : '');
+
             btn.disabled = true;
             spinner.classList.remove('hidden');
             $('gen-status').innerHTML = '<span class="text-blue-600">Generating prompts + test data… this may take 2-4 minutes.</span>';
             verboseClear();
             verboseLog('Starting AI generation');
             verboseLog('Topic: ' + topic);
+            if (instructions) verboseLog('Instructions: ' + instructions.substring(0, 120) + (instructions.length > 120 ? '…' : ''));
             verboseLog('Generator model: ' + displayName(generatorModel));
             verboseLog('Sending POST /api/prompts/generate …');
             const t0 = performance.now();
@@ -1022,10 +1033,12 @@
             try {
                 // 1. POST to kick off async generation — returns 202
                 const dataCounts = getDataCounts();
+                const body = { topic, generator_model: generatorModel, data_counts: dataCounts };
+                if (instructions) body.instructions = instructions;
                 const resp = await fetch('/api/prompts/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ topic, generator_model: generatorModel, data_counts: dataCounts }),
+                    body: JSON.stringify(body),
                 });
                 const kickoff = await resp.json();
                 if (!resp.ok) {

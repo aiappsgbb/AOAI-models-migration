@@ -1670,6 +1670,7 @@ def create_app(config_path: str = None) -> Flask:
         generator_model = data.get('generator_model', 'gpt5')
         target_models = data.get('target_models')  # Optional list of model keys
         data_counts = data.get('data_counts')       # Optional {type: int} overrides
+        instructions = data.get('instructions', '')  # Optional custom instructions
         scope = data.get('scope', 'all')            # "all" | "prompts_only" | "data_only"
         if scope not in ('all', 'prompts_only', 'data_only'):
             scope = 'all'
@@ -1713,6 +1714,7 @@ def create_app(config_path: str = None) -> Flask:
                     target_models=target_models,
                     data_counts=data_counts,
                     scope=scope,
+                    instructions=instructions,
                 )
                 # Invalidate caches so new content is picked up
                 _bg_prompt_loader._cache.clear()

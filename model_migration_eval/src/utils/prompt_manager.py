@@ -248,12 +248,16 @@ class PromptManager:
 
     def _save_topic_metadata(self, topic: str, *, prompts_updated: bool = False,
                               data_generated: bool = False,
-                              canonical_categories: Optional[List[str]] = None):
+                              canonical_categories: Optional[List[str]] = None,
+                              instructions: Optional[str] = None):
         """Persist topic metadata to disk (thread-safe).
 
         When *canonical_categories* is provided it is stored alongside
         the timestamps so that ``is_data_in_sync`` can do a content-based
         check in addition to the timestamp comparison.
+
+        When *instructions* is provided it is stored so users can see
+        what custom constraints were used for the generation.
         """
         with self._io_lock:
             meta = self.get_topic_metadata()
@@ -266,6 +270,8 @@ class PromptManager:
                 meta["data_generated_at"] = now
             if canonical_categories is not None:
                 meta["canonical_categories"] = canonical_categories
+            if instructions is not None:
+                meta["instructions"] = instructions
             with open(self._topic_path, "w", encoding="utf-8") as f:
                 json.dump(meta, f, indent=2, ensure_ascii=False)
 
@@ -810,7 +816,15 @@ class PromptManager:
         in Version History.
 
         Returns the version metadata dict for the **new** content.
+
+        Raises ValueError if *content* is empty/whitespace-only (to
+        prevent writing 0-byte prompt files that break evaluation).
         """
+        if not content or not content.strip():
+            raise ValueError(
+                f"Refusing to save empty prompt for {model}/{prompt_type}. "
+                f"This would produce a 0-byte file that breaks evaluation."
+            )
         with self._io_lock:
             # Always reload from disk so we never overwrite entries
             # added by external scripts or concurrent processes.
@@ -1013,6 +1027,7 @@ class PromptManager:
         task_hint: Optional[str] = None,
         taxonomy: Optional[Dict[str, List[str]]] = None,
         domain_tools_summary: Optional[str] = None,
+        instructions: str = "",
     ) -> Tuple[str, str, str]:
         """Generate a single prompt asynchronously.
 
@@ -1029,6 +1044,7 @@ class PromptManager:
             deployment_name=deployment_name,
             taxonomy=taxonomy if task == "classification" else None,
             domain_tools_summary=domain_tools_summary if task == "tool_calling" else None,
+            instructions=instructions,
         )
 
         async with semaphore:
@@ -1295,6 +1311,7 @@ class PromptManager:
         target_models: Optional[List[str]] = None,
         data_counts: Optional[Dict[str, int]] = None,
         scope: str = "all",
+        instructions: str = "",
     ) -> Dict[str, Any]:
         """
         Use an AI model to generate optimised prompts **and/or** matching
@@ -1307,6 +1324,9 @@ class PromptManager:
             target_models: Optional list of model keys to generate prompts
                 for.  When *None*, uses all model directories currently
                 present under ``prompts/``.
+            instructions: Optional free-form instructions to guide prompt
+                and test data generation (e.g. max tokens, tone, topic
+                restrictions, language, technical constraints).
 
         Uses **parallel async calls** to speed up generation:
           - Step 1: canonical model / classification (for category extraction)
@@ -1323,6 +1343,11 @@ class PromptManager:
         """
         overall_t0 = time.time()
         data_dir = data_dir or str(self.data_dir)
+
+        # Store instructions for use by data generation builders
+        self._generation_instructions = instructions.strip() if instructions else ""
+        if self._generation_instructions:
+            logger.info(f"Custom instructions: {self._generation_instructions[:200]}")
 
         # Resolve which models to generate for
         if target_models:
@@ -1500,15 +1525,18 @@ class PromptManager:
                 asyncio.Semaphore(_MAX_CONCURRENT_LLM),
                 model_family=canonical_family,
                 deployment_name=canonical_deployment,
+                instructions=self._generation_instructions,
             )
         )
         _, _, canonical_cls_content = canonical_cls_result
-        if not canonical_cls_content.startswith("[Error"):
+        if not canonical_cls_content.startswith("[Error") and canonical_cls_content.strip():
             self.save_prompt(
                 model=canonical, prompt_type="classification_agent_system",
                 content=canonical_cls_content, topic=topic,
                 source="ai-generated", author=f"generator:{generator_model}",
             )
+        elif not canonical_cls_content.strip():
+            logger.error(f"Canonical classification prompt for {canonical} is EMPTY — skipping save")
         result["prompts"][canonical]["classification_agent_system"] = canonical_cls_content
 
         # Extract categories from canonical classification
@@ -1608,6 +1636,7 @@ class PromptManager:
                             task_hint=task,
                             taxonomy=shared_taxonomy if task == "classification" else None,
                             domain_tools_summary=domain_tools_summary,
+                            instructions=self._generation_instructions,
                         )
                     )
             return await asyncio.gather(*tasks, return_exceptions=True)
@@ -1620,18 +1649,23 @@ class PromptManager:
                 logger.error(f"[parallel] Prompt generation exception: {item}")
                 continue
             tgt_model, prompt_type, generated = item
-            if not generated.startswith("[Error"):
+            if not generated.startswith("[Error") and generated.strip():
                 self.save_prompt(
                     model=tgt_model, prompt_type=prompt_type,
                     content=generated, topic=topic,
                     source="ai-generated", author=f"generator:{generator_model}",
                 )
+            elif not generated.strip():
+                logger.error(f"[parallel] Generated prompt for {tgt_model}/{prompt_type} is EMPTY — skipping save")
             if tgt_model not in result["prompts"]:
                 result["prompts"][tgt_model] = {}
             result["prompts"][tgt_model][prompt_type] = generated
 
         # ── 1a. NOW update metadata (prompts are on disk) ─────────
-        self._save_topic_metadata(topic, prompts_updated=True)
+        self._save_topic_metadata(
+            topic, prompts_updated=True,
+            instructions=self._generation_instructions or None,
+        )
 
         # ── 3. Category alignment & auto-fix ──────────────────────────
         # The canonical model's categories are the single source of truth.
@@ -1797,6 +1831,7 @@ class PromptManager:
         deployment_name: Optional[str] = None,
         taxonomy: Optional[Dict[str, List[str]]] = None,
         domain_tools_summary: Optional[str] = None,
+        instructions: str = "",
     ) -> str:
         """Build the meta-prompt that instructs the AI to generate a system prompt.
 
@@ -1959,6 +1994,7 @@ Create {task_description.get(task, task)}
 {self._categories_block(shared_categories, task, taxonomy=taxonomy)}
 {schema_block}
 {tool_context_block}
+{self._instructions_block(instructions)}
 """
 
     def _categories_block(
@@ -2049,6 +2085,35 @@ Create {task_description.get(task, task)}
 
         return ""  # Other tasks (rag, tool_calling) don't need categories
 
+    @staticmethod
+    def _instructions_block(instructions: str = "") -> str:
+        """Return a CUSTOM INSTRUCTIONS section for the meta-prompt.
+
+        When *instructions* is non-empty, returns a clearly delimited
+        block that the generator LLM must follow as additional constraints
+        (e.g. max tokens, tone, language, topic restrictions).
+        """
+        if not instructions or not instructions.strip():
+            return ""
+        return (
+            "\n## CUSTOM INSTRUCTIONS (from the user — follow these closely)\n"
+            f"{instructions.strip()}\n"
+        )
+
+    def _data_instructions_block(self) -> str:
+        """Return a CUSTOM INSTRUCTIONS block for data generation prompts.
+
+        Reads from ``self._generation_instructions`` which is set at the
+        beginning of :meth:`generate_prompts`.
+        """
+        instr = getattr(self, '_generation_instructions', '') or ''
+        if not instr.strip():
+            return ""
+        return (
+            "\n\nCUSTOM INSTRUCTIONS (follow these closely):\n"
+            f"{instr.strip()}\n"
+        )
+
     # ── Meta-prompt builders for synthetic data ───────────────────────
 
     def _build_classification_data_prompt(self, topic: str, count: int, *, categories: Optional[List[str]] = None) -> str:
@@ -2103,7 +2168,7 @@ Create {task_description.get(task, task)}
 
         template = self._load_data_gen_template("classification.txt")
         if template:
-            return template.format(count=count, topic=topic, category_block=category_block)
+            return template.format(count=count, topic=topic, category_block=category_block) + self._data_instructions_block()
 
         # Built-in fallback
         return f"""Generate exactly {count} realistic classification test scenarios for the topic: "{topic}".
@@ -2141,7 +2206,7 @@ IMPORTANT RULES:
 5. Customer inputs must be natural, varied in tone and length
 6. Context fields should contain domain-specific metadata as a JSON string
 7. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON
-"""
+""" + self._data_instructions_block()
 
     def _build_dialog_data_prompt(self, topic: str, count: int, *, categories: Optional[List[str]] = None) -> str:
         """Build the meta-prompt for generating dialog test scenarios."""
@@ -2162,7 +2227,7 @@ IMPORTANT RULES:
 
         template = self._load_data_gen_template("dialog.txt")
         if template:
-            return template.format(count=count, topic=topic, category_block=category_block)
+            return template.format(count=count, topic=topic, category_block=category_block) + self._data_instructions_block()
 
         # Built-in fallback
         return f"""Generate exactly {count} realistic dialog/follow-up test scenarios for the topic: "{topic}".
@@ -2196,7 +2261,7 @@ IMPORTANT RULES:
 5. Mix simple and complex dialog situations
 6. Customer messages should be natural and varied
 7. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON
-"""
+""" + self._data_instructions_block()
 
     def _build_general_data_prompt(self, topic: str, count: int, *, categories: Optional[List[str]] = None) -> str:
         """Build the meta-prompt for generating general capability tests."""
@@ -2204,7 +2269,7 @@ IMPORTANT RULES:
         # the kwarg for a uniform call signature.
         template = self._load_data_gen_template("general.txt")
         if template:
-            return template.format(count=count, topic=topic, category_block="")
+            return template.format(count=count, topic=topic, category_block="") + self._data_instructions_block()
 
         # Built-in fallback
         return f"""Generate exactly {count} general capability test cases for evaluating AI models on the topic: "{topic}".
@@ -2257,7 +2322,7 @@ IMPORTANT RULES:
 8. Include at least 1 calculation_accuracy test
 9. All prompts should be realistic and testable
 10. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation, no comments inside the JSON
-"""
+""" + self._data_instructions_block()
 
     def _build_rag_data_prompt(self, topic: str, count: int, *, categories: Optional[List[str]] = None) -> str:
         """Build the meta-prompt for generating RAG test scenarios."""
@@ -2265,7 +2330,7 @@ IMPORTANT RULES:
         # the kwarg for a uniform call signature.
         template = self._load_data_gen_template("rag.txt")
         if template:
-            return template.format(count=count, topic=topic, category_block="")
+            return template.format(count=count, topic=topic, category_block="") + self._data_instructions_block()
 
         # Built-in fallback
         return f"""Generate exactly {count} RAG (Retrieval-Augmented Generation) test scenarios for the topic: "{topic}".
@@ -2293,14 +2358,14 @@ IMPORTANT RULES:
 7. Queries should be natural and varied
 8. Context should simulate real retrieved documents (policies, manuals, FAQs, articles)
 9. Return ONLY the JSON object with "scenarios" key — no markdown fences, no explanation
-"""
+""" + self._data_instructions_block()
 
     def _build_tool_calling_data_prompt(self, topic: str, count: int, *, categories: Optional[List[str]] = None) -> str:
         """Build the meta-prompt for generating tool-calling test scenarios."""
         # Tool calling tests don't use the category taxonomy.
         template = self._load_data_gen_template("tool_calling.txt")
         if template:
-            return template.format(count=count, topic=topic, category_block="")
+            return template.format(count=count, topic=topic, category_block="") + self._data_instructions_block()
 
         # Built-in fallback
         return f"""Generate exactly {count} tool-calling/function-calling test scenarios for the topic: "{topic}".
@@ -2338,4 +2403,4 @@ IMPORTANT RULES:
     (e.g. "742 Evergreen Terrace" not "<address>"). Use placeholder tokens like
     "<customer_account_id>" ONLY for parameters that the user genuinely did not
     provide in the query and that the model should ask for.
-"""
+""" + self._data_instructions_block()

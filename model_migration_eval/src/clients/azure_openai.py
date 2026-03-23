@@ -806,7 +806,12 @@ class AzureOpenAIClient:
             
             # Extract content — SDK v2 may return a parsed dict with
             # response_format={"type": "json_object"}, so normalise to str.
-            raw_content = response.choices[0].message.content if response.choices else ""
+            # Guard: very rarely the SDK returns a raw string instead of
+            # a ChatCompletion object (transient API edge case).
+            if isinstance(response, str):
+                raw_content = response
+            else:
+                raw_content = response.choices[0].message.content if response.choices else ""
             if isinstance(raw_content, dict):
                 content = json.dumps(raw_content, ensure_ascii=False)
             elif raw_content is None:
@@ -850,14 +855,17 @@ class AzureOpenAIClient:
                 )
                 request_params["model"] = config.deployment_name
                 response = self.client.chat.completions.create(**request_params)
-                raw_content = response.choices[0].message.content if response.choices else ""
+                if isinstance(response, str):
+                    raw_content = response
+                else:
+                    raw_content = response.choices[0].message.content if response.choices else ""
                 if isinstance(raw_content, dict):
                     content = json.dumps(raw_content, ensure_ascii=False)
                 elif raw_content is None:
                     content = ""
                 else:
                     content = raw_content
-                metrics.finalize(completion=response)
+                metrics.finalize(completion=response if not isinstance(response, str) else None)
                 self.metrics_history.append(metrics)
                 result = CompletionResult(content=content, metrics=metrics, raw_response=response)
                 if use_cache and self._cache:
@@ -914,14 +922,19 @@ class AzureOpenAIClient:
                     active_client = self.async_client
 
                 response = await active_client.chat.completions.create(**request_params)
-                raw_content = response.choices[0].message.content if response.choices else ""
+                # Guard: very rarely the SDK returns a raw string instead
+                # of a ChatCompletion object (transient API edge case).
+                if isinstance(response, str):
+                    raw_content = response
+                else:
+                    raw_content = response.choices[0].message.content if response.choices else ""
                 if isinstance(raw_content, dict):
                     content = json.dumps(raw_content, ensure_ascii=False)
                 elif raw_content is None:
                     content = ""
                 else:
                     content = raw_content
-                metrics.finalize(completion=response)
+                metrics.finalize(completion=response if not isinstance(response, str) else None)
                 self.metrics_history.append(metrics)
 
                 return CompletionResult(
@@ -987,14 +1000,17 @@ class AzureOpenAIClient:
                     )
                     request_params["model"] = config.deployment_name
                     response = await self.async_client.chat.completions.create(**request_params)
-                    raw_content = response.choices[0].message.content if response.choices else ""
+                    if isinstance(response, str):
+                        raw_content = response
+                    else:
+                        raw_content = response.choices[0].message.content if response.choices else ""
                     if isinstance(raw_content, dict):
                         content = json.dumps(raw_content, ensure_ascii=False)
                     elif raw_content is None:
                         content = ""
                     else:
                         content = raw_content
-                    metrics.finalize(completion=response)
+                    metrics.finalize(completion=response if not isinstance(response, str) else None)
                     self.metrics_history.append(metrics)
                     return CompletionResult(content=content, metrics=metrics, raw_response=response)
                 metrics.finalize(error=str(e))

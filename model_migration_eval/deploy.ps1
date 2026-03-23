@@ -207,10 +207,87 @@ function Setup-FoundryServicePrincipal {
     $hasSecret = $envContent -match '(?m)^AZURE_CLIENT_SECRET=.+'
 
     if ($hasTenant -and $hasClient -and $hasSecret) {
-        Write-Host "  Service Principal credentials found in .env - skipping creation" -ForegroundColor Green
-        # Still verify RBAC roles (may be missing after backup restore or resource change)
+        Write-Host "  Service Principal credentials found in .env" -ForegroundColor Green
         $existingEnv = Read-EnvFile $ENV_FILE
-        Ensure-ServicePrincipalRBAC -SpAppId $existingEnv["AZURE_CLIENT_ID"]
+        $existingAppId  = $existingEnv["AZURE_CLIENT_ID"]
+        $existingTenant = $existingEnv["AZURE_TENANT_ID"]
+        $existingSecret = $existingEnv["AZURE_CLIENT_SECRET"]
+
+        # --- Validate the existing secret is still usable ---
+        Write-Host "  Validating credentials..." -ForegroundColor Cyan
+        $tokenOk = $false
+        try {
+            $body = "grant_type=client_credentials&client_id=$existingAppId&client_secret=$([uri]::EscapeDataString($existingSecret))&scope=https%3A%2F%2Fcognitiveservices.azure.com%2F.default"
+            $tokenResp = Invoke-RestMethod -Uri "https://login.microsoftonline.com/$existingTenant/oauth2/v2.0/token" `
+                -Method POST -ContentType "application/x-www-form-urlencoded" -Body $body -ErrorAction Stop
+            if ($tokenResp.access_token) { $tokenOk = $true }
+        } catch { }
+
+        if ($tokenOk) {
+            Write-Host "  Credentials are valid" -ForegroundColor Green
+            Ensure-ServicePrincipalRBAC -SpAppId $existingAppId
+            return
+        }
+
+        # --- Secret expired / invalid — rotate it ---
+        Write-Host "  Credential EXPIRED or INVALID — rotating secret..." -ForegroundColor Yellow
+
+        # Ensure Azure CLI is available for rotation
+        if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
+            Write-Host "  ERROR: Azure CLI (az) not found — cannot rotate secret." -ForegroundColor Red
+            Write-Host "  Install from https://aka.ms/installazurecliwindows or update AZURE_CLIENT_SECRET in .env manually." -ForegroundColor Yellow
+            return
+        }
+        $acctCheck = az account show 2>$null | ConvertFrom-Json
+        if (-not $acctCheck) {
+            Write-Host "  Not logged in to Azure CLI. Launching login..." -ForegroundColor Yellow
+            az login
+            $acctCheck = az account show 2>$null | ConvertFrom-Json
+            if (-not $acctCheck) {
+                Write-Host "  ERROR: Azure login failed — cannot rotate secret." -ForegroundColor Red
+                return
+            }
+        }
+
+        # Try to reset the credential with decreasing durations
+        $rotateOk = $false
+        $newPassword = $null
+        foreach ($days in @(90, 30, 7)) {
+            $endDate = (Get-Date).ToUniversalTime().AddDays($days).ToString("yyyy-MM-ddTHH:mm:ssZ")
+            Write-Host "  Resetting credential ($days days, expires $endDate)..." -ForegroundColor Cyan
+            $credJson = az ad app credential reset --id $existingAppId --end-date $endDate 2>&1
+            $jsonOnly = ($credJson | Where-Object { $_ -notmatch '^(WARNING|ERROR|System\.)' }) -join ""
+            $cred = $null
+            try { $cred = $jsonOnly | ConvertFrom-Json } catch { }
+            if ($cred -and $cred.password) {
+                $newPassword = $cred.password
+                $rotateOk = $true
+                break
+            }
+            Write-Host "  $days-day rejected by policy, trying shorter..." -ForegroundColor Yellow
+        }
+
+        if (-not $rotateOk) {
+            Write-Host "  ERROR: Could not rotate secret. Update AZURE_CLIENT_SECRET in .env manually." -ForegroundColor Red
+            return
+        }
+
+        # --- Update .env with the new secret ---
+        $lines = Get-Content $ENV_FILE -Encoding UTF8 | Where-Object {
+            $_ -notmatch '^AZURE_CLIENT_SECRET='
+        }
+        $updatedLines = @()
+        foreach ($l in $lines) {
+            $updatedLines += $l
+            # Insert new secret right after AZURE_CLIENT_ID line
+            if ($l -match '^AZURE_CLIENT_ID=') {
+                $updatedLines += "AZURE_CLIENT_SECRET=$newPassword"
+            }
+        }
+        $updatedLines | Set-Content $ENV_FILE -Encoding UTF8
+        Write-Host "  New secret written to .env (valid $days days)" -ForegroundColor Green
+
+        Ensure-ServicePrincipalRBAC -SpAppId $existingAppId
         return
     }
 

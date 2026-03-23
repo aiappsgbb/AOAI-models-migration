@@ -45,6 +45,7 @@ This framework automates that process end-to-end:
 | **Verbose Logging** | Rich narrative verbose mode with colour-coded entries (step/ok/warn/err/detail/head) and timestamped progress feed |
 | **Foundry Control Plane** | Optional LLM-as-judge evaluation via Microsoft Foundry Runtime — coherence, fluency, relevance, task adherence, intent resolution — with results visible in the Foundry dashboard |
 | **Multi-User Auth** | Email + OTP authentication with per-user content isolation — each user gets their own prompts, test data, and results.  **Auto-seeding** ensures newly-added models receive prompts matching the user's active topic on next login |
+| **Browser Automation** | Playwright-based automation (`tools/run_browser_eval.py`) runs all models × all eval types sequentially through the real browser UI — with Verbose logs, Foundry submission, screenshots, and JSON reports |
 | **Copilot Studio UI** | Fluent 2 design system inspired by Microsoft Copilot Studio — top header bar, collapsible sidebar, brand-blue palette, flat controls, Segoe UI typography |
 | **Auto-Detection** | SDK automatically uses `max_completion_tokens` for newer-generation and o-series models |
 
@@ -178,6 +179,8 @@ model_migration_eval/
 │   ├── migrate_test_data.py         # Migrate test data between schema versions
 │   ├── migrate_to_multiuser.py      # Migrate existing data to a user's namespace
 │   ├── regenerate_all_topics.py     # Regenerate prompts + test data for all archived topics
+│   ├── run_browser_eval.py          # ⬅ Playwright browser automation: batch evaluations with screenshots & Foundry
+│   ├── eval_screenshots/            # ⬅ Timestamped reports, screenshots, and JSON from browser automation runs
 │   ├── test_import.bat              # Quick-launch script for import testing
 │   └── import_test/                 # ⬅ Sample files for import testing
 │       ├── prompt_gpt4_classification.md
@@ -431,7 +434,7 @@ The Prompts page has four sub-tabs:
 | Sub-Tab | Purpose |
 |---------|---------|
 | **View / Edit** | Read and edit the active prompt template for any model/type combination |
-| **✨ AI Generate** | Generate prompts (4 types × N configured models) + 5 test datasets for a new topic — with a **Regenerate** dropdown to selectively regenerate only prompts, only test data, or both |
+| **✨ AI Generate** | Generate prompts (4 types × N configured models) + 5 test datasets for a new topic — with a **Regenerate** dropdown to selectively regenerate only prompts, only test data, or both.  Optional **📝 Instructions** field to guide generation (language, tone, constraints, focus areas) |
 | **Version History** | Filter, preview, restore, or delete (single/bulk) any past prompt version |
 | **Test Data** | Browse, create, and edit test scenarios for all 5 evaluation types via **dynamic web forms** — each type gets a purpose-built form with specialised sub-editors (conversation turns, tool definitions, key-value context, tag lists). Toggle to raw JSON view for advanced editing |
 
@@ -760,7 +763,8 @@ The entire file content is sent as the `system` message.  Changes take effect on
 1. Go to **Prompts** → **✨ AI Generate**.
 2. Enter a **topic** (e.g. *"Soporte técnico de telecomunicaciones"*, *"Paris 7-day travel itinerary"*).
 3. Select the **generator model**.
-4. Click **Generate Prompts + Test Data**.
+4. Optionally expand **📝 Instructions** to provide custom guidance (language, tone, focus areas, constraints).
+5. Click **Generate Prompts + Test Data**.
 
 Generation runs **asynchronously** in a background thread (HTTP 202 + polling) — the UI shows an elapsed-time counter and animated progress.  This avoids ACA Envoy proxy timeout limits on long-running requests.
 
@@ -776,6 +780,31 @@ This is particularly useful when:
 - You want to iterate on **prompt quality** without losing carefully curated test data.
 - You need to **refresh test scenarios** (e.g. add variety) without changing prompts that are already fine-tuned.
 - You added a **new model** and want to generate its prompts without regenerating all test data.
+
+#### Custom Instructions
+
+The AI Generate panel includes a collapsible **📝 Instructions** section (below the topic field) where you can provide free-form guidance to steer both prompt and test data generation.  Instructions are injected into every meta-prompt sent to the generator LLM as a `## CUSTOM INSTRUCTIONS` block.
+
+**Examples of useful instructions:**
+
+```
+- All test data and prompts in Spanish
+- Max 150 tokens per test case
+- Tone: formal and professional
+- Focus on billing disputes and technical support escalation scenarios
+- Include edge cases for elderly users and accessibility needs
+- Classification must include at least 8 categories
+- RAG scenarios should use technical documentation as context
+- Use metric units (km, kg, °C) in all examples
+```
+
+Instructions apply to **both** prompt generation and test data generation — for instance, asking for Spanish output produces Spanish system prompts and Spanish test scenarios.  They are also persisted in the topic metadata so you can see what instructions were used for each generation.
+
+| Scope | Effect of Instructions |
+|-------|----------------------|
+| **Prompts** | Injected as `## CUSTOM INSTRUCTIONS` in the meta-prompt for each model × task |
+| **Test Data** | Appended as `CUSTOM INSTRUCTIONS` to each data generation prompt (classification, dialog, general, RAG, tool calling) |
+| **Regenerate** | Instructions from the current run are used — not from the original generation |
 
 #### Full Generation Output
 
@@ -2201,7 +2230,60 @@ azd down --force --purge
 
 ---
 
-## �🖥️ CLI Commands
+## 🤖 Browser Automation (Playwright)
+
+The framework includes a **Playwright-based browser automation tool** (`tools/run_browser_eval.py`) that drives the real web UI to execute all model × eval-type combinations sequentially.  This is useful for running the full evaluation matrix (12 models × 5 types = 60 evaluations) unattended while capturing visible results, Verbose logs, and optional Foundry LLM-as-judge submissions.
+
+### Prerequisites
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+### How It Works
+
+1. **Launches Chromium** (visible by default, or `--headless` for CI/CD).
+2. **Logs in** via email (no OTP when `AUTH_CODE_VERIFICATION=false`).
+3. **Enumerates models** from the `#model` dropdown on the Evaluate page.
+4. **Iterates** through each model × eval-type pair:
+   - Selects model, eval type, and scenario limit.
+   - Enables Verbose mode for detailed narrative logging.
+   - Clicks **Run Evaluation** and polls the button state until completion.
+   - Extracts all 12 metric cards (Accuracy, F1, Latency, etc.) from the results.
+   - Takes a **full-page screenshot** (saved to `tools/eval_screenshots/<timestamp>/`).
+   - Optionally clicks **Send to Foundry** if `--foundry` is enabled.
+5. **Prints a summary table** (model × type matrix with pass/fail/accuracy).
+6. **Saves a JSON report** (`report.json`) with all results, metrics, and Foundry scores.
+
+### CLI Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--models` | all | Space-separated model keys (e.g. `gpt4o gpt5`) |
+| `--types` | all 5 | Space-separated eval types (e.g. `classification rag`) |
+| `--limit` | 10 | Max scenarios per evaluation |
+| `--timeout` | 300 | Seconds before a single evaluation is considered timed out |
+| `--foundry` | off | Submit to Foundry LLM-as-judge after each evaluation |
+| `--headless` | off | Run Chromium without a visible window |
+| `--no-close` | off | Keep browser open after completion for manual inspection |
+| `--email` | `asevillano@gmail.com` | Login email |
+| `--base-url` | `http://localhost:5000` | Flask server URL |
+
+### Output
+
+```
+tools/eval_screenshots/
+└── 20260323_170540/
+    ├── report.json                    # Full JSON with all results & metrics
+    ├── gpt4o_classification_PASS.png  # Screenshot per evaluation
+    ├── gpt5_dialog_PASS.png
+    └── ...
+```
+
+---
+
+## 🖥️ CLI Commands
 
 ```bash
 # Start web server (default)
@@ -2235,7 +2317,34 @@ python tools/add_model.py --key gpt45 --deployment "gpt-4.5" --family gpt4 --cop
 python tools/delete_user.py user@example.com              # interactive confirmation
 python tools/delete_user.py user@example.com --dry-run     # preview without deleting
 python tools/delete_user.py user@example.com --yes          # skip confirmation
+
+# ── Browser Automation (Playwright) ──────────────────────────────────────
+# Requires: pip install playwright && playwright install chromium
+# The Flask server must be running before launching the automation.
+
+# Run ALL models × ALL eval types (full matrix)
+.venv\Scripts\python.exe tools/run_browser_eval.py --limit 10 --timeout 300
+
+# Same but with Foundry LLM-as-judge submission after each evaluation
+.venv\Scripts\python.exe tools/run_browser_eval.py --limit 10 --timeout 300 --foundry
+
+# Run specific models and/or types only
+.venv\Scripts\python.exe tools/run_browser_eval.py --models gpt4o gpt5 --types classification rag
+
+# Headless mode (no visible browser window)
+.venv\Scripts\python.exe tools/run_browser_eval.py --limit 10 --headless
+
+# Keep browser open after completion (for manual inspection)
+.venv\Scripts\python.exe tools/run_browser_eval.py --models gpt4o --types classification --no-close
+
+# Use a different user email or server URL
+.venv\Scripts\python.exe tools/run_browser_eval.py --email user@example.com --base-url http://localhost:8080
 ```
+
+Browser automation produces:
+- **Screenshots** — full-page capture after each evaluation (saved to `tools/eval_screenshots/<timestamp>/`)
+- **JSON report** — per-run `report.json` with model, type, status, accuracy, all metric values, elapsed time, and optional Foundry scores
+- **Console summary** — matrix table showing pass/fail/error status for each model × type combination
 
 > **Note:** The CLI `evaluate` and `compare` subcommands currently support `classification`, `dialog`, `general`, and `all`.  RAG and tool calling evaluations are available via the **web UI** and **REST API** only.
 
@@ -2299,7 +2408,7 @@ All endpoints are available at `http://127.0.0.1:<port>/api/`.
 | `GET` | `/api/prompts` | List all available prompt templates |
 | `GET` | `/api/prompts/<model>/<type>` | Read a specific prompt's content |
 | `PUT` | `/api/prompts/<model>/<type>` | Save/update a prompt (creates version snapshot) |
-| `POST` | `/api/prompts/generate` | AI-generate prompts + test data — accepts optional `scope` parameter (`"all"`, `"prompts_only"`, `"data_only"`) — returns HTTP 202, runs asynchronously in background |
+| `POST` | `/api/prompts/generate` | AI-generate prompts + test data — accepts optional `scope` (`"all"`, `"prompts_only"`, `"data_only"`) and `instructions` (free-form text to guide generation) — returns HTTP 202, runs asynchronously in background |
 | `GET` | `/api/prompts/generate/<run_id>/status` | Poll generation job progress — returns result payload when complete |
 | `GET` | `/api/prompts/health` | Prompt health analysis — checks consistency and completeness |
 
@@ -2505,6 +2614,7 @@ When comparing two models, each dimension shows:
 | `pyyaml` | ≥6.0.1 | YAML config parsing |
 | `httpx` | ≥0.26.0 | HTTP transport for async client |
 | `websockets` | ≥12.0 | WebSocket client for Realtime API (speech-to-speech) |
+| `playwright` | ≥1.40.0 | Browser automation for batch evaluation runs (optional) |
 | `pytest` | ≥7.4.0 | Testing |
 | `pytest-asyncio` | ≥0.21.0 | Async test support |
 

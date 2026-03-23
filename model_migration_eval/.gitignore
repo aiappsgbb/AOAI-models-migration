@@ -50,3 +50,4 @@ prompts/history/*.md
 tests/
 *.ini
 data/users/
+tools/eval_screenshots/

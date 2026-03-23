@@ -23,12 +23,23 @@ def extract_categories_from_prompt(prompt_text: str) -> List[str]:
     1. **Markdown table** — Any table under a heading containing
        "categor", "taxonom", etc.  Detects the category column by
        header name *or* by picking the first column whose data rows
-       contain snake_case codes.
+       contain snake_case codes.  Also detects tables preceded by
+       plain-text intro lines like *"Use only these 15 primary_category
+       values…"* (no heading required).
 
     2. **YAML dict keys** under a ``categories:`` line.
 
+    2b. **YAML enum** — ``enum:`` list under a ``primary_category:``
+        property inside an ``output_schema`` / ``properties`` block.
+
     3. **Bullet / dash lists** like ``- booking_management`` under a
        taxonomy heading, optionally followed by indented sub-items.
+       Also recognises plain-text intro lines such as
+       *"Primary category taxonomy:"* (mixed-case, no ``#``).  When
+       the taxonomy section uses **sub-headings** to list primary
+       categories (e.g. ``### 1) account_access_authentication``)
+       with subcategory bullets underneath, the parser extracts the
+       codes from the sub-headings and ignores the subcategory bullets.
 
     Returns a deduplicated list preserving first-occurrence order,
     excluding ``out_of_scope`` and similar sentinel values.
@@ -93,6 +104,22 @@ def extract_categories_from_prompt(prompt_text: str) -> List[str]:
                 return True
         return False
 
+    # Regex for plain-text intro lines that introduce a primary-category
+    # table or list without a formal heading, e.g.:
+    #   "Use only these 15 primary_category values exactly as written:"
+    #   "Primary category taxonomy:"
+    #   "Classification taxonomy:"
+    #   "Use exactly one of these primary_category values."
+    _INTRO_LINE_RE = re.compile(
+        r'(use\s+(?:only\s+|exactly\s+one\s+of\s+)?these\s+(?:\d+\s+)?primary.category'
+        r'|primary\s+category\s+taxonomy'
+        r'|classif\w*\s+taxonomy\s*:'
+        r'|allowed\s+primary.category\s+(values|codes)'
+        r'|valid\s+primary.category\s+(values|codes)'
+        r'|mandatory\s+primary.category)',
+        re.IGNORECASE,
+    )
+
     # ── Strategy 1: Markdown tables ───────────────────────────────
     # Look for tables inside sections whose heading mentions categories
     # / taxonomy.  Detect the code column flexibly.
@@ -114,6 +141,15 @@ def extract_categories_from_prompt(prompt_text: str) -> List[str]:
                 in_taxonomy_section = False
             elif _TAXONOMY_KW_RE.search(heading_lower):
                 in_taxonomy_section = True
+            in_table = False
+            cat_col_idx = None
+            separator_seen = False
+            continue
+
+        # Detect plain-text intro lines (not headings) that introduce
+        # a primary-category table or bullet list.
+        if not in_taxonomy_section and _INTRO_LINE_RE.search(stripped):
+            in_taxonomy_section = True
             in_table = False
             cat_col_idx = None
             separator_seen = False
@@ -227,10 +263,66 @@ def extract_categories_from_prompt(prompt_text: str) -> List[str]:
                 if key_m and key_m.group(1) not in yaml_meta_keys:
                     _add(key_m.group(1))
 
+    # ── Strategy 2b: YAML enum under primary_category property ───
+    # Prompts that use an output_schema YAML block list categories
+    # as:  primary_category:\n      type: string\n      enum:\n        - code1
+    if not categories:
+        _enum_re = re.compile(
+            r'^(\s*)primary_category:\s*$', re.MULTILINE
+        )
+        for m in _enum_re.finditer(prompt_text):
+            base_indent = len(m.group(1))
+            remaining = prompt_text[m.end():].splitlines()
+            in_enum = False
+            enum_indent: Optional[int] = None
+            for sub_line in remaining:
+                if not sub_line.strip():
+                    continue
+                content = sub_line.lstrip()
+                indent = len(sub_line) - len(content)
+                # Exited the primary_category block
+                if indent <= base_indent and content and not content.startswith('#'):
+                    break
+                # Detect "enum:" key
+                if not in_enum and re.match(r'enum:\s*$', content):
+                    in_enum = True
+                    enum_indent = indent
+                    continue
+                # Inline enum like  enum: [val1, val2, ...]
+                if not in_enum:
+                    inline_m = re.match(r'enum:\s*\[(.+)\]', content)
+                    if inline_m:
+                        for val in inline_m.group(1).split(','):
+                            val = val.strip().strip("'").strip('"')
+                            if _CODE_RE.match(val):
+                                _add(val)
+                        break
+                    continue
+                # Inside enum block — collect "- code" items
+                if in_enum:
+                    if enum_indent is not None and indent <= enum_indent:
+                        break  # exited enum block
+                    bullet_m = re.match(r'-\s+([a-z][a-z0-9_]{2,})\s*$', content)
+                    if bullet_m:
+                        _add(bullet_m.group(1))
+            if categories:
+                break  # found categories, stop searching
+
     # ── Strategy 3: Bullet / dash lists ───────────────────────────
+    # Also handles the case where primary categories appear as markdown
+    # sub-headings (### N) code_name) with subcategory bullets below —
+    # we extract from the sub-headings and skip the subcategory bullets.
     if not categories:
         in_tax = False
         list_indent: Optional[int] = None
+        extracting_from_subheadings = False
+        _SUBHEADING_CODE_RE_S3 = re.compile(
+            r'^#{2,4}\s+'
+            r'(?:\d[\d.\)]*\s+)?'
+            r'([a-z][a-z0-9_]{2,})'
+            r'(?:\s*\(.*\))?'
+            r'\s*$'
+        )
         for line in lines:
             stripped = line.strip()
             if _is_heading(stripped):
@@ -240,13 +332,62 @@ def extract_categories_from_prompt(prompt_text: str) -> List[str]:
                     and not _SUB_EXCEPTION_RE.search(heading_lower)
                 if is_excluded or is_sub_only:
                     in_tax = False
+                    extracting_from_subheadings = False
                 elif _TAXONOMY_KW_RE.search(heading_lower):
                     in_tax = True
                     list_indent = None
+                    extracting_from_subheadings = False
+                # If inside a taxonomy section, check if this markdown
+                # sub-heading itself carries a primary-category code
+                # (e.g. "### 1) account_access_authentication").
+                if in_tax and stripped.startswith('#'):
+                    sh_m = _SUBHEADING_CODE_RE_S3.match(stripped)
+                    if sh_m:
+                        _add(sh_m.group(1))
+                        extracting_from_subheadings = True
+                continue
+            # Also detect plain-text intro lines as taxonomy triggers
+            if not in_tax and _INTRO_LINE_RE.search(stripped):
+                in_tax = True
+                list_indent = None
+                extracting_from_subheadings = False
                 continue
             if not in_tax:
                 continue
-            m = re.match(r'^(\s*)(?:[-*]|\d+[).])\s+([a-z][a-z0-9_]{2,}):?\s*$', line)
+            # Detect plain-text section labels that signal the END of
+            # taxonomy data: e.g. "Priority rules:", "Sentiment rules:".
+            # These lines aren't formal headings but introduce new
+            # non-taxonomy sections, so we stop collecting.
+            # Skip this check when extracting from sub-headings — lines
+            # like "Example subcategories:" are expected between sub-
+            # headings and should not terminate the section.
+            if (not extracting_from_subheadings
+                    and stripped.endswith(':')
+                    and not stripped.startswith(('-', '*', '|'))
+                    and _EXCLUSION_KW_RE.search(stripped.lower())):
+                in_tax = False
+                extracting_from_subheadings = False
+                continue
+            # Similarly, "Subcategory" labels end the primary section
+            if (not extracting_from_subheadings
+                    and stripped.endswith(':')
+                    and not stripped.startswith(('-', '*', '|'))
+                    and _SUB_ONLY_RE.search(stripped.lower())
+                    and not _SUB_EXCEPTION_RE.search(stripped.lower())):
+                in_tax = False
+                extracting_from_subheadings = False
+                continue
+            # When codes come from sub-headings, skip bullet extraction
+            # (the bullets below each sub-heading are subcategories).
+            if extracting_from_subheadings:
+                continue
+            # Match bullet items: "- code", "- code:", "- code: description...",
+            # or quoted variants like '- "code" — description'.
+            m = re.match(
+                r'^(\s*)(?:[-*]|\d+[).])\s+["\']?([a-z][a-z0-9_]{2,})["\']?'
+                r'(?:\s*[\u2014\u2013:;,-].*|\s*)$',
+                line,
+            )
             if m:
                 indent = len(m.group(1))
                 if list_indent is None:
