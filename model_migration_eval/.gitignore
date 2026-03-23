@@ -51,3 +51,4 @@ tests/
 *.ini
 data/users/
 tools/eval_screenshots/
+tools/compare_screenshots/

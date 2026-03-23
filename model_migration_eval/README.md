@@ -45,7 +45,7 @@ This framework automates that process end-to-end:
 | **Verbose Logging** | Rich narrative verbose mode with colour-coded entries (step/ok/warn/err/detail/head) and timestamped progress feed |
 | **Foundry Control Plane** | Optional LLM-as-judge evaluation via Microsoft Foundry Runtime — coherence, fluency, relevance, task adherence, intent resolution — with results visible in the Foundry dashboard |
 | **Multi-User Auth** | Email + OTP authentication with per-user content isolation — each user gets their own prompts, test data, and results.  **Auto-seeding** ensures newly-added models receive prompts matching the user's active topic on next login |
-| **Browser Automation** | Playwright-based automation (`tools/run_browser_eval.py`) runs all models × all eval types sequentially through the real browser UI — with Verbose logs, Foundry submission, screenshots, and JSON reports |
+| **Browser Automation** | Playwright-based automation (`tools/run_browser_eval.py` and `tools/run_browser_compare.py`) runs all models × all eval types sequentially through the real browser UI — with Verbose logs, Foundry submission, screenshots, and JSON reports |
 | **Copilot Studio UI** | Fluent 2 design system inspired by Microsoft Copilot Studio — top header bar, collapsible sidebar, brand-blue palette, flat controls, Segoe UI typography |
 | **Auto-Detection** | SDK automatically uses `max_completion_tokens` for newer-generation and o-series models |
 
@@ -180,7 +180,9 @@ model_migration_eval/
 │   ├── migrate_to_multiuser.py      # Migrate existing data to a user's namespace
 │   ├── regenerate_all_topics.py     # Regenerate prompts + test data for all archived topics
 │   ├── run_browser_eval.py          # ⬅ Playwright browser automation: batch evaluations with screenshots & Foundry
-│   ├── eval_screenshots/            # ⬅ Timestamped reports, screenshots, and JSON from browser automation runs
+│   ├── run_browser_compare.py       # ⬅ Playwright browser automation: batch model comparisons (A vs all B's)
+│   ├── eval_screenshots/            # ⬅ Timestamped reports, screenshots, and JSON from evaluation browser runs
+│   ├── compare_screenshots/         # ⬅ Timestamped reports, screenshots, and JSON from comparison browser runs
 │   ├── test_import.bat              # Quick-launch script for import testing
 │   └── import_test/                 # ⬅ Sample files for import testing
 │       ├── prompt_gpt4_classification.md
@@ -2283,6 +2285,50 @@ tools/eval_screenshots/
 
 ---
 
+### 🔄 Browser Automation — Model Comparisons
+
+A second Playwright script (`tools/run_browser_compare.py`) automates the **Compare page**.  When `--model-a` is provided it compares that baseline against all other models (or a `--models-b` subset).  **When `--model-a` is omitted, every available model is used as A in turn** — producing a full N × (N−1) × eval-types comparison matrix (e.g. 12 models × 11 opponents × 5 types = 660 pair-wise comparisons).  Each run captures winners, dimensions compared, and high-impact changes.
+
+#### How It Works
+
+1. **Launches Chromium** and logs in (same flow as the evaluation script).
+2. **Determines the Model A list** — either the single model passed via `--model-a`, or *all* available models when omitted.
+3. For each Model A, **selects Model B's** via JavaScript (custom multiselect with checkboxes) and iterates over each evaluation type:
+   - Navigates to `/compare`, selects models and eval type.
+   - Enables Verbose mode. Optionally enables Foundry LLM-as-judge.
+   - Clicks **Run Comparison** and polls the UI for completion (watches `#results-section` visibility).
+   - Extracts **winner**, **dimensions compared**, and **high-impact changes** from the summary cards.
+   - Takes a full-page screenshot.
+4. **Prints a summary table** grouped by Model A (with visual separators in multi-A mode).
+5. **Saves a JSON report** to `tools/compare_screenshots/<timestamp>/report.json`.
+
+#### CLI Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--model-a` | all models | Baseline model key (e.g. `gpt4o`). If omitted, every model is used as A in turn |
+| `--models-b` | all others | Space-separated Model B keys (default: every model except A) |
+| `--types` | all 5 | Space-separated eval types (e.g. `classification rag`) |
+| `--timeout` | 600 | Seconds before a comparison is considered timed out |
+| `--foundry` | off | Enable Foundry LLM-as-judge scoring |
+| `--headless` | off | Run Chromium without a visible window |
+| `--no-close` | off | Keep browser open after completion |
+| `--email` | `asevillano@gmail.com` | Login email |
+| `--base-url` | `http://localhost:5000` | Flask server URL |
+
+#### Output
+
+```
+tools/compare_screenshots/
+└── 20260323_175526/
+    ├── report.json                           # Full JSON with winners, dimensions, impact
+    ├── gpt4o_vs_all_classification_PASS.png  # Screenshot per eval type
+    ├── gpt4o_vs_all_dialog_PASS.png
+    └── ...
+```
+
+---
+
 ## 🖥️ CLI Commands
 
 ```bash
@@ -2339,11 +2385,32 @@ python tools/delete_user.py user@example.com --yes          # skip confirmation
 
 # Use a different user email or server URL
 .venv\Scripts\python.exe tools/run_browser_eval.py --email user@example.com --base-url http://localhost:8080
+
+# ── Browser Automation: Comparisons (Playwright) ─────────────────────────
+# Same prerequisites as above (Playwright + Chromium).
+
+# FULL MATRIX — every model as A vs the rest × all eval types (no --model-a)
+.venv\Scripts\python.exe tools/run_browser_compare.py
+
+# Single Model A vs ALL other models (B) × all eval types
+.venv\Scripts\python.exe tools/run_browser_compare.py --model-a gpt4o
+
+# Compare with Foundry LLM-as-judge
+.venv\Scripts\python.exe tools/run_browser_compare.py --model-a gpt4o --foundry
+
+# Specific Model B's and eval types only
+.venv\Scripts\python.exe tools/run_browser_compare.py --model-a gpt4o --models-b gpt5 phi4 --types classification rag
+
+# Headless mode (full matrix, no visible browser)
+.venv\Scripts\python.exe tools/run_browser_compare.py --headless
+
+# Keep browser open after completion
+.venv\Scripts\python.exe tools/run_browser_compare.py --model-a gpt4o --models-b gpt5 --types classification --no-close
 ```
 
 Browser automation produces:
-- **Screenshots** — full-page capture after each evaluation (saved to `tools/eval_screenshots/<timestamp>/`)
-- **JSON report** — per-run `report.json` with model, type, status, accuracy, all metric values, elapsed time, and optional Foundry scores
+- **Screenshots** — full-page capture after each evaluation/comparison (saved to `tools/eval_screenshots/` or `tools/compare_screenshots/`)
+- **JSON report** — per-run `report.json` with model, type, status, metrics (accuracy for evals; winner/dimensions/impact for comparisons), elapsed time, and optional Foundry scores
 - **Console summary** — matrix table showing pass/fail/error status for each model × type combination
 
 > **Note:** The CLI `evaluate` and `compare` subcommands currently support `classification`, `dialog`, `general`, and `all`.  RAG and tool calling evaluations are available via the **web UI** and **REST API** only.
