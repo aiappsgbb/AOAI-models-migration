@@ -227,6 +227,9 @@
             const foundryBadge = hasFoundry ? '<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800" title="Foundry LLM-as-Judge evaluation available">☁️ Foundry</span>' : '';
             const batchBadge = result.batch_id ? `<span class="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-700" title="Part of batch ${result.batch_id}">📦</span>` : '';
 
+            const exportTitle = hasFoundry ? 'Export to Excel (includes Foundry scores)' : 'Export to Excel';
+            const exportLabel = hasFoundry ? '📊✨' : '📊';
+
             card.innerHTML = `
                 <div class="flex items-center justify-between">
                     <div class="flex-1 cursor-pointer result-clickable" data-filename="${result.filename}">
@@ -240,8 +243,8 @@
                     </div>
                     <div class="flex items-center space-x-2 ml-4">
                         <span class="text-xs text-gray-400 hidden sm:inline max-w-[200px] truncate" title="${result.filename}">${result.filename}</span>
-                        <button class="export-result-btn px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition" data-filename="${result.filename}" title="Export to Excel">
-                            📊
+                        <button class="export-result-btn px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition" data-filename="${result.filename}" title="${exportTitle}">
+                            ${exportLabel}
                         </button>
                         <button class="delete-result-btn px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition" data-filename="${result.filename}" title="Delete">
                             🗑️
@@ -278,6 +281,13 @@
                 const data = await response.json();
                 
                 document.getElementById('modal-title').textContent = filename;
+
+                // Update modal export button to reflect Foundry status
+                const modalExportBtn = document.getElementById('modal-export-btn');
+                const hasFoundryData = data.foundry_scores || data.foundry_scores_a || data.foundry_scores_b;
+                modalExportBtn.innerHTML = hasFoundryData
+                    ? '📊 Export Excel ✨ <span class="text-xs opacity-90">(Foundry)</span>'
+                    : '📊 Export Excel';
                 
                 let html = '<div class="space-y-6">';
                 

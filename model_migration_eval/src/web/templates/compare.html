@@ -965,7 +965,15 @@
             // Show export button if saved_filename available
             if (data.saved_filename) {
                 lastCompareFilename = data.saved_filename;
-                document.getElementById('compare-excel-export').classList.remove('hidden');
+                const exportDiv = document.getElementById('compare-excel-export');
+                const exportBtn = document.getElementById('compare-export-btn');
+                exportDiv.classList.remove('hidden');
+                // Indicate if Foundry data is included
+                if (data.foundry_scores_a || data.foundry_scores_b) {
+                    exportBtn.innerHTML = '📊 Export to Excel ✨ <span class="text-xs opacity-90">(includes Foundry)</span>';
+                } else {
+                    exportBtn.innerHTML = '📊 Export to Excel';
+                }
             }
             showNormalResultsView();
 

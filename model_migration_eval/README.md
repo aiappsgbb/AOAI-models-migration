@@ -1,6 +1,6 @@
 # Azure OpenAI Model Migration Evaluation Framework
 
-A comprehensive evaluation framework for migrating production systems between any Azure OpenAI model generations **and external models** (Azure AI Marketplace, Google Gemini, Microsoft SLMs) (e.g. GPT-4o → GPT-4.1, GPT-4.1 → GPT-5.4, GPT-4.1 → GPT-5.4-mini, GPT-4.1 → Phi-4, GPT-4.1 → Mistral-Large-3, GPT-4.1 → Gemini 3 Flash, or any configured pair).  Now also supports **Speech-to-Speech (S2S) evaluation** via the Azure OpenAI Realtime API (gpt-realtime, gpt-realtime-1.5) with TTS-driven audio input.  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **6 scenario types** (classification, dialog, general, RAG, tool calling, and **realtime speech-to-speech**), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
+A comprehensive evaluation framework for migrating production systems between any Azure OpenAI model generations **and external models** (Azure AI Marketplace, Google Gemini, Microsoft SLMs) (e.g. GPT-4o → GPT-4.1, GPT-4.1 → GPT-5.4, GPT-4.1 → GPT-5.4-mini, GPT-4.1 → Phi-4, GPT-4.1 → Mistral-Large-3, GPT-4.1 → Gemini 3 Flash, or any configured pair).  Now also supports **Speech-to-Speech (S2S) evaluation** via the Azure OpenAI Realtime API (gpt-realtime, gpt-realtime-1.5) with TTS-driven audio input.  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **6 scenario types** (classification, dialog, general, RAG, tool calling, and **realtime speech-to-speech**), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, persistent results with filtering & deletion, and **Excel export with Power BI–ready multi-sheet workbooks**.
 
 ---
 
@@ -20,7 +20,8 @@ This framework automates that process end-to-end:
 2. **Evaluate** each model independently against 5 scenario types: classification, dialog, general, RAG, and tool calling.
 3. **Compare** two models head-to-head with quantified metrics and significance levels.
 4. **Browse** saved results, filter by type, inspect details, and delete old runs.
-5. **Manage** multiple topics — archive, switch, restore, or **import** your own prompt + data sets.
+5. **Export** any result to a Power BI–ready Excel workbook (.xlsx) with multi-sheet schema.
+6. **Manage** multiple topics — archive, switch, restore, or **import** your own prompt + data sets.
 
 ### Key Capabilities
 
@@ -41,7 +42,8 @@ This framework automates that process end-to-end:
 | **Model Comparison** | Head-to-head or **batch multi-model** comparison (Model A vs N Model B's) with dimension-by-dimension charts, statistical significance (Welch's t-test), and actionable recommendations |
 | **Prompt Versioning** | Every save creates a timestamped snapshot — preview, restore, or delete any version |
 | **Test Data Editor** | View, create, and edit test scenarios via type-specific web forms (classification, dialog, general, RAG, tool calling) with auto-scroll, a JSON toggle for advanced editing, and configurable scenario counts per type |
-| **Results Persistence** | Evaluations and comparisons auto-save to disk — browse, filter, inspect, and delete from the UI |
+| **Results Persistence** | Evaluations and comparisons auto-save to disk — browse, filter, inspect, export, and delete from the UI |
+| **Excel Export (Power BI)** | One-click export of any evaluation or comparison to a multi-sheet `.xlsx` workbook optimised for Power BI — Metadata, Metrics (long/tidy), RawResults (union schema), CategoryAccuracy, FoundryScores, Dimensions, Recommendations, StatisticalSignificance, and MigrationReadiness sheets.  Foundry-aware: button updates to “✨ includes Foundry” after LLM-as-judge completes |
 | **Verbose Logging** | Rich narrative verbose mode with colour-coded entries (step/ok/warn/err/detail/head) and timestamped progress feed |
 | **Foundry Control Plane** | Optional LLM-as-judge evaluation via Microsoft Foundry Runtime — coherence, fluency, relevance, task adherence, intent resolution — with results visible in the Foundry dashboard |
 | **Multi-User Auth** | Email + OTP authentication with per-user content isolation — each user gets their own prompts, test data, and results.  **Auto-seeding** ensures newly-added models receive prompts matching the user's active topic on next login |
@@ -155,7 +157,8 @@ model_migration_eval/
 │   │   ├── prompt_loader.py        # PromptLoader — template loading with caching
 │   │   ├── prompt_manager.py       # PromptManager — editing, versioning, AI gen, topics
 │   │   ├── model_guidance.py       # Two-tier prompt-engineering guidance (family + deployment)
-│   │   └── data_loader.py          # DataLoader — synthetic scenario loading
+│   │   ├── data_loader.py          # DataLoader — synthetic scenario loading
+│   │   └── excel_exporter.py       # ExcelExporter — Power BI–ready .xlsx generation (openpyxl)
 │   └── web/
 │       ├── routes.py               # Flask API routes (2100+ lines, 55+ routes)
 │       └── templates/
@@ -334,7 +337,7 @@ The UI follows the **Microsoft Copilot Studio** visual language — a **Fluent 2
 | **Dashboard** | 🏠 | `/` | Quick single-prompt evaluation — enter a prompt, pick models, see responses side-by-side |
 | **Evaluate** | 📊 | `/evaluate` | Batch evaluation of a single model across all test scenarios for a given type |
 | **Compare** | ⚖️ | `/compare` | Head-to-head or **batch multi-model** comparison (Model A vs one or more Model B's) with dimension-by-dimension charts and summary table |
-| **Results** | 📋 | `/results` | Browse, filter, inspect, and delete all saved evaluation/comparison results |
+| **Results** | 📋 | `/results` | Browse, filter, inspect, export to Excel, and delete all saved evaluation/comparison results |
 | **Prompts** | ✏️ | `/prompts` | Full prompt lifecycle: view, edit, AI-generate, version history, and test data explorer |
 | **Import Samples & Prompts** | 📄 | `/import-samples` | JSON & CSV sample files for all 5 task types, plus prompt generation best practices — two-tier model guidance architecture, per-model differences table, and official documentation sources (opens from the Prompts page "Samples & Prompts" link) |
 
@@ -375,6 +378,7 @@ Each entry is timestamped.  For **classification**, each scenario shows expected
 3. Click **▶ Run Evaluation**.
 4. The system sends every test scenario through the model and computes metrics.
 5. Results are displayed with **dynamic summary metric cards** per type and **auto-saved** to `data/results/`.
+6. A **📊 Export to Excel** button appears below the configuration panel — downloads a Power BI–ready `.xlsx` workbook.  If Foundry LLM-as-judge is running, the button warns that Foundry data is pending; once Foundry completes, it updates to **“📊 Export to Excel ✨ (includes Foundry)”**.
 
 **Classification metric cards (12):** Accuracy, F1 Score, Avg Latency, Consistency, Subcategory Accuracy, Priority Accuracy, Sentiment Accuracy, Cost/Request, Cache Hit Rate, Reasoning Token %, Avg Confidence, Tokens/sec.
 
@@ -400,6 +404,7 @@ Each metric card has an **ⓘ info tooltip** button explaining what the metric m
 4. See dimension-by-dimension results with percentage change, significance levels, and a bar chart.
 5. The report includes an overall winner and actionable recommendations.
 6. Comparisons are **auto-saved** to `data/results/`.
+7. A **📊 Export to Excel** button appears below the comparison controls — label shows **✨ (includes Foundry)** when Foundry data is present.
 
 #### Single vs. Batch Comparison
 
@@ -423,9 +428,11 @@ In batch mode:
 - **Batch grouping** — comparisons from the same batch run are grouped under a collapsible **📦 Batch Comparison** header showing the number of reports and timestamp.  Click to expand and see individual results.
 - **Filter** by type: Classification, Dialog, General, or Comparison.
 - **Count badge** shows how many results match the current filter.
+- **📊 Export to Excel** button on each result card — downloads a Power BI–ready `.xlsx` workbook.  Shows ✨ sparkle when the result includes Foundry LLM-as-Judge scores.
 - Click any result to open a **detail modal** with:
   - For evaluations: model, type, scenario count, classification metrics (accuracy/F1/precision/recall), latency metrics (mean/median/P95/stddev).
   - For comparisons: model A vs B, dimension table (values + % change + significance), winner, recommendations.
+  - **📊 Export Excel** button in the modal header for quick export.
   - Collapsible **Raw JSON** section.
 - **🗑️ Delete** individual results directly from the list.
 
@@ -441,6 +448,50 @@ The Prompts page has four sub-tabs:
 | **Test Data** | Browse, create, and edit test scenarios for all 5 evaluation types via **dynamic web forms** — each type gets a purpose-built form with specialised sub-editors (conversation turns, tool definitions, key-value context, tag lists). Toggle to raw JSON view for advanced editing |
 
 Additionally, the left sidebar includes an **📥 Import Topic** panel with a **Samples & Prompts** link that opens a reference page (`/import-samples`) showing copyable JSON and CSV examples for all 5 task types, plus a comprehensive section on prompt generation best practices — the two-tier model guidance architecture, a per-model differences comparison table, and links to official documentation sources for each model family (see [Importing External Topics](#importing-external-topics) below).
+
+### Excel Export & Power BI Integration
+
+Any saved evaluation or comparison result can be exported to a **multi-sheet `.xlsx` workbook** designed for direct consumption in Power BI.  The export button (📊) appears in three places:
+
+- **Evaluate page** — below the configuration panel, after an evaluation completes.
+- **Compare page** — below the comparison controls, after a comparison completes.
+- **Results page** — on each saved-result card and inside the detail modal.
+
+#### Foundry-Aware Export
+
+When Foundry LLM-as-Judge is enabled, the export button adapts:
+
+| State | Button Label | Click Behaviour |
+|-------|-------------|-----------------|
+| Foundry not used | `📊 Export to Excel` | Exports immediately |
+| Foundry in progress | `📊 Export to Excel` + ⚠️ amber hint | Shows a confirmation warning that Foundry data is not yet included |
+| Foundry completed | `📊 Export to Excel ✨ (includes Foundry)` | Exports with full Foundry scores |
+| Foundry failed | `📊 Export to Excel` (hint removed) | Exports without Foundry data |
+
+#### Evaluation Workbook Schema (up to 5 sheets)
+
+| Sheet | Rows | Key Columns |
+|-------|------|-------------|
+| **Metadata** | 1 | `model_name`, `evaluation_type`, `eval_timestamp`, `scenarios_tested`, `error_count` |
+| **Metrics** | N (long/tidy) | `metric_category` (classification / quality / latency / consistency / tool_calling), `metric_name`, `metric_value`, `metric_unit` |
+| **RawResults** | 1 per scenario | Common columns (`scenario_id`, `latency_s`, token breakdown) + type-specific columns (classification: expected/predicted fields; dialog: conversation, context gaps; RAG: query/context/groundedness/relevance; tool calling: tool accuracy, param accuracy) |
+| **CategoryAccuracy**\* | 1 per category | `category`, `accuracy` — only for classification results |
+| **FoundryScores**\* | 1 per grader × row | `grader_name`, `aggregated_score`, `row_index`, `row_score`, `row_reason` — only when Foundry data is available |
+
+#### Comparison Workbook Schema (up to 6 sheets)
+
+| Sheet | Rows | Key Columns |
+|-------|------|-------------|
+| **Metadata** | 1 | `model_a`, `model_b`, `evaluation_type`, `overall_winner`, win counts, `batch_id` |
+| **Dimensions** | 1 per dimension | `dimension`, `model_a_value`, `model_b_value`, `difference`, `percent_change`, `better_model`, `significance` |
+| **Recommendations** | 1 per recommendation | `recommendation_index`, `recommendation_text` |
+| **StatisticalSignificance**\* | Per test | `test_name` (mcnemar / latency_ttest), `statistic`, `p_value`, `significant` |
+| **MigrationReadiness**\* | 1 per check | `verdict`, `metric`, `threshold`, `actual`, `passed` |
+| **FoundryComparison**\* | 1 per grader × model | `model`, `grader_name`, `aggregated_score`, `report_url` |
+
+\* Optional sheets — only created when the corresponding data is present.
+
+All sheets use `snake_case` column names, denormalised foreign keys (`model_name` + `evaluation_type`), and native data types for automatic relationship detection in Power BI.  Multiple exported workbooks can be combined using Power BI's "Get Data → Folder" to build a unified analysis model across all evaluations.
 
 ---
 

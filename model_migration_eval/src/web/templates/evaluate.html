@@ -78,9 +78,10 @@
 
         <!-- Action Buttons (Export + Foundry) — between config and results -->
         <div id="action-buttons-bar" class="hidden flex items-center flex-wrap gap-3 mb-6">
-            <button id="excel-export-btn" class="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-md">
+            <button id="excel-export-btn" class="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
                 📊 Export to Excel
             </button>
+            <span id="excel-export-hint" class="hidden text-sm text-amber-600 font-medium">⚠️ Foundry in progress — export again after it completes for full data</span>
             <div id="foundry-send-btn-container" class="hidden">
                 <button id="foundry-send-btn" class="inline-flex items-center px-5 py-2.5 bg-brand-500 text-white text-sm font-medium rounded-lg hover:bg-brand-600 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
                     <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,12 +242,23 @@
         let lastSavedFilename = null;
         let lastEvalType = null;
         let lastModelName = null;
+        let _foundryRunning = false;
+        let _foundryCompleted = false;
 
         // Excel export handler
         document.getElementById('excel-export-btn').addEventListener('click', () => {
-            if (lastSavedFilename) {
-                window.location.href = '/api/results/export/' + encodeURIComponent(lastSavedFilename);
+            if (!lastSavedFilename) return;
+            // Warn if Foundry is running but allow the export
+            if (_foundryRunning && !_foundryCompleted) {
+                const proceed = confirm(
+                    '⚠️ Foundry evaluation is still in progress.\n\n'
+                    + 'The exported Excel will NOT include Foundry LLM-as-Judge scores.\n'
+                    + 'You can export again after Foundry completes to get the full data.\n\n'
+                    + 'Export now anyway?'
+                );
+                if (!proceed) return;
             }
+            window.location.href = '/api/results/export/' + encodeURIComponent(lastSavedFilename);
         });
 
         // Metric descriptions for info tooltips
@@ -497,6 +509,8 @@
                     title.textContent = '❌ Foundry evaluation failed';
                     detail.textContent = data.error;
                     verboseLog('❌ <strong>Foundry:</strong> ' + data.error, 'err');
+                    _foundryRunning = false;
+                    document.getElementById('excel-export-hint').classList.add('hidden');
                     return;
                 }
 
@@ -506,6 +520,12 @@
                     link.href = data.report_url;
                     link.classList.remove('hidden');
                     verboseLog(`✅ <strong>Foundry:</strong> Evaluation completed! <a href="${data.report_url}" target="_blank" class="underline">Open in Control Plane →</a>`, 'ok');
+                    // Update export button to reflect Foundry data is now available
+                    _foundryCompleted = true;
+                    _foundryRunning = false;
+                    const exportBtn = document.getElementById('excel-export-btn');
+                    exportBtn.innerHTML = '📊 Export to Excel ✨ <span class="text-xs opacity-90">(includes Foundry)</span>';
+                    document.getElementById('excel-export-hint').classList.add('hidden');
                     // Display Foundry scores in local UI
                     if (data.foundry_scores) {
                         displayFoundryResults(data.foundry_scores);
@@ -514,6 +534,8 @@
                     title.textContent = '❌ Foundry evaluation failed';
                     detail.textContent = `Run ${data.run_id} failed`;
                     verboseLog('❌ <strong>Foundry:</strong> Evaluation run failed on the server.', 'err');
+                    _foundryRunning = false;
+                    document.getElementById('excel-export-hint').classList.add('hidden');
                 } else {
                     title.textContent = '⏳ Foundry evaluation in progress';
                     detail.textContent = `Status: ${data.status} — check the Control Plane for updates`;
@@ -535,6 +557,8 @@
                 title.textContent = '❌ Foundry submission error';
                 detail.textContent = e.message;
                 verboseLog('❌ <strong>Foundry:</strong> Network error: ' + e.message, 'err');
+                _foundryRunning = false;
+                document.getElementById('excel-export-hint').classList.add('hidden');
             } finally {
                 await stopBackendLogs();
             }
@@ -548,6 +572,8 @@
                     if (!lastSavedFilename) return;
                     btn.disabled = true;
                     btn.innerHTML = '<svg class="animate-spin h-4 w-4 mr-2 inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Submitting to Foundry...';
+                    _foundryRunning = true;
+                    document.getElementById('excel-export-hint').classList.remove('hidden');
                     document.getElementById('foundry-send-btn-container').classList.add('hidden');
                     await submitToFoundry(lastSavedFilename, lastEvalType, lastModelName);
                 });
@@ -1096,6 +1122,8 @@
 
                 // Submit to Foundry Control Plane if toggle is enabled
                 if (document.getElementById('foundry-mode').checked && data.saved_filename) {
+                    _foundryRunning = true;
+                    document.getElementById('excel-export-hint').classList.remove('hidden');
                     document.getElementById('foundry-send-btn-container').classList.add('hidden');
                     submitToFoundry(data.saved_filename, evalType, model);
                 } else if (lastSavedFilename && !document.getElementById('foundry-toggle-label').classList.contains('hidden')) {
