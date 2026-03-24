@@ -165,9 +165,10 @@ curl https://YOUR-RESOURCE.openai.azure.com/openai/v1/chat/completions \
 
 ```python
 # Fetch stored completions filtered by metadata
+# Requires v1 API: client = OpenAI(base_url="https://RESOURCE.openai.azure.com/openai/v1/")
 stored = client.chat.completions.list(
     metadata={"use_case": "rag"},
-    limit=200
+    limit=200,
 )
 
 # Convert to evaluation JSONL
@@ -175,16 +176,25 @@ import json
 
 with open("golden_dataset.jsonl", "w") as f:
     for completion in stored:
+        # Retrieve full messages for this completion
+        msgs = client.chat.completions.messages.list(completion.id)
+        user_msg = next((m.content for m in msgs if m.role == "user"), "")
+        system_msg = next((m.content for m in msgs if m.role == "system"), "")
+
         record = {
-            "query": next(m.content for m in completion.messages if m.role == "user"),
-            "context": next((m.content for m in completion.messages if m.role == "system"), ""),
-            "response": completion.choices[0].message.content,
-            "model": completion.model,
-            "timestamp": completion.created,
+            "prompt": user_msg,
+            "system_prompt": system_msg,
+            "expected_output": completion.choices[0].message.content,
+            "context": system_msg,  # Or extract from RAG context if applicable
+            "metadata": {"model": completion.model, "id": completion.id},
         }
         json.dump(record, f)
         f.write("\n")
 ```
+
+> **📝 Note:** The Stored Completions API uses the v1 endpoint (`/openai/v1/`). If you're using the legacy `AzureOpenAI` client with `api-version`, switch to the `OpenAI` client with `base_url`. See the [API Changes guide](api-changes-by-model.md) for details.
+>
+> For the latest API surface and field names, see the **[official Stored Completions documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/stored-completions)**.
 
 > **Cost:** Stored completions are retained for 30 days at no extra charge. You're capturing data you're already paying to generate.
 
