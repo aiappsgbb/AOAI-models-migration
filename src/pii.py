@@ -60,7 +60,7 @@ def redact_text(
         categories: PII categories to redact (default: all). Examples:
             "Person", "Email", "PhoneNumber", "Address", "Organization",
             "CreditCardNumber", "IPAddress", "URL", "DateTime".
-        language: Text language (default: "en"). Use "it" for Italian, etc.
+        language: Text language (default: "en"). Use "de" for German, "fr" for French, etc.
 
     Returns:
         Redacted text with PII replaced by category placeholders like [PERSON], [EMAIL].
@@ -108,7 +108,7 @@ def redact_test_cases(
         from src.evaluate.core import load_test_cases
 
         cases = load_test_cases("data/production_export.jsonl")
-        clean = redact_test_cases(cases, language="it")  # Italian PII detection
+        clean = redact_test_cases(cases, language="en")
         save_test_cases(clean, "data/production_export_clean.jsonl")
     """
     import copy
@@ -162,7 +162,7 @@ def redact_jsonl_file(
         redact_jsonl_file(
             "data/production_export.jsonl",
             "data/production_export_clean.jsonl",
-            language="it",
+            language="de",
         )
     """
     import json

@@ -292,7 +292,7 @@ def check_length(response: str, **kwargs) -> dict:
     else:
         return {"score": 0.5, "reason": f"{word_count} words — too verbose"}
 
-# Example: Check Italian language quality (useful for ENI)
+# Example: Check language consistency
 @CodeEvaluator(name="language_check")
 def check_language(response: str, expected_language: str = "it", **kwargs) -> dict:
     """Verify the response is in the expected language."""
