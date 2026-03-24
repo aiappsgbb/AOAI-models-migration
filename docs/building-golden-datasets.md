@@ -313,9 +313,9 @@ The `src/pii.py` module uses **[Azure AI Language PII detection](https://learn.m
 
 | Original | Redacted |
 |----------|----------|
-| `"Buongiorno, sono Marco Rossi, email marco.rossi@eni.com"` | `"Buongiorno, sono [PERSON], email [EMAIL]"` |
-| `"Chiamare il +39 02 1234567 per assistenza"` | `"Chiamare il [PHONE_NUMBER] per assistenza"` |
-| `"Indirizzo: Via Roma 42, 20121 Milano"` | `"Indirizzo: [ADDRESS]"` |
+| `"Hello, I'm John Smith, email john.smith@acme.com"` | `"Hello, I'm [PERSON], email [EMAIL]"` |
+| `"Call +1 555-0123 for assistance"` | `"Call [PHONE_NUMBER] for assistance"` |
+| `"Address: 42 Market Street, London EC2A 1AB"` | `"Address: [ADDRESS]"` |
 
 ### Supported PII Categories
 
@@ -342,7 +342,7 @@ redact_jsonl_file(
     "data/production_export.jsonl",
     "data/production_clean.jsonl",
     categories=["Person", "Email", "PhoneNumber", "Address"],
-    language="it",  # Italian PII detection
+    language="de",  # German PII detection — supports 70+ languages
 )
 ```
 
@@ -355,7 +355,7 @@ import json
 
 # Load → redact → evaluate (one pipeline)
 cases = load_test_cases("data/production_export.jsonl")
-clean_cases = redact_test_cases(cases, language="it")
+clean_cases = redact_test_cases(cases, language="en")
 
 evaluator = MigrationEvaluator(
     source_model="gpt-4o",
@@ -378,7 +378,7 @@ report = evaluator.run()
 
 > **💰 Cost:** PII detection is ~€0.75 per 1,000 text records. For a 200-record golden dataset, that's **€0.15**. Free tier covers 5,000 records/month.
 
-> **🌍 Language support:** Azure AI Language PII detection supports [70+ languages](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/language-support), including Italian (it), German (de), Spanish (es), French (fr), and more. Set `language="it"` for Italian text.
+> **🌍 Language support:** Azure AI Language PII detection supports [70+ languages](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/language-support), including German (de), Spanish (es), French (fr), Italian (it), Japanese (ja), and more. Set the `language` parameter to match your data (default: `"en"`).
 
 ---
 
