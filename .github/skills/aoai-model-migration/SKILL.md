@@ -32,6 +32,8 @@ Guide developers through migrating Azure OpenAI applications from GPT-4o / GPT-4
 | GPT-4o-mini | **GPT-4.1-mini** | Standard | Official auto-migration target, lowest cost |
 | GPT-4o-mini | **GPT-5-mini** | Reasoning | Alternative with reasoning (higher cost) |
 
+> **⚠️ GPT-4o-mini retires March 31, 2026 (Standard).** Replace `gpt-4o-mini` deployments with `gpt-4.1-mini` as the official auto-migration target.
+
 ### o-Series (Reasoning Models)
 
 | Source Model | Target Model | Type | Best For |
@@ -210,6 +212,23 @@ def create_client(model_name: str, endpoint: str, api_key: str = None) -> AzureO
         )
 ```
 
+### Error Handling
+
+`call_model()` provides actionable error messages for common failures:
+
+```python
+from src.clients import call_model, create_client
+
+client = create_client("gpt-5.1")
+try:
+    response = call_model(client, "gpt-5.1", messages)
+except RuntimeError as e:
+    # Raises descriptive errors:
+    # - "Deployment 'gpt-5.1' not found. Check your deployment name..."
+    # - "Authentication failed. Run 'az login' for Entra ID auth..."
+    print(f"Migration issue: {e}")
+```
+
 ## Repository Resources
 
 This repo provides reusable modules under `src/`:
@@ -227,6 +246,25 @@ This repo provides reusable modules under `src/`:
 5. **Set `reasoning_effort`** if using a reasoning model (start with `"low"` for cost-sensitive workloads).
 6. **Run evaluations** to validate the new model matches or exceeds the old model's quality (see `aoai-migration-evaluation` skill).
 7. **Deploy progressively** — canary rollout for high-traffic workloads.
+
+### Validate After Migration
+
+After updating your code, verify output quality hasn't regressed:
+
+```python
+from src.evaluate.core import MigrationEvaluator
+
+evaluator = MigrationEvaluator(
+    source_model="gpt-4o",
+    target_model="gpt-5.1",
+    test_cases="data/golden_rag.jsonl",  # 54 pre-built test cases in data/
+    metrics=["coherence", "relevance", "groundedness"],
+)
+report = evaluator.run()
+report.print_report()
+```
+
+See the **aoai-migration-evaluation** skill for full evaluation guidance, including custom evaluators and PII redaction for production data.
 
 ## Must Not
 
