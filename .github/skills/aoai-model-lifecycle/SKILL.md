@@ -81,6 +81,8 @@ Model Launch (GA)
 | **Standard** | 2026-03-31 (auto-upgrade starts 03-09) | 2026-10-01 | 2026-03-31 |
 | **Provisioned / Global / DataZone** | 2026-10-01 | 2026-10-01 | 2026-10-01 |
 
+> **📋 Pre-upgrade checklist:** See `docs/migration-paths.md` for a detailed GPT-4o → GPT-5.1 verification checklist covering client type, parameter names, role changes, and reasoning effort configuration.
+
 ## Key Terminology
 
 | Term | Meaning |
@@ -210,6 +212,31 @@ Model N in Production
 - **Track eval scores over time** in Foundry portal — compare runs side by side across model versions
 
 > See the `aoai-migration-evaluation` skill for detailed instructions on both v1 (local SDK) and v2 (cloud Evals API) approaches, including syntax differences and code examples.
+
+### Golden Datasets for Regression Testing
+
+The repository includes **54 pre-built test cases** in `data/` covering RAG, classification, tool calling, translation, summarization, agent, and multi-turn scenarios. Use these for quick validation during model transitions:
+
+```python
+from src.evaluate.core import MigrationEvaluator
+
+evaluator = MigrationEvaluator(
+    source_model="gpt-4o",
+    target_model="gpt-5.1", 
+    test_cases="data/golden_rag.jsonl",
+)
+report = evaluator.run()
+```
+
+For production data, scrub PII first: `from src.pii import redact_jsonl_file`
+
+For domain-specific quality checks: `from src.evaluate.custom import create_judge_evaluator`
+
+### Continuous Evaluation with Stored Completions
+
+Enable `"store": true` on production API calls to capture data for ongoing quality monitoring. The stored data serves double duty: building golden datasets for the next migration AND monitoring current model quality.
+
+See `docs/building-golden-datasets.md` for framework-specific integration (LangChain, Semantic Kernel, LlamaIndex, Spring AI).
 
 ## Special Considerations
 
