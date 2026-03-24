@@ -43,6 +43,124 @@ response = client.chat.completions.create(
 - Token counts
 - Your custom metadata tags
 
+#### Enabling Stored Completions in Frameworks
+
+Most production apps don't call the OpenAI SDK directly — they use LangChain, Semantic Kernel, LlamaIndex, or Spring AI. Here's how to pass `store=True` in each:
+
+**LangChain (Python)** — use `model_kwargs` at init or `extra_body` per call:
+
+```python
+from langchain_openai import AzureChatOpenAI
+
+# Option 1: Enable for ALL calls from this instance
+llm = AzureChatOpenAI(
+    azure_deployment="gpt-4o",
+    api_version="2025-03-01-preview",
+    model_kwargs={
+        "store": True,
+        "metadata": {"use_case": "rag", "version": "v2.1"},
+    },
+)
+response = llm.invoke("What is our refund policy?")
+
+# Option 2: Enable per call (LangChain ≥ 0.3)
+llm = AzureChatOpenAI(azure_deployment="gpt-4o", api_version="2025-03-01-preview")
+response = llm.invoke(
+    "What is our refund policy?",
+    extra_body={"store": True, "metadata": {"use_case": "rag"}},
+)
+```
+
+**Semantic Kernel (Python)** — use `extra_body` in `PromptExecutionSettings`:
+
+```python
+from semantic_kernel import Kernel
+from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
+from semantic_kernel.connectors.ai.open_ai import AzureChatPromptExecutionSettings
+
+kernel = Kernel()
+kernel.add_service(AzureChatCompletion(
+    deployment_name="gpt-4o",
+    endpoint="https://your-resource.openai.azure.com/",
+    api_key="your-key",
+))
+
+settings = AzureChatPromptExecutionSettings(
+    extra_body={
+        "store": True,
+        "metadata": {"use_case": "rag"},
+    }
+)
+result = await kernel.invoke_prompt("What is our refund policy?", settings=settings)
+```
+
+**Semantic Kernel (C#)** — use `AzureOpenAIPromptExecutionSettings.Store`:
+
+```csharp
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
+
+var settings = new AzureOpenAIPromptExecutionSettings
+{
+    Store = true,
+    Metadata = new Dictionary<string, string>
+    {
+        ["use_case"] = "rag",
+        ["version"] = "v2.1"
+    }
+};
+
+var result = await kernel.InvokePromptAsync("What is our refund policy?", new(settings));
+```
+
+**LlamaIndex (Python)** — use `additional_kwargs`:
+
+```python
+from llama_index.llms.azure_openai import AzureOpenAI
+
+llm = AzureOpenAI(
+    deployment_name="gpt-4o",
+    api_version="2025-03-01-preview",
+    additional_kwargs={
+        "store": True,
+        "metadata": {"use_case": "rag"},
+    },
+)
+response = llm.complete("What is our refund policy?")
+```
+
+**Spring AI (Java)** — use `AzureOpenAiChatOptions`:
+
+```java
+import org.springframework.ai.azure.openai.AzureOpenAiChatOptions;
+
+var options = AzureOpenAiChatOptions.builder()
+    .withDeploymentName("gpt-4o")
+    .withStore(true)
+    .withMetadata(Map.of("use_case", "rag"))
+    .build();
+
+var response = chatModel.call(new Prompt("What is our refund policy?", options));
+```
+
+**Direct REST / curl** — add `"store": true` to the JSON body:
+
+```bash
+curl https://YOUR-RESOURCE.openai.azure.com/openai/v1/chat/completions \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "store": true,
+    "metadata": {"use_case": "rag"},
+    "messages": [{"role": "user", "content": "What is our refund policy?"}]
+  }'
+```
+
+> **💡 Tip:** You don't need to enable stored completions for all traffic. Enable it on a **sampling basis** — e.g., 10% of requests, or only for specific use cases via metadata tags. This keeps storage manageable while still giving you representative production data for evaluation.
+
+> **⚠️ API version:** Stored completions require the **v1 API** (`/openai/v1/chat/completions`) or `api-version=2025-03-01-preview` or later. If your framework is using an older API version, update it first.
+
 **Then export to a golden dataset:**
 
 ```python
