@@ -11,7 +11,7 @@ import contextvars
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, render_template, request, jsonify, session, redirect, g
+from flask import Flask, render_template, request, jsonify, session, redirect, g, send_file
 from flask_cors import CORS
 from flask_compress import Compress
 
@@ -24,6 +24,7 @@ from ..clients.azure_openai import create_client_from_config
 from ..utils.prompt_loader import PromptLoader
 from ..utils.prompt_manager import PromptManager
 from ..utils.data_loader import DataLoader, ensure_flat_schema
+from ..utils.excel_exporter import ExcelExporter
 from ..evaluation.metrics import MetricsCalculator
 from ..evaluation.evaluator import ModelEvaluator, MissingPromptsError
 from ..evaluation.comparator import ModelComparator
@@ -1352,6 +1353,8 @@ def create_app(config_path: str = None) -> Flask:
 
                 payload = report.to_dict()
                 payload['run_id'] = run_id
+                ts = report.timestamp.replace(':', '-')
+                payload['saved_filename'] = f"comparison_{model_a}_vs_{model_b}_{evaluation_type}_{ts}.json"
                 with _compare_jobs_lock:
                     _compare_jobs[run_id]['status'] = 'completed'
                     _compare_jobs[run_id]['result'] = payload
@@ -1456,9 +1459,12 @@ def create_app(config_path: str = None) -> Flask:
                                 logging.getLogger(__name__).warning(
                                     f"Failed to auto-save batch comparison: {save_err}"
                                 )
+                            rdict = report.to_dict()
+                            ts_b = report.timestamp.replace(':', '-')
+                            rdict['saved_filename'] = f"comparison_{model_a}_vs_{current_mb}_{evaluation_type}_{ts_b}.json"
                             job['results'][current_mb] = {
                                 'status': 'completed',
-                                'report': report.to_dict(),
+                                'report': rdict,
                             }
                         else:
                             job['results'][current_mb] = {
@@ -1998,6 +2004,40 @@ def create_app(config_path: str = None) -> Flask:
                 data = json.load(f)
             return jsonify(data)
         except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/results/export/<filename>')
+    def export_result(filename: str):
+        """Export a result file as a Power BI-ready .xlsx workbook."""
+        safe_name = Path(filename).name
+        if safe_name != filename or '..' in filename:
+            return jsonify({'error': 'Invalid filename'}), 400
+
+        results_dir = Path(str(_get_user_context().results_dir))
+        file_path = results_dir / safe_name
+
+        if not file_path.exists() or not file_path.suffix == '.json':
+            return jsonify({'error': 'Result not found'}), 404
+
+        try:
+            with open(file_path, encoding='utf-8') as f:
+                data = json.load(f)
+
+            is_comparison = safe_name.startswith('comparison_')
+            if is_comparison:
+                buf = ExcelExporter.export_comparison(data)
+            else:
+                buf = ExcelExporter.export_evaluation(data)
+
+            xlsx_name = safe_name.replace('.json', '.xlsx')
+            return send_file(
+                buf,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name=xlsx_name,
+            )
+        except Exception as e:
+            logger.exception('Excel export failed for %s', safe_name)
             return jsonify({'error': str(e)}), 500
 
     # =========================================================================

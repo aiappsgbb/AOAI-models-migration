@@ -76,6 +76,21 @@
             </div>
         </div>
 
+        <!-- Action Buttons (Export + Foundry) — between config and results -->
+        <div id="action-buttons-bar" class="hidden flex items-center flex-wrap gap-3 mb-6">
+            <button id="excel-export-btn" class="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-md">
+                📊 Export to Excel
+            </button>
+            <div id="foundry-send-btn-container" class="hidden">
+                <button id="foundry-send-btn" class="inline-flex items-center px-5 py-2.5 bg-brand-500 text-white text-sm font-medium rounded-lg hover:bg-brand-600 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                    </svg>
+                    ☁️ Send to Foundry (LLM-as-Judge)
+                </button>
+            </div>
+        </div>
+
         <!-- Data Preview -->
         <div id="data-preview-section" class="fluent-card p-5 mb-8">
             <h2 class="fluent-section-title text-[16px] mb-4">Test Data Preview</h2>
@@ -147,17 +162,6 @@
             <!-- Metrics Summary — dynamic cards -->
             <div id="metrics-cards" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <!-- populated by displayResults() -->
-            </div>
-
-            <!-- Deferred Foundry Submit Button -->
-            <div id="foundry-send-btn-container" class="hidden mb-6">
-                <button id="foundry-send-btn" class="inline-flex items-center px-5 py-2.5 bg-brand-500 text-white text-sm font-medium rounded-lg hover:bg-brand-600 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
-                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
-                    </svg>
-                    ☁️ Send to Foundry (LLM-as-Judge)
-                </button>
-                <span class="ml-3 text-sm text-gray-500">Evaluate response quality with Foundry Control Plane graders</span>
             </div>
 
             <!-- Error Banner (shown when there are evaluation errors) -->
@@ -237,6 +241,13 @@
         let lastSavedFilename = null;
         let lastEvalType = null;
         let lastModelName = null;
+
+        // Excel export handler
+        document.getElementById('excel-export-btn').addEventListener('click', () => {
+            if (lastSavedFilename) {
+                window.location.href = '/api/results/export/' + encodeURIComponent(lastSavedFilename);
+            }
+        });
 
         // Metric descriptions for info tooltips
         const METRIC_INFO = {
@@ -843,6 +854,7 @@
             const limit = parseInt(document.getElementById('limit').value);
 
             document.getElementById('results-section').classList.add('hidden');
+            document.getElementById('action-buttons-bar').classList.add('hidden');
             document.getElementById('foundry-scores-section').classList.add('hidden');
             document.getElementById('foundry-banner').classList.add('hidden');
             document.getElementById('foundry-send-btn-container').classList.add('hidden');
@@ -1076,6 +1088,11 @@
                 lastSavedFilename = data.saved_filename || null;
                 lastEvalType = evalType;
                 lastModelName = model;
+
+                // Show Excel export button when there is a saved file
+                if (lastSavedFilename) {
+                    document.getElementById('action-buttons-bar').classList.remove('hidden');
+                }
 
                 // Submit to Foundry Control Plane if toggle is enabled
                 if (document.getElementById('foundry-mode').checked && data.saved_filename) {

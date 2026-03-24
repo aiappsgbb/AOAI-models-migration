@@ -94,6 +94,13 @@
             </div>
         </div>
 
+        <!-- Export Button — between config and results -->
+        <div id="compare-excel-export" class="hidden mb-4">
+            <button id="compare-export-btn" class="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-md">
+                📊 Export to Excel
+            </button>
+        </div>
+
         <!-- Batch Tabs (visible only when multiple Model B's) -->
         <div id="batch-tabs-bar" class="hidden mb-4">
             <div class="flex items-center gap-1 flex-wrap border-b border-gray-200" id="batch-tabs">
@@ -256,6 +263,7 @@
         let batchReports = {};
         let batchModelBList = [];
         let activeTab = null;
+        let lastCompareFilename = null;
 
         const FOUNDRY_FRIENDLY = {
             'coherence': 'Coherence',
@@ -612,6 +620,13 @@
             await checkFoundryStatus();
             loadActiveTopic();
             updateCompareHeading();
+
+            // Excel export handler
+            document.getElementById('compare-export-btn').addEventListener('click', () => {
+                if (lastCompareFilename) {
+                    window.location.href = '/api/results/export/' + encodeURIComponent(lastCompareFilename);
+                }
+            });
         });
 
         function updateCompareHeading() {
@@ -778,6 +793,8 @@
 
             // Show loading
             document.getElementById('results-section').classList.add('hidden');
+            document.getElementById('compare-excel-export').classList.add('hidden');
+            lastCompareFilename = null;
             document.getElementById('error-state').classList.add('hidden');
             document.getElementById('loading-state').classList.remove('hidden');
             document.getElementById('batch-tabs-bar').classList.add('hidden');
@@ -923,6 +940,10 @@
                     const winnerLabel = winnerKey === 'tie' ? 'Tie — no clear winner' : displayName(winnerKey);
                     verboseLog(`🏆 <strong>Overall winner: ${winnerLabel}</strong> — across <strong>${data.summary?.total_dimensions || '?'} dimensions</strong>.`, 'head');
                     verboseLog('🏁 <strong>Comparison analysis complete.</strong>', 'ok');
+                    lastCompareFilename = data.saved_filename || null;
+                    if (lastCompareFilename) {
+                        document.getElementById('compare-excel-export').classList.remove('hidden');
+                    }
                     displayResults(data);
                 }
             } catch (error) {
@@ -940,6 +961,12 @@
         function displayResults(data) {
             document.getElementById('loading-state').classList.add('hidden');
             document.getElementById('results-section').classList.remove('hidden');
+
+            // Show export button if saved_filename available
+            if (data.saved_filename) {
+                lastCompareFilename = data.saved_filename;
+                document.getElementById('compare-excel-export').classList.remove('hidden');
+            }
             showNormalResultsView();
 
             // Update summary cards
