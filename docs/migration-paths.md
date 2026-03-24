@@ -55,6 +55,21 @@ This guide helps you pick the right target model when migrating from GPT-4o, GPT
 
 > **💡 GPT-5.1 with `reasoning_effort="none"`** is Microsoft's official auto-migration target for GPT-4o Standard deployments. When reasoning is set to "none", the model behaves like a standard model with no extra latency or reasoning token costs.
 
+### Pre-Upgrade Checklist: GPT-4o Standard → GPT-5.1
+
+If you have **Standard GPT-4o deployments**, Azure is auto-upgrading them to GPT-5.1 (started March 9, 2026). Use this checklist to verify your code is ready:
+
+- [ ] **Client type:** GPT-5.1 uses the v1 API. Switch from `AzureOpenAI` to `OpenAI` with `base_url`. See [API Changes](api-changes-by-model.md).
+- [ ] **`max_tokens` → `max_completion_tokens`:** The parameter name changed for v1 models.
+- [ ] **`system` role → `developer` role:** GPT-5.1 is a reasoning model and uses the `developer` role.
+- [ ] **Remove `temperature` / `top_p`:** Reasoning models don't support these. Use `reasoning_effort` instead.
+- [ ] **`reasoning_effort`:** Set to `"none"` for GPT-4o-equivalent behavior (no reasoning overhead), or `"medium"` for balanced reasoning.
+- [ ] **Structured outputs:** GPT-5.1 supports `response_format: { type: "json_schema", ... }` — same as GPT-4o.
+- [ ] **Tool calling:** Fully supported, same schema. Test tool parameter accuracy as models may make different decisions.
+- [ ] **Run evaluation:** Use the [Evaluation Guide](evaluation-guide.md) to compare GPT-4o vs GPT-5.1 on your data before the auto-upgrade completes.
+
+> **💡 Quick path:** If you just want GPT-4o-equivalent behavior from GPT-5.1, set `reasoning_effort="none"`. This disables reasoning tokens entirely — same latency and cost profile as a standard model.
+
 ---
 
 ## o-Series (Reasoning Models)

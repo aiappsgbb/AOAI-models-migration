@@ -1,10 +1,10 @@
 # Azure OpenAI Models Migration Guide
 
-Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI models, with **evaluation tools** to validate quality before deploying.
+Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI models (GPT-4.1, GPT-5.1, o-series), with **evaluation tools** and **ready-to-use golden datasets** to validate quality before deploying.
 
 > **⚠️ Retirement dates and model availability change frequently.**
 > Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements)** for the latest authoritative information.
-> This guide was last updated **February 2026**.
+> This guide was last updated **March 2026**.
 
 > **Scope:** This guide focuses on **text generation models** (GPT series and o-series). For audio, image, and embedding models, see the [official retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements).
 
@@ -16,8 +16,37 @@ Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI model
 1. **[Pick your target model](docs/migration-paths.md)** — choose based on your priorities (cost, quality, reasoning)
 2. **[Check the timeline](docs/retirement-timeline.md)** — know when your current model retires
 3. **[Update your code](docs/api-changes-by-model.md)** — switch client, adapt parameters, adjust prompts
-4. **[Evaluate before deploying](docs/evaluation-guide.md)** — compare quality with automated metrics
-5. **Roll out progressively** — canary first, then full traffic ([Lifecycle Best Practices](docs/llm-upgrade-lifecycle-best-practices.md))
+4. **[Build a golden dataset](docs/building-golden-datasets.md)** — from stored completions, APIM logs, or use our [pre-built test data](data/)
+5. **[Evaluate before deploying](docs/evaluation-guide.md)** — compare quality with automated metrics
+6. **Roll out progressively** — canary first, then full traffic ([Lifecycle Best Practices](docs/llm-upgrade-lifecycle-best-practices.md))
+
+## Quick Start
+
+```bash
+# 1. Clone and install
+git clone https://github.com/aiappsgbb/AOAI-models-migration.git
+cd AOAI-models-migration
+pip install -r requirements.txt
+
+# 2. Configure (copy .env_example → .env and fill in your values)
+cp .env_example .env
+```
+
+```python
+# 3. Run an A/B evaluation with the pre-built golden dataset
+from src.evaluate.core import MigrationEvaluator
+
+evaluator = MigrationEvaluator(
+    source_model="gpt-4o",
+    target_model="gpt-4.1",
+    test_cases="data/golden_rag.jsonl",  # 10 RAG test cases included
+    metrics=["coherence", "fluency", "relevance", "groundedness"],
+)
+report = evaluator.run()
+report.print_report()
+```
+
+> **📓 Prefer notebooks?** Open [`azure_openai_migration_technical.ipynb`](azure_openai_migration_technical.ipynb) for an interactive walkthrough of code changes, or [`azure_openai_evaluation_guide.ipynb`](azure_openai_evaluation_guide.ipynb) for evaluation scenarios.
 
 ## Guides
 
@@ -36,12 +65,26 @@ Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI model
 
 ```
 ├── docs/                                     # Deep-dive guides (see table above)
+├── data/                                     # Golden test datasets (54 cases, 7 scenarios)
+│   ├── golden_rag.jsonl                      #   RAG / grounded Q&A (10 cases)
+│   ├── golden_classification.jsonl           #   Intent & sentiment classification (10 cases)
+│   ├── golden_tool_calling.jsonl             #   Function calling & tool selection (8 cases)
+│   ├── golden_translation.jsonl              #   EN→IT/DE/ES translation (6 cases)
+│   ├── golden_summarization.jsonl            #   Meeting notes, emails, incidents (6 cases)
+│   ├── golden_agent.jsonl                    #   Multi-step agent reasoning (8 cases)
+│   └── golden_multiturn.jsonl                #   Multi-turn conversation context (6 cases)
 ├── azure_openai_migration_technical.ipynb    # Interactive technical migration notebook
 ├── azure_openai_evaluation_guide.ipynb       # Interactive evaluation demo notebook
 ├── src/                                      # Reusable Python modules
 │   ├── config.py                             #   Model helpers (is_v1, is_reasoning, is_o_series)
 │   ├── clients.py                            #   Client factory, call_model() with auto-adaptation
-│   └── evaluate/                             #   Evaluation framework (scenarios, prompts, Foundry)
+│   └── evaluate/                             #   Evaluation framework
+│       ├── core.py                           #     MigrationEvaluator, TestCase, ComparisonReport
+│       ├── local_eval.py                     #     Local SDK evaluation (quick_evaluate, compare_local)
+│       ├── foundry.py                        #     Azure AI Foundry cloud evaluation
+│       ├── scenarios/                        #     Pre-built test scenarios (RAG, tools, etc.)
+│       └── prompts/                          #     .prompty templates for LLM-as-Judge
+├── model_migration_eval/                     # Web UI for visual model comparison
 ├── .github/skills/                           # GitHub Copilot Skills (see below)
 ├── requirements.txt
 └── .env_example
