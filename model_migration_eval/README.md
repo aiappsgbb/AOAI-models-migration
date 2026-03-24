@@ -1,12 +1,12 @@
 # Azure OpenAI Model Migration Evaluation Framework
 
-A comprehensive evaluation framework for migrating production systems between any Azure OpenAI model generations **and external models** (Azure AI Marketplace, Google Gemini) (e.g. GPT-4o → GPT-4.1, GPT-4.1 → GPT-5.2, GPT-4.1 → Mistral-Large-3, GPT-4.1 → Gemini 3 Flash, or any configured pair).  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **5 scenario types** (classification, dialog, general, RAG, and tool calling), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
+A comprehensive evaluation framework for migrating production systems between any Azure OpenAI model generations **and external models** (Azure AI Marketplace, Google Gemini, Microsoft SLMs) (e.g. GPT-4o → GPT-4.1, GPT-4.1 → GPT-5.4, GPT-4.1 → GPT-5.4-mini, GPT-4.1 → Phi-4, GPT-4.1 → Mistral-Large-3, GPT-4.1 → Gemini 3 Flash, or any configured pair).  Now also supports **Speech-to-Speech (S2S) evaluation** via the Azure OpenAI Realtime API (gpt-realtime, gpt-realtime-1.5) with TTS-driven audio input.  Features a full web UI with multi-topic management, AI-powered prompt & test-data generation (with dynamic per-topic category taxonomies using readable `snake_case` codes), deep batch evaluation across **6 scenario types** (classification, dialog, general, RAG, tool calling, and **realtime speech-to-speech**), side-by-side model comparison with statistical significance, versioned prompt history, a test-data explorer/editor, rich narrative verbose logging, token & cost analytics, consistency/reproducibility testing, and persistent results with filtering & deletion.
 
 ---
 
 ## 🎯 Overview
 
-When you upgrade or switch a model deployment in Azure AI Foundry — from GPT-4o to GPT-4.1, from GPT-4.1 to GPT-5.2, or even to a Marketplace model like Mistral-Large-3 or an external model like Gemini 3 Flash, for example — you need to answer questions like:
+When you upgrade or switch a model deployment in Azure AI Foundry — from GPT-4o to GPT-4.1, from GPT-4.1 to GPT-5.4, from GPT-4.1-mini to GPT-5.4-mini, or even to a Marketplace model like Mistral-Large-3, a Microsoft SLM like Phi-4, or an external model like Gemini 3 Flash, for example — you need to answer questions like:
 
 - *"Does the new model still classify tickets correctly?"*
 - *"Is latency better or worse?"*
@@ -26,24 +26,26 @@ This framework automates that process end-to-end:
 
 | Area | Highlights |
 |------|------------|
-| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.1, GPT-5.2, Mistral-Large-3, Gemini 3 Flash, reasoning variants, etc.) — each with `model_family` for automatic API behaviour |
+| **Multi-Model** | Configure unlimited models in `settings.yaml` (GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-5.4, GPT-5.4-mini, GPT-5.1, GPT-5.2, Phi-4, Mistral-Large-3, Gemini 3 Flash, **GPT-Realtime, GPT-Realtime-1.5**, reasoning variants, etc.) — each with `model_family` for automatic API behaviour |
 | **Multi-Topic** | Switch between self-contained topic archives (prompts + data) without losing anything |
 | **AI Generation** | One-click generation of optimised prompts (4 task types × N models) + 5 test datasets (70 scenarios) tailored to any domain, with dynamic category taxonomy, JSON retry logic, and **selective regeneration** (prompts only, test data only, or both) |
-| **Topic Import** | Import prompts + test data from disk for any source model (web UI or CLI) — target model prompts are auto-generated and the topic is archived ready to activate |
+| **Topic Import** | Import prompts + test data from disk for any source model (web UI or CLI) — target model prompts are auto-generated with **multi-layer category alignment** (deterministic injection → LLM auto-fix → post-generation verification), **error-resilient** parallel generation (individual 429/failure tolerance), and automatic priority & sentiment normalisation.  The topic is archived ready to activate |
 | **Classification** | Accuracy, F1, precision, recall, subcategory/priority/sentiment accuracy, confidence calibration, confusion matrix |
 | **Dialog** | Follow-up quality, context coverage, rule compliance, empathy score, optimal similarity, resolution efficiency, consistency |
 | **General** | Format compliance, completeness, reasoning, safety, structured output |
 | **RAG** | Groundedness, relevance, context keyword overlap, response completeness, latency & cost analytics |
 | **Tool Calling** | Tool selection accuracy, parameter extraction accuracy, response correctness, latency & cost analytics |
-| **Token & Cost** | Per-request token breakdown (prompt/completion/cached/reasoning), cost estimation, cache hit rate, throughput (tok/s) |
+| **Speech-to-Speech (S2S)** | Full TTS → Realtime WebSocket → transcript pipeline for voice model evaluation.  Supports `gpt-realtime` and `gpt-realtime-1.5` via a dedicated endpoint.  Realtime-specific metrics: time-to-first-audio, session time, WebSocket connect time, audio I/O duration, audio token counts, TTS latency, TTS cache hit rate, audio cost per request |
+| **Token & Cost** | Per-request token breakdown (prompt/completion/cached/reasoning), cost estimation, cache hit rate, throughput (tok/s), **audio token pricing** for realtime models |
 | **Consistency** | Multi-run reproducibility scoring, response variance, format consistency |
-| **Model Comparison** | Dimension-by-dimension comparison with statistical significance (Welch's t-test) and actionable recommendations |
+| **Model Comparison** | Head-to-head or **batch multi-model** comparison (Model A vs N Model B's) with dimension-by-dimension charts, statistical significance (Welch's t-test), and actionable recommendations |
 | **Prompt Versioning** | Every save creates a timestamped snapshot — preview, restore, or delete any version |
 | **Test Data Editor** | View, create, and edit test scenarios via type-specific web forms (classification, dialog, general, RAG, tool calling) with auto-scroll, a JSON toggle for advanced editing, and configurable scenario counts per type |
 | **Results Persistence** | Evaluations and comparisons auto-save to disk — browse, filter, inspect, and delete from the UI |
 | **Verbose Logging** | Rich narrative verbose mode with colour-coded entries (step/ok/warn/err/detail/head) and timestamped progress feed |
 | **Foundry Control Plane** | Optional LLM-as-judge evaluation via Microsoft Foundry Runtime — coherence, fluency, relevance, task adherence, intent resolution — with results visible in the Foundry dashboard |
-| **Multi-User Auth** | Email + OTP authentication with per-user content isolation — each user gets their own prompts, test data, and results |
+| **Multi-User Auth** | Email + OTP authentication with per-user content isolation — each user gets their own prompts, test data, and results.  **Auto-seeding** ensures newly-added models receive prompts matching the user's active topic on next login |
+| **Browser Automation** | Playwright-based automation (`tools/run_browser_eval.py` and `tools/run_browser_compare.py`) runs all models × all eval types sequentially through the real browser UI — with Verbose logs, Foundry submission, screenshots, and JSON reports |
 | **Copilot Studio UI** | Fluent 2 design system inspired by Microsoft Copilot Studio — top header bar, collapsible sidebar, brand-blue palette, flat controls, Segoe UI typography |
 | **Auto-Detection** | SDK automatically uses `max_completion_tokens` for newer-generation and o-series models |
 
@@ -70,8 +72,12 @@ model_migration_eval/
 │       ├── acr-access.bicep        #   AcrPull role assignment
 │       ├── foundry-access.bicep    #   OpenAI + Foundry + Storage RBAC roles
 │       ├── foundry-resource.bicep  #   AI Services account + model deployments + Foundry project
+│       ├── realtime-access.bicep   #   OpenAI Contributor + User roles on external TTS/Realtime endpoint
+│       ├── storage-resource.bicep  #   Storage Account + blob container for user-data persistence
 │       ├── openai-access.bicep     #   Cognitive Services OpenAI User role (legacy)
 │       └── openai-resource.bicep   #   Azure OpenAI account (legacy — replaced by foundry-resource)
+│   └── hooks/
+│       └── assign-roles.ps1        #   Manual RBAC assignment (for Conditional Access-blocked tenants)
 │
 ├── config/
 │   ├── settings.yaml               # Azure credentials & model definitions
@@ -109,11 +115,14 @@ model_migration_eval/
 │   │   └── dialog_agent_system.md
 │   ├── gpt4o/                      #   GPT-4o optimised prompts
 │   ├── gpt41_mini/                 #   GPT-4.1-mini optimised prompts
-│   ├── gpt5/                       #   GPT-5.2 optimised prompts
+│   ├── gpt5/                       #   GPT-5.4 optimised prompts
 │   │   ├── classification_agent_system.md
 │   │   └── dialog_agent_system.md
+│   ├── gpt54_mini/                 #   GPT-5.4-mini optimised prompts
 │   ├── gpt51/                      #   GPT-5.1 optimised prompts
+│   ├── gpt52/                      #   GPT-5.2 optimised prompts
 │   ├── gpt5_reasoning/             #   GPT-5.1 reasoning (falls back to gpt5/ prompts)
+│   ├── phi4/                       #   Phi-4 SLM optimised prompts
 │   ├── mistral_large_3/            #   Mistral-Large-3 optimised prompts
 │   ├── gemini3_flash/              #   Gemini 3 Flash optimised prompts
 │   ├── history/                    #   Version history (auto-managed)
@@ -132,18 +141,23 @@ model_migration_eval/
 │   │   ├── session.py              #   Flask session middleware & public routes
 │   │   └── user_context.py         #   Per-user directory layout & seeding
 │   ├── clients/
-│   │   └── azure_openai.py         # Azure OpenAI client (sync/async/streaming)
+│   │   ├── azure_openai.py         # Azure OpenAI client (sync/async/streaming)
+│   │   ├── tts_client.py           # TTS client — text→PCM16 audio via gpt-4o-mini-tts (with disk cache)
+│   │   └── realtime_client.py      # Realtime WebSocket client — audio→transcript+audio via gpt-realtime
 │   ├── evaluation/
 │   │   ├── metrics.py              # MetricsCalculator — classification, dialog quality, latency, cost, consistency
 │   │   ├── evaluator.py            # ModelEvaluator + EvaluationResult (classification/dialog/general/RAG/tool_calling)
+│   │   ├── realtime_evaluator.py   # RealtimeEvaluator — TTS→WebSocket→Transcript→Metrics pipeline for voice models
+│   │   ├── realtime_metrics.py     # RealtimeMetrics dataclass (TTFA, session time, audio tokens, TTS cache, costs)
 │   │   ├── comparator.py           # ModelComparator + ComparisonReport with statistical significance
 │   │   └── foundry_evaluator.py    # Microsoft Foundry Control Plane integration (optional)
 │   ├── utils/
 │   │   ├── prompt_loader.py        # PromptLoader — template loading with caching
 │   │   ├── prompt_manager.py       # PromptManager — editing, versioning, AI gen, topics
+│   │   ├── model_guidance.py       # Two-tier prompt-engineering guidance (family + deployment)
 │   │   └── data_loader.py          # DataLoader — synthetic scenario loading
 │   └── web/
-│       ├── routes.py               # Flask API routes (1500+ lines, 50+ routes)
+│       ├── routes.py               # Flask API routes (2100+ lines, 55+ routes)
 │       └── templates/
 │           ├── _fluent_head.html    # Fluent 2 design system (CSS tokens, Tailwind config, component classes)
 │           ├── _sidebar.html        # Top header bar + collapsible left sidebar + user menu
@@ -153,17 +167,22 @@ model_migration_eval/
 │           ├── compare.html         # Model comparison with charts
 │           ├── results.html         # Results browser with filters & delete
 │           ├── prompts.html         # Prompt Manager (edit, generate, history, data explorer)
-│           └── import_samples.html  # JSON & CSV import samples reference page
+│           └── import_samples.html  # Import samples + prompt generation best practices
 │
 ├── tools/
 │   ├── add_model.py                 # CLI tool: add a new model (interactive or scripted)
 │   ├── assign_foundry_roles.ps1     # Grant Reader + Azure AI User to workshop attendees (batch)
+│   ├── delete_user.py               # CLI tool: delete a user (DB records + data directory)
 │   ├── generate_csv_samples.py      # Generate CSV sample files for all 5 task types
 │   ├── generate_gemini_prompts.py   # Generate Gemini-optimised prompt templates
 │   ├── import_topic.py              # CLI tool: import external topic from source prompt + test data
 │   ├── migrate_test_data.py         # Migrate test data between schema versions
 │   ├── migrate_to_multiuser.py      # Migrate existing data to a user's namespace
 │   ├── regenerate_all_topics.py     # Regenerate prompts + test data for all archived topics
+│   ├── run_browser_eval.py          # ⬅ Playwright browser automation: batch evaluations with screenshots & Foundry
+│   ├── run_browser_compare.py       # ⬅ Playwright browser automation: batch model comparisons (A vs all B's)
+│   ├── eval_screenshots/            # ⬅ Timestamped reports, screenshots, and JSON from evaluation browser runs
+│   ├── compare_screenshots/         # ⬅ Timestamped reports, screenshots, and JSON from comparison browser runs
 │   ├── test_import.bat              # Quick-launch script for import testing
 │   └── import_test/                 # ⬅ Sample files for import testing
 │       ├── prompt_gpt4_classification.md
@@ -208,6 +227,9 @@ AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_API_KEY=your-api-key-here
 FOUNDRY_PROJECT_ENDPOINT=https://your-hub.services.ai.azure.com/api/projects/your-project  # Optional
 
+# Realtime / Speech-to-Speech (optional — only needed if using gpt-realtime models)
+AZURE_OPENAI_REALTIME_ENDPOINT=    # Dedicated endpoint for TTS + Realtime voice models
+
 # Google Gemini (optional — only needed if using Gemini models)
 GEMINI_API_KEY=            # Get from https://aistudio.google.com/
 
@@ -238,10 +260,24 @@ azure:
       temperature: 0.1
 
     gpt5:
-      deployment_name: "gpt-5.2"          # Your GPT-5.2 deployment name
+      deployment_name: "gpt-5.4"          # Your GPT-5.4 deployment name
       model_family: "gpt5"
-      model_version: "2025-01-01"
-      max_tokens: 8192
+      model_version: "2026-03-05"
+      max_tokens: 16384
+      temperature: 0.1
+
+    gpt54_mini:
+      deployment_name: "gpt-5.4-mini"     # Cost-effective GPT-5 mini
+      model_family: "gpt5"
+      model_version: "2026-03-05"
+      max_tokens: 16384
+      temperature: 0.1
+
+    phi4:
+      deployment_name: "Phi-4"            # Microsoft Phi-4 SLM
+      model_family: "phi"
+      model_version: "2"
+      max_tokens: 4096
       temperature: 0.1
 
     mistral_large_3:
@@ -263,7 +299,7 @@ gemini:
   api_key: "${GEMINI_API_KEY}"              # Get from https://aistudio.google.com/
 ```
 
-You can add as many models as you need — including Azure AI Marketplace models like Mistral and external models like Gemini (see [Model Configuration](#-model-configuration) below).
+You can add as many models as you need — including Azure AI Marketplace models like Mistral, Microsoft SLMs like Phi-4, external models like Gemini, and **Realtime (speech-to-speech) models** (see [Model Configuration](#-model-configuration) below).
 
 ### 3. Launch the Web Interface
 
@@ -297,10 +333,10 @@ The UI follows the **Microsoft Copilot Studio** visual language — a **Fluent 2
 |-----|------|-----|---------|
 | **Dashboard** | 🏠 | `/` | Quick single-prompt evaluation — enter a prompt, pick models, see responses side-by-side |
 | **Evaluate** | 📊 | `/evaluate` | Batch evaluation of a single model across all test scenarios for a given type |
-| **Compare** | ⚖️ | `/compare` | Head-to-head comparison of two models with dimension-by-dimension charts |
+| **Compare** | ⚖️ | `/compare` | Head-to-head or **batch multi-model** comparison (Model A vs one or more Model B's) with dimension-by-dimension charts and summary table |
 | **Results** | 📋 | `/results` | Browse, filter, inspect, and delete all saved evaluation/comparison results |
 | **Prompts** | ✏️ | `/prompts` | Full prompt lifecycle: view, edit, AI-generate, version history, and test data explorer |
-| **Import Samples** | 📄 | `/import-samples` | JSON & CSV sample files for all 5 task types — copyable examples with field reference (opens from the Prompts page "Samples" link) |
+| **Import Samples & Prompts** | 📄 | `/import-samples` | JSON & CSV sample files for all 5 task types, plus prompt generation best practices — two-tier model guidance architecture, per-model differences table, and official documentation sources (opens from the Prompts page "Samples & Prompts" link) |
 
 ### Verbose Mode
 
@@ -358,12 +394,24 @@ Each metric card has an **ⓘ info tooltip** button explaining what the metric m
   <img src="docs/demos/04_comparison.gif" alt="Head-to-head model comparison demo" width="800">
 </p>
 
-1. Select **Model A** (baseline) and **Model B** (candidate), plus the evaluation type.
+1. Select **Model A** (baseline) and one or more **Model B** candidates from the multiselect dropdown, plus the evaluation type.
 2. Optionally enable **☑ Verbose** and/or **☑ Include Foundry LLM-as-judge**.
-3. Click **▶ Run Comparison** — the comparison runs **asynchronously** in a background thread while the UI polls for progress (avoids ACA Envoy proxy timeout limits).
+3. Click **▶ Run Comparison**.
 4. See dimension-by-dimension results with percentage change, significance levels, and a bar chart.
 5. The report includes an overall winner and actionable recommendations.
 6. Comparisons are **auto-saved** to `data/results/`.
+
+#### Single vs. Batch Comparison
+
+| Mode | Trigger | Behaviour |
+|------|---------|----------|
+| **Single** | 1 Model B selected | Direct comparison A vs B — same as before |
+| **Batch** | 2+ Model B's selected | Model A is evaluated **once**, then each Model B is evaluated and compared. A **progress bar** tracks completion. Tabbed results let you switch between each A-vs-B report, plus a **📊 Summary** tab with an overview table |
+
+In batch mode:
+- **Model A** is evaluated only once and reused for all comparisons (saves time and API calls).
+- Each pair's report is **auto-saved** individually with a shared `batch_id` for grouping.
+- Foundry LLM-as-judge scores for Model A are also submitted only once.
 
 ### Results (`/results`)
 
@@ -372,6 +420,7 @@ Each metric card has an **ⓘ info tooltip** button explaining what the metric m
 </p>
 
 - Lists all saved evaluation and comparison JSON files, sorted newest first.
+- **Batch grouping** — comparisons from the same batch run are grouped under a collapsible **📦 Batch Comparison** header showing the number of reports and timestamp.  Click to expand and see individual results.
 - **Filter** by type: Classification, Dialog, General, or Comparison.
 - **Count badge** shows how many results match the current filter.
 - Click any result to open a **detail modal** with:
@@ -387,11 +436,11 @@ The Prompts page has four sub-tabs:
 | Sub-Tab | Purpose |
 |---------|---------|
 | **View / Edit** | Read and edit the active prompt template for any model/type combination |
-| **✨ AI Generate** | Generate prompts (4 types × N configured models) + 5 test datasets for a new topic — with a **Regenerate** dropdown to selectively regenerate only prompts, only test data, or both |
+| **✨ AI Generate** | Generate prompts (4 types × N configured models) + 5 test datasets for a new topic — with a **Regenerate** dropdown to selectively regenerate only prompts, only test data, or both.  Optional **📝 Instructions** field to guide generation (language, tone, constraints, focus areas) |
 | **Version History** | Filter, preview, restore, or delete (single/bulk) any past prompt version |
 | **Test Data** | Browse, create, and edit test scenarios for all 5 evaluation types via **dynamic web forms** — each type gets a purpose-built form with specialised sub-editors (conversation turns, tool definitions, key-value context, tag lists). Toggle to raw JSON view for advanced editing |
 
-Additionally, the left sidebar includes an **📥 Import Topic** panel with a **Samples** link that opens a reference page (`/import-samples`) showing copyable JSON and CSV examples for all 5 task types (see [Importing External Topics](#importing-external-topics) below).
+Additionally, the left sidebar includes an **📥 Import Topic** panel with a **Samples & Prompts** link that opens a reference page (`/import-samples`) showing copyable JSON and CSV examples for all 5 task types, plus a comprehensive section on prompt generation best practices — the two-tier model guidance architecture, a per-model differences comparison table, and links to official documentation sources for each model family (see [Importing External Topics](#importing-external-topics) below).
 
 ---
 
@@ -430,6 +479,8 @@ data/users/<user_id>/
 │   ├── gpt4/                    # Active prompt templates per model
 │   ├── gpt4o/
 │   ├── gpt5/
+│   ├── gpt54_mini/              # GPT-5.4-mini optimised prompts
+│   ├── phi4/                    # Phi-4 SLM prompts
 │   ├── mistral_large_3/         # Marketplace model prompts
 │   ├── gemini3_flash/           # Gemini model prompts
 │   ├── history/                 # User's own version history (starts empty)
@@ -686,9 +737,12 @@ prompts/
 ├── gpt4/
 │   ├── classification_agent_system.md   ← GPT-4 classification prompt
 │   └── dialog_agent_system.md           ← GPT-4 dialog prompt
-└── gpt5/
-    ├── classification_agent_system.md   ← GPT-5 classification prompt
-    └── dialog_agent_system.md           ← GPT-5 dialog prompt
+├── gpt5/
+│   ├── classification_agent_system.md   ← GPT-5 classification prompt
+│   └── dialog_agent_system.md           ← GPT-5 dialog prompt
+├── gpt54_mini/                          ← GPT-5.4-mini prompts
+├── phi4/                                ← Phi-4 SLM prompts
+└── ...
 ```
 
 The entire file content is sent as the `system` message.  Changes take effect on the next API call — no server restart needed when editing via the UI.
@@ -711,7 +765,8 @@ The entire file content is sent as the `system` message.  Changes take effect on
 1. Go to **Prompts** → **✨ AI Generate**.
 2. Enter a **topic** (e.g. *"Soporte técnico de telecomunicaciones"*, *"Paris 7-day travel itinerary"*).
 3. Select the **generator model**.
-4. Click **Generate Prompts + Test Data**.
+4. Optionally expand **📝 Instructions** to provide custom guidance (language, tone, focus areas, constraints).
+5. Click **Generate Prompts + Test Data**.
 
 Generation runs **asynchronously** in a background thread (HTTP 202 + polling) — the UI shows an elapsed-time counter and animated progress.  This avoids ACA Envoy proxy timeout limits on long-running requests.
 
@@ -728,6 +783,31 @@ This is particularly useful when:
 - You need to **refresh test scenarios** (e.g. add variety) without changing prompts that are already fine-tuned.
 - You added a **new model** and want to generate its prompts without regenerating all test data.
 
+#### Custom Instructions
+
+The AI Generate panel includes a collapsible **📝 Instructions** section (below the topic field) where you can provide free-form guidance to steer both prompt and test data generation.  Instructions are injected into every meta-prompt sent to the generator LLM as a `## CUSTOM INSTRUCTIONS` block.
+
+**Examples of useful instructions:**
+
+```
+- All test data and prompts in Spanish
+- Max 150 tokens per test case
+- Tone: formal and professional
+- Focus on billing disputes and technical support escalation scenarios
+- Include edge cases for elderly users and accessibility needs
+- Classification must include at least 8 categories
+- RAG scenarios should use technical documentation as context
+- Use metric units (km, kg, °C) in all examples
+```
+
+Instructions apply to **both** prompt generation and test data generation — for instance, asking for Spanish output produces Spanish system prompts and Spanish test scenarios.  They are also persisted in the topic metadata so you can see what instructions were used for each generation.
+
+| Scope | Effect of Instructions |
+|-------|----------------------|
+| **Prompts** | Injected as `## CUSTOM INSTRUCTIONS` in the meta-prompt for each model × task |
+| **Test Data** | Appended as `CUSTOM INSTRUCTIONS` to each data generation prompt (classification, dialog, general, RAG, tool calling) |
+| **Regenerate** | Instructions from the current run are used — not from the original generation |
+
 #### Full Generation Output
 
 A full generation (scope `all`) produces:
@@ -742,6 +822,14 @@ A full generation (scope `all`) produces:
 | `gpt5/dialog_agent_system.md` | Dialog prompt optimised for GPT-5 |
 | `gpt5/rag_agent_system.md` | RAG prompt optimised for GPT-5 |
 | `gpt5/tool_calling_agent_system.md` | Tool calling prompt optimised for GPT-5 |
+| `gpt54_mini/classification_agent_system.md` | Classification prompt optimised for GPT-5.4-mini (concise, cost-effective) |
+| `gpt54_mini/dialog_agent_system.md` | Dialog prompt optimised for GPT-5.4-mini |
+| `gpt54_mini/rag_agent_system.md` | RAG prompt optimised for GPT-5.4-mini |
+| `gpt54_mini/tool_calling_agent_system.md` | Tool calling prompt optimised for GPT-5.4-mini |
+| `phi4/classification_agent_system.md` | Classification prompt optimised for Phi-4 (structured, explicit rules) |
+| `phi4/dialog_agent_system.md` | Dialog prompt optimised for Phi-4 |
+| `phi4/rag_agent_system.md` | RAG prompt optimised for Phi-4 |
+| `phi4/tool_calling_agent_system.md` | Tool calling prompt optimised for Phi-4 |
 | `mistral_large_3/classification_agent_system.md` | Classification prompt optimised for Mistral (structured examples, few-shot) |
 | `mistral_large_3/dialog_agent_system.md` | Dialog prompt optimised for Mistral |
 | `mistral_large_3/rag_agent_system.md` | RAG prompt optimised for Mistral |
@@ -773,7 +861,7 @@ If you already have your own system prompt and test data, you can import them di
 #### From the Web UI
 
 1. Go to **Prompts** → sidebar → **📥 Import Topic**.
-2. Click the **Samples** link next to the heading to see copyable JSON and CSV examples for every task type.
+2. Click the **Samples & Prompts** link next to the heading to see copyable JSON and CSV examples for every task type, plus prompt generation best practices.
 3. Enter a **topic name** (e.g. *"Insurance Claims Processing"*).
 4. Upload one or more source model prompts:
    - **Classification prompt** (`.txt` / `.md`)
@@ -789,9 +877,9 @@ If you already have your own system prompt and test data, you can import them di
 6. Select the **generator model** for target prompt creation.
 7. Click **📥 Import Topic**.
 
-> **CSV import:** CSV files are parsed via `csv.DictReader` and automatically converted to JSON on import.  The canonical storage format is always JSON.  See the [Import Samples page](#) (`/import-samples`) for format details and copy-ready examples.
+> **CSV import:** CSV files are parsed via `csv.DictReader` and automatically converted to JSON on import.  The canonical storage format is always JSON.  See the [Import Samples & Prompts page](#) (`/import-samples`) for format details, copy-ready examples, and prompt generation best practices.
 
-The system validates the prompt(s) and test data, generates optimised prompts **in parallel** for all target models, and writes everything as an archived topic.  Activate it from the topic selector to start running evaluations.
+The system validates the prompt(s) and test data, generates optimised prompts **in parallel** (via `ThreadPoolExecutor`) for all target models with multi-layer category alignment, priority/sentiment normalisation, and error-resilient execution, then writes everything as an archived topic.  Activate it from the topic selector to start running evaluations.
 
 #### From the CLI
 
@@ -850,10 +938,18 @@ python tools/import_topic.py \
 
 #### What happens during import
 
-1. Each source prompt is validated — if it lacks the output format block required by the evaluation pipeline, it's appended automatically.
-2. Optimised prompts are generated **in parallel** for each target model, preserving the same category taxonomy and adapting to each model family's best practices.
-3. Test data is validated and missing optional fields are auto-filled.  CSV files are converted to JSON automatically.
-4. Everything is written to the archive structure:
+1. **Source prompt validation** — Each source prompt is parsed; if it lacks the output format block required by the evaluation pipeline, it's appended automatically.
+2. **Schema extraction** — For classification prompts, all categories, priority levels, and sentiment values are extracted from the source prompt.  For dialog prompts, all JSON response fields are extracted (e.g. `follow_up_questions`, `context_gaps_identified`, `reasoning`, etc.).
+3. **Parallel target-prompt generation** — Optimised prompts are generated **in parallel** (via `ThreadPoolExecutor`) for each target model, preserving the same category taxonomy and adapting to each model family's best practices.  Each generation call includes a **meta-prompt enrichment** layer that injects the exact list of expected categories, JSON fields, priority levels, and sentiment values.
+4. **Multi-layer category alignment** (classification only) — After generation, each target prompt passes through a three-step alignment pipeline:
+   - **Deterministic injection** (`_inject_missing_categories`) — Any categories present in the source prompt but missing from the generated target are injected programmatically into the correct section (table, list, or inline), with no LLM call required.
+   - **LLM auto-fix** — If categories are still missing after deterministic injection (e.g. deeply custom formats), a targeted LLM call adds only the missing ones.
+   - **Case-insensitive verification** — A final overlap check (case-insensitive) confirms 100% category coverage.  All comparisons use `.lower()` to prevent false negatives from casing differences.
+5. **Priority & sentiment normalisation** — Target prompts are validated to use the canonical priority scale (`critical`, `high`, `medium`, `low`) and sentiment scale (`positive`, `neutral`, `negative`, `mixed`).  Legacy values like `critical_safety` are normalised automatically.
+6. **Dialog JSON field preservation** — Target dialog prompts are verified to include all JSON response fields from the source prompt, ensuring the evaluation pipeline can parse every expected field.
+7. **Error-resilient execution** — Each target model generation runs inside a `try/except` block.  If a single model fails (e.g. HTTP 429 rate-limit, timeout, or content-filter rejection), the error is logged and the import continues with the remaining models — one failure does not crash the entire import.
+8. **Test data validation** — Test data is validated and missing optional fields are auto-filled.  CSV files are converted to JSON automatically.
+9. **Archive write** — Everything is written to the archive structure:
    - `prompts/topics/<slug>/<model>/` — prompt files per model
    - `data/synthetic/topics/<slug>/` — test data by type
    - `topic.json` — metadata
@@ -869,6 +965,24 @@ Categories are **invented dynamically** for each topic — the generator creates
 When generating test data, the system includes automatic JSON sanitisation (trailing commas, comments, double commas) and retry logic (up to 3 attempts with re-prompting) to handle models that occasionally return imperfect JSON.
 
 **Minimum count validation:** If the model returns valid JSON but with fewer than 50% of the requested scenarios (e.g. 2 instead of 15), the system automatically retries with a reinforced prompt that explicitly demands the exact target count.  This prevents silently accepting under-populated datasets.
+
+#### Import Robustness & Alignment Guarantees
+
+The import pipeline includes several layers of protection to ensure generated prompts are fully aligned with the source prompt's schema:
+
+| Layer | Mechanism | Scope |
+|-------|-----------|-------|
+| **Meta-prompt enrichment** | The LLM generation call includes the full list of source categories, JSON fields, priority levels, and sentiment values as explicit instructions | All task types |
+| **Deterministic injection** | `_inject_missing_categories()` programmatically adds any categories the LLM missed — detects tables, bullet lists, and inline mentions and inserts in the correct format | Classification |
+| **LLM auto-fix fallback** | If deterministic injection cannot add a category (deeply custom format), a targeted LLM call adds only the missing ones | Classification |
+| **Case-insensitive verification** | All category overlap checks use `.lower()` to prevent false negatives from casing differences (e.g. `Billing_Inquiry` vs `billing_inquiry`) | Classification |
+| **Priority normalisation** | Validates the canonical 4-level scale: `critical`, `high`, `medium`, `low`.  Legacy aliases like `critical_safety` are mapped automatically | Classification |
+| **Sentiment normalisation** | Validates the canonical 4-level scale: `positive`, `neutral`, `negative`, `mixed` | Classification |
+| **Dialog field preservation** | Verifies all JSON response fields from the source prompt appear in each target prompt (e.g. `follow_up_questions`, `context_gaps_identified`, `reasoning`) | Dialog |
+| **Error resilience** | Each target model runs in its own `try/except`.  HTTP 429, timeouts, and content-filter errors are logged but do not crash the import — partial results are preserved | All task types |
+| **Noise-set exclusion fix** | The category parser no longer treats `other_or_unclear` (or similar catch-all categories) as noise — they are preserved through the full pipeline | Classification |
+
+> **Result:** An import of 8 models × 4 task types = 32 prompts typically completes in ~10 minutes with 100% category alignment across all targets.
 
 ### Version History
 
@@ -1208,7 +1322,7 @@ data/synthetic/
 
 Edit the `models` section in `config/settings.yaml`.  Each key becomes a model name used in the CLI, API, and web UI.
 
-### Example: 8-Model Setup (Azure OpenAI + Marketplace + Gemini)
+### Example: 12-Model Setup (Azure OpenAI + SLM + Marketplace + Gemini)
 
 ```yaml
 azure:
@@ -1239,10 +1353,17 @@ azure:
       temperature: 0.1
 
     gpt5:
-      deployment_name: "gpt-5.2"
+      deployment_name: "gpt-5.4"
       model_family: "gpt5"
-      model_version: "2025-01-01"
-      max_tokens: 8192
+      model_version: "2026-03-05"
+      max_tokens: 16384
+      temperature: 0.1
+
+    gpt54_mini:
+      deployment_name: "gpt-5.4-mini"
+      model_family: "gpt5"
+      model_version: "2026-03-05"
+      max_tokens: 16384
       temperature: 0.1
 
     gpt51:
@@ -1258,6 +1379,13 @@ azure:
       model_version: "2025-01-01"
       max_tokens: 16384
       reasoning_effort: "medium"    # low, medium, high (o-series / gpt-5)
+
+    phi4:
+      deployment_name: "Phi-4"             # Microsoft Phi-4 SLM (model catalog)
+      model_family: "phi"
+      model_version: "2"
+      max_tokens: 4096
+      temperature: 0.1
 
     mistral_large_3:
       deployment_name: "Mistral-Large-3"    # Azure AI Marketplace model
@@ -1287,7 +1415,7 @@ gemini:
 | Parameter | Description | Notes |
 |-----------|-------------|-------|
 | `deployment_name` | Deployment name in Azure AI Foundry (or model name for Gemini) | As shown in Azure Portal → Deployments |
-| `model_family` | Prompt-style family grouping | `gpt4`, `gpt5`, `mistral`, or `gemini` — determines API behaviour (see below) |
+| `model_family` | Prompt-style family grouping | `gpt4`, `gpt5`, `phi`, `mistral`, `gemini`, or `realtime` — determines API behaviour (see below) |
 | `backend` | API backend to use | `azure` (default) or `gemini` — `gemini` routes to Google’s OpenAI-compat endpoint |
 | `model_version` | Model version string | From deployment details |
 | `max_tokens` | Maximum response tokens | Model-dependent |
@@ -1296,22 +1424,25 @@ gemini:
 | `frequency_penalty` | Repetition penalty (optional) | **Omitted for reasoning models** |
 | `presence_penalty` | Topic penalty (optional) | **Omitted for reasoning models** |
 | `reasoning_effort` | Only for reasoning models | `low` / `medium` / `high` — GPT-5, o1, o3, o4 |
-| `max_concurrent` | Max parallel API calls for this model (optional) | Default: `5`. Set to `1` for rate-limited models like Gemini free tier |
+| `max_concurrent` | Max parallel API calls for this model (optional) | Default: `5`. Set to `1` for rate-limited models like Gemini free tier. Set to `2` for realtime models (expensive sessions) |
+| `voice` | Voice for Realtime API output (optional) | `alloy`, `echo`, `shimmer`, etc. — only used by `realtime` backend models |
+| `turn_detection` | Turn detection mode (optional) | `server_vad` (default) — only used by `realtime` backend models |
 
 ### Model Family Behaviour
 
 The `model_family` field controls automatic API-level differences:
 
-| Behaviour | `model_family: "gpt4"` | `model_family: "gpt5"` | `model_family: "mistral"` | `model_family: "gemini"` |
-|-----------|------------------------|------------------------|---------------------------|-------------------------|
-| **Max tokens parameter** | `max_tokens` | `max_completion_tokens` (auto-converted) | `max_tokens` | `max_tokens` |
-| **System message role** | `system` | `developer` | `system` | `system` |
-| **Sampling parameters** | Always sent (temperature, top_p, penalties) | Sent unless `reasoning_effort` is present | Always sent | Always sent |
-| **Seed parameter** | Sent if configured | Sent if configured | Sent if configured | **Not sent** (unsupported) |
-| **Last-message guard** | Not needed | Not needed | Auto-appends a minimal `user` message if the last message is not `user` or `tool` (prevents Mistral error 3230) | Not needed |
-| **Prompt style** | Explicit chain-of-thought, verbose rules | Native reasoning, concise | Detailed instructions, structured examples, few-shot | Explicit CoT, few-shot examples, structured output |
+| Behaviour | `model_family: "gpt4"` | `model_family: "gpt5"` | `model_family: "phi"` | `model_family: "mistral"` | `model_family: "gemini"` | `model_family: "realtime"` |
+|-----------|------------------------|------------------------|----------------------|---------------------------|-------------------------|---------------------------|
+| **Max tokens parameter** | `max_tokens` | `max_completion_tokens` (auto-converted) | `max_tokens` | `max_tokens` | `max_tokens` | `max_response_output_tokens` |
+| **System message role** | `system` | `developer` | `system` | `system` | `system` | `instructions` (Realtime session config) |
+| **Sampling parameters** | Always sent (temperature, top_p, penalties) | Sent unless `reasoning_effort` is present | Always sent | Always sent | Always sent | `temperature` only |
+| **Seed parameter** | Sent if configured | Sent if configured | Sent if configured | Sent if configured | **Not sent** (unsupported) | **Not sent** |
+| **Last-message guard** | Not needed | Not needed | Not needed | Auto-appends a minimal `user` message if the last message is not `user` or `tool` (prevents Mistral error 3230) | Not needed | Not applicable |
+| **Prompt style** | Explicit chain-of-thought, verbose rules | Native reasoning, concise | Structured rules, explicit constraints, focused prompts | Detailed instructions, structured examples, few-shot | Explicit CoT, few-shot examples, structured output | Conversational, voice-optimised |
+| **Evaluation path** | Text chat/completions | Text chat/completions | Text chat/completions | Text chat/completions | Text chat/completions | TTS → Realtime WebSocket → Transcript |
 
-> **Auto-detection:** The client reads `model_family` and `backend` from the config and automatically converts `max_tokens` → `max_completion_tokens` and `system` → `developer` role for `gpt5` family models, applies the last-message guard for `mistral` family models, and routes requests to the Gemini OpenAI-compatible endpoint for `gemini` backend models.  No manual API changes needed.
+> **Auto-detection:** The client reads `model_family` and `backend` from the config and automatically converts `max_tokens` → `max_completion_tokens` and `system` → `developer` role for `gpt5` family models, applies the last-message guard for `mistral` family models, keeps standard `system`/`max_tokens` for `phi` family models, and routes requests to the Gemini OpenAI-compatible endpoint for `gemini` backend models.  No manual API changes needed.
 
 ### Reasoning vs. Non-Reasoning Models
 
@@ -1345,15 +1476,113 @@ Google Gemini models are accessed via the [OpenAI-compatible endpoint](https://a
 
 | Aspect | Detail |
 |--------|--------|
-| **Rate limits (free tier)** | ~15 RPM / ~20 RPD — the free API key is severely rate-limited. Set `max_concurrent: 1` to send requests sequentially |
-| **Retry with backoff** | Transient errors (429, 500, 502, 503, 504) trigger up to 6 retries with exponential backoff (2 → 4 → 8 → 16 → 32 → 64 s) plus jitter, capped at 120 s per wait |
-| **Daily quota detection** | When the daily quota (`PerDay`) is exhausted, the system detects it immediately and fails fast with a clear message instead of retrying |
+| **Rate limits (free tier)** | 5 RPM / ~20 RPD — the free API key is severely rate-limited. Set `max_concurrent: 1` to send requests sequentially |
+| **Retry with backoff** | Transient errors (429, 500, 502, 503, 504) trigger up to **12 retries** (vs 6 for other models) with exponential backoff plus jitter, capped at 120 s per wait. A **minimum 13 s delay** between retries is enforced to stay within the 5 RPM limit |
+| **Per-minute vs. daily detection** | The system distinguishes **per-minute** rate limits (`PerMinute` in `quotaId`) from **daily** quota exhaustion (`PerDay`). Per-minute 429s are retried with backoff; daily quota exhaustion fails fast immediately with a clear message |
 | **SDK retries disabled** | The OpenAI SDK's built-in `max_retries` is set to `0` for Gemini clients to avoid double-retry (SDK retries × app retries) |
 | **Consistency runs skipped** | Consistency/reproducibility measurements (multiple runs per scenario) are **automatically disabled** for Gemini models to conserve the limited daily quota |
 | **Seed parameter** | Not sent — Gemini does not support the `seed` parameter |
 | **Prompt seeding** | Gemini prompt templates are seeded from shared prompts on first user login, just like all other models |
 
 > **Tip:** For production workloads, upgrade to a [paid Gemini API plan](https://ai.google.dev/pricing) which provides significantly higher rate limits (up to 2,000 RPM).
+
+### Realtime (Speech-to-Speech) Configuration
+
+Realtime models evaluate voice model quality by converting text test cases to audio via TTS, sending the audio through the Azure OpenAI Realtime WebSocket API, and evaluating the resulting transcript against the same metrics used for text models (classification, dialog, RAG, tool calling).
+
+#### Architecture: TTS → Realtime WebSocket → Transcript → Metrics
+
+```mermaid
+flowchart LR
+    A["📝 Text Test Case<br/><i>'My bill is too high'</i>"] --> B["🔊 TTS Client<br/>gpt-4o-mini-tts"]
+    B -- "PCM16 audio<br/>24 kHz mono" --> D["🎙️ gpt-realtime(-1.5)"]
+    B -.-> C[("💾 .cache/tts_audio/<br/>disk cache")]
+
+    subgraph RT["Azure OpenAI Realtime API (WebSocket)"]
+        D
+    end
+
+    D -- "audio + text<br/>response" --> E["📜 Transcript text"]
+    E --> F["📊 MetricsCalculator<br/><i>(same as text models)</i>"]
+
+    style A fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    style B fill:#fef3c7,stroke:#d97706,color:#78350f
+    style C fill:#f3f4f6,stroke:#9ca3af,color:#374151
+    style RT fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    style D fill:#ddd6fe,stroke:#7c3aed,color:#4c1d95
+    style E fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    style F fill:#d1fae5,stroke:#059669,color:#064e3b
+```
+
+#### Prerequisites
+
+| Requirement | Details |
+|-------------|---------|
+| **Realtime model deployment** | Deploy `gpt-realtime` and/or `gpt-realtime-1.5` on your Azure OpenAI (AI Services) resource |
+| **TTS model deployment** | Deploy `gpt-4o-mini-tts` on the same resource (or on the dedicated realtime endpoint) |
+| **RBAC roles** | `Cognitive Services OpenAI Contributor` (required for TTS `audio/speech` data action) + `Cognitive Services OpenAI User` on the realtime endpoint resource |
+| **Optional: Dedicated endpoint** | Set `AZURE_OPENAI_REALTIME_ENDPOINT` in `.env` to use a separate endpoint for TTS + Realtime — avoids quota contention with text models |
+
+#### Configuration in `settings.yaml`
+
+```yaml
+azure:
+  models:
+    # Add realtime models alongside your text models
+    gpt_realtime_1:
+      deployment_name: "gpt-realtime"
+      model_family: "realtime"
+      backend: "realtime"
+      model_version: "2025-08-28"
+      max_tokens: 4096
+      temperature: 0.8
+      voice: "alloy"
+      turn_detection: "server_vad"
+      max_concurrent: 2
+
+    gpt_realtime_15:
+      deployment_name: "gpt-realtime-1.5"
+      model_family: "realtime"
+      backend: "realtime"
+      model_version: "2026-02-23"
+      max_tokens: 4096
+      temperature: 0.8
+      voice: "alloy"
+      turn_detection: "server_vad"
+      max_concurrent: 2
+
+# Optional: dedicated endpoint for voice models
+realtime:
+  endpoint: "${AZURE_OPENAI_REALTIME_ENDPOINT}"
+  api_version: "2025-04-01-preview"
+  tts:
+    deployment_name: "gpt-4o-mini-tts"
+    voice: "alloy"
+    speed: 1.0
+    response_format: "pcm"
+    cache_enabled: true
+    cache_dir: ".cache/tts_audio"
+```
+
+#### How Evaluation Works
+
+1. **Text → Audio** — The `TTSClient` converts each text test case to PCM16 24 kHz mono audio via the `gpt-4o-mini-tts` deployment.  Audio is cached to disk (`.cache/tts_audio/`) to avoid redundant TTS calls on re-runs.
+2. **Audio → WebSocket** — The `RealtimeClient` opens a WebSocket session to the Realtime API with the model's system prompt as `instructions`, sends the audio, and collects the response (transcript + audio).
+3. **Transcript → Metrics** — The response transcript is evaluated using the same `MetricsCalculator` as text models — classification accuracy, dialog quality, RAG groundedness, tool calling accuracy, etc.
+4. **Realtime Metrics** — Additional voice-specific metrics are computed: time-to-first-audio, session duration, WebSocket connect time, audio I/O duration, audio token counts, TTS latency, TTS cache hit rate, and audio cost per request.
+
+#### TTS Audio Cache
+
+Synthesised audio is cached to `.cache/tts_audio/` (one `.pcm16` + `.meta.json` per text/voice combination).  This saves TTS API calls and latency on repeated evaluation runs.  Disable caching by setting `tts.cache_enabled: false` in `settings.yaml`.
+
+#### RBAC for Dedicated Realtime Endpoint
+
+If you use a dedicated endpoint, the Service Principal (or managed identity) needs roles on that resource.  Both `deploy.ps1` and the Bicep `realtime-access.bicep` module handle this automatically:
+
+| Role | Why |
+|------|-----|
+| **Cognitive Services OpenAI Contributor** | TTS `audio/speech` endpoint requires `deployments/audio/action` data action |
+| **Cognitive Services OpenAI User** | Realtime WebSocket `chat/completions` data-plane access |
 
 ### Adding a New Model — Step by Step
 
@@ -1421,7 +1650,7 @@ python tools/add_model.py \
 |-----------|:--------:|-------------|
 | `--key` | ✅ | Internal model key (e.g. `gpt45`, `o4_mini`) — becomes API/CLI name and prompt directory |
 | `--deployment` | ✅ | Azure deployment name as shown in AI Foundry portal |
-| `--family` | ✅ | `gpt4`, `gpt5`, `mistral`, or `gemini` — determines API behaviour (see Model Family table above) |
+| `--family` | ✅ | `gpt4`, `gpt5`, `phi`, `mistral`, `gemini`, or `realtime` — determines API behaviour (see Model Family table above) |
 | `--model-version` | — | Model version string from deployment details |
 | `--max-tokens` | — | Max response tokens (default: 4096 for gpt4, 16384 for gpt5) |
 | `--temperature` | — | 0.0–2.0 (default: 0.1; omitted automatically for reasoning models) |
@@ -1447,7 +1676,7 @@ If you prefer to configure manually, add a model in **2 steps**:
 ```yaml
     my_new_model:
       deployment_name: "gpt-4o-mini"   # Your deployment name in Azure AI Foundry
-      model_family: "gpt4"             # "gpt4", "gpt5", or "mistral"
+      model_family: "gpt4"             # "gpt4", "gpt5", "phi", "mistral", "gemini", or "realtime"
       model_version: "2024-07-18"
       max_tokens: 4096
       temperature: 0.1
@@ -1455,9 +1684,9 @@ If you prefer to configure manually, add a model in **2 steps**:
 
 The key name (`my_new_model`) is arbitrary — it becomes the model identifier in the CLI, API, and web UI.  It also determines the prompt directory name.
 
-**Step 2 — Create a prompt directory (recommended):**
+**Step 2 — Create prompt directories (recommended):**
 
-Create `prompts/<model_key>/` and add one `.md` file per task type:
+Create `prompts/<model_key>/` (global defaults) and add one `.md` file per task type:
 
 ```
 prompts/my_new_model/
@@ -1469,12 +1698,21 @@ prompts/my_new_model/
 
 > **Tip:** Copy from an existing model with the same family.  For example, if your new model is GPT-4-family, copy from `prompts/gpt4/`.
 
+> **✅ Auto-seeding for new models:** Each user has their own prompt directory under `data/users/<user_id>/prompts/<model_key>/`.  When a user logs in for the first time, prompts are seeded from the global `prompts/` directory.  If you **add a new model after users have already logged in**, the system handles it automatically on their next login:
+>
+> 1. `ensure_dirs` creates the empty model directory.
+> 2. `seed_from_shared` copies default prompts from the global `prompts/<model_key>/` directory (idempotent — only copies if no `.md` files exist).
+> 3. `seed_new_models_from_active_topic` checks the user's **active topic archive** and overwrites the defaults with topic-specific prompts, so the user never sees a topic mismatch.
+>
+> This also works after a **container restart** with blob storage restore — the same three steps run to patch any models added since the user data was last persisted.
+
 If you skip this step, the **prompt fallback chain** kicks in automatically:
 
 ```
-prompts/{model_key}/          ← first try (e.g. prompts/my_new_model/)
-prompts/{base_model}/         ← if key ends with _reasoning, strip suffix (e.g. gpt5_reasoning → gpt5)
-prompts/templates/            ← final fallback (generic templates)
+data/users/<user>/prompts/{model_key}/   ← first try (per-user override)
+prompts/{model_key}/                     ← global default prompts
+prompts/{base_model}/                    ← if key ends with _reasoning, strip suffix (e.g. gpt5_reasoning → gpt5)
+prompts/templates/                       ← final fallback (generic templates)
 ```
 
 #### What happens automatically
@@ -1491,7 +1729,8 @@ Once you add the YAML entry (via the tool or manually) and restart the server:
 | What | Where | Required? |
 |------|-------|:---------:|
 | Model configuration | `config/settings.yaml` → `azure.models.<key>` | ✅ |
-| Prompt templates | `prompts/<key>/` → `{type}_agent_system.md` | Recommended |
+| Global prompt templates | `prompts/<key>/` → `{type}_agent_system.md` | Recommended |
+| Per-user prompt templates | `data/users/<user_id>/prompts/<key>/` → `{type}_agent_system.md` | ✅ for existing users |
 | Code changes | None — registration is automatic | — |
 | Server restart | Required to pick up new YAML entries | ✅ |
 
@@ -1532,22 +1771,33 @@ The framework optionally integrates with [Microsoft Foundry](https://ai.azure.co
 
 ### Architecture: Dual-Write
 
-```
- Local evaluation (fast, free)           Foundry Runtime (LLM-as-judge)
- ┌──────────────┐                        ┌──────────────────────────┐
- │ evaluator.py │──► metrics.py ──►  UI  │  Foundry Control Plane   │
- │ (sklearn,    │       │                │  ┌────────────────────┐  │
- │  numpy)      │       │                │  │ coherence          │  │
- └──────────────┘       │                │  │ fluency            │  │
-                        ▼                │  │ relevance          │  │
-                 foundry_evaluator.py ──►│  │ task_adherence     │  │
-                  export JSONL           │  │ similarity         │  │
-                  upload dataset         │  │ intent_resolution  │  │
-                  create eval + run      │  │ response_complete. │  │
-                                         │  └────────────────────┘  │
-                                         │                          │
-                                         │   📊 report_url          │
-                                         └──────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph LOCAL["Local Evaluation (fast, free)"]
+        A["evaluator.py<br/><i>sklearn, numpy</i>"] --> B["metrics.py"]
+    end
+
+    B --> C["🖥️ Web UI"]
+    B --> D["foundry_evaluator.py"]
+
+    D -- "export JSONL<br/>upload dataset<br/>create eval + run" --> E
+
+    subgraph FOUNDRY["Foundry Runtime (LLM-as-judge)"]
+        E["Foundry Control Plane"]
+        F["Built-in Evaluators<br/><i>coherence · fluency · relevance<br/>task_adherence · similarity<br/>intent_resolution<br/>response_completeness</i>"]
+        E --> F
+        F --> G["📊 report_url"]
+    end
+
+    style LOCAL fill:#d1fae5,stroke:#059669,color:#064e3b
+    style A fill:#bbf7d0,stroke:#059669,color:#064e3b
+    style B fill:#bbf7d0,stroke:#059669,color:#064e3b
+    style C fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    style D fill:#fef3c7,stroke:#d97706,color:#78350f
+    style FOUNDRY fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    style E fill:#ddd6fe,stroke:#7c3aed,color:#4c1d95
+    style F fill:#ddd6fe,stroke:#7c3aed,color:#4c1d95
+    style G fill:#ddd6fe,stroke:#7c3aed,color:#4c1d95
 ```
 
 **Local metrics stay intact** — latency, cost, consistency, classification accuracy (sklearn), empathy/rule heuristics.  Foundry **adds** semantic quality metrics that an LLM evaluates (coherence, fluency, relevance, task adherence).
@@ -1692,29 +1942,65 @@ The project uses **[Azure Developer CLI (azd)](https://learn.microsoft.com/azure
 
 ### Infrastructure Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Resource Group  (rg-<environmentName>)                             │
-│                                                                     │
-│  ┌──────────────┐  ┌──────────────────────┐  ┌───────────────────┐ │
-│  │  Log         │  │  Application         │  │  Container Apps   │ │
-│  │  Analytics   │  │  Insights            │  │  Environment      │ │
-│  │  Workspace   │  │  + Dashboard         │  │  (cae-…)          │ │
-│  └──────┬───────┘  └──────────┬───────────┘  └────────┬──────────┘ │
-│         │                     │                       │            │
-│         └─────────────────────┼───────────────────────┘            │
-│                               │                                    │
-│  ┌──────────────┐  ┌──────────┴───────────┐  ┌───────────────────┐ │
-│  │  Azure       │  │  Container App       │  │  User-Assigned    │ │
-│  │  Container   │  │  (web service)       │  │  Managed Identity │ │
-│  │  Registry    │  │  Flask on port 5000  │  │  (id-web-…)       │ │
-│  └──────────────┘  └──────────────────────┘  └───────────────────┘ │
-│                                                                     │
-│  RBAC role assignments (optional, if resource IDs provided):        │
-│  • Cognitive Services OpenAI User → Azure OpenAI account            │
-│  • Azure AI Developer → AI Foundry project                          │
-│  • AcrPull → Container Registry                                     │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph RG["Resource Group rg-environmentName"]
+        direction TB
+
+        subgraph MONITOR["Monitoring"]
+            LOG["Log Analytics Workspace"]
+            AI["Application Insights + Dashboard"]
+        end
+
+        subgraph COMPUTE["Compute"]
+            CAE["Container Apps Environment"]
+            CA["Container App - Flask port 5000"]
+            CAE --> CA
+        end
+
+        subgraph IDENTITY["Identity and Registry"]
+            ACR["Azure Container Registry"]
+            MI["User-Assigned Managed Identity"]
+        end
+
+        subgraph STORAGE["Persistence"]
+            SA["Storage Account GPv2 + blob userdata"]
+        end
+
+        LOG --> AI
+        AI --> CA
+        ACR -- "AcrPull" --> CA
+        MI -- "DefaultAzureCredential" --> CA
+    end
+
+    subgraph RBAC["RBAC Role Assignments - automatic"]
+        R1["Cognitive Services OpenAI Contributor + User → AI Services"]
+        R2["Azure AI Developer + User → AI Foundry project"]
+        R3["Storage Blob Data Contributor → Storage Account"]
+        R4["AcrPull → Container Registry"]
+        R5["Optional: OpenAI Contributor + User → Realtime/TTS endpoint"]
+    end
+
+    MI -.-> RBAC
+
+    style RG fill:#f0f9ff,stroke:#0284c7,color:#0c4a6e
+    style MONITOR fill:#fef3c7,stroke:#d97706,color:#78350f
+    style LOG fill:#fef9c3,stroke:#d97706,color:#78350f
+    style AI fill:#fef9c3,stroke:#d97706,color:#78350f
+    style COMPUTE fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    style CAE fill:#ddd6fe,stroke:#7c3aed,color:#4c1d95
+    style CA fill:#ddd6fe,stroke:#7c3aed,color:#4c1d95
+    style IDENTITY fill:#d1fae5,stroke:#059669,color:#064e3b
+    style ACR fill:#bbf7d0,stroke:#059669,color:#064e3b
+    style MI fill:#bbf7d0,stroke:#059669,color:#064e3b
+    style STORAGE fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    style SA fill:#bfdbfe,stroke:#0284c7,color:#0c4a6e
+    style RBAC fill:#fce7f3,stroke:#db2777,color:#831843
+    style R1 fill:#fbcfe8,stroke:#db2777,color:#831843
+    style R2 fill:#fbcfe8,stroke:#db2777,color:#831843
+    style R3 fill:#fbcfe8,stroke:#db2777,color:#831843
+    style R4 fill:#fbcfe8,stroke:#db2777,color:#831843
+    style R5 fill:#fbcfe8,stroke:#db2777,color:#831843
 ```
 
 The Bicep templates are located in the `infra/` folder:
@@ -1726,6 +2012,8 @@ The Bicep templates are located in the `infra/` folder:
 | `infra/modules/acr-access.bicep` | Assigns the **AcrPull** role to the managed identity on the Container Registry |
 | `infra/modules/foundry-resource.bicep` | Creates the **AI Services account** (kind: AIServices) with model deployments + Foundry project |
 | `infra/modules/foundry-access.bicep` | Assigns **OpenAI + Foundry + Storage RBAC roles** to the managed identity |
+| `infra/modules/realtime-access.bicep` | Assigns **OpenAI Contributor + User roles** on an external Cognitive Services account for TTS + Realtime WebSocket |
+| `infra/modules/storage-resource.bicep` | Creates a **Storage Account** + blob container for persisting user data across container restarts |
 | `infra/modules/openai-access.bicep` | Assigns **Cognitive Services OpenAI User** role (legacy — superseded by foundry-access) |
 | `infra/modules/openai-resource.bicep` | Creates an Azure OpenAI account (legacy — superseded by foundry-resource) |
 
@@ -1740,7 +2028,8 @@ The Bicep templates are located in the `infra/` folder:
 | **Container Apps Environment** | Serverless container host |
 | **User-Assigned Managed Identity** | Keyless authentication — no API keys needed |
 | **Container App** | Flask web service (1 vCPU, 2 Gi memory, scale 0–3 replicas) |
-| **RBAC Role Assignments** | Automatic role binding for Azure OpenAI and AI Foundry (if resource IDs provided) |
+| **Storage Account** | GPv2 with blob container `userdata` for persisting user files across container restarts |
+| **RBAC Role Assignments** | Automatic role binding for Azure OpenAI, AI Foundry, Storage, and optionally a dedicated Realtime/TTS endpoint |
 
 ### Authentication Model
 
@@ -1836,6 +2125,8 @@ Open this URL in your browser to access the web interface.
 |----------|:--------:|-------------|
 | `AZURE_OPENAI_ENDPOINT` | ✅ | Azure OpenAI endpoint URL |
 | `FOUNDRY_PROJECT_ENDPOINT` | — | AI Foundry project endpoint (enables LLM-as-judge) |
+| `AZURE_OPENAI_REALTIME_ENDPOINT` | — | Dedicated endpoint for TTS + Realtime voice models (if separate from main endpoint) |
+| `GEMINI_API_KEY` | — | Google Gemini API key (enables Gemini model evaluations) |
 | `AZURE_OPENAI_ACCOUNT_RESOURCE_ID` | — | Full resource ID of the OpenAI account (enables automatic RBAC) |
 | `AI_FOUNDRY_PROJECT_RESOURCE_ID` | — | Full resource ID of the AI Foundry project (enables automatic RBAC) |
 
@@ -1881,6 +2172,54 @@ az containerapp revision list -n <container-app-name> -g rg-<environment-name> -
 
 You can also view telemetry in the Azure Portal → Application Insights resource created in the resource group.
 
+### Troubleshooting: Conditional Access Policy Blocking Role Assignments
+
+Some Azure AD (Entra ID) tenants — especially corporate tenants like **MCAPS** — have **Conditional Access policies** that block the Microsoft Graph API calls required for RBAC role assignments during ARM deployments. If `azd up` fails with:
+
+```
+GraphBadRequest: Microsoft Policy Administration Service Application is blocked
+by a conditional access policy in the tenant.
+```
+
+…the Azure resources were all created successfully — the failure is only at the role assignment step.
+
+#### Solution: Skip RBAC and Assign Roles Manually
+
+**Step 1 — Tell `azd` to skip role assignments:**
+
+```powershell
+azd env set skipRbac true
+```
+
+**Step 2 — Re-run provisioning (this will skip the role assignments):**
+
+```powershell
+azd up
+```
+
+**Step 3 — Assign roles manually using the provided script:**
+
+```powershell
+.\infra\hooks\assign-roles.ps1 -EnvironmentName <your-azd-env-name>
+```
+
+The script uses Azure CLI (`az role assignment create`) instead of ARM/Graph, which is not blocked by the same Conditional Access policies. It assigns all 6 required roles (plus 2 optional realtime roles):
+
+| Role | Scope | Purpose |
+|------|-------|---------|
+| **AcrPull** | Container Registry | Pull container images |
+| **Cognitive Services OpenAI Contributor** | AI Services account | Model management + data-plane write |
+| **Cognitive Services OpenAI User** | AI Services account | Chat/completions inference |
+| **Azure AI Developer** | AI Services account | Foundry project operations |
+| **Azure AI User** | AI Services account | Foundry asset store access |
+| **Storage Blob Data Contributor** | Resource Group | Upload evaluation datasets to backing storage |
+| **Cognitive Services OpenAI Contributor** | Realtime endpoint *(optional)* | TTS `audio/speech` data action on dedicated voice endpoint |
+| **Cognitive Services OpenAI User** | Realtime endpoint *(optional)* | Realtime WebSocket access on dedicated voice endpoint |
+
+#### Alternative: Ask Your Tenant Admin
+
+If you'd rather fix the root cause, ask your Entra ID admin to add an exclusion for the **Microsoft Policy Administration Service** application in the Conditional Access policy. The `Correlation ID` from the error message helps them locate the specific policy in the Entra ID sign-in logs.
+
 ### Tear Down
 
 ```powershell
@@ -1893,7 +2232,104 @@ azd down --force --purge
 
 ---
 
-## �🖥️ CLI Commands
+## 🤖 Browser Automation (Playwright)
+
+The framework includes a **Playwright-based browser automation tool** (`tools/run_browser_eval.py`) that drives the real web UI to execute all model × eval-type combinations sequentially.  This is useful for running the full evaluation matrix (12 models × 5 types = 60 evaluations) unattended while capturing visible results, Verbose logs, and optional Foundry LLM-as-judge submissions.
+
+### Prerequisites
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+### How It Works
+
+1. **Launches Chromium** (visible by default, or `--headless` for CI/CD).
+2. **Logs in** via email (no OTP when `AUTH_CODE_VERIFICATION=false`).
+3. **Enumerates models** from the `#model` dropdown on the Evaluate page.
+4. **Iterates** through each model × eval-type pair:
+   - Selects model, eval type, and scenario limit.
+   - Enables Verbose mode for detailed narrative logging.
+   - Clicks **Run Evaluation** and polls the button state until completion.
+   - Extracts all 12 metric cards (Accuracy, F1, Latency, etc.) from the results.
+   - Takes a **full-page screenshot** (saved to `tools/eval_screenshots/<timestamp>/`).
+   - Optionally clicks **Send to Foundry** if `--foundry` is enabled.
+5. **Prints a summary table** (model × type matrix with pass/fail/accuracy).
+6. **Saves a JSON report** (`report.json`) with all results, metrics, and Foundry scores.
+
+### CLI Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--models` | all | Space-separated model keys (e.g. `gpt4o gpt5`) |
+| `--types` | all 5 | Space-separated eval types (e.g. `classification rag`) |
+| `--limit` | 10 | Max scenarios per evaluation |
+| `--timeout` | 300 | Seconds before a single evaluation is considered timed out |
+| `--foundry` | off | Submit to Foundry LLM-as-judge after each evaluation |
+| `--headless` | off | Run Chromium without a visible window |
+| `--no-close` | off | Keep browser open after completion for manual inspection |
+| `--email` | `asevillano@gmail.com` | Login email |
+| `--base-url` | `http://localhost:5000` | Flask server URL |
+
+### Output
+
+```
+tools/eval_screenshots/
+└── 20260323_170540/
+    ├── report.json                    # Full JSON with all results & metrics
+    ├── gpt4o_classification_PASS.png  # Screenshot per evaluation
+    ├── gpt5_dialog_PASS.png
+    └── ...
+```
+
+---
+
+### 🔄 Browser Automation — Model Comparisons
+
+A second Playwright script (`tools/run_browser_compare.py`) automates the **Compare page**.  When `--model-a` is provided it compares that baseline against all other models (or a `--models-b` subset).  **When `--model-a` is omitted, every available model is used as A in turn** — producing a full N × (N−1) × eval-types comparison matrix (e.g. 12 models × 11 opponents × 5 types = 660 pair-wise comparisons).  Each run captures winners, dimensions compared, and high-impact changes.
+
+#### How It Works
+
+1. **Launches Chromium** and logs in (same flow as the evaluation script).
+2. **Determines the Model A list** — either the single model passed via `--model-a`, or *all* available models when omitted.
+3. For each Model A, **selects Model B's** via JavaScript (custom multiselect with checkboxes) and iterates over each evaluation type:
+   - Navigates to `/compare`, selects models and eval type.
+   - Enables Verbose mode. Optionally enables Foundry LLM-as-judge.
+   - Clicks **Run Comparison** and polls the UI for completion (watches `#results-section` visibility).
+   - Extracts **winner**, **dimensions compared**, and **high-impact changes** from the summary cards.
+   - Takes a full-page screenshot.
+4. **Prints a summary table** grouped by Model A (with visual separators in multi-A mode).
+5. **Saves a JSON report** to `tools/compare_screenshots/<timestamp>/report.json`.
+
+#### CLI Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--model-a` | all models | Baseline model key (e.g. `gpt4o`). If omitted, every model is used as A in turn |
+| `--models-b` | all others | Space-separated Model B keys (default: every model except A) |
+| `--types` | all 5 | Space-separated eval types (e.g. `classification rag`) |
+| `--timeout` | 600 | Seconds before a comparison is considered timed out |
+| `--foundry` | off | Enable Foundry LLM-as-judge scoring |
+| `--headless` | off | Run Chromium without a visible window |
+| `--no-close` | off | Keep browser open after completion |
+| `--email` | `asevillano@gmail.com` | Login email |
+| `--base-url` | `http://localhost:5000` | Flask server URL |
+
+#### Output
+
+```
+tools/compare_screenshots/
+└── 20260323_175526/
+    ├── report.json                           # Full JSON with winners, dimensions, impact
+    ├── gpt4o_vs_all_classification_PASS.png  # Screenshot per eval type
+    ├── gpt4o_vs_all_dialog_PASS.png
+    └── ...
+```
+
+---
+
+## 🖥️ CLI Commands
 
 ```bash
 # Start web server (default)
@@ -1922,7 +2358,60 @@ python tools/add_model.py --key gpt45 --deployment "gpt-4.5" --family gpt4
 python tools/add_model.py --key o4_mini --deployment "o4-mini" --family gpt5 --reasoning-effort medium
 python tools/add_model.py --key mistral_large_3 --deployment "Mistral-Large-3" --family mistral
 python tools/add_model.py --key gpt45 --deployment "gpt-4.5" --family gpt4 --copy-prompts-from gpt4o
+
+# Delete a user (DB records + data/users/<slug>/ directory)
+python tools/delete_user.py user@example.com              # interactive confirmation
+python tools/delete_user.py user@example.com --dry-run     # preview without deleting
+python tools/delete_user.py user@example.com --yes          # skip confirmation
+
+# ── Browser Automation (Playwright) ──────────────────────────────────────
+# Requires: pip install playwright && playwright install chromium
+# The Flask server must be running before launching the automation.
+
+# Run ALL models × ALL eval types (full matrix)
+.venv\Scripts\python.exe tools/run_browser_eval.py --limit 10 --timeout 300
+
+# Same but with Foundry LLM-as-judge submission after each evaluation
+.venv\Scripts\python.exe tools/run_browser_eval.py --limit 10 --timeout 300 --foundry
+
+# Run specific models and/or types only
+.venv\Scripts\python.exe tools/run_browser_eval.py --models gpt4o gpt5 --types classification rag
+
+# Headless mode (no visible browser window)
+.venv\Scripts\python.exe tools/run_browser_eval.py --limit 10 --headless
+
+# Keep browser open after completion (for manual inspection)
+.venv\Scripts\python.exe tools/run_browser_eval.py --models gpt4o --types classification --no-close
+
+# Use a different user email or server URL
+.venv\Scripts\python.exe tools/run_browser_eval.py --email user@example.com --base-url http://localhost:8080
+
+# ── Browser Automation: Comparisons (Playwright) ─────────────────────────
+# Same prerequisites as above (Playwright + Chromium).
+
+# FULL MATRIX — every model as A vs the rest × all eval types (no --model-a)
+.venv\Scripts\python.exe tools/run_browser_compare.py
+
+# Single Model A vs ALL other models (B) × all eval types
+.venv\Scripts\python.exe tools/run_browser_compare.py --model-a gpt4o
+
+# Compare with Foundry LLM-as-judge
+.venv\Scripts\python.exe tools/run_browser_compare.py --model-a gpt4o --foundry
+
+# Specific Model B's and eval types only
+.venv\Scripts\python.exe tools/run_browser_compare.py --model-a gpt4o --models-b gpt5 phi4 --types classification rag
+
+# Headless mode (full matrix, no visible browser)
+.venv\Scripts\python.exe tools/run_browser_compare.py --headless
+
+# Keep browser open after completion
+.venv\Scripts\python.exe tools/run_browser_compare.py --model-a gpt4o --models-b gpt5 --types classification --no-close
 ```
+
+Browser automation produces:
+- **Screenshots** — full-page capture after each evaluation/comparison (saved to `tools/eval_screenshots/` or `tools/compare_screenshots/`)
+- **JSON report** — per-run `report.json` with model, type, status, metrics (accuracy for evals; winner/dimensions/impact for comparisons), elapsed time, and optional Foundry scores
+- **Console summary** — matrix table showing pass/fail/error status for each model × type combination
 
 > **Note:** The CLI `evaluate` and `compare` subcommands currently support `classification`, `dialog`, `general`, and `all`.  RAG and tool calling evaluations are available via the **web UI** and **REST API** only.
 
@@ -1976,6 +2465,8 @@ All endpoints are available at `http://127.0.0.1:<port>/api/`.
 | `POST` | `/api/evaluate/batch` | Batch evaluation — auto-saves result to disk |
 | `POST` | `/api/compare` | Compare two models — returns HTTP 202, runs asynchronously in background |
 | `GET` | `/api/compare/<run_id>/status` | Poll comparison job progress — returns result payload when complete |
+| `POST` | `/api/compare/batch` | Batch compare Model A vs multiple Model B's — returns HTTP 202, evaluates A once and reuses |
+| `GET` | `/api/compare/batch/<run_id>/status` | Poll batch comparison progress — returns per-model status and reports |
 
 ### Prompt Management
 
@@ -1984,7 +2475,7 @@ All endpoints are available at `http://127.0.0.1:<port>/api/`.
 | `GET` | `/api/prompts` | List all available prompt templates |
 | `GET` | `/api/prompts/<model>/<type>` | Read a specific prompt's content |
 | `PUT` | `/api/prompts/<model>/<type>` | Save/update a prompt (creates version snapshot) |
-| `POST` | `/api/prompts/generate` | AI-generate prompts + test data — accepts optional `scope` parameter (`"all"`, `"prompts_only"`, `"data_only"`) — returns HTTP 202, runs asynchronously in background |
+| `POST` | `/api/prompts/generate` | AI-generate prompts + test data — accepts optional `scope` (`"all"`, `"prompts_only"`, `"data_only"`) and `instructions` (free-form text to guide generation) — returns HTTP 202, runs asynchronously in background |
 | `GET` | `/api/prompts/generate/<run_id>/status` | Poll generation job progress — returns result payload when complete |
 | `GET` | `/api/prompts/health` | Prompt health analysis — checks consistency and completeness |
 
@@ -2096,6 +2587,25 @@ All endpoints are available at `http://127.0.0.1:<port>/api/`.
 | Format compliance | Correct output format | Structural validation |
 | Completeness | All required tool call elements present | Content coverage check |
 
+### Realtime (S2S) Metrics (voice models only)
+
+In addition to the standard metrics above (which apply to the transcript), realtime models report voice-specific metrics:
+
+| Metric | Description |
+|--------|-------------|
+| Mean time-to-first-audio (ms) | Average time from WebSocket session start to first audio chunk received |
+| Mean session time (ms) | Average total WebSocket session duration |
+| P95 session time (ms) | 95th percentile session duration |
+| Mean WebSocket connect time (ms) | Average time to establish the WebSocket connection |
+| Mean input audio duration (ms) | Average duration of TTS-generated audio sent to the model |
+| Mean output audio duration (ms) | Average duration of audio received from the model |
+| Mean input audio tokens | Average audio tokens consumed by input |
+| Mean output audio tokens | Average audio tokens in model response |
+| Mean TTS latency (ms) | Average time for text-to-speech synthesis (excludes cache hits) |
+| TTS cache hit rate (%) | Percentage of TTS requests served from disk cache |
+| Audio cost per request ($) | Estimated cost per request based on audio token pricing |
+| Total audio cost ($) | Aggregate audio cost across all scenarios |
+
 ### Latency & Cost Metrics (all types)
 
 | Metric | Description |
@@ -2163,12 +2673,15 @@ When comparing two models, each dimension shows:
 | `azure-ai-projects` | ≥2.0.0b2 | Microsoft Foundry Control Plane evaluation (optional) |
 | `flask` | ≥3.0.0 | Web framework |
 | `flask-cors` | ≥4.0.0 | Cross-origin support |
+| `flask-compress` | ≥1.15 | HTTP response compression (gzip/brotli) |
 | `scikit-learn` | ≥1.3.0 | Classification metrics (F1, accuracy, kappa) |
 | `numpy` | ≥1.24.0 | Statistical calculations |
 | `diskcache` | ≥5.6.3 | Response caching |
 | `python-dotenv` | ≥1.0.0 | `.env` file management |
 | `pyyaml` | ≥6.0.1 | YAML config parsing |
 | `httpx` | ≥0.26.0 | HTTP transport for async client |
+| `websockets` | ≥12.0 | WebSocket client for Realtime API (speech-to-speech) |
+| `playwright` | ≥1.40.0 | Browser automation for batch evaluation runs (optional) |
 | `pytest` | ≥7.4.0 | Testing |
 | `pytest-asyncio` | ≥0.21.0 | Async test support |
 
@@ -2178,6 +2691,163 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 
 ## 🏗️ Architecture
 
+### System Architecture Diagram
+
+```mermaid
+graph TB
+    %% ── User Layer ──────────────────────────────────────────
+    User([👤 User / Browser])
+
+    %% ── Web Layer ───────────────────────────────────────────
+    subgraph WEB["🌐 Web Layer (Flask)"]
+        direction TB
+        Routes["routes.py<br/>55+ REST endpoints"]
+        Templates["Fluent 2 Templates<br/>HTML + Tailwind + Chart.js"]
+        Auth["Auth Module<br/>Email + OTP sessions"]
+    end
+
+    %% ── Business Logic Layer ────────────────────────────────
+    subgraph LOGIC["⚙️ Business Logic"]
+        direction TB
+        Evaluator["ModelEvaluator<br/>Classification · Dialog<br/>General · RAG · Tool Calling"]
+        RTEvaluator["RealtimeEvaluator<br/>TTS → WebSocket → Transcript"]
+        Comparator["ModelComparator<br/>Head-to-head & batch<br/>Statistical significance"]
+        Metrics["MetricsCalculator<br/>Accuracy · F1 · Latency<br/>Cost · Consistency"]
+        FoundryEval["FoundryEvaluator<br/>LLM-as-judge<br/>(optional)"]
+    end
+
+    %% ── Prompt Engineering Layer ────────────────────────────
+    subgraph PROMPTS["📝 Prompt Engineering"]
+        direction TB
+        PromptMgr["PromptManager<br/>AI generation · Versioning<br/>Topics · Data sync"]
+        Guidance["ModelGuidance<br/>Two-tier guidance<br/>Family + Deployment"]
+        PromptLoader["PromptLoader<br/>Template loading<br/>Caching · Fallback chain"]
+        DataLoader["DataLoader<br/>JSON/CSV scenarios<br/>Auto-normalisation"]
+    end
+
+    %% ── Client Layer ────────────────────────────────────────
+    subgraph CLIENTS["🔌 API Clients"]
+        direction TB
+        AOAIClient["AzureOpenAIClient<br/>Chat completions<br/>Multi-backend routing"]
+        TTSClient["TTSClient<br/>Text → PCM16 audio<br/>Disk cache"]
+        RTClient["RealtimeClient<br/>WebSocket sessions<br/>Audio I/O"]
+    end
+
+    %% ── External Services ───────────────────────────────────
+    subgraph AZURE["☁️ Azure AI Services"]
+        direction TB
+        GPT4["GPT-4.x<br/>GPT-4o · 4.1 · 4.1-mini"]
+        GPT5["GPT-5.x<br/>5.4 · 5.4-mini · 5.1 · 5.2"]
+        Realtime["Realtime API<br/>gpt-realtime · 1.5"]
+        TTS["TTS<br/>gpt-4o-mini-tts"]
+        Foundry["Microsoft Foundry<br/>Control Plane"]
+    end
+
+    subgraph EXTERNAL["🌍 External Models"]
+        direction TB
+        Mistral["Mistral-Large-3<br/>Azure Marketplace"]
+        Phi["Phi-4 SLM<br/>Azure Model Catalog"]
+        Gemini["Gemini 3 Flash<br/>Google AI"]
+    end
+
+    %% ── Storage Layer ───────────────────────────────────────
+    subgraph STORAGE["💾 Storage"]
+        direction TB
+        UserData["Per-user directories<br/>prompts · data · results"]
+        AuthDB["auth.db<br/>SQLite users"]
+        BlobStore["Azure Blob Storage<br/>(cloud deployment)"]
+        Cache["diskcache<br/>API response cache"]
+    end
+
+    %% ── Connections ─────────────────────────────────────────
+    User --> WEB
+    Routes --> Auth
+    Routes --> Templates
+
+    Routes --> Evaluator
+    Routes --> RTEvaluator
+    Routes --> Comparator
+    Routes --> PromptMgr
+
+    Evaluator --> Metrics
+    Evaluator --> AOAIClient
+    Evaluator --> FoundryEval
+    RTEvaluator --> TTSClient
+    RTEvaluator --> RTClient
+    RTEvaluator --> Metrics
+    Comparator --> Evaluator
+
+    PromptMgr --> Guidance
+    PromptMgr --> PromptLoader
+    PromptMgr --> AOAIClient
+    Evaluator --> PromptLoader
+    Evaluator --> DataLoader
+
+    AOAIClient --> GPT4
+    AOAIClient --> GPT5
+    AOAIClient --> Mistral
+    AOAIClient --> Phi
+    AOAIClient --> Gemini
+    TTSClient --> TTS
+    RTClient --> Realtime
+    FoundryEval --> Foundry
+
+    Auth --> AuthDB
+    PromptMgr --> UserData
+    DataLoader --> UserData
+    Evaluator --> UserData
+    UserData -.-> BlobStore
+    AOAIClient --> Cache
+
+    %% ── Styles ──────────────────────────────────────────────
+    classDef webStyle fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px,color:#1e1b4b
+    classDef logicStyle fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#831843
+    classDef promptStyle fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#064e3b
+    classDef clientStyle fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef azureStyle fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef extStyle fill:#f3e8ff,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef storageStyle fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#1e293b
+
+    class Routes,Templates,Auth webStyle
+    class Evaluator,RTEvaluator,Comparator,Metrics,FoundryEval logicStyle
+    class PromptMgr,Guidance,PromptLoader,DataLoader promptStyle
+    class AOAIClient,TTSClient,RTClient clientStyle
+    class GPT4,GPT5,Realtime,TTS,Foundry azureStyle
+    class Mistral,Phi,Gemini extStyle
+    class UserData,AuthDB,BlobStore,Cache storageStyle
+```
+
+### Component Description
+
+| Layer | Component | Description |
+|-------|-----------|-------------|
+| **🌐 Web** | `routes.py` | Flask API layer — 55+ REST endpoints for evaluation, comparison, prompt management, topic CRUD, auth, and health checks. Async job support via HTTP 202 + polling |
+| **🌐 Web** | Fluent 2 Templates | 9 HTML pages (Dashboard, Evaluate, Compare, Results, Prompts, Import Samples, Login) styled with Tailwind CSS + Fluent 2 design tokens + Chart.js charts |
+| **🌐 Web** | Auth Module | Email + OTP authentication (`UserStore`, `CodeManager`, `EmailSender`, `session.py`) with per-user content isolation and auto-seeding of new models |
+| **⚙️ Logic** | `ModelEvaluator` | Runs batch evaluations for a single model across 5 text task types (classification, dialog, general, RAG, tool calling). Parallel scenario execution via `ThreadPoolExecutor` |
+| **⚙️ Logic** | `RealtimeEvaluator` | Voice model pipeline: TTS → Realtime WebSocket → transcript extraction → standard metrics. Adds audio-specific metrics (TTFA, session time, audio tokens, TTS cache) |
+| **⚙️ Logic** | `ModelComparator` | Compares two models (or batch: 1-vs-N) dimension by dimension with percentage change, Welch's t-test significance, winner determination, and actionable recommendations |
+| **⚙️ Logic** | `MetricsCalculator` | Computes all metrics: classification (accuracy, F1, kappa, confusion matrix), dialog (empathy, rule compliance, resolution efficiency), RAG (groundedness, relevance), tool calling (selection + parameter accuracy), latency, cost, consistency |
+| **⚙️ Logic** | `FoundryEvaluator` | Optional integration with Microsoft Foundry Control Plane — uploads JSONL datasets, creates LLM-as-judge evaluations (coherence, fluency, relevance, task adherence), polls for results |
+| **📝 Prompts** | `PromptManager` | Full prompt lifecycle: AI generation (4 types × N models), versioning with timestamped snapshots, topic archival/activation, data sync detection, selective regeneration, JSON sanitisation & retry |
+| **📝 Prompts** | `ModelGuidance` | Two-tier prompt-engineering guidance — family-level base practices (6 families) merged with deployment-specific addenda (15+ models). Single source of truth consumed by the AI generator |
+| **📝 Prompts** | `PromptLoader` | Loads prompt templates from disk with mtime-validated in-memory cache and 3-level fallback chain (user → global → base model → templates) |
+| **📝 Prompts** | `DataLoader` | Loads test scenarios from JSON or CSV with auto-normalisation of legacy schemas, automatic CSV fallback, and pipe-separated field parsing |
+| **🔌 Clients** | `AzureOpenAIClient` | Unified client for all text models — routes to Azure OpenAI, Azure Marketplace (Mistral), or Google Gemini based on `model_family` + `backend`. Handles `max_tokens` ↔ `max_completion_tokens`, `system` ↔ `developer` role, Mistral last-message guard, and Gemini-specific retry with backoff |
+| **🔌 Clients** | `TTSClient` | Converts text to PCM16 24 kHz mono audio via `gpt-4o-mini-tts` with disk-based caching (`.cache/tts_audio/`). Avoids redundant TTS calls on evaluation re-runs |
+| **🔌 Clients** | `RealtimeClient` | WebSocket client for the Azure OpenAI Realtime API — sends audio, receives transcript + audio response + tool calls, measures TTFA and session timing |
+| **☁️ Azure** | GPT-4.x / GPT-5.x | Azure OpenAI text model deployments — from GPT-4o/4.1/4.1-mini to GPT-5.4/5.4-mini/5.1/5.2 and reasoning variants (o1, o3, o4-mini) |
+| **☁️ Azure** | Realtime API | Speech-to-speech via WebSocket — `gpt-realtime` and `gpt-realtime-1.5` with VAD turn detection |
+| **☁️ Azure** | TTS | `gpt-4o-mini-tts` — text-to-speech synthesis for the voice evaluation pipeline |
+| **☁️ Azure** | Microsoft Foundry | Control Plane for LLM-as-judge evaluations — coherence, fluency, relevance, task adherence, safety |
+| **🌍 External** | Mistral-Large-3 | Azure AI Marketplace model — 128K context, multilingual, parallel tool calling |
+| **🌍 External** | Phi-4 SLM | Microsoft Small Language Model (14B params) — Azure Model Catalog, MIT licensed |
+| **🌍 External** | Gemini 3 Flash | Google AI model via OpenAI-compatible API — 1M context, multimodal, `reasoning_effort` support |
+| **💾 Storage** | Per-user directories | Isolated file trees under `data/users/<id>/` — prompts, synthetic test data, evaluation results, topic archives |
+| **💾 Storage** | `auth.db` | SQLite database — user records, OTP hashes, session metadata. Thread-safe per-thread connections |
+| **💾 Storage** | Azure Blob Storage | Cloud persistence for containerised deployments — `userdata` blob container synced on startup/shutdown |
+| **💾 Storage** | `diskcache` | Local response cache for API calls — reduces cost and latency on repeated evaluations |
+
 ### Core Classes
 
 | Class | Module | Purpose |
@@ -2185,15 +2855,19 @@ See [requirements.txt](requirements.txt) for the full list with version pins.
 | `UserStore` | `src.auth.user_store` | SQLite-backed user store — get_or_create, email-to-slug conversion |
 | `CodeManager` | `src.auth.code_manager` | OTP generation (SHA-256 hashed), verification with TTL and attempt limits |
 | `EmailSender` | `src.auth.email_sender` | Abstract email backend — `SmtpEmailSender` (production) + `ConsoleEmailSender` (dev) |
-| `UserContext` | `src.auth.user_context` | Per-user directory layout, path resolution, and first-login seeding |
+| `UserContext` | `src.auth.user_context` | Per-user directory layout, path resolution, first-login seeding, and **auto-seeding of newly-added models** (copies defaults then patches from the user's active topic archive) |
 | `AzureOpenAIClient` | `src.clients.azure_openai` | Wraps the OpenAI SDK — connection management, chat completions, streaming.  Supports Azure OpenAI, Marketplace models (Mistral), and Google Gemini via `model_family` + `backend`-based routing |
-| `ModelEvaluator` | `src.evaluation.evaluator` | Runs classification/dialog/general/RAG/tool_calling evaluations against a single model |
+| `TTSClient` | `src.clients.tts_client` | Text-to-Speech client — converts text to PCM16 24 kHz mono audio via `gpt-4o-mini-tts`.  Disk cache (`.cache/tts_audio/`) avoids redundant TTS calls |
+| `RealtimeClient` | `src.clients.realtime_client` | Realtime WebSocket client — sends PCM16 audio to the Azure OpenAI Realtime API, collects transcript + audio response + tool calls |
+| `ModelEvaluator` | `src.evaluation.evaluator` | Runs classification/dialog/general/RAG/tool_calling evaluations against a single model (text path) |
+| `RealtimeEvaluator` | `src.evaluation.realtime_evaluator` | Orchestrates the TTS → Realtime WebSocket → Transcript → Metrics pipeline for voice models.  Supports all 5 evaluation types with realtime-specific audio metrics |
+| `RealtimeMetrics` | `src.evaluation.realtime_metrics` | Dataclass for voice-specific metrics: TTFA, session time, WS connect time, audio durations, audio tokens, TTS cache stats, audio cost |
 | `EvaluationResult` | `src.evaluation.evaluator` | Dataclass container for evaluation output — serialises to/from JSON |
-| `ModelComparator` | `src.evaluation.comparator` | Compares evaluation results between two models with significance analysis |
-| `ComparisonReport` | `src.evaluation.comparator` | Dataclass for comparison output — dimensions, winner, recommendations |
+| `ModelComparator` | `src.evaluation.comparator` | Compares evaluation results between two models (or batch: one model vs N candidates) with significance analysis |
+| `ComparisonReport` | `src.evaluation.comparator` | Dataclass for comparison output — dimensions, winner, recommendations, optional `batch_id` for grouping |
 | `MetricsCalculator` | `src.evaluation.metrics` | Computes classification metrics (accuracy, F1, kappa, confusion matrix, calibration), dialog quality metrics (rule compliance, empathy, optimal similarity, resolution efficiency), RAG metrics (groundedness, relevance), tool calling metrics (tool selection accuracy, parameter accuracy), latency & cost analytics, and consistency scoring.  Includes case-insensitive category normalisation with alias support |
 | `FoundryEvaluator` | `src.evaluation.foundry_evaluator` | Submits evaluation data to Microsoft Foundry Control Plane for LLM-as-judge quality evaluation.  Handles JSONL export (with type-specific converters for all 5 eval types), dataset upload, evaluation creation, run polling, and automatic retry with safety evaluator fallback |
-| `PromptManager` | `src.utils.prompt_manager` | Prompt editing, versioning, AI generation (4 task types × N models + 5 datasets with JSON sanitisation & retry), topic archival, data sync, synthetic data regeneration |
+| `PromptManager` | `src.utils.prompt_manager` | Prompt editing, versioning, AI generation (4 task types × N models + 5 datasets with JSON sanitisation & retry), topic archival, data sync, synthetic data regeneration, canonical classification schema (`critical`/`high`/`medium`/`low` priorities, 4-level sentiment) |
 | `PromptLoader` | `src.utils.prompt_loader` | Template loading from disk with in-memory caching |
 | `DataLoader` | `src.utils.data_loader` | Loads synthetic test scenarios from JSON files |
 

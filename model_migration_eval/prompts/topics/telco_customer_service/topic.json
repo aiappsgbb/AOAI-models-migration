@@ -2,15 +2,20 @@
   "topic": "TELCO Customer Service",
   "slug": "telco_customer_service",
   "models": [
+    "gemini3_flash",
     "gpt4",
     "gpt41_mini",
     "gpt4o",
     "gpt5",
     "gpt51",
+    "gpt52",
+    "gpt54_mini",
     "gpt5_reasoning",
-    "gemini3_flash"
+    "gpt_realtime_1",
+    "gpt_realtime_15",
+    "mistral_large_3"
   ],
-  "archived_at": "2026-03-01T11:01:42.282798",
+  "archived_at": "2026-03-13T11:38:19.106132",
   "prompts_updated_at": "2026-02-15T17:15:10.387486",
   "data_generated_at": "2026-02-28T18:32:52.054014"
 }

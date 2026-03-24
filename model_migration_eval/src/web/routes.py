@@ -13,12 +13,13 @@ from pathlib import Path
 
 from flask import Flask, render_template, request, jsonify, session, redirect, g
 from flask_cors import CORS
+from flask_compress import Compress
 
 from ..auth.user_store import UserStore
 from ..auth.code_manager import CodeManager
 from ..auth.email_sender import create_email_sender
 from ..auth.user_context import UserContext
-from ..auth.session import is_public_route
+from ..auth.session import is_public_route, get_easyauth_email
 from ..clients.azure_openai import create_client_from_config
 from ..utils.prompt_loader import PromptLoader
 from ..utils.prompt_manager import PromptManager
@@ -26,10 +27,14 @@ from ..utils.data_loader import DataLoader, ensure_flat_schema
 from ..evaluation.metrics import MetricsCalculator
 from ..evaluation.evaluator import ModelEvaluator, MissingPromptsError
 from ..evaluation.comparator import ModelComparator
+from ..evaluation.realtime_evaluator import RealtimeEvaluator
 from ..evaluation.foundry_evaluator import (
     is_foundry_available,
     create_foundry_evaluator_from_config,
 )
+from ..clients.tts_client import load_tts_config_from_settings
+from ..clients.realtime_client import RealtimeConfig
+from ..utils import blob_sync
 
 
 def create_app(config_path: str = None) -> Flask:
@@ -46,9 +51,10 @@ def create_app(config_path: str = None) -> Flask:
                 template_folder='templates',
                 static_folder='static')
     CORS(app)
+    Compress(app)
     
-    # Always reload templates from disk (even without debug mode)
-    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    # Reload templates from disk only in debug mode (production uses cached bytecode)
+    app.config['TEMPLATES_AUTO_RELOAD'] = app.debug
     
     # Store configuration
     app.config['CONFIG_PATH'] = config_path or 'config/settings.yaml'
@@ -87,6 +93,25 @@ def create_app(config_path: str = None) -> Flask:
             _code_verification = _cv_yaml_lower not in ('false', '0', 'no') and not _cv_yaml_lower.startswith('${')
         else:
             _code_verification = bool(_cv_yaml)
+
+    # EasyAuth auto-login: when True the app trusts the
+    # X-MS-CLIENT-PRINCIPAL-NAME header injected by the Container Apps
+    # authentication sidecar and creates a session automatically.
+    _ea_env = _os.environ.get('AUTH_EASYAUTH_AUTO_LOGIN', '').strip().lower()
+    if _ea_env in ('false', '0', 'no'):
+        _easyauth_auto_login = False
+    elif _ea_env in ('true', '1', 'yes'):
+        _easyauth_auto_login = True
+    else:
+        _ea_yaml = _auth_cfg.get('easyauth_auto_login', True)
+        if isinstance(_ea_yaml, str):
+            _ea_lower = _ea_yaml.strip().lower()
+            # Unresolved placeholder ${...} → default to True (auto-detect)
+            # Only explicit 'false'/'0'/'no' disables the feature.
+            _easyauth_auto_login = _ea_lower not in ('false', '0', 'no')
+        else:
+            _easyauth_auto_login = bool(_ea_yaml)
+
     _user_store = UserStore(db_path='data/auth.db')
     _code_manager = CodeManager(
         db_path='data/auth.db',
@@ -109,6 +134,10 @@ def create_app(config_path: str = None) -> Flask:
     _singleton_lock = threading.Lock()  # protects lazy init of the above
 
     # In-memory backend log streaming buffers (Option B)
+    # Each run_id maps to a dict with a thread-safe deque for entries
+    # and metadata. The global lock is only needed to create/delete
+    # run slots — appends to deque are lock-free.
+    from collections import deque as _deque
     _run_logs = {}
     _run_logs_lock = threading.Lock()
     _run_logs_max_lines = 2000
@@ -141,6 +170,10 @@ def create_app(config_path: str = None) -> Flask:
     # Async comparison jobs storage
     _compare_jobs = {}
     _compare_jobs_lock = threading.Lock()
+
+    # Async batch evaluation jobs storage
+    _batch_jobs = {}
+    _batch_jobs_lock = threading.Lock()
 
     # Async generate jobs storage
     _generate_jobs = {}
@@ -187,7 +220,12 @@ def create_app(config_path: str = None) -> Flask:
                 )
 
     class _RunLogCaptureHandler(logging.Handler):
-        """Capture log records for the active run_id context into memory."""
+        """Capture log records for the active run_id context into memory.
+
+        Uses a per-run ``collections.deque`` with a fixed maxlen so that
+        appends are thread-safe without acquiring the global lock on
+        every log line — only slot creation needs the lock.
+        """
 
         def emit(self, record):
             run_id = _current_run_id.get()
@@ -205,16 +243,17 @@ def create_app(config_path: str = None) -> Flask:
                 'message': message,
             }
             now = time.time()
-            with _run_logs_lock:
-                buff = _run_logs.setdefault(run_id, {
-                    'entries': [],
-                    'created_at': now,
-                    'last_access': now,
-                })
-                buff['entries'].append(entry)
-                buff['last_access'] = now
-                if len(buff['entries']) > _run_logs_max_lines:
-                    buff['entries'] = buff['entries'][-_run_logs_max_lines:]
+            # Fast path: slot already exists (no lock needed for deque append)
+            buff = _run_logs.get(run_id)
+            if buff is None:
+                with _run_logs_lock:
+                    buff = _run_logs.setdefault(run_id, {
+                        'entries': _deque(maxlen=_run_logs_max_lines),
+                        'created_at': now,
+                        'last_access': now,
+                    })
+            buff['entries'].append(entry)
+            buff['last_access'] = now
 
     def _install_run_log_handler_once():
         root = logging.getLogger()
@@ -231,9 +270,10 @@ def create_app(config_path: str = None) -> Flask:
             expired = [rid for rid, data in _run_logs.items() if data.get('last_access', 0) < cutoff]
             for rid in expired:
                 _run_logs.pop(rid, None)
-        # Also clean up old async jobs (compare, generate, regenerate)
+        # Also clean up old async jobs (compare, batch, generate, regenerate)
         for lock, store in [
             (_compare_jobs_lock, _compare_jobs),
+            (_batch_jobs_lock, _batch_jobs),
             (_generate_jobs_lock, _generate_jobs),
             (_regenerate_jobs_lock, _regenerate_jobs),
         ]:
@@ -266,18 +306,126 @@ def create_app(config_path: str = None) -> Flask:
         g._user_context = ctx
         return ctx
 
+    # ── Session establishment (shared logic) ──────────────────────────
+
+    def _establish_session(email: str) -> str:
+        """Create / fetch user, bootstrap dirs, set Flask session.
+
+        Returns the ``user_id``.  This is the single place that turns
+        an email into a fully-initialised session — used by:
+        * ``auth_login`` (code_verification off)
+        * ``auth_verify`` (OTP flow)
+        * EasyAuth auto-login (Container Apps sidecar)
+        """
+        user = _user_store.get_or_create(email)
+        _user_store.update_last_login(user.id)
+
+        uctx = UserContext(user_id=user.id, base_dir='data/users')
+        model_keys = list(
+            app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys()
+        )
+        already_exists = uctx.is_initialised
+
+        # If user data is not on local disk, try restoring from blob
+        if not already_exists and blob_sync.is_enabled():
+            if blob_sync.download_user(user.id):
+                already_exists = uctx.is_initialised
+                app.logger.info('Restored user %s from blob storage', user.id)
+
+        uctx.ensure_dirs(model_keys=model_keys)
+        # seed_from_shared is idempotent — only copies prompts for model
+        # dirs that have no .md files.  Always calling it ensures that
+        # models added after the user was created get default prompts.
+        seeded = uctx.seed_from_shared(
+            shared_prompts='prompts',
+            shared_data='data/synthetic',
+        )
+        if seeded:
+            # If new model dirs were seeded AND the user has an active
+            # topic, overwrite those defaults with the topic's prompts
+            # so the user doesn't end up with mismatched prompts.
+            uctx.seed_new_models_from_active_topic(seeded)
+        if not already_exists:
+            # Persist newly-seeded user to blob so it survives restarts
+            blob_sync.upload_user_tree(user.id)
+            blob_sync.upload_auth_db()
+            app.logger.info('Seeded new user %s from shared data', user.id)
+
+        session.permanent = True
+        session['user_id'] = user.id
+        session['user_email'] = user.email
+        return user.id
+
+    app.logger.info('EasyAuth auto-login enabled: %s', _easyauth_auto_login)
+
     # ── Auth middleware ───────────────────────────────────────────────
 
     @app.before_request
     def _require_authentication():
-        """Reject unauthenticated requests (except public routes)."""
+        """Reject unauthenticated requests (except public routes).
+
+        When running behind Azure Container Apps EasyAuth the sidecar
+        injects ``X-MS-CLIENT-PRINCIPAL-NAME`` with the user's email.
+        If ``easyauth_auto_login`` is enabled and that header is
+        present, a Flask session is created transparently so the user
+        never sees the login page.
+        """
         if is_public_route(request.path):
             return None
         user_id = session.get('user_id')
         if not user_id:
+            # ── Try EasyAuth auto-login ──────────────────────────────
+            if _easyauth_auto_login:
+                ea_email = get_easyauth_email()
+                if ea_email:
+                    user_id = _establish_session(ea_email)
+                    app.logger.info('EasyAuth auto-login for %s', ea_email)
+                else:
+                    # Log headers for debugging (first request only)
+                    principal = request.headers.get('X-MS-CLIENT-PRINCIPAL-NAME', '')
+                    principal_id = request.headers.get('X-MS-CLIENT-PRINCIPAL-ID', '')
+                    app.logger.debug(
+                        'EasyAuth headers: PRINCIPAL-NAME=%r, PRINCIPAL-ID=%r, path=%s',
+                        principal, principal_id, request.path,
+                    )
+        # ── Re-seed user data if dirs were lost (e.g. container restart) ─
+        if user_id:
+            uctx = UserContext(user_id=user_id, base_dir='data/users')
+            if not uctx.is_initialised:
+                # Try restoring from blob first (user data persisted there)
+                restored = False
+                if blob_sync.is_enabled():
+                    if blob_sync.download_user(user_id):
+                        restored = uctx.is_initialised
+                        app.logger.info('Restored user %s from blob after restart', user_id)
+
+                if not restored:
+                    app.logger.info('User dirs missing after restart — re-seeding %s', user_id)
+
+                # Always ensure dirs + seed after restore (or from scratch).
+                # Blob data may predate newly-added models, so ensure_dirs
+                # creates their directories and seed_from_shared fills them
+                # with default prompts.  Both are idempotent.
+                model_keys = list(
+                    app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys()
+                )
+                uctx.ensure_dirs(model_keys=model_keys)
+                seeded = uctx.seed_from_shared(
+                    shared_prompts='prompts',
+                    shared_data='data/synthetic',
+                )
+                if seeded:
+                    uctx.seed_new_models_from_active_topic(seeded)
+                if not restored:
+                    blob_sync.upload_user_tree(user_id)
+
+                _invalidate_user(user_id)   # clear stale cached managers
+        if not user_id:
             if request.path.startswith('/api/'):
                 return jsonify({'error': 'Authentication required'}), 401
             return redirect('/login')
+        # Refresh session TTL on every authenticated request (sliding window)
+        session.modified = True
         # Make user info available to templates
         g.user_id = user_id
         g.user_email = session.get('user_email', '')
@@ -290,12 +438,39 @@ def create_app(config_path: str = None) -> Flask:
             'user_email': getattr(g, 'user_email', ''),
         }
 
+    # ── Blob write-through: sync after mutating API calls ────────────
+
+    @app.after_request
+    def _blob_write_through(response):
+        """After any successful POST/PUT/DELETE API call, sync the current
+        user's data tree to Blob Storage so changes survive restarts."""
+        if (
+            blob_sync.is_enabled()
+            and request.method in ('POST', 'PUT', 'DELETE')
+            and request.path.startswith('/api/')
+            and response.status_code < 400
+        ):
+            uid = session.get('user_id')
+            if uid:
+                blob_sync.upload_user_tree(uid)
+                # Also sync auth.db on login-related endpoints
+                if 'auth' in request.path or 'login' in request.path:
+                    blob_sync.upload_auth_db()
+        return response
+
     # ── Auth routes ──────────────────────────────────────────────────
 
     @app.route('/login')
     def login_page():
         if session.get('user_id'):
             return redirect('/')
+        # If EasyAuth headers are present, auto-login and skip the form
+        if _easyauth_auto_login:
+            ea_email = get_easyauth_email()
+            if ea_email:
+                _establish_session(ea_email)
+                app.logger.info('EasyAuth auto-login (login page) for %s', ea_email)
+                return redirect('/')
         return render_template('login.html')
 
     @app.route('/api/auth/login', methods=['POST'])
@@ -308,19 +483,8 @@ def create_app(config_path: str = None) -> Flask:
 
         # Skip OTP — authenticate immediately with just the email
         if not _code_verification:
-            user = _user_store.get_or_create(email)
-            _user_store.update_last_login(user.id)
-            uctx = UserContext(user_id=user.id, base_dir='data/users')
-            model_keys = list(app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys())
-            uctx.ensure_dirs(model_keys=model_keys)
-            uctx.seed_from_shared(
-                shared_prompts='prompts',
-                shared_data='data/synthetic',
-            )
-            session.permanent = True
-            session['user_id'] = user.id
-            session['user_email'] = user.email
-            return jsonify({'status': 'authenticated', 'user_id': user.id, 'redirect': '/'})
+            uid = _establish_session(email)
+            return jsonify({'status': 'authenticated', 'user_id': uid, 'redirect': '/'})
 
         code = _code_manager.generate(email)
         sent = _email_sender.send_code(email, code)
@@ -341,25 +505,8 @@ def create_app(config_path: str = None) -> Flask:
         if not ok:
             return jsonify({'error': msg}), 401
 
-        # Get or create user
-        user = _user_store.get_or_create(email)
-        _user_store.update_last_login(user.id)
-
-        # Bootstrap user directory on first login
-        uctx = UserContext(user_id=user.id, base_dir='data/users')
-        model_keys = list(app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys())
-        uctx.ensure_dirs(model_keys=model_keys)
-        uctx.seed_from_shared(
-            shared_prompts='prompts',
-            shared_data='data/synthetic',
-        )
-
-        # Create session
-        session.permanent = True
-        session['user_id'] = user.id
-        session['user_email'] = user.email
-
-        return jsonify({'status': 'authenticated', 'user_id': user.id, 'redirect': '/'})
+        uid = _establish_session(email)
+        return jsonify({'status': 'authenticated', 'user_id': uid, 'redirect': '/'})
 
     @app.route('/api/auth/logout', methods=['POST'])
     def auth_logout():
@@ -473,6 +620,37 @@ def create_app(config_path: str = None) -> Flask:
             )
         return slot.get("evaluator")
 
+    def get_realtime_evaluator():
+        """Lazy-load the RealtimeEvaluator for voice/realtime models.
+
+        Mirrors the comparator's ``_realtime_settings`` initialisation so
+        that standalone Evaluate pages route realtime models through
+        TTS → WebSocket instead of chat/completions.
+        """
+        uctx = _get_user_context()
+        uid = uctx.user_id
+        client = get_client()
+        slot = _get_user_slot(uid)
+        if client and "realtime_evaluator" not in slot:
+            settings = app.config.get('SETTINGS', {})
+            rt_cfg = settings.get('realtime', {})
+            raw_ep = rt_cfg.get('endpoint', '')
+            realtime_endpoint = client._resolve_env_var(raw_ep) if raw_ep else None
+            raw_apiv = rt_cfg.get('api_version', '')
+            realtime_api_version = client._resolve_env_var(raw_apiv) if raw_apiv else None
+            tts_config = load_tts_config_from_settings({'realtime': rt_cfg})
+            perf = _load_perf_settings()
+            slot["realtime_evaluator"] = RealtimeEvaluator(
+                azure_client=client,
+                prompt_loader=get_prompt_loader(),
+                data_loader=get_data_loader(),
+                tts_config=tts_config,
+                max_concurrent=min(perf.get('max_concurrent_requests', 5), 2),
+                realtime_endpoint=realtime_endpoint,
+                realtime_api_version=realtime_api_version,
+            )
+        return slot.get("realtime_evaluator")
+
     def get_comparator():
         uctx = _get_user_context()
         uid = uctx.user_id
@@ -480,13 +658,20 @@ def create_app(config_path: str = None) -> Flask:
         slot = _get_user_slot(uid)
         if client and "comparator" not in slot:
             perf = _load_perf_settings()
-            slot["comparator"] = ModelComparator(
+            settings = app.config.get('SETTINGS', {})
+            comp = ModelComparator(
                 client,
                 evaluator=get_evaluator(),
                 foundry_evaluator=get_foundry_evaluator(),
                 parallel_models=perf.get('parallel_models', True),
-                config_path=app.config.get('CONFIG_PATH', 'config/settings.yaml'),
+                acceptance_thresholds=settings.get('evaluation', {}).get('acceptance_thresholds', {}),
+                prompt_loader=get_prompt_loader(),
+                data_loader=get_data_loader(),
             )
+            # Pass realtime/voice endpoint config so the RealtimeEvaluator
+            # can use a dedicated endpoint + TTS deployment from settings.
+            comp._realtime_settings = settings.get('realtime', {})
+            slot["comparator"] = comp
         else:
             comp = slot.get("comparator")
             if comp is not None:
@@ -502,9 +687,7 @@ def create_app(config_path: str = None) -> Flask:
         if not is_foundry_available():
             return None
         try:
-            import yaml as _yaml
-            with open(app.config['CONFIG_PATH'], 'r') as f:
-                cfg = _yaml.safe_load(f)
+            cfg = app.config.get('SETTINGS', {})
             _foundry_evaluator = create_foundry_evaluator_from_config(cfg)
         except Exception as e:
             app.logger.warning(f'Foundry evaluator init failed: {e}')
@@ -580,13 +763,14 @@ def create_app(config_path: str = None) -> Flask:
             offset = 0
 
         rid = _normalize_run_id(run_id)
-        with _run_logs_lock:
-            buff = _run_logs.get(rid, {'entries': [], 'last_access': time.time()})
-            entries = buff.get('entries', [])
-            next_offset = len(entries)
-            slice_entries = entries[offset:]
+        buff = _run_logs.get(rid)
+        if buff is None:
+            entries_list: list = []
+        else:
+            entries_list = list(buff.get('entries', []))
             buff['last_access'] = time.time()
-            _run_logs[rid] = buff
+        next_offset = len(entries_list)
+        slice_entries = entries_list[offset:]
 
         # Mask sensitive endpoints before sending to the UI
         if _mask_patterns:
@@ -625,6 +809,7 @@ def create_app(config_path: str = None) -> Flask:
                 'version': config.model_version,
                 'max_tokens': config.max_tokens,
                 'model_family': config.model_family or 'gpt4',
+                'modality': config.modality,
             })
         return jsonify({'models': models})
 
@@ -763,7 +948,6 @@ def create_app(config_path: str = None) -> Flask:
     @app.route('/api/evaluate/single', methods=['POST'])
     def evaluate_single():
         """Evaluate a single prompt against one or both models"""
-        get_prompt_loader()._cache.clear()          # always read fresh from disk
         data = request.get_json() or {}
         run_id = _normalize_run_id(data.get('run_id') if data else None)
         _cleanup_run_logs()
@@ -789,10 +973,105 @@ def create_app(config_path: str = None) -> Flask:
         prompt_loader = get_prompt_loader()
         metrics_calc = get_metrics_calc()
 
+        # Eagerly resolve the realtime evaluator *in the request thread*
+        # (where Flask app-context is active) so the thread-pool closures
+        # below never need to call get_realtime_evaluator() themselves.
+        _has_realtime = any(
+            client.models.get(m) and client.models[m].backend == 'realtime'
+            for m in models_to_test
+        )
+        rt_eval = get_realtime_evaluator() if _has_realtime else None
+
+        # --- Helper: route a realtime model through TTS → WebSocket ----
+        def _eval_one_realtime(model_name: str, config):
+            """Send *customer_input* through the Realtime API pipeline.
+
+            1. Load the agent system prompt for the evaluation type.
+            2. Synthesise the user text to PCM-16 audio via TTS.
+            3. Open a Realtime WebSocket session and stream the audio.
+            4. Return the transcript + latency metrics.
+            """
+            try:
+                import asyncio
+                if not rt_eval:
+                    return model_name, {'error': 'Realtime evaluator not available — check realtime settings in settings.yaml'}
+
+                # Prompt type mapping (same keys as _EVAL_PROMPT_TYPES)
+                _prompt_map = {
+                    'classification': 'classification_agent_system',
+                    'dialog': 'dialog_agent_system',
+                    'rag': 'rag_agent_system',
+                    'tool_calling': 'tool_calling_agent_system',
+                }
+                prompt_type = _prompt_map.get(evaluation_type)
+                instructions = ""
+                if prompt_type:
+                    instructions = prompt_loader.load_prompt(model_name, prompt_type)
+
+                # Enrich instructions for specific types
+                if evaluation_type == 'classification':
+                    instructions += "\n\nRespond ONLY with a valid JSON object containing your classification."
+                elif evaluation_type == 'rag' and data.get('context'):
+                    instructions += f"\n\nContext:\n{data['context']}"
+
+                # TTS synthesis
+                tts = rt_eval._ensure_tts()
+                voice = config.voice or "alloy"
+                tts_r = tts.synthesize(customer_input, voice)
+
+                # WebSocket send
+                rt_config = RealtimeConfig(
+                    deployment_name=config.deployment_name,
+                    voice=voice,
+                    modalities=["text", "audio"],
+                    instructions=instructions,
+                    temperature=config.temperature,
+                    max_response_output_tokens=config.max_tokens,
+                )
+
+                realtime = rt_eval._ensure_realtime()
+                rt_result = asyncio.run(realtime.send_audio(tts_r.audio.data, rt_config))
+
+                result = {
+                    'response': rt_result.transcript,
+                    'latency': rt_result.session_time_ms / 1000.0,
+                    'tokens': {
+                        'prompt': rt_result.input_tokens,
+                        'completion': rt_result.output_tokens,
+                        'total': rt_result.input_tokens + rt_result.output_tokens,
+                        'cached': 0,
+                        'reasoning': 0,
+                    },
+                    'cost': 0,  # realtime pricing differs — not estimated here
+                    'realtime': {
+                        'ttfa_ms': rt_result.time_to_first_audio_ms,
+                        'session_ms': rt_result.session_time_ms,
+                        'ws_connect_ms': rt_result.ws_connect_time_ms,
+                        'tts_latency_ms': tts_r.tts_latency_ms,
+                        'tts_cached': tts_r.cached,
+                    },
+                }
+
+                if evaluation_type == 'classification':
+                    result['parsed'] = metrics_calc.extract_classification_from_response(
+                        rt_result.transcript
+                    )
+
+                return model_name, result
+
+            except Exception as e:
+                return model_name, {'error': str(e)}
+
         # --- Helper: evaluate one model (runs inside a thread) ----------
         def _eval_one_model(model_name: str):
             if model_name not in client.models:
                 return model_name, {'error': f'Model {model_name} not configured'}
+
+            # ── Realtime models → TTS + WebSocket (not chat/completions) ──
+            config = client.models[model_name]
+            if config.backend == "realtime":
+                return _eval_one_realtime(model_name, config)
+
             try:
                 if evaluation_type == 'classification':
                     messages = prompt_loader.load_classification_prompt(
@@ -871,12 +1150,10 @@ def create_app(config_path: str = None) -> Flask:
         
     @app.route('/api/evaluate/batch', methods=['POST'])
     def evaluate_batch():
-        """Run batch evaluation on test scenarios"""
-        get_prompt_loader()._cache.clear()          # always read fresh from disk
+        """Run batch evaluation — runs in background thread, returns 202."""
         data = request.get_json() or {}
         run_id = _normalize_run_id(data.get('run_id') if data else None)
         _cleanup_run_logs()
-        token = _current_run_id.set(run_id)
         model_name = data.get('model', 'gpt4')
         evaluation_type = data.get('type', 'classification')
         limit = min(data.get('limit', 10), 100)  # Cap at 100 to prevent abuse
@@ -884,67 +1161,141 @@ def create_app(config_path: str = None) -> Flask:
         try:
             _register_job()
         except RuntimeError as e:
-            _current_run_id.reset(token)
             return jsonify({'error': str(e), 'run_id': run_id}), 409
 
-        evaluator = get_evaluator()
-        if not evaluator:
-            _unregister_job()
-            _current_run_id.reset(token)
-            return jsonify({'error': 'Evaluator not available', 'run_id': run_id}), 500
-            
-        try:
+        # Detect realtime models — they route through RealtimeEvaluator
+        # (TTS → WebSocket) instead of the text chat/completions path.
+        _client = get_client()
+        _model_cfg = _client.models.get(model_name) if _client else None
+        is_realtime = _model_cfg is not None and _model_cfg.backend == "realtime"
+
+        if is_realtime:
+            rt_evaluator = get_realtime_evaluator()
+            if not rt_evaluator:
+                _unregister_job()
+                return jsonify({
+                    'error': 'Realtime evaluator not available — check realtime settings in settings.yaml',
+                    'run_id': run_id,
+                }), 500
+        else:
+            evaluator = get_evaluator()
+            if not evaluator:
+                _unregister_job()
+                return jsonify({'error': 'Evaluator not available', 'run_id': run_id}), 500
+
+        # Pre-load data in the request thread (fast, needs user context).
+        # Realtime models load their own data inside RealtimeEvaluator,
+        # so skip pre-loading for them.
+        scenarios = None
+        if not is_realtime:
             loader = get_data_loader()
-            if evaluation_type == 'classification':
-                scenarios = loader.load_classification_scenarios()[:limit]
-                result = evaluator.evaluate_classification(model_name, scenarios)
-            elif evaluation_type == 'dialog':
-                scenarios = loader.load_dialog_scenarios()[:limit]
-                result = evaluator.evaluate_dialog(model_name, scenarios)
-            elif evaluation_type == 'rag':
-                scenarios = loader.load_rag_scenarios()[:limit]
-                result = evaluator.evaluate_rag(model_name, scenarios)
-            elif evaluation_type == 'tool_calling':
-                scenarios = loader.load_tool_calling_scenarios()[:limit]
-                result = evaluator.evaluate_tool_calling(model_name, scenarios)
-            else:
-                scenarios = loader.load_general_tests()[:limit]
-                result = evaluator.evaluate_general(model_name, scenarios)
-
-            # Auto-save results to disk
             try:
-                uctx = _get_user_context()
-                result.save(str(uctx.results_dir))
-                app.logger.info(f"Auto-saved {evaluation_type} result for {model_name}")
-            except Exception as save_err:
-                app.logger.warning(f"Failed to auto-save result: {save_err}")
+                if evaluation_type == 'classification':
+                    scenarios = loader.load_classification_scenarios()[:limit]
+                elif evaluation_type == 'dialog':
+                    scenarios = loader.load_dialog_scenarios()[:limit]
+                elif evaluation_type == 'rag':
+                    scenarios = loader.load_rag_scenarios()[:limit]
+                elif evaluation_type == 'tool_calling':
+                    scenarios = loader.load_tool_calling_scenarios()[:limit]
+                else:
+                    scenarios = loader.load_general_tests()[:limit]
+            except Exception as e:
+                _unregister_job()
+                return jsonify({'error': str(e), 'run_id': run_id}), 400
 
-            result_dict = result.to_dict()
-            # Include the saved filename so the UI can reference it
-            ts = result.timestamp.replace(':', '-')
-            result_dict['saved_filename'] = f"{model_name}_{evaluation_type}_{ts}.json"
-            result_dict['run_id'] = run_id
-            return jsonify(result_dict)
+        results_dir = str(_get_user_context().results_dir)
 
-        except MissingPromptsError as e:
-            app.logger.warning(f"Missing prompts for {model_name}/{evaluation_type}: {e}")
-            return jsonify({
-                'error': str(e),
-                'error_type': 'missing_prompts',
-                'model': model_name,
-                'evaluation_type': evaluation_type,
-                'run_id': run_id,
-            }), 400
-        except Exception as e:
-            return jsonify({'error': str(e), 'run_id': run_id}), 500
-        finally:
-            _unregister_job()
-            _current_run_id.reset(token)
+        # Register job as running
+        with _batch_jobs_lock:
+            _batch_jobs[run_id] = {
+                'status': 'running',
+                'result': None,
+                'error': None,
+                'error_type': None,
+                'created': time.time(),
+            }
+
+        def _bg_batch():
+            """Background worker — runs evaluation and stores result."""
+            token = _current_run_id.set(run_id)
+            try:
+                if is_realtime:
+                    # Realtime path: TTS → WebSocket (uses RealtimeEvaluator)
+                    import asyncio
+                    result = asyncio.run(
+                        rt_evaluator.evaluate_async(model_name, evaluation_type)
+                    )
+                elif evaluation_type == 'classification':
+                    result = evaluator.evaluate_classification(model_name, scenarios)
+                elif evaluation_type == 'dialog':
+                    result = evaluator.evaluate_dialog(model_name, scenarios)
+                elif evaluation_type == 'rag':
+                    result = evaluator.evaluate_rag(model_name, scenarios)
+                elif evaluation_type == 'tool_calling':
+                    result = evaluator.evaluate_tool_calling(model_name, scenarios)
+                else:
+                    result = evaluator.evaluate_general(model_name, scenarios)
+
+                # Auto-save results to disk
+                try:
+                    result.save(results_dir)
+                    logging.getLogger(__name__).info(
+                        f"Auto-saved {evaluation_type} result for {model_name}"
+                    )
+                except Exception as save_err:
+                    logging.getLogger(__name__).warning(f"Failed to auto-save result: {save_err}")
+
+                result_dict = result.to_dict()
+                ts = result.timestamp.replace(':', '-')
+                result_dict['saved_filename'] = f"{model_name}_{evaluation_type}_{ts}.json"
+                result_dict['run_id'] = run_id
+                with _batch_jobs_lock:
+                    _batch_jobs[run_id]['status'] = 'completed'
+                    _batch_jobs[run_id]['result'] = result_dict
+            except MissingPromptsError as exc:
+                logging.getLogger(__name__).warning(
+                    f"Missing prompts for {model_name}/{evaluation_type}: {exc}"
+                )
+                with _batch_jobs_lock:
+                    _batch_jobs[run_id]['status'] = 'failed'
+                    _batch_jobs[run_id]['error'] = str(exc)
+                    _batch_jobs[run_id]['error_type'] = 'missing_prompts'
+            except Exception as exc:
+                logging.getLogger(__name__).error(f"Batch evaluation failed: {exc}")
+                with _batch_jobs_lock:
+                    _batch_jobs[run_id]['status'] = 'failed'
+                    _batch_jobs[run_id]['error'] = str(exc)
+            finally:
+                _unregister_job()
+                _current_run_id.reset(token)
+
+        thread = threading.Thread(target=_bg_batch, daemon=True)
+        thread.start()
+
+        return jsonify({'status': 'running', 'run_id': run_id}), 202
+
+    @app.route('/api/evaluate/batch/<run_id>/status')
+    def batch_status(run_id: str):
+        """Poll batch evaluation job status; returns result payload when complete."""
+        rid = _normalize_run_id(run_id)
+        with _batch_jobs_lock:
+            job = _batch_jobs.get(rid)
+        if not job:
+            return jsonify({'status': 'not_found', 'run_id': rid}), 404
+
+        resp = {'status': job['status'], 'run_id': rid}
+        if job['status'] == 'completed':
+            resp['result'] = job['result']
+        elif job['status'] == 'failed':
+            resp['error'] = job['error']
+            if job.get('error_type'):
+                resp['error_type'] = job['error_type']
+        return jsonify(resp)
             
     @app.route('/api/compare', methods=['POST'])
     def compare_models():
         """Compare two models — runs in background thread, returns 202."""
-        get_prompt_loader()._cache.clear()          # always read fresh from disk
         data = request.get_json() or {}
         run_id = _normalize_run_id(data.get('run_id') if data else None)
         _cleanup_run_logs()
@@ -1031,6 +1382,138 @@ def create_app(config_path: str = None) -> Flask:
         if job['status'] == 'completed':
             resp['result'] = job['result']
         elif job['status'] == 'failed':
+            resp['error'] = job['error']
+        return jsonify(resp)
+
+    # ── Batch comparison (Model A vs multiple Model B's) ─────────────
+
+    @app.route('/api/compare/batch', methods=['POST'])
+    def compare_models_batch():
+        """Compare model_a against a list of model_b's — background thread, returns 202.
+
+        Request body:
+            model_a:        str
+            model_b_list:   list[str]   (≥1 models)
+            type:           str         evaluation type
+            include_foundry: bool
+            run_id:         str|null
+        """
+        data = request.get_json() or {}
+        run_id = _normalize_run_id(data.get('run_id'))
+        _cleanup_run_logs()
+        model_a = data.get('model_a', 'gpt4')
+        model_b_list = data.get('model_b_list', [])
+        evaluation_type = data.get('type', 'classification')
+        include_foundry = bool(data.get('include_foundry', False))
+
+        if not model_b_list or not isinstance(model_b_list, list):
+            return jsonify({'error': 'model_b_list must be a non-empty list', 'run_id': run_id}), 400
+
+        try:
+            _register_job()
+        except RuntimeError as e:
+            return jsonify({'error': str(e), 'run_id': run_id}), 409
+
+        comparator = get_comparator()
+        if not comparator:
+            _unregister_job()
+            return jsonify({'error': 'Comparator not available', 'run_id': run_id}), 500
+
+        results_dir = str(_get_user_context().results_dir)
+        _bg_user_id = session.get('user_id')
+
+        # Register batch job
+        with _compare_jobs_lock:
+            _compare_jobs[run_id] = {
+                'status': 'running',
+                'mode': 'batch',
+                'total': len(model_b_list),
+                'completed': 0,
+                'current_model_b': None,
+                'results': {mb: {'status': 'pending'} for mb in model_b_list},
+                'error': None,
+                'created': time.time(),
+            }
+
+        def _bg_batch_compare():
+            _uctx = UserContext(user_id=_bg_user_id, base_dir='data/users')
+            token = _current_run_id.set(run_id)
+            try:
+                def _progress(completed_idx, total, current_mb, report):
+                    with _compare_jobs_lock:
+                        job = _compare_jobs.get(run_id)
+                        if not job:
+                            return
+                        job['completed'] = completed_idx
+                        job['current_model_b'] = current_mb
+                        if report is not None:
+                            try:
+                                report.save(results_dir)
+                                logging.getLogger(__name__).info(
+                                    f"Auto-saved batch comparison {model_a} vs {current_mb} ({evaluation_type})"
+                                )
+                            except Exception as save_err:
+                                logging.getLogger(__name__).warning(
+                                    f"Failed to auto-save batch comparison: {save_err}"
+                                )
+                            job['results'][current_mb] = {
+                                'status': 'completed',
+                                'report': report.to_dict(),
+                            }
+                        else:
+                            job['results'][current_mb] = {
+                                'status': 'failed',
+                            }
+
+                reports = comparator.compare_models_batch(
+                    model_a=model_a,
+                    model_b_list=model_b_list,
+                    evaluation_type=evaluation_type,
+                    include_foundry=include_foundry,
+                    progress_callback=_progress,
+                )
+
+                with _compare_jobs_lock:
+                    _compare_jobs[run_id]['status'] = 'completed'
+            except Exception as exc:
+                logging.getLogger(__name__).error(f"Batch comparison failed: {exc}")
+                with _compare_jobs_lock:
+                    _compare_jobs[run_id]['status'] = 'failed'
+                    _compare_jobs[run_id]['error'] = str(exc)
+            finally:
+                _unregister_job()
+                _current_run_id.reset(token)
+
+        thread = threading.Thread(target=_bg_batch_compare, daemon=True)
+        thread.start()
+
+        return jsonify({
+            'status': 'running',
+            'run_id': run_id,
+            'mode': 'batch',
+            'total': len(model_b_list),
+        }), 202
+
+    @app.route('/api/compare/batch/<run_id>/status')
+    def compare_batch_status(run_id: str):
+        """Poll batch comparison job status with per-model progress."""
+        rid = _normalize_run_id(run_id)
+        with _compare_jobs_lock:
+            job = _compare_jobs.get(rid)
+        if not job:
+            return jsonify({'status': 'not_found', 'run_id': rid}), 404
+        if job.get('mode') != 'batch':
+            return jsonify({'status': 'not_found', 'run_id': rid, 'error': 'Not a batch job'}), 404
+
+        resp = {
+            'status': job['status'],
+            'run_id': rid,
+            'total': job.get('total', 0),
+            'completed': job.get('completed', 0),
+            'current_model_b': job.get('current_model_b'),
+            'results': job.get('results', {}),
+        }
+        if job['status'] == 'failed' and job.get('error'):
             resp['error'] = job['error']
         return jsonify(resp)
             
@@ -1187,6 +1670,7 @@ def create_app(config_path: str = None) -> Flask:
         generator_model = data.get('generator_model', 'gpt5')
         target_models = data.get('target_models')  # Optional list of model keys
         data_counts = data.get('data_counts')       # Optional {type: int} overrides
+        instructions = data.get('instructions', '')  # Optional custom instructions
         scope = data.get('scope', 'all')            # "all" | "prompts_only" | "data_only"
         if scope not in ('all', 'prompts_only', 'data_only'):
             scope = 'all'
@@ -1230,6 +1714,7 @@ def create_app(config_path: str = None) -> Flask:
                     target_models=target_models,
                     data_counts=data_counts,
                     scope=scope,
+                    instructions=instructions,
                 )
                 # Invalidate caches so new content is picked up
                 _bg_prompt_loader._cache.clear()
@@ -1414,10 +1899,36 @@ def create_app(config_path: str = None) -> Flask:
         results = []
         for file in json_files:
             try:
-                with open(file, encoding='utf-8') as f:
-                    data = json.load(f)
+                # Read only the first 3 KB — metadata fields (model_name,
+                # evaluation_type, timestamp, model_a/b, foundry URLs) are
+                # always at the top of the JSON, so we avoid parsing the
+                # potentially large raw_results arrays.
+                with open(file, 'rb') as f:
+                    head = f.read(3072)
+                # Complete the truncated JSON so it can be parsed
+                text = head.decode('utf-8', errors='replace')
+                # Try to parse. If the file is small enough, this works directly.
+                # For large files, we'll get a decode error; fall back to regex.
+                try:
+                    data = json.loads(text)
+                except json.JSONDecodeError:
+                    # Extract top-level fields from the partial JSON via simple parsing
+                    import re as _re_local
+                    def _extract(key):
+                        m = _re_local.search(rf'"{key}"\s*:\s*"([^"]*)"', text)
+                        return m.group(1) if m else ''
+                    data = {
+                        'model_name': _extract('model_name'),
+                        'model_a': _extract('model_a'),
+                        'model_b': _extract('model_b'),
+                        'evaluation_type': _extract('evaluation_type'),
+                        'timestamp': _extract('timestamp'),
+                        'foundry_report_url': _extract('foundry_report_url'),
+                        'batch_id': _extract('batch_id'),
+                    }
+
                 model_display = data.get('model_name', 'unknown')
-                if model_display == 'unknown' and 'model_a' in data:
+                if model_display == 'unknown' and 'model_a' in data and data.get('model_a'):
                     model_display = f"{data['model_a']} vs {data.get('model_b', '?')}"
                 entry = {
                     'filename': file.name,
@@ -1425,6 +1936,10 @@ def create_app(config_path: str = None) -> Flask:
                     'type': data.get('evaluation_type', 'unknown'),
                     'timestamp': data.get('timestamp', ''),
                 }
+                # Include batch_id when available (batch comparisons)
+                bid = data.get('batch_id')
+                if bid:
+                    entry['batch_id'] = bid
                 # Include Foundry report URLs when available
                 if data.get('foundry_report_url'):
                     entry['foundry_report_url'] = data['foundry_report_url']
@@ -1491,9 +2006,20 @@ def create_app(config_path: str = None) -> Flask:
 
     @app.route('/api/data/overview')
     def get_data_overview():
-        """Return counts per data-type for the active set and every archived topic."""
+        """Return counts per data-type for the active set and every archived topic.
+
+        Uses a per-user in-memory cache with a 5-second TTL to avoid
+        re-scanning and parsing every data file on every page load.
+        """
+        uid = session.get('user_id', '')
+        slot = _get_user_slot(uid) if uid else {}
+        now = time.time()
+        cached = slot.get('_data_overview_cache')
+        if cached and (now - cached['ts']) < 5.0:
+            return jsonify({'overview': cached['data']})
+
         manager = get_prompt_manager()
-        data_files = manager._DATA_FILES          # classification, dialog, general
+        data_files = manager._DATA_FILES
         data_dir = Path(str(_get_user_context().data_dir))
         topics_dir = data_dir / 'topics'
 
@@ -1513,7 +2039,6 @@ def create_app(config_path: str = None) -> Flask:
             return result
 
         overview: list[dict] = []
-        # Active
         meta = manager.get_topic_metadata()
         active_topic = meta.get('topic', '') or ''
         from src.utils.prompt_manager import _slugify
@@ -1524,7 +2049,6 @@ def create_app(config_path: str = None) -> Flask:
             'active': True,
             'counts': _count(data_dir),
         })
-        # Archived (skip the currently active topic to avoid duplicates)
         if topics_dir.exists():
             for slug_dir in sorted(topics_dir.iterdir()):
                 if slug_dir.is_dir() and slug_dir.name != active_slug:
@@ -1544,6 +2068,8 @@ def create_app(config_path: str = None) -> Flask:
                         'counts': _count(slug_dir),
                     })
 
+        # Cache result for this user
+        slot['_data_overview_cache'] = {'ts': now, 'data': overview}
         return jsonify({'overview': overview})
 
     @app.route('/api/data/raw/<data_type>')
@@ -1675,12 +2201,16 @@ def create_app(config_path: str = None) -> Flask:
             _ensure_output_format,
             generate_target_prompt,
             _resolve_model_family,
+            _fix_target_categories,
+            _inject_missing_categories,
+            _extract_json_fields_from_dialog,
             validate_and_fix_test_data,
             write_archived_topic,
             TASK_PROMPT_MAP,
             DATA_FILE_MAP,
         )
         from src.utils.prompt_manager import _slugify
+        from src.utils.category_parser import extract_categories_from_prompt as _extract_categories_from_prompt
 
         topic_name = request.form.get('topic', '').strip()
         if not topic_name:
@@ -1702,11 +2232,14 @@ def create_app(config_path: str = None) -> Flask:
             if not target_models:
                 target_models = ['gpt5']  # fallback
 
-        # Build model_family lookup from config
+        # Build model_family and model_deployment lookups from config
         model_families = {}
+        model_deployments = {}
         for mk, mp in app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).items():
             if isinstance(mp, dict):
                 model_families[mk] = mp.get('model_family', _resolve_model_family(mk))
+                if mp.get('deployment'):
+                    model_deployments[mk] = mp['deployment']
 
         # ── Collect uploaded prompt files (support both source_* and gpt4_* names) ──
         prompt_files = {}
@@ -1775,36 +2308,97 @@ def create_app(config_path: str = None) -> Flask:
             app.logger.info(f'Import topic: validating {task} prompt ({len(raw_content)} chars)')
             validated_prompts[task] = _ensure_output_format(raw_content, task)
 
+        # ── Extract cross-task domain context ──
+        # 1) Categories from classification prompt (used for classification AND dialog)
+        domain_categories: list[str] | None = None
+        if 'classification' in validated_prompts:
+            domain_categories = _extract_categories_from_prompt(validated_prompts['classification'])
+            if domain_categories:
+                app.logger.info(f'Import topic: extracted {len(domain_categories)} domain categories from classification prompt')
+
+        # 2) Tool names from tool_calling test data (used for tool_calling prompt generation)
+        domain_tools_summary: str | None = None
+        if 'tool_calling' in data_files:
+            tool_names: set[str] = set()
+            for scenario in data_files['tool_calling']:
+                raw_tools = scenario.get('available_tools', [])
+                # available_tools may be a JSON-encoded string or a list
+                if isinstance(raw_tools, str):
+                    try:
+                        raw_tools = json.loads(raw_tools)
+                    except (json.JSONDecodeError, TypeError):
+                        raw_tools = []
+                if isinstance(raw_tools, list):
+                    for tool in raw_tools:
+                        if isinstance(tool, dict):
+                            name = tool.get('function', {}).get('name') or tool.get('name', '')
+                        elif isinstance(tool, str):
+                            name = tool
+                        else:
+                            name = ''
+                        if name:
+                            tool_names.add(name)
+            if tool_names:
+                domain_tools_summary = ', '.join(sorted(tool_names))
+                app.logger.info(f'Import topic: extracted {len(tool_names)} domain tools from test data: {domain_tools_summary}')
+
+        # 3) JSON field names from dialog source prompt (used for dialog prompt generation)
+        dialog_json_fields: list[str] | None = None
+        if 'dialog' in validated_prompts:
+            dialog_json_fields = _extract_json_fields_from_dialog(validated_prompts['dialog'])
+            if dialog_json_fields:
+                app.logger.info(f'Import topic: extracted {len(dialog_json_fields)} dialog JSON fields from source prompt: {dialog_json_fields}')
+
         # ── Generate target-model prompts in parallel ──
-        import asyncio
-        from concurrent.futures import ThreadPoolExecutor
 
         def _gen_one(task: str, src_content: str, tgt_model: str):
             """Generate a single target-model prompt (runs in thread pool)."""
             family = model_families.get(tgt_model, _resolve_model_family(tgt_model))
+            dep_name = model_deployments.get(tgt_model)
             app.logger.info(f'Import topic: [parallel] generating {tgt_model} {task} prompt...')
             t0 = _time.time()
             generated = generate_target_prompt(
                 client, topic_name, task, src_content, generator_model,
                 target_model=tgt_model, model_family=family,
+                deployment_name=dep_name,
+                domain_categories=domain_categories,
+                domain_tools_summary=domain_tools_summary,
+                dialog_json_fields=dialog_json_fields,
             )
             elapsed = round(_time.time() - t0, 1)
             app.logger.info(f'Import topic: [parallel] {tgt_model} {task} prompt generated in {elapsed}s')
             return task, tgt_model, generated, elapsed
 
-        async def _gen_all():
-            loop = asyncio.get_running_loop()
-            n_workers = len(validated_prompts) * len(target_models)
-            with ThreadPoolExecutor(max_workers=max(n_workers, 1)) as pool:
-                futures = [
-                    loop.run_in_executor(pool, _gen_one, task, content, tgt)
-                    for task, content in validated_prompts.items()
-                    for tgt in target_models
-                ]
-                return await asyncio.gather(*futures)
-
         t_total = _time.time()
-        results = asyncio.run(_gen_all())
+        # Run generation in parallel using threads (compatible with Flask test client on Windows)
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        tasks_to_run = [
+            (task, content, tgt)
+            for task, content in validated_prompts.items()
+            for tgt in target_models
+        ]
+        n_workers = max(len(tasks_to_run), 1)
+        results = []
+        failed = []
+        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+            future_map = {
+                pool.submit(_gen_one, task, content, tgt): (task, tgt)
+                for task, content, tgt in tasks_to_run
+            }
+            for future in as_completed(future_map):
+                task_key, tgt_key = future_map[future]
+                try:
+                    results.append(future.result())
+                except Exception as exc:
+                    app.logger.error(
+                        f'Import topic: generation failed for {tgt_key} {task_key}: {exc}'
+                    )
+                    failed.append((task_key, tgt_key, str(exc)))
+        if failed:
+            app.logger.warning(
+                f'Import topic: {len(failed)}/{len(tasks_to_run)} generations failed — '
+                f'continuing with {len(results)} successful ones'
+            )
         app.logger.info(
             f'Import topic: all target prompts generated in {round(_time.time() - t_total, 1)}s (parallel)'
         )
@@ -1818,6 +2412,47 @@ def create_app(config_path: str = None) -> Flask:
         # Include source model content
         for task, content in validated_prompts.items():
             prompts_map.setdefault(task, {})[source_model] = content
+
+        # ── Post-generation: category alignment for classification prompts ──
+        if domain_categories and 'classification' in prompts_map:
+            source_cls_content = validated_prompts.get('classification', '')
+            for tgt_model, tgt_content in list(prompts_map['classification'].items()):
+                if tgt_model == source_model:
+                    continue
+                # Step 1: Deterministic injection of any missing categories
+                patched = _inject_missing_categories(
+                    tgt_content, source_cls_content, domain_categories,
+                )
+                if patched != tgt_content:
+                    prompts_map['classification'][tgt_model] = patched
+                    app.logger.info(
+                        f'Import topic: {tgt_model} classification — '
+                        f'deterministic category injection applied'
+                    )
+                    tgt_content = patched
+
+                # Step 2: If still <80% overlap, try LLM-based fix as fallback
+                tgt_cats = _extract_categories_from_prompt(tgt_content)
+                if tgt_cats:
+                    source_set = set(c.lower() for c in domain_categories)
+                    target_set = set(c.lower() for c in tgt_cats)
+                    overlap = len(source_set & target_set) / max(len(source_set), 1)
+                    if overlap < 0.80:
+                        app.logger.warning(
+                            f'Import topic: {tgt_model} classification has {overlap:.0%} category overlap '
+                            f'({len(source_set & target_set)}/{len(source_set)}) after injection — LLM auto-fixing...'
+                        )
+                        fixed = _fix_target_categories(
+                            client, tgt_content, domain_categories,
+                            tgt_model, generator_model,
+                        )
+                        if fixed:
+                            prompts_map['classification'][tgt_model] = fixed
+                            app.logger.info(f'Import topic: {tgt_model} classification categories realigned via LLM.')
+                    else:
+                        app.logger.info(
+                            f'Import topic: {tgt_model} classification category alignment OK ({overlap:.0%})'
+                        )
 
         # ── Write archived topic ──
         app.logger.info(f'Import topic: writing archived topic "{slug}"…')
@@ -1909,13 +2544,8 @@ def create_app(config_path: str = None) -> Flask:
             meta = manager.activate_topic(slug)
             # Invalidate per-user caches so new content is picked up
             uid = session.get('user_id')
-            loader = get_prompt_loader()
-            loader._cache.clear()
-            dl = get_data_loader()
-            dl.clear_cache()
-            # Evaluator and comparator hold references to old prompt/data loaders
-            _user_evaluators.pop(uid, None)
-            _user_comparators.pop(uid, None)
+            if uid:
+                _invalidate_user(uid)
             return jsonify({'status': 'activated', 'topic': meta})
         except RuntimeError as e:
             return jsonify({'error': str(e)}), 409

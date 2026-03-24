@@ -40,14 +40,28 @@ azure:
       temperature: 0.1
 
     gpt5:
-      deployment_name: "gpt-5.2"
+      deployment_name: "gpt-5.4"
       model_family: "gpt5"
-      model_version: "2025-01-01"
+      model_version: "2026-03-05"
       max_tokens: 8192
+      temperature: 0.1
+
+    gpt54_mini:
+      deployment_name: "gpt-5.4-mini"
+      model_family: "gpt5"
+      model_version: "2026-03-05"
+      max_tokens: 16384
       temperature: 0.1
       
     gpt51:
       deployment_name: "gpt-5.1"
+      model_family: "gpt5"
+      model_version: "2025-01-01"
+      max_tokens: 16384
+      temperature: 0.1
+
+    gpt52:
+      deployment_name: "gpt-5.2"
       model_family: "gpt5"
       model_version: "2025-01-01"
       max_tokens: 16384
@@ -67,14 +81,68 @@ azure:
       max_tokens: 8192
       temperature: 0.1
 
-#    gemini3_flash:
-#      deployment_name: "gemini-3-flash-preview"
-#      model_family: "gemini"
-#      backend: "gemini"                       # uses OpenAI-compat Gemini endpoint
-#      model_version: "2025-06-01"
-#      max_tokens: 8192
-#      temperature: 0.1
-#      max_concurrent: 1                       # Gemini free tier ≈ 20 RPD — sequential to avoid 429
+    # gemini3_flash:
+    #   deployment_name: "gemini-3-flash-preview"
+    #   model_family: "gemini"
+    #   backend: "gemini"                       # uses OpenAI-compat Gemini endpoint
+    #   model_version: "2025-06-01"
+    #   max_tokens: 8192
+    #   temperature: 0.1
+    #   max_concurrent: 1                       # Gemini free tier: 5 RPM, ~20 RPD — sequential to avoid 429
+
+    # ── Microsoft Phi (SLM) ────────────────────────────────────────
+    phi4:
+      deployment_name: "Phi-4"
+      model_family: "phi"
+      model_version: "2024-12-12"
+      max_tokens: 4096
+      temperature: 0.1
+
+    # ── Speech-to-Speech (Realtime API) ────────────────────────────
+    gpt_realtime_1:
+      deployment_name: "gpt-realtime"
+      model_family: "realtime"
+      backend: "realtime"
+      model_version: "2025-08-28"
+      max_tokens: 4096
+      temperature: 0.8
+      voice: "alloy"
+      turn_detection: "server_vad"
+      max_concurrent: 2                       # Realtime sessions are expensive — limit concurrency
+
+    gpt_realtime_15:
+      deployment_name: "gpt-realtime-1.5"
+      model_family: "realtime"
+      backend: "realtime"
+      model_version: "2026-02-23"
+      max_tokens: 4096
+      temperature: 0.8
+      voice: "alloy"
+      turn_detection: "server_vad"
+      max_concurrent: 2
+
+# =============================================================================
+# Realtime / Speech-to-Speech Configuration (optional)
+# =============================================================================
+# Voice models (TTS + Realtime) can run on a SEPARATE Azure OpenAI endpoint
+# to avoid quota contention with text models.  If omitted the main azure.*
+# endpoint is used.  Auth is always via Entra ID (DefaultAzureCredential).
+realtime:
+  # Optional dedicated endpoint for TTS + Realtime API voice models.
+  # Leave empty / remove to reuse the main azure.endpoint.
+  endpoint: "${AZURE_OPENAI_REALTIME_ENDPOINT}"
+  api_version: "2025-04-01-preview"
+
+  # TTS model used to convert text test-cases to audio before sending
+  # to the Realtime API.  Must be deployed on the realtime endpoint
+  # (or the main endpoint if no separate endpoint is configured).
+  tts:
+    deployment_name: "gpt-4o-mini-tts"
+    voice: "alloy"                          # default voice for TTS synthesis
+    speed: 1.0
+    response_format: "pcm"                  # "pcm" → raw PCM16 24 kHz mono
+    cache_enabled: true
+    cache_dir: ".cache/tts_audio"
 
 # =============================================================================
 # Google Gemini Configuration (optional — only needed if using Gemini models)
@@ -130,6 +198,10 @@ cost_rates:
     output: 0.02
     cached_input: 0.0025
     reasoning: 0.015
+  gpt54_mini:
+    input: 0.0004
+    output: 0.0016
+    cached_input: 0.0002
   gpt51:
     input: 0.005
     output: 0.02
@@ -148,6 +220,22 @@ cost_rates:
     input: 0.00015
     output: 0.0006
     cached_input: 0.0000375
+  phi4:
+    input: 0.00014
+    output: 0.00056
+    cached_input: 0.00007
+  gpt_realtime_1:
+    input: 0.005
+    output: 0.02
+    cached_input: 0.0025
+    audio_input: 0.06
+    audio_output: 0.24
+  gpt_realtime_15:
+    input: 0.0006
+    output: 0.0024
+    cached_input: 0.0003
+    audio_input: 0.01
+    audio_output: 0.04
 
 # =============================================================================
 # Evaluation Settings
@@ -291,6 +379,14 @@ auth:
   # ➜ Controlled via env var AUTH_CODE_VERIFICATION (default: true).
   #   Change from Azure Portal → Container App → Environment variables.
   code_verification: "${AUTH_CODE_VERIFICATION}"
+
+  # EasyAuth auto-login: when true (default), the app will automatically
+  # sign in users whose identity is provided by Azure Container Apps
+  # built-in authentication (EasyAuth).  The sidecar injects the header
+  # X-MS-CLIENT-PRINCIPAL-NAME with the user's email on every request.
+  # Set to false to ignore EasyAuth headers and always show the login page.
+  # ➜ Controlled via env var AUTH_EASYAUTH_AUTO_LOGIN (default: true).
+  easyauth_auto_login: "${AUTH_EASYAUTH_AUTO_LOGIN}"
 
   # Session lifetime in seconds (default: 8 hours)
   session_ttl_seconds: 28800

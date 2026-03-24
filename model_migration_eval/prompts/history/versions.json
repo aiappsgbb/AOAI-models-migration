@@ -1,5 +1,745 @@
 [
   {
+    "id": "20260313_114937_597346",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated-fixed",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:37.598785",
+    "filename": "gpt4__classification_agent_system__20260313_114937_597346_new.md"
+  },
+  {
+    "id": "20260313_114937_547885",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:37.595595",
+    "filename": "gpt4__classification_agent_system__20260313_114937_547885.md"
+  },
+  {
+    "id": "20260313_114904_218888",
+    "model": "mistral_large_3",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:04.222231",
+    "filename": "mistral_large_3__tool_calling_agent_system__20260313_114904_218888_new.md"
+  },
+  {
+    "id": "20260313_114904_186397",
+    "model": "mistral_large_3",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:04.216859",
+    "filename": "mistral_large_3__tool_calling_agent_system__20260313_114904_186397.md"
+  },
+  {
+    "id": "20260313_114904_174070",
+    "model": "mistral_large_3",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:04.176286",
+    "filename": "mistral_large_3__rag_agent_system__20260313_114904_174070_new.md"
+  },
+  {
+    "id": "20260313_114904_146101",
+    "model": "mistral_large_3",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:04.172742",
+    "filename": "mistral_large_3__rag_agent_system__20260313_114904_146101.md"
+  },
+  {
+    "id": "20260313_114904_131704",
+    "model": "mistral_large_3",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:04.134700",
+    "filename": "mistral_large_3__dialog_agent_system__20260313_114904_131704_new.md"
+  },
+  {
+    "id": "20260313_114904_116751",
+    "model": "mistral_large_3",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:04.128286",
+    "filename": "mistral_large_3__dialog_agent_system__20260313_114904_116751.md"
+  },
+  {
+    "id": "20260313_114904_102306",
+    "model": "mistral_large_3",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:04.104203",
+    "filename": "mistral_large_3__classification_agent_system__20260313_114904_102306_new.md"
+  },
+  {
+    "id": "20260313_114904_073634",
+    "model": "mistral_large_3",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:04.100624",
+    "filename": "mistral_large_3__classification_agent_system__20260313_114904_073634.md"
+  },
+  {
+    "id": "20260313_114904_060004",
+    "model": "gpt5_reasoning",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:04.062749",
+    "filename": "gpt5_reasoning__tool_calling_agent_system__20260313_114904_060004_new.md"
+  },
+  {
+    "id": "20260313_114904_021668",
+    "model": "gpt5_reasoning",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:04.058114",
+    "filename": "gpt5_reasoning__tool_calling_agent_system__20260313_114904_021668.md"
+  },
+  {
+    "id": "20260313_114904_009026",
+    "model": "gpt5_reasoning",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:04.011602",
+    "filename": "gpt5_reasoning__rag_agent_system__20260313_114904_009026_new.md"
+  },
+  {
+    "id": "20260313_114903_981446",
+    "model": "gpt5_reasoning",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:04.007320",
+    "filename": "gpt5_reasoning__rag_agent_system__20260313_114903_981446.md"
+  },
+  {
+    "id": "20260313_114903_967630",
+    "model": "gpt5_reasoning",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.969875",
+    "filename": "gpt5_reasoning__dialog_agent_system__20260313_114903_967630_new.md"
+  },
+  {
+    "id": "20260313_114903_938051",
+    "model": "gpt5_reasoning",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.965359",
+    "filename": "gpt5_reasoning__dialog_agent_system__20260313_114903_938051.md"
+  },
+  {
+    "id": "20260313_114903_922740",
+    "model": "gpt5_reasoning",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.924544",
+    "filename": "gpt5_reasoning__classification_agent_system__20260313_114903_922740_new.md"
+  },
+  {
+    "id": "20260313_114903_877328",
+    "model": "gpt5_reasoning",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.920931",
+    "filename": "gpt5_reasoning__classification_agent_system__20260313_114903_877328.md"
+  },
+  {
+    "id": "20260313_114903_869610",
+    "model": "gpt52",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.870772",
+    "filename": "gpt52__tool_calling_agent_system__20260313_114903_869610_new.md"
+  },
+  {
+    "id": "20260313_114903_862427",
+    "model": "gpt52",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.868571",
+    "filename": "gpt52__tool_calling_agent_system__20260313_114903_862427.md"
+  },
+  {
+    "id": "20260313_114903_854904",
+    "model": "gpt52",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.856143",
+    "filename": "gpt52__rag_agent_system__20260313_114903_854904_new.md"
+  },
+  {
+    "id": "20260313_114903_847971",
+    "model": "gpt52",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.853834",
+    "filename": "gpt52__rag_agent_system__20260313_114903_847971.md"
+  },
+  {
+    "id": "20260313_114903_839128",
+    "model": "gpt52",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.840427",
+    "filename": "gpt52__dialog_agent_system__20260313_114903_839128_new.md"
+  },
+  {
+    "id": "20260313_114903_833650",
+    "model": "gpt52",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.838200",
+    "filename": "gpt52__dialog_agent_system__20260313_114903_833650.md"
+  },
+  {
+    "id": "20260313_114903_825265",
+    "model": "gpt52",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.826657",
+    "filename": "gpt52__classification_agent_system__20260313_114903_825265_new.md"
+  },
+  {
+    "id": "20260313_114903_766663",
+    "model": "gpt52",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.824134",
+    "filename": "gpt52__classification_agent_system__20260313_114903_766663.md"
+  },
+  {
+    "id": "20260313_114903_756366",
+    "model": "gpt51",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.758566",
+    "filename": "gpt51__tool_calling_agent_system__20260313_114903_756366_new.md"
+  },
+  {
+    "id": "20260313_114903_721367",
+    "model": "gpt51",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.755434",
+    "filename": "gpt51__tool_calling_agent_system__20260313_114903_721367.md"
+  },
+  {
+    "id": "20260313_114903_701113",
+    "model": "gpt51",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.703543",
+    "filename": "gpt51__rag_agent_system__20260313_114903_701113_new.md"
+  },
+  {
+    "id": "20260313_114903_645130",
+    "model": "gpt51",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.699028",
+    "filename": "gpt51__rag_agent_system__20260313_114903_645130.md"
+  },
+  {
+    "id": "20260313_114903_637511",
+    "model": "gpt51",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.638920",
+    "filename": "gpt51__dialog_agent_system__20260313_114903_637511_new.md"
+  },
+  {
+    "id": "20260313_114903_614995",
+    "model": "gpt51",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.636415",
+    "filename": "gpt51__dialog_agent_system__20260313_114903_614995.md"
+  },
+  {
+    "id": "20260313_114903_606350",
+    "model": "gpt51",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.608086",
+    "filename": "gpt51__classification_agent_system__20260313_114903_606350_new.md"
+  },
+  {
+    "id": "20260313_114903_577207",
+    "model": "gpt51",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.605338",
+    "filename": "gpt51__classification_agent_system__20260313_114903_577207.md"
+  },
+  {
+    "id": "20260313_114903_567697",
+    "model": "gpt5",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.569966",
+    "filename": "gpt5__tool_calling_agent_system__20260313_114903_567697_new.md"
+  },
+  {
+    "id": "20260313_114903_521456",
+    "model": "gpt5",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.565817",
+    "filename": "gpt5__tool_calling_agent_system__20260313_114903_521456.md"
+  },
+  {
+    "id": "20260313_114903_511373",
+    "model": "gpt5",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.512716",
+    "filename": "gpt5__rag_agent_system__20260313_114903_511373_new.md"
+  },
+  {
+    "id": "20260313_114903_462135",
+    "model": "gpt5",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.510411",
+    "filename": "gpt5__rag_agent_system__20260313_114903_462135.md"
+  },
+  {
+    "id": "20260313_114903_451832",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.454615",
+    "filename": "gpt5__dialog_agent_system__20260313_114903_451832_new.md"
+  },
+  {
+    "id": "20260313_114903_399722",
+    "model": "gpt5",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.449108",
+    "filename": "gpt5__dialog_agent_system__20260313_114903_399722.md"
+  },
+  {
+    "id": "20260313_114903_389876",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.391547",
+    "filename": "gpt5__classification_agent_system__20260313_114903_389876_new.md"
+  },
+  {
+    "id": "20260313_114903_335490",
+    "model": "gpt5",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.388605",
+    "filename": "gpt5__classification_agent_system__20260313_114903_335490.md"
+  },
+  {
+    "id": "20260313_114903_326850",
+    "model": "gpt4o",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.328629",
+    "filename": "gpt4o__tool_calling_agent_system__20260313_114903_326850_new.md"
+  },
+  {
+    "id": "20260313_114903_285237",
+    "model": "gpt4o",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.325620",
+    "filename": "gpt4o__tool_calling_agent_system__20260313_114903_285237.md"
+  },
+  {
+    "id": "20260313_114903_276757",
+    "model": "gpt4o",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.278123",
+    "filename": "gpt4o__rag_agent_system__20260313_114903_276757_new.md"
+  },
+  {
+    "id": "20260313_114903_251876",
+    "model": "gpt4o",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.275595",
+    "filename": "gpt4o__rag_agent_system__20260313_114903_251876.md"
+  },
+  {
+    "id": "20260313_114903_239963",
+    "model": "gpt4o",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.242957",
+    "filename": "gpt4o__dialog_agent_system__20260313_114903_239963_new.md"
+  },
+  {
+    "id": "20260313_114903_210563",
+    "model": "gpt4o",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.238085",
+    "filename": "gpt4o__dialog_agent_system__20260313_114903_210563.md"
+  },
+  {
+    "id": "20260313_114903_195376",
+    "model": "gpt4o",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.198498",
+    "filename": "gpt4o__classification_agent_system__20260313_114903_195376_new.md"
+  },
+  {
+    "id": "20260313_114903_117270",
+    "model": "gpt4o",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.190071",
+    "filename": "gpt4o__classification_agent_system__20260313_114903_117270.md"
+  },
+  {
+    "id": "20260313_114903_108383",
+    "model": "gpt41_mini",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.109774",
+    "filename": "gpt41_mini__tool_calling_agent_system__20260313_114903_108383_new.md"
+  },
+  {
+    "id": "20260313_114903_049546",
+    "model": "gpt41_mini",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.107213",
+    "filename": "gpt41_mini__tool_calling_agent_system__20260313_114903_049546.md"
+  },
+  {
+    "id": "20260313_114903_040774",
+    "model": "gpt41_mini",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.042935",
+    "filename": "gpt41_mini__rag_agent_system__20260313_114903_040774_new.md"
+  },
+  {
+    "id": "20260313_114902_998711",
+    "model": "gpt41_mini",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:03.038808",
+    "filename": "gpt41_mini__rag_agent_system__20260313_114902_998711.md"
+  },
+  {
+    "id": "20260313_114902_990693",
+    "model": "gpt41_mini",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.991875",
+    "filename": "gpt41_mini__dialog_agent_system__20260313_114902_990693_new.md"
+  },
+  {
+    "id": "20260313_114902_944027",
+    "model": "gpt41_mini",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.989684",
+    "filename": "gpt41_mini__dialog_agent_system__20260313_114902_944027.md"
+  },
+  {
+    "id": "20260313_114902_936359",
+    "model": "gpt41_mini",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.937814",
+    "filename": "gpt41_mini__classification_agent_system__20260313_114902_936359_new.md"
+  },
+  {
+    "id": "20260313_114902_905149",
+    "model": "gpt41_mini",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.935307",
+    "filename": "gpt41_mini__classification_agent_system__20260313_114902_905149.md"
+  },
+  {
+    "id": "20260313_114902_890575",
+    "model": "gpt4",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.893444",
+    "filename": "gpt4__tool_calling_agent_system__20260313_114902_890575_new.md"
+  },
+  {
+    "id": "20260313_114902_855286",
+    "model": "gpt4",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.888448",
+    "filename": "gpt4__tool_calling_agent_system__20260313_114902_855286.md"
+  },
+  {
+    "id": "20260313_114902_840978",
+    "model": "gpt4",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.842998",
+    "filename": "gpt4__rag_agent_system__20260313_114902_840978_new.md"
+  },
+  {
+    "id": "20260313_114902_811930",
+    "model": "gpt4",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.839160",
+    "filename": "gpt4__rag_agent_system__20260313_114902_811930.md"
+  },
+  {
+    "id": "20260313_114902_802803",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.805180",
+    "filename": "gpt4__dialog_agent_system__20260313_114902_802803_new.md"
+  },
+  {
+    "id": "20260313_114902_773646",
+    "model": "gpt4",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.800948",
+    "filename": "gpt4__dialog_agent_system__20260313_114902_773646.md"
+  },
+  {
+    "id": "20260313_114902_764769",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.766767",
+    "filename": "gpt4__classification_agent_system__20260313_114902_764769_new.md"
+  },
+  {
+    "id": "20260313_114902_734213",
+    "model": "gpt4",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.763474",
+    "filename": "gpt4__classification_agent_system__20260313_114902_734213.md"
+  },
+  {
+    "id": "20260313_114902_725363",
+    "model": "gemini3_flash",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.726480",
+    "filename": "gemini3_flash__tool_calling_agent_system__20260313_114902_725363_new.md"
+  },
+  {
+    "id": "20260313_114902_679553",
+    "model": "gemini3_flash",
+    "prompt_type": "tool_calling_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.723487",
+    "filename": "gemini3_flash__tool_calling_agent_system__20260313_114902_679553.md"
+  },
+  {
+    "id": "20260313_114902_671892",
+    "model": "gemini3_flash",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.673258",
+    "filename": "gemini3_flash__rag_agent_system__20260313_114902_671892_new.md"
+  },
+  {
+    "id": "20260313_114902_633303",
+    "model": "gemini3_flash",
+    "prompt_type": "rag_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.670922",
+    "filename": "gemini3_flash__rag_agent_system__20260313_114902_633303.md"
+  },
+  {
+    "id": "20260313_114902_625029",
+    "model": "gemini3_flash",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.626291",
+    "filename": "gemini3_flash__dialog_agent_system__20260313_114902_625029_new.md"
+  },
+  {
+    "id": "20260313_114902_570220",
+    "model": "gemini3_flash",
+    "prompt_type": "dialog_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:49:02.623681",
+    "filename": "gemini3_flash__dialog_agent_system__20260313_114902_570220.md"
+  },
+  {
+    "id": "20260313_114112_651741",
+    "model": "gemini3_flash",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "ai-generated",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:41:12.654249",
+    "filename": "gemini3_flash__classification_agent_system__20260313_114112_651741_new.md"
+  },
+  {
+    "id": "20260313_114112_646095",
+    "model": "gemini3_flash",
+    "prompt_type": "classification_agent_system",
+    "topic": "Red Sea Diving Travel",
+    "source": "snapshot",
+    "author": "generator:gpt5",
+    "timestamp": "2026-03-13T11:41:12.650633",
+    "filename": "gemini3_flash__classification_agent_system__20260313_114112_646095.md"
+  },
+  {
     "id": "20260301_101156_170747",
     "model": "gpt4",
     "prompt_type": "classification_agent_system",

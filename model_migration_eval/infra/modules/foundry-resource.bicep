@@ -52,7 +52,7 @@ resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-
     }
     properties: {
       model: {
-        format: 'OpenAI'
+        format: d.?format ?? 'OpenAI'
         name: d.model
         version: d.version
       }
@@ -95,3 +95,6 @@ output projectEndpoint string = 'https://${name}.services.ai.azure.com/api/proje
 
 @description('AI Services endpoint')
 output endpoint string = account.properties.endpoint
+
+@description('Names of all model deployments actually created')
+output deploymentNames array = [for (d, i) in deployments: modelDeployment[i].name]

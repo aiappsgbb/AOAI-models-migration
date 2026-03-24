@@ -127,23 +127,24 @@ this exact structure:
 
 ```json
 {
-  "category": "<primary_category_code>",
+  "primary_category": "<primary_category_code>",
   "subcategory": "<subcategory_code>",
-  "priority": "<low|medium|high|critical>",
+  "priority": "<critical|high|medium|low>",
   "sentiment": "<sentiment_value>",
   "confidence": <0.0-1.0>,
-  "entities": {
-    "names": [],
-    "ids": [],
-    "amounts": [],
-    "dates": [],
-    "products": [],
-    "other": []
-  },
-  "follow_up_questions": [],
-  "reasoning_summary": "<one-sentence explanation>"
+  "summary": "<brief summary of the customer request>",
+  "follow_up_questions": []
 }
 ```
+
+STRICT RULES:
+- "primary_category" must be a flat string at the top level.
+- "priority" values must be exactly: critical, high, medium, or low.
+- "sentiment" must be a flat string (e.g. angry, neutral, positive).
+- "confidence" must be a decimal number 0.0–1.0.
+- "summary" must be a flat string.
+- The model MAY add extra fields (entities, safety_flags, etc.) but the
+  7 fields above MUST be present with these exact names.
 
 Return ONLY this JSON object. No additional text before or after.
 """
@@ -193,11 +194,11 @@ def _ensure_output_format(prompt: str, task: str) -> str:
     necesario para que el pipeline de evaluación funcione."""
 
     if task == "classification":
-        # ¿Ya define una estructura JSON de salida?
-        if '"category"' in prompt and '"subcategory"' in prompt and '"priority"' in prompt:
-            log.info("El prompt fuente ya incluye definición de formato JSON de salida.")
+        # ¿Ya define una estructura JSON de salida con los campos canónicos?
+        if '"primary_category"' in prompt and '"subcategory"' in prompt and '"summary"' in prompt:
+            log.info("El prompt fuente ya incluye definición de formato JSON canónico.")
             return prompt
-        if re.search(r"(primary_category|category|subcategory|priority|sentiment)", prompt, re.I) \
+        if re.search(r"(primary_category|subcategory|priority|sentiment)", prompt, re.I) \
                 and "json" in prompt.lower():
             log.info("El prompt fuente parece definir formato de salida — se mantiene tal cual.")
             return prompt
@@ -229,9 +230,66 @@ def _ensure_output_format(prompt: str, task: str) -> str:
     return prompt
 
 
+def _extract_json_fields_from_dialog(prompt: str) -> list[str]:
+    """Extract top-level JSON field names from a dialog prompt's JSON schema/examples.
+
+    Scans for JSON blocks (```json ... ```) and extracts top-level key names.
+    Returns a deduplicated, order-preserving list of field names, or empty if none found.
+    """
+    fields: list[str] = []
+    seen: set[str] = set()
+    # Find all JSON code blocks
+    for m in re.finditer(r'```json\s*\n(.*?)```', prompt, re.DOTALL):
+        block = m.group(1)
+        # Extract top-level keys (those at the first indentation level)
+        for km in re.finditer(r'^\s{0,4}"([a-z_]+)"\s*:', block, re.MULTILINE):
+            key = km.group(1)
+            if key not in seen:
+                seen.add(key)
+                fields.append(key)
+    return fields
+
+
 # ===================================================================
 # Target model prompt generation (model-specific guidance)
 # ===================================================================
+
+
+# Canonical JSON output schema — must match the one in prompt_manager.py
+_CANONICAL_CLASSIFICATION_SCHEMA = """\
+## MANDATORY JSON OUTPUT SCHEMA (ALL MODELS MUST USE THESE EXACT FIELD NAMES)
+The system prompt you generate MUST instruct the model to produce JSON
+responses whose top-level structure includes AT LEAST these fields,
+using EXACTLY these names and types — no renaming, no nesting changes:
+
+```
+{
+  "primary_category": "<string> — one of the mandatory category codes",
+  "subcategory": "<string> — a descriptive snake_case subcategory",
+  "priority": "<string> — one of: critical | high | medium | low",
+  "sentiment": "<string> — a flat label, e.g. angry, neutral, positive",
+  "confidence": <number> — a decimal between 0.0 and 1.0,
+  "summary": "<string> — brief summary of the customer request",
+  "follow_up_questions": ["<string>", ...]
+}
+```
+
+STRICT RULES:
+- "primary_category" must be a flat string at the top level — NOT nested
+  inside another object (no `category.primary` or `category.code`).
+- "subcategory" must be a flat string at the top level — NOT `category.secondary`.
+- "priority" — NOT "priority_level". Values must be exactly:
+  critical, high, medium, or low.
+- "sentiment" must be a flat string — NOT an object with sub-keys.
+- "confidence" must be a single decimal number 0.0–1.0 — NOT a string,
+  NOT an object, NOT absent.
+- "summary" must be a flat string — NOT "summary_es", NOT an object,
+  NOT "reasoning_summary".
+- "follow_up_questions" — NOT "follow_up_questions_es" or any variant.
+
+The model MAY add extra fields (entities, safety_flags, vehicle info, etc.)
+as needed, but the 7 fields above MUST be present with these exact names.
+"""
 
 
 def _build_target_generation_meta_prompt(
@@ -242,11 +300,21 @@ def _build_target_generation_meta_prompt(
     model_family: Optional[str] = None,
     categories: Optional[List[str]] = None,
     deployment_name: Optional[str] = None,
+    *,
+    domain_categories_for_dialog: Optional[List[str]] = None,
+    domain_tools_summary: Optional[str] = None,
+    dialog_json_fields: Optional[List[str]] = None,
 ) -> str:
     """Meta-prompt for the AI to generate a target-model prompt from a source prompt.
 
     Uses :func:`src.utils.model_guidance.get_guidance` for two-tier
     (family + deployment-specific) guidance.
+
+    Extra keyword args (set by the caller based on test data / other prompts):
+      *domain_categories_for_dialog* — passed for dialog tasks so the
+        generated prompt covers the same domain areas as the classification.
+      *domain_tools_summary* — passed for tool_calling tasks so the
+        generated prompt is aware of the domain tool surface.
     """
 
     guidance = _get_model_guidance(target_model, deployment_name=deployment_name, model_family=model_family)
@@ -271,15 +339,18 @@ def _build_target_generation_meta_prompt(
             "- Identifies information gaps and asks targeted follow-up questions\n"
             "- Maintains professional tone appropriate to the topic\n"
             "- Handles escalation and resolution flows\n"
-            "- Adapts conversation style and knowledge to the given TOPIC"
+            "- Adapts conversation style and knowledge to the given TOPIC\n"
+            "- PRESERVES all tool/function definitions from the source prompt\n"
+            "- PRESERVES language policies and behavioral rules from the source\n"
+            "- PRESERVES transfer, escalation, and end-call logic from the source"
         ),
         "rag": (
             "a RAG (Retrieval-Augmented Generation) system prompt that:\n"
-            "- Grounds all responses in provided context passages\n"
-            "- Refuses to hallucinate beyond available evidence\n"
-            "- Cites relevant passages or sections\n"
-            "- Handles conflicting or incomplete context gracefully\n"
-            "- Adapts domain knowledge to the given TOPIC"
+            "- Instructs the model to answer ONLY from provided context passages\n"
+            "- Enforces strict grounding — no hallucination or external knowledge\n"
+            "- Handles contradictions and insufficient context gracefully\n"
+            "- Structures responses with direct answer + supporting details + caveats\n"
+            "- Adapts domain knowledge and examples to the given TOPIC"
         ),
         "tool_calling": (
             "a TOOL CALLING / FUNCTION CALLING agent system prompt that:\n"
@@ -291,19 +362,141 @@ def _build_target_generation_meta_prompt(
         ),
     }
 
+    # ── Build task-specific context blocks ──
     cat_block = ""
-    if categories:
-        cat_list = "\n".join(f"  - {c}" for c in categories)
+    schema_block = ""
+
+    if task == "classification":
+        # Always inject the canonical JSON schema for classification
+        schema_block = f"\n{_CANONICAL_CLASSIFICATION_SCHEMA}"
+        if categories:
+            cat_list = "\n".join(f"  - {c}" for c in categories)
+            cat_block = (
+                f"\n## MANDATORY CATEGORY TAXONOMY (CRITICAL — DO NOT CHANGE)\n"
+                f"You MUST use EXACTLY these primary category codes.\n"
+                f"Copy each code CHARACTER-BY-CHARACTER — do NOT rename, paraphrase,\n"
+                f"merge, split, abbreviate, or invent new categories:\n\n"
+                f"{cat_list}\n\n"
+                f"These are the ONLY valid primary_category values.\n"
+                f"The number of categories is FIXED at {len(categories)}. You MUST\n"
+                f"include ALL {len(categories)} categories — including fallback/catch-all\n"
+                f"categories like 'other_or_unclear' or 'other'. These fallback\n"
+                f"categories are MANDATORY and must NOT be dropped, merged, or omitted.\n"
+                f"If a category above is named 'other_or_unclear' (or similar),\n"
+                f"you MUST include it verbatim as a primary category with its own\n"
+                f"description and subcategories.\n"
+                f"Do NOT add extra categories. Do NOT remove any.\n"
+                f"VERIFY: count your final categories — the total MUST be exactly {len(categories)}.\n"
+                f"You may freely create subcategories, descriptions, and examples\n"
+                f"adapted to this model's style, but the primary category codes\n"
+                f"MUST be identical to the list above.\n"
+                f"IMPORTANT: If you include subcategories, each subcategory MUST\n"
+                f"have a brief description or 'When to use' explanation — NEVER\n"
+                f"list bare subcategory codes without descriptions, even for\n"
+                f"models that favour concise prompts. Subcategory descriptions\n"
+                f"are essential for accurate classification.\n"
+                f"\n{_CANONICAL_CLASSIFICATION_SCHEMA}"
+            )
+
+    elif task == "dialog" and domain_categories_for_dialog:
+        cat_list = "\n".join(f"  - {c}" for c in domain_categories_for_dialog)
         cat_block = (
-            f"\n## MANDATORY CATEGORY TAXONOMY (CRITICAL — DO NOT CHANGE)\n"
-            f"You MUST use EXACTLY these primary category codes.\n"
-            f"Copy each code CHARACTER-BY-CHARACTER — do NOT rename, paraphrase,\n"
-            f"merge, split, abbreviate, or invent new categories:\n\n"
+            f"\n## DOMAIN CATEGORIES REFERENCE\n"
+            f"The following categories represent the key areas of this domain.\n"
+            f"The conversation agent MUST be capable of handling inquiries,\n"
+            f"follow-ups, and escalation flows for ALL of these areas:\n\n"
             f"{cat_list}\n\n"
-            f"These are the ONLY valid primary_category values.\n"
-            f"You may freely create subcategories, descriptions, and examples\n"
-            f"adapted to this model's style, but the primary category codes\n"
-            f"MUST be identical to the list above.\n"
+            f"Ensure the prompt's conversation patterns, follow-up question\n"
+            f"templates, and escalation rules cover every area listed above.\n"
+            f"You do NOT need to list them as formal category codes, but the\n"
+            f"agent's behaviour must naturally handle all these domain topics.\n"
+        )
+
+    elif task == "tool_calling" and domain_tools_summary:
+        cat_block = (
+            f"\n## DOMAIN TOOLS REFERENCE (from test data)\n"
+            f"The evaluation test data for this topic uses the following\n"
+            f"tools/functions. The generated prompt MUST include domain-specific\n"
+            f"guidance for these tools and related operations:\n\n"
+            f"{domain_tools_summary}\n\n"
+            f"The prompt MUST:\n"
+            f"- Include a ROLE section that names the domain (e.g. 'Agente Telco',\n"
+            f"  'Red Sea Diving Travel Agent') — do NOT use a generic role\n"
+            f"- Reference these specific tools by name in tool selection guidance\n"
+            f"- Include a DOMAIN BEHAVIOR section listing common customer intents\n"
+            f"  and which tools handle them\n"
+            f"- Include domain-specific parameter extraction rules (entity types,\n"
+            f"  normalization formats, validation)\n"
+            f"- Include domain-specific safety constraints for destructive or\n"
+            f"  account-changing tools\n"
+            f"- Cover scenarios: single-tool, multi-tool, no-tool-needed,\n"
+            f"  and missing-parameters\n"
+        )
+    elif task == "tool_calling":
+        cat_block = (
+            f"\n## TOOL CALLING DOMAIN ALIGNMENT (CRITICAL)\n"
+            f"The generated prompt MUST be specific to the topic \"{topic}\".\n"
+            f"Do NOT generate a generic tool-calling template.\n"
+            f"Include:\n"
+            f"- A domain-specific ROLE section mentioning the topic\n"
+            f"- Domain-specific tool selection rules with examples\n"
+            f"- Domain-specific parameter extraction guidance\n"
+            f"- Domain-specific safety constraints\n"
+            f"- A DOMAIN BEHAVIOR section covering common customer intents\n"
+        )
+
+    # ── Build dialog-specific preservation instructions ──
+    dialog_preservation = ""
+    if task == "dialog":
+        # Build the JSON field enforcement block from extracted fields
+        json_fields_block = ""
+        if dialog_json_fields:
+            fields_list = "\n".join(f'  - "{f}"' for f in dialog_json_fields)
+            json_fields_block = (
+                f"\n## MANDATORY DIALOG JSON SCHEMA — FIELD NAMES (CRITICAL)\n"
+                f"The source dialog prompt defines a JSON output schema with these\n"
+                f"EXACT field names. You MUST use EXACTLY these field names in the\n"
+                f"target prompt's JSON schema — copy each name CHARACTER-BY-CHARACTER:\n\n"
+                f"{fields_list}\n\n"
+                f"STRICT RULES:\n"
+                f"- Do NOT rename ANY of these fields.\n"
+                f"- Do NOT replace them with classification field names\n"
+                f"  (no 'primary_category', no 'subcategory', no 'confidence',\n"
+                f"   no 'follow_up_questions' — those belong to classification ONLY).\n"
+                f"- The dialog JSON schema is COMPLETELY INDEPENDENT of the\n"
+                f"  classification JSON schema.\n"
+                f"- VERIFY: Your generated prompt's JSON example MUST contain\n"
+                f"  ALL {len(dialog_json_fields)} fields listed above with the EXACT same names.\n"
+            )
+        else:
+            json_fields_block = (
+                "\n## JSON OUTPUT SCHEMA PRESERVATION (CRITICAL)\n"
+                "If the source prompt defines a structured JSON output format (e.g.\n"
+                "fields like issue_category, proposed_steps, escalation_recommended,\n"
+                "notes_for_human_agent, etc.), you MUST preserve the EXACT SAME field\n"
+                "names in the target prompt. Do NOT rename them to classification\n"
+                "field names like primary_category or summary. The dialog JSON schema\n"
+                "is INDEPENDENT of the classification JSON schema.\n"
+                "Copy the source prompt's JSON field names CHARACTER-BY-CHARACTER.\n"
+            )
+
+        dialog_preservation = (
+            "\n## SOURCE PROMPT PRESERVATION (CRITICAL)\n"
+            "The source prompt may contain domain-specific elements that MUST\n"
+            "be preserved in the target prompt. In particular:\n"
+            "- ALL tool/function definitions (names, parameters, descriptions)\n"
+            "- Language policies (default language, language switching rules)\n"
+            "- Behavioral rules (transfer logic, end-call logic, escalation)\n"
+            "- Customer identification flows (DNI, account lookup, etc.)\n"
+            "- Formatting rules (invoice amounts, date formats, etc.)\n"
+            "Adapt the STYLE to the target model but keep ALL domain logic intact.\n"
+            + json_fields_block +
+            "\n## SENTIMENT VALUES (MANDATORY STANDARD SET)\n"
+            "When the prompt defines sentiment labels, use ONLY this standard set:\n"
+            "  positive, neutral, negative, mixed\n"
+            "Do NOT use model-specific variants like 'frustrated', 'upset',\n"
+            "'anxious', 'satisfied', 'angry', etc. Stick to the four canonical\n"
+            "values above so that all models produce comparable sentiment output.\n"
         )
 
     return f"""Generate a production-ready system prompt for the following scenario:
@@ -319,8 +512,8 @@ def _build_target_generation_meta_prompt(
 Create {task_descriptions.get(task, task)}
 
 ## REFERENCE (source prompt for the SAME topic — adapt the STYLE to the
-target model's best practices but keep the EXACT SAME primary category codes
-and domain knowledge)
+target model's best practices but keep the EXACT SAME domain knowledge,
+category codes, tool definitions, and behavioral rules)
 {source_prompt[:6000]}
 
 ## REQUIREMENTS
@@ -330,11 +523,29 @@ and domain knowledge)
 3. Adapt subcategories, descriptions, examples, and formatting to the
    {model_label} style guidelines above
 4. Keep the same structural quality as the reference
-5. The JSON output schema MUST be compatible with the reference prompt's schema
-   (same field names: category, subcategory, priority, sentiment, confidence,
-   entities, follow_up_questions, reasoning_summary)
-6. Output ONLY the system prompt content — no wrapper, no explanation
+5. For classification prompts, the JSON output schema MUST use these EXACT
+   field names: primary_category, subcategory, priority, sentiment,
+   confidence, summary, follow_up_questions (NOT category, NOT
+   reasoning_summary, NOT priority_level)
+6. For classification prompts, the "priority" field values MUST be exactly:
+   critical, high, medium, or low (NOT "critical_safety")
+7. For classification prompts, "sentiment" standard values MUST be:
+   positive, neutral, negative, mixed (NOT model-specific variants)
+8. For dialog prompts, if the source prompt defines a JSON output schema,
+   preserve its EXACT field names — do NOT replace them with
+   classification field names
+9. ALL JSON schema definitions MUST be complete — if a field is an array,
+   specify the items type (e.g. "follow_up_questions": ["<string>", ...])
+10. For classification prompts, every PRIMARY CATEGORY code from the
+   reference must appear as a TOP-LEVEL primary category — do NOT demote
+   any category to a subcategory. If the reference has a catch-all like
+   "other_or_unclear", it MUST remain a primary category, not a
+   subcategory of another category. Count your output categories and
+   VERIFY the count matches the reference exactly.
+11. Output ONLY the system prompt content — no wrapper, no explanation
 {cat_block}
+{schema_block}
+{dialog_preservation}
 """
 
 
@@ -350,12 +561,18 @@ def _fix_target_categories(
         f"The following system prompt was generated for a {target_model.upper()} classification agent, "
         "but it uses WRONG category codes. Rewrite it so that the EXACT primary "
         "category codes listed below are used AS-IS (copy verbatim, do NOT rename).\n\n"
-        "MANDATORY PRIMARY CATEGORY CODES (use these EXACTLY):\n"
+        f"MANDATORY PRIMARY CATEGORY CODES ({len(target_categories)} total — use ALL of these EXACTLY):\n"
         + "\n".join(f"  - {c}" for c in target_categories)
-        + "\n\nOriginal prompt to fix:\n" + target_prompt[:6000]
+        + "\n\nMANDATORY JSON OUTPUT FIELD NAMES:\n"
+        "The prompt's JSON output schema MUST use these exact field names:\n"
+        "  primary_category, subcategory, priority, sentiment, confidence, summary, follow_up_questions\n"
+        "(NOT category, NOT category.primary, NOT priority_level, NOT reasoning_summary, NOT summary_es)\n"
+        "\nMANDATORY PRIORITY VALUES: critical, high, medium, low (NOT critical_safety)\n"
+        "MANDATORY SENTIMENT VALUES: positive, neutral, negative, mixed\n"
+        + "\n\nOriginal prompt to fix:\n" + target_prompt[:8000]
         + "\n\nReturn ONLY the corrected system prompt. Keep the same structure, "
         "descriptions, and subcategory style — just replace ALL primary category "
-        "codes with the mandatory ones above."
+        "codes with the mandatory ones above and ensure JSON field names are correct."
     )
     res = client.complete(
         messages=[
@@ -366,12 +583,148 @@ def _fix_target_categories(
     )
     fixed = res.content.strip()
     fixed_cats = _extract_categories_from_prompt(fixed)
-    overlap = set(fixed_cats) & set(target_categories)
-    if len(overlap) >= len(target_categories) * 0.5:
-        log.info(f"Auto-fix de categorías exitoso: {len(overlap)}/{len(target_categories)} alineadas.")
+    fixed_set = {c.lower() for c in fixed_cats}
+    target_set = {c.lower() for c in target_categories}
+    overlap = fixed_set & target_set
+    if len(overlap) >= len(target_set) * 0.5:
+        log.info(f"Auto-fix de categorías exitoso: {len(overlap)}/{len(target_set)} alineadas.")
         return fixed
     log.warning("Auto-fix no mejoró el solapamiento — se usa el prompt original del modelo destino.")
     return target_prompt
+
+
+def _inject_missing_categories(
+    target_prompt: str,
+    source_prompt: str,
+    source_categories: List[str],
+) -> str:
+    """Deterministically inject missing primary categories + subcategories.
+
+    When the LLM drops categories (e.g. merging *other_or_unclear* into
+    *general_information*), this function directly edits the markdown text
+    to add them back — **no LLM call required**.
+
+    It also patches every "exactly N" / "these N primary" / "count is N"
+    mention so the prompt self-consistently refers to the correct count.
+    """
+    target_cats = _extract_categories_from_prompt(target_prompt)
+    source_set = {c.lower() for c in source_categories}
+    target_set = {c.lower() for c in target_cats}
+    missing = sorted(source_set - target_set)
+
+    if not missing:
+        return target_prompt
+
+    log.info(
+        f"Deterministic category injection: {len(missing)} missing → {missing}"
+    )
+    result = target_prompt
+
+    for cat_code in missing:
+        # ── Extract info from SOURCE ─────────────────────────────────
+        # Primary row  (cat_code sits in the 2nd column of the table)
+        src_primary_m = re.search(
+            r'^\|([^|]+)\|\s*' + re.escape(cat_code) + r'\s*\|([^\n|]+)\|',
+            source_prompt,
+            re.MULTILINE,
+        )
+        if not src_primary_m:
+            log.warning(
+                f"_inject_missing_categories: no primary row for "
+                f"'{cat_code}' in source — skipping"
+            )
+            continue
+        display_name = src_primary_m.group(1).strip()
+        description = src_primary_m.group(2).strip()
+
+        # Subcategory rows  (cat_code sits in the 1st column)
+        src_subs: list[tuple[str, str]] = []
+        for m in re.finditer(
+            r'^\|\s*' + re.escape(cat_code) + r'\s*\|\s*([^|]+)\|\s*([^|]+)\|',
+            source_prompt,
+            re.MULTILINE,
+        ):
+            src_subs.append((m.group(1).strip(), m.group(2).strip()))
+
+        # ── Inject primary row into TARGET ───────────────────────────
+        last_pos = -1
+        for tc in target_cats:
+            for m in re.finditer(
+                r'^\|[^|]+\|\s*' + re.escape(tc.lower()) + r'\s*\|[^\n]+',
+                result,
+                re.MULTILINE,
+            ):
+                if m.end() > last_pos:
+                    last_pos = m.end()
+
+        if last_pos > 0:
+            new_row = f'| {display_name} | {cat_code} | {description} |'
+            result = result[:last_pos] + '\n' + new_row + result[last_pos:]
+            log.info(f"  Injected primary row for '{cat_code}'")
+
+        # ── Inject subcategory rows ──────────────────────────────────
+        if src_subs:
+            last_sub_pos = -1
+            last_sub_line = ''
+            for tc in list(target_cats) + [cat_code]:
+                for m in re.finditer(
+                    r'^\|\s*' + re.escape(tc.lower()) + r'\s*\|[^\n]+',
+                    result,
+                    re.MULTILINE,
+                ):
+                    if m.end() > last_sub_pos:
+                        last_sub_pos = m.end()
+                        last_sub_line = m.group(0)
+
+            if last_sub_pos > 0:
+                has_examples = last_sub_line.count('|') >= 5
+                new_rows: list[str] = []
+                for sub_code, sub_desc in src_subs:
+                    if has_examples:
+                        new_rows.append(
+                            f'| {cat_code} | {sub_code} | {sub_desc} | "" |'
+                        )
+                    else:
+                        new_rows.append(
+                            f'| {cat_code} | {sub_code} | {sub_desc} |'
+                        )
+                block = '\n' + '\n'.join(new_rows)
+                result = result[:last_sub_pos] + block + result[last_sub_pos:]
+                log.info(
+                    f"  Injected {len(new_rows)} subcategory rows for '{cat_code}'"
+                )
+
+        # ── Patch count mentions ─────────────────────────────────────
+        old_n = len(target_cats)
+        new_n = old_n + 1
+        count_pats = [
+            (rf'(\bthese\s+){old_n}(\s+primary)', rf'\g<1>{new_n}\2'),
+            (
+                rf'(\bexactly\s+(?:one\s+of\s+these\s+)?){old_n}\b',
+                rf'\g<1>{new_n}',
+            ),
+            (rf'(count\s+is\s+(?:exactly\s+)?){old_n}\b', rf'\g<1>{new_n}'),
+            (rf'(\bfixed\s+at\s+){old_n}\b', rf'\g<1>{new_n}'),
+        ]
+        for pat, repl in count_pats:
+            result = re.sub(pat, repl, result, flags=re.IGNORECASE)
+
+        target_cats.append(cat_code)
+        target_set.add(cat_code)
+
+    # ── Final verification ───────────────────────────────────────────
+    final_cats = _extract_categories_from_prompt(result)
+    still_missing = source_set - {c.lower() for c in final_cats}
+    if still_missing:
+        log.warning(
+            f"After deterministic injection, still missing: {still_missing}"
+        )
+    else:
+        log.info(
+            f"Deterministic injection complete — all {len(source_categories)} "
+            f"categories now present"
+        )
+    return result
 
 
 def generate_target_prompt(
@@ -383,23 +736,50 @@ def generate_target_prompt(
     target_model: str = "gpt5",
     model_family: Optional[str] = None,
     deployment_name: Optional[str] = None,
+    *,
+    domain_categories: Optional[List[str]] = None,
+    domain_tools_summary: Optional[str] = None,
+    dialog_json_fields: Optional[List[str]] = None,
 ) -> str:
     """Generate a prompt optimised for *target_model* from a source prompt.
 
     This is the model-agnostic successor of the old ``generate_gpt5_prompt``.
+
+    Extra keyword args (set by the web route when cross-task context is available):
+      *domain_categories* — primary category codes extracted from the source
+        classification prompt; used for both classification (mandatory) and
+        dialog (soft reference) tasks.
+      *domain_tools_summary* — tool names extracted from tool_calling test data;
+        injected as domain context for tool_calling prompt generation.
+      *dialog_json_fields* — JSON field names extracted from the source dialog
+        prompt; injected for dialog tasks to preserve the source schema.
     """
 
     categories = None
     if task == "classification":
-        categories = _extract_categories_from_prompt(source_prompt)
+        categories = domain_categories or _extract_categories_from_prompt(source_prompt)
         if categories:
             log.info(f"Categorías extraídas del prompt fuente ({len(categories)}): {categories}")
         else:
             log.warning("No se pudieron extraer categorías del prompt fuente — el modelo destino definirá las suyas.")
 
+    # For dialog, extract JSON fields from source + pass categories as soft domain reference
+    dialog_cats = None
+    dlg_json_flds = None
+    if task == "dialog":
+        dialog_cats = domain_categories
+        if dialog_cats:
+            log.info(f"Categorías de dominio para dialog ({len(dialog_cats)}): {dialog_cats}")
+        dlg_json_flds = dialog_json_fields or _extract_json_fields_from_dialog(source_prompt)
+        if dlg_json_flds:
+            log.info(f"Campos JSON extraídos del prompt dialog fuente ({len(dlg_json_flds)}): {dlg_json_flds}")
+
     meta_prompt = _build_target_generation_meta_prompt(
         topic, task, source_prompt, target_model, model_family, categories,
         deployment_name=deployment_name,
+        domain_categories_for_dialog=dialog_cats,
+        domain_tools_summary=domain_tools_summary if task == "tool_calling" else None,
+        dialog_json_fields=dlg_json_flds if task == "dialog" else None,
     )
 
     log.info(f"Generando prompt {target_model.upper()} mediante IA...")
@@ -428,15 +808,48 @@ def generate_target_prompt(
     # Validar que el prompt destino reutiliza las mismas categorías
     if categories:
         target_cats = _extract_categories_from_prompt(generated)
-        overlap = set(target_cats) & set(categories)
-        if len(overlap) < len(categories) * 0.5:
+        source_set = {c.lower() for c in categories}
+        target_set = {c.lower() for c in target_cats}
+        overlap = source_set & target_set
+        overlap_ratio = len(overlap) / max(len(source_set), 1)
+
+        if overlap_ratio < 0.80:
             log.warning(
                 f"Prompt {target_model.upper()} tiene bajo solapamiento de categorías "
-                f"({len(overlap)}/{len(categories)}). Intentando auto-fix..."
+                f"({len(overlap)}/{len(source_set)}, {overlap_ratio:.0%}). "
+                f"Aplicando inyección determinista..."
             )
-            generated = _fix_target_categories(
-                client, generated, categories, generator_model, target_model,
+            # Step 1: deterministic injection (no LLM call, always safe)
+            patched = _inject_missing_categories(
+                generated, source_prompt, categories,
             )
+            if patched != generated:
+                generated = patched
+                log.info(
+                    f"Inyección determinista aplicada para {target_model.upper()}"
+                )
+                # Re-check overlap after deterministic fix
+                target_cats = _extract_categories_from_prompt(generated)
+                target_set = {c.lower() for c in target_cats}
+                overlap = source_set & target_set
+                overlap_ratio = len(overlap) / max(len(source_set), 1)
+
+            # Step 2: LLM-based fix only if still below threshold
+            if overlap_ratio < 0.80:
+                log.warning(
+                    f"Prompt {target_model.upper()} aún tiene bajo solapamiento "
+                    f"({len(overlap)}/{len(source_set)}, {overlap_ratio:.0%}) tras inyección. "
+                    f"Intentando auto-fix con LLM..."
+                )
+                try:
+                    generated = _fix_target_categories(
+                        client, generated, categories, generator_model, target_model,
+                    )
+                except Exception as exc:
+                    log.warning(
+                        f"LLM auto-fix falló para {target_model.upper()}: {exc}. "
+                        f"Se usa el prompt con inyección determinista."
+                    )
 
     return generated
 
@@ -978,14 +1391,35 @@ def main():
                 )
                 if categories:
                     tgt_cats = _extract_categories_from_prompt(generated)
-                    overlap = set(tgt_cats) & set(categories)
-                    if len(overlap) < len(categories) * 0.5:
+                    source_set = {c.lower() for c in categories}
+                    target_set = {c.lower() for c in tgt_cats}
+                    overlap = source_set & target_set
+                    overlap_ratio = len(overlap) / max(len(source_set), 1)
+                    if overlap_ratio < 0.80:
                         log.warning(
-                            f"Low category overlap for {tgt_model} ({task_name}). Auto-fix..."
+                            f"Low category overlap for {tgt_model} ({task_name}): "
+                            f"{len(overlap)}/{len(source_set)} ({overlap_ratio:.0%}). "
+                            f"Applying deterministic injection..."
                         )
-                        generated = _fix_target_categories(
-                            client, generated, categories, args.generator_model, tgt_model,
+                        patched = _inject_missing_categories(
+                            generated, src_content, categories,
                         )
+                        if patched != generated:
+                            generated = patched
+                            tgt_cats = _extract_categories_from_prompt(generated)
+                            target_set = {c.lower() for c in tgt_cats}
+                            overlap = source_set & target_set
+                            overlap_ratio = len(overlap) / max(len(source_set), 1)
+                        if overlap_ratio < 0.80:
+                            log.warning(
+                                f"Still low overlap for {tgt_model} ({task_name}) after injection. LLM auto-fix..."
+                            )
+                            try:
+                                generated = _fix_target_categories(
+                                    client, generated, categories, args.generator_model, tgt_model,
+                                )
+                            except Exception as exc:
+                                log.warning(f"LLM auto-fix failed for {tgt_model}: {exc}")
                 return (task_name, tgt_model, generated)
 
         jobs = [

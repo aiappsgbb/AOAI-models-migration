@@ -1,5 +1,35 @@
 {
-  "topic": "Agente Telco",
-  "prompts_updated_at": "2026-03-01T01:20:20.979425",
-  "data_generated_at": "2026-03-01T01:20:20.979425"
+  "topic": "Red Sea Diving Travel",
+  "prompts_updated_at": "2026-03-13T11:49:04.234039",
+  "data_generated_at": "2026-03-13T11:54:54.247401",
+  "canonical_categories": [
+    "trip_availability_and_pricing",
+    "booking_creation_and_customization",
+    "payment_and_refunds",
+    "booking_changes_and_cancellations",
+    "travel_documents_and_entry_requirements",
+    "flights_transfers_and_logistics",
+    "accommodation_and_liveaboard_details",
+    "diving_requirements_and_equipment",
+    "itinerary_weather_and_marine_conditions",
+    "health_safety_and_medical",
+    "on_trip_service_issue",
+    "post_trip_feedback_and_claims",
+    "loyalty_promotions_and_repeat_guest",
+    "general_information",
+    "spam_or_irrelevant",
+    "inspiration",
+    "pre_booking",
+    "booked_pre_departure",
+    "in_transit",
+    "on_trip",
+    "post_trip",
+    "unknown",
+    "possible_decompression_illness",
+    "active_medical_emergency",
+    "urgent_transfer_disruption",
+    "missed_embarkation_risk",
+    "passport_or_visa_travel_risk",
+    "onboard_safety_incident"
+  ]
 }

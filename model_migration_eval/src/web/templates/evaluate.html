@@ -305,6 +305,14 @@
                 .replace(/'/g, '&#39;');
         }
 
+        // ── Session-expired detection ──
+        let _authExpiredShown = false;
+        function showAuthExpiredModal() {
+            if (_authExpiredShown) return;
+            _authExpiredShown = true;
+            document.getElementById('auth-expired-modal').classList.remove('hidden');
+        }
+
         // ── Active pollers registry (for page-unload cleanup) ──
         const _activePollers = new Set();
         window.addEventListener('beforeunload', () => {
@@ -320,7 +328,7 @@
             let offset = 0;
             let active = true;
             let pollCount = 0;
-            const MAX_POLLS = 500;           // safety cap (~10 min at 1.2 s)
+            const MAX_POLLS = 5000;           // safety cap (~100 min at 1.2 s)
             let controller = new AbortController();
 
             const levelToType = (lvl) => {
@@ -341,9 +349,11 @@
                 try {
                     controller = new AbortController();
                     const r = await fetch(`/api/logs/${encodeURIComponent(runId)}?offset=${offset}`, { signal: controller.signal });
+                    if (r.status === 401) { showAuthExpiredModal(); cleanup(); return; }
                     if (!r.ok) return;
                     const data = await r.json();
                     const entries = data.entries || [];
+                    if (entries.length > 0) pollCount = 0;  // backend still active → reset
                     for (const e of entries) {
                         const loggerName = escapeHtml(e.logger || 'app');
                         const level = escapeHtml(e.level || 'INFO');
@@ -406,7 +416,7 @@
             try {
                 const resp = await fetch('/api/models');
                 const data = await resp.json();
-                const models = data.models || [];
+                const models = (data.models || []).sort((a, b) => (a.display_name || a.deployment).localeCompare(b.display_name || b.deployment));
                 const sel = document.getElementById('model');
                 sel.innerHTML = '';
                 models.forEach(m => {
@@ -859,9 +869,45 @@
                     })
                 });
 
+                if (!response.ok) {
+                    let serverMsg = '';
+                    try {
+                        const errBody = await response.json();
+                        serverMsg = errBody.error || '';
+                    } catch (_) {}
+                    const detail = serverMsg ? `: ${serverMsg}` : '';
+                    verboseLog(`❌ The server rejected the request. HTTP ${response.status}${detail}`, 'err');
+                    throw new Error(`Batch evaluation failed (HTTP ${response.status})${detail}`);
+                }
+
+                verboseLog('⏳ Batch evaluation is running in the background — polling for completion…', 'step');
+
+                // Poll /api/evaluate/batch/<run_id>/status until done
+                let data = null;
+                while (true) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    try {
+                        const statusResp = await fetch(`/api/evaluate/batch/${encodeURIComponent(runId)}/status`);
+                        if (statusResp.status === 401) { showAuthExpiredModal(); return; }
+                        if (!statusResp.ok) continue;
+                        const statusData = await statusResp.json();
+                        if (statusData.status === 'completed') {
+                            data = statusData.result;
+                            break;
+                        } else if (statusData.status === 'failed') {
+                            const err = new Error(statusData.error || 'Batch evaluation failed on the server');
+                            err.error_type = statusData.error_type;
+                            throw err;
+                        }
+                        // else still 'running' — keep polling
+                    } catch (pollErr) {
+                        if (pollErr.message && pollErr.message.includes('failed')) throw pollErr;
+                        // transient network error — retry silently
+                    }
+                }
+
                 const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
-                verboseLog(`✅ Response received from server (HTTP ${response.status}) after <strong>${elapsed}s</strong>.`, 'ok');
-                const data = await response.json();
+                verboseLog(`✅ Response received from server after <strong>${elapsed}s</strong>.`, 'ok');
                 
                 if (data.error) {
                     verboseLog('❌ The server returned an error: <em>' + data.error + '</em>', 'err');
@@ -1060,6 +1106,7 @@
             const lm = data.latency_metrics;
             const cons = data.consistency_metrics;
             const qm = data.quality_metrics;
+            const tcm = data.tool_calling_metrics;
 
             // --- Dynamic Metric Cards ---
             const cardsEl = document.getElementById('metrics-cards');
@@ -1108,8 +1155,8 @@
                 ];
             } else if (evalType === 'tool_calling') {
                 cards = [
-                    { label: 'Tool Selection Acc', value: cm ? (cm.accuracy * 100).toFixed(1) + '%' : '-', color: 'blue' },
-                    { label: 'Param Accuracy', value: cm && cm.f1_score != null ? (cm.f1_score * 100).toFixed(1) + '%' : '-', color: 'green' },
+                    { label: 'Tool Selection Acc', value: tcm ? (tcm.tool_selection_accuracy * 100).toFixed(1) + '%' : '-', color: 'blue' },
+                    { label: 'Param Accuracy', value: tcm ? (tcm.parameter_accuracy * 100).toFixed(1) + '%' : '-', color: 'green' },
                     { label: 'Consistency', value: cons ? (cons.reproducibility_score * 100).toFixed(1) + '%' : '-', color: 'purple' },
                     { label: 'Avg Latency', value: lm ? lm.mean_latency.toFixed(3) + 's' : '-', color: 'yellow' },
                     { label: 'P95 Latency', value: lm ? lm.p95_latency.toFixed(3) + 's' : '-', color: 'yellow' },
@@ -1437,5 +1484,19 @@
 
     </script>
 </div><!-- end content area -->
+
+<!-- Session-expired overlay -->
+<div id="auth-expired-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4 text-center">
+        <svg class="mx-auto h-14 w-14 text-yellow-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <h3 class="text-xl font-semibold text-gray-900 mb-2">Session Expired</h3>
+        <p class="text-gray-600 mb-6">Your session has expired. Please sign in again to continue.<br>
+           <span class="text-sm text-gray-500">Background tasks may still be running on the server.</span></p>
+        <a href="/login" class="inline-block px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition">Sign In Again</a>
+    </div>
+</div>
+
 </body>
 </html>

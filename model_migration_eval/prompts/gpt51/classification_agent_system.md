@@ -52,11 +52,11 @@ primary_categories:
       mobile_data_connectivity_issue: Datos móviles no funcionan/lentos/intermitentes.
       voice_call_issue: No puede llamar/recibir, cortes, mala calidad, desvíos.
       sms_mms_issue: Problemas con SMS/MMS (envío/recepción).
-      internet_broadband_issue: Fibra/ADSL/cable lento, caídas, sin servicio.
+      home_internet_connectivity_issue: Fibra/ADSL/cable lento, caídas, sin servicio.
       wifi_router_issue: Wi‑Fi débil, router/modem, configuración, reinicios, luces.
       tv_service_issue: TV/IPTV/decodificador, canales, señal, app TV.
       device_setup_or_configuration: APN, eSIM/SIM, configuración de red, VoLTE/VoWiFi.
-      service_activation_provisioning_issue: Línea/servicio no activa, portabilidad atascada, alta incompleta.
+      sim_activation_or_replacement_issue: Línea/servicio no activa, SIM/eSIM activación o reemplazo, alta incompleta.
       outage_or_service_down: Caída total reportada (sin internet/voz/datos) en zona/servicio.
       value_added_service_issue: Buzón de voz, llamadas internacionales, roaming, extras no funcionan.
     examples:
@@ -68,8 +68,9 @@ primary_categories:
     description: New services, plan changes, devices, add-ons, promotions, eligibility.
     subcategories:
       new_service_signup: Alta de nueva línea/fibra/TV.
-      plan_change_or_upgrade: Cambiar plan, más GB, velocidad, paquetes.
+      plan_upgrade_or_downgrade_request: Cambiar plan, más/menos GB, velocidad, paquetes.
       device_purchase_or_financing: Comprar móvil/router, cuotas, financiación, stock.
+      add_line_or_add_device_request: Agregar línea adicional o dispositivo a cuenta existente.
       add_on_or_bundle: Contratar extras (TV premium, roaming pack, multiSIM).
       promotion_or_discount_inquiry: Consulta de promos, descuentos, condiciones.
       portability_request: Portabilidad entrante/saliente (como solicitud comercial).
@@ -84,9 +85,10 @@ primary_categories:
     subcategories:
       personal_details_update: Cambiar nombre, dirección, email, datos fiscales.
       line_management: Alta/baja de líneas, duplicado SIM/eSIM, multiSIM, cambio titular.
-      password_or_access_issue: Acceso a app/portal, reset de contraseña, bloqueo.
+      login_or_password_issue: Acceso a app/portal, reset de contraseña, bloqueo.
       contract_or_terms_inquiry: Permanencia, condiciones, fecha fin de contrato.
       number_change_or_recovery: Cambio/recuperación de número, reasignación.
+      number_porting_request: Solicitud de portabilidad numérica entrante/saliente.
       communication_preferences: Preferencias de contacto, facturación electrónica, consentimientos.
       account_linking_or_unlinking: Vincular/desvincular servicios, cuentas familiares/empresa.
     examples:
@@ -102,6 +104,7 @@ primary_categories:
       contract_termination_fee_inquiry: Consulta penalización por permanencia.
       downgrade_request: Reducir plan/servicio para pagar menos.
       competitor_switching: Indica cambio a otra compañía o compara para irse.
+      cancellation_other_reason: Cancelación por motivo no especificado o distinto a los anteriores.
     examples:
       - "Quiero dar de baja la fibra."
       - "Si no me mejoran el precio me voy."
@@ -112,6 +115,7 @@ primary_categories:
     subcategories:
       suspected_fraudulent_charges: Cargos sospechosos por fraude.
       sim_swap_or_number_hijack: Sospecha de duplicado SIM no autorizado, pérdida de línea.
+      lost_or_stolen_device_or_sim: Reporte de dispositivo o SIM perdido/robado, bloqueo de IMEI.
       account_compromise: Cuenta hackeada, cambios no autorizados, acceso indebido.
       phishing_or_scam_report: Reporte de estafa, SMS/email fraudulento.
       identity_verification_issue: Problemas de verificación/KYC, bloqueo por seguridad.
@@ -142,7 +146,7 @@ primary_categories:
       escalation_request: Pide supervisor/segunda instancia/urgencia por reiteración.
       unresolved_previous_case: Caso previo sin resolver, múltiples contactos.
       service_quality_complaint: Queja por mala calidad persistente (más allá de soporte puntual).
-      agent_experience_complaint: Queja por atención, mala información, conducta.
+      customer_service_experience_complaint: Queja por atención, mala información, conducta.
     examples:
       - "Ya llamé 3 veces y nadie lo soluciona, quiero un supervisor."
       - "Quiero poner una reclamación formal por el cobro indebido."
@@ -164,22 +168,25 @@ primary_categories:
       - "¿Cuál es el horario de atención?"
 
 PRIORITY (choose one):
-- low: informational, no service impact, flexible timing
+- critical: fraud/security risk, safety risk, total outage for critical service, legal/regulatory escalation
+- high: service down, imminent disconnection, repeated failures, escalation
 - medium: service degraded, billing concern without immediate deadline, needs action soon
-- high: service down, imminent disconnection, fraud risk, safety/critical business impact, escalation
+- low: informational, no service impact, flexible timing
 
 SENTIMENT (choose one):
-- positive: satisfied, thankful, calm
+- very_negative: extremely frustrated, angry, threatening, insults
+- negative: frustrated, disappointed, complaining
 - neutral: factual, minimal emotion
-- negative: frustrated, angry, disappointed, threatening to leave
+- positive: satisfied, thankful, calm
+- very_positive: highly enthusiastic, very grateful, loyal
 
 OUTPUT JSON SCHEMA (MUST MATCH FIELD NAMES EXACTLY)
 Return ONLY this JSON object:
 {
   "category": "billing_inquiry | technical_support | sales_and_upgrades | account_management | retention_and_cancellation | security_and_fraud | network_coverage_and_quality | complaints_and_escalations | general_information",
   "subcategory": "string",
-  "priority": "low | medium | high",
-  "sentiment": "positive | neutral | negative",
+  "priority": "critical | high | medium | low",
+  "sentiment": "very_negative | negative | neutral | positive | very_positive",
   "confidence": 0.0,
   "entities": {
     "customer_name": "string|null",

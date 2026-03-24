@@ -66,10 +66,10 @@ Choose exactly one:
 - low: informational, no service impact, no deadlines
 - medium: service degraded, billing confusion, needs action soon
 - high: service down, cannot use core service, imminent disconnection, repeated failures
-- urgent: fraud/security risk, account takeover, emergency/legal threats, safety risk
+- critical: fraud/security risk, account takeover, emergency/legal threats, safety risk
 
 Priority rules:
-- If fraud/compromise is suspected → at least high, often urgent.
+- If fraud/compromise is suspected → at least high, often critical.
 - If service is completely unavailable (no internet/voice) → high.
 - If customer threatens cancellation or escalation due to unresolved issue → high (or medium if mild).
 - If message includes “ASAP”, “today”, “immediately”, “cut off”, “disconnected” → raise priority.
@@ -80,7 +80,7 @@ Choose exactly one:
 - negative: dissatisfied, frustrated, complaining
 - neutral: factual, no strong emotion
 - positive: satisfied, appreciative
-- mixed: both positive and negative signals
+- very_positive: delighted, enthusiastic, strong praise
 
 ## CONFIDENCE SCORING GUIDELINES
 - 0.90–1.00: clear intent + clear mapping to one subcategory
@@ -158,8 +158,8 @@ Return exactly:
 {
   "category": "…",
   "subcategory": "…",
-  "priority": "low|medium|high|urgent",
-  "sentiment": "very_negative|negative|neutral|positive|mixed",
+  "priority": "low|medium|high|critical",
+  "sentiment": "very_negative|negative|neutral|positive|very_positive",
   "confidence": 0.0,
   "entities": { ...fixed keys... },
   "follow_up_questions": ["..."],
@@ -193,12 +193,12 @@ Return exactly:
 | mobile_data_connectivity_issue | Mobile data not working/slow/intermittent | “No 4G/5G”, “Data keeps dropping” |
 | voice_call_issue | Calls fail/drop/one-way audio | “Can’t make calls”, “People can’t hear me” |
 | sms_mms_issue | SMS/MMS not sending/receiving | “Texts not going through” |
-| internet_outage_or_no_service | Fixed internet down/no sync | “No internet”, “Router red light” |
+| home_internet_connectivity_issue | Fixed internet down/no sync | "No internet", "Router red light" |
 | slow_internet_performance | Speed/latency issues | “Slow Wi‑Fi”, “High ping” |
 | wifi_router_modem_issue | Router/modem setup, lights, resets | “Need to configure router”, “Modem keeps rebooting” |
 | tv_service_issue | TV/decoder/app issues | “No channels”, “Decoder error”, “Streaming app not working” |
 | voip_landline_issue | Landline/VoIP problems | “Home phone dead”, “No dial tone” |
-| activation_provisioning_issue | New line/SIM/service not activating | “SIM not active”, “Line not provisioned” |
+| sim_activation_or_replacement_issue | New line/SIM/service not activating | "SIM not active", "Line not provisioned" |
 | device_configuration_issue | APN/settings/OS config | “APN settings”, “Can’t set up eSIM” |
 | app_portal_issue | Provider app/website login or errors | “App crashes”, “Portal error” |
 
@@ -206,8 +206,7 @@ Return exactly:
 | Subcategory Code | Description | Typical Signals / Examples |
 |---|---|---|
 | new_service_signup | Wants to buy new service/line | “I want a new plan”, “Add a new line” |
-| plan_change_or_upgrade | Change plan/tier/speed | “Upgrade to faster fiber”, “Change tariff” |
-| device_purchase_or_upgrade | Buy/finance/upgrade device | “New phone”, “Installment plan” |
+| plan_upgrade_or_downgrade_request | Change plan/tier/speed | "Upgrade to faster fiber", "Change tariff" || add_line_or_add_device_request | Add a new line or add a device to an existing plan | "Add a line for my family", "Add device to my account" || device_purchase_or_upgrade | Buy/finance/upgrade device | “New phone”, “Installment plan” |
 | add_on_purchase | Add-ons (roaming packs, extra data, TV packs) | “Add roaming bundle”, “Extra data pack” |
 | promotion_pricing_inquiry | Promotions, eligibility, pricing | “Any discounts?”, “Promo for students?” |
 | bundle_inquiry | Bundle mobile+internet+TV | “Combine services”, “Bundle price” |
@@ -217,38 +216,38 @@ Return exactly:
 | Subcategory Code | Description | Typical Signals / Examples |
 |---|---|---|
 | update_personal_details | Change name/address/email | “Update my address”, “Change account holder name” |
-| password_pin_reset | Reset password/PIN (non-fraud) | “Forgot password”, “Reset PIN” |
+| login_or_password_issue | Reset password/PIN (non-fraud) | "Forgot password", "Reset PIN" |
 | line_management | Add/remove line, SIM replacement (non-fraud) | “Replace SIM”, “Suspend line temporarily” |
 | contract_details_request | Contract terms, end date, commitments | “When does my contract end?” |
 | number_change | Change phone number | “I need a new number” |
 | esim_sim_management | eSIM/physical SIM management | “Convert to eSIM”, “Transfer eSIM” |
 | consent_permissions | Authorized users, permissions | “Add authorized user”, “Change permissions” |
-| portability_status_inquiry | Port-in/port-out status (non-cancel intent) | “Where is my porting request?” |
+| number_porting_request | Port-in/port-out status (non-cancel intent) | "Where is my porting request?" |
 
 ## 5) retention_and_cancellation — Subcategories
 | Subcategory Code | Description | Typical Signals / Examples |
 |---|---|---|
-| cancel_service_request | Wants to cancel/terminate service | “Cancel my line”, “Terminate contract” |
-| retention_offer_inquiry | Asks for better deal to stay | “Match competitor”, “Give me a discount or I leave” |
-| contract_end_renewal | End of contract/renewal options | “Renew contract”, “Out of commitment?” |
-| port_out_request | Wants to port number out | “I want to port to another provider” |
-| downgrade_request | Downgrade plan to cheaper | “Reduce plan”, “Cheaper tariff” |
+| cancellation_request | Wants to cancel/terminate service | "Cancel my line", "Terminate contract" |
+| retention_offer_inquiry | Asks for better deal to stay | "Match competitor", "Give me a discount or I leave" |
+| contract_end_renewal | End of contract/renewal options | "Renew contract", "Out of commitment?" |
+| port_out_request | Wants to port number out | "I want to port to another provider" |
+| cancellation_other_reason | Cancellation for reasons not covered above | "Cancel for personal reasons", "No longer need service" |
+| downgrade_request | Downgrade plan to cheaper | "Reduce plan", "Cheaper tariff" |
 
 ## 6) security_and_fraud — Subcategories
 | Subcategory Code | Description | Typical Signals / Examples |
 |---|---|---|
-| suspicious_activity | Unrecognized logins/changes | “I didn’t change my email”, “Unknown access” |
+| account_compromise | Unrecognized logins/changes | "I didn't change my email", "Unknown access" |
 | sim_swap_or_number_hijack | SIM swap, lost service + suspicious | “My SIM stopped working”, “Number taken over” |
 | phishing_scam_report | Reports scam/phishing messages/calls | “Got a phishing SMS”, “Scam call” |
 | identity_verification_issue | Verification failures/lockouts | “Can’t pass verification”, “Account locked” |
-| unauthorized_charges_fraud | Fraudulent charges with security angle | “Charges after my phone was stolen” |
+| suspected_fraudulent_charges | Fraudulent charges with security angle | "Charges after my phone was stolen" |
 | privacy_data_request | Privacy concerns, data access/delete | “Delete my data”, “What data do you store?” |
-| stolen_lost_device_or_sim | Lost/stolen device/SIM (secure actions) | “Phone stolen”, “Block SIM” |
+| lost_or_stolen_device_or_sim | Lost/stolen device/SIM (secure actions) | "Phone stolen", "Block SIM" |
 
 ## 7) network_coverage_and_quality — Subcategories
 | Subcategory Code | Description | Typical Signals / Examples |
-|---|---|---|
-| poor_signal_strength | Weak signal/no bars | “1 bar at home”, “No signal in office” |
+|---|---|---|| indoor_coverage_issue | Poor reception inside buildings | "No signal indoors", "Bad coverage inside my house" || poor_signal_strength | Weak signal/no bars | “1 bar at home”, “No signal in office” |
 | coverage_gap_location | No coverage in specific area | “No coverage in X town” |
 | network_congestion | Slow at peak times due to congestion | “Evenings are unusable” |
 | 5g_4g_availability | Availability of 4G/5G | “Is 5G available here?” |
@@ -261,7 +260,7 @@ Return exactly:
 | escalation_request | Requests supervisor/manager | “Put me through to a supervisor” |
 | unresolved_previous_case | Prior ticket unresolved | “Still not fixed”, “Third time contacting” |
 | service_quality_complaint | General dissatisfaction with quality | “Service is terrible” |
-| agent_experience_complaint | Complaint about staff interaction | “Agent was rude” |
+| customer_service_experience_complaint | Complaint about staff interaction | "Agent was rude" |
 
 ## 9) general_information — Subcategories
 | Subcategory Code | Description | Typical Signals / Examples |
@@ -286,12 +285,12 @@ Return exactly:
 4) If user asks for legal/regulatory escalation:
    - Use `complaints_and_escalations` + `formal_complaint`, priority high.
 5) If user reports stolen phone + unauthorized activity:
-   - Use `security_and_fraud` + `stolen_lost_device_or_sim` or `unauthorized_charges_fraud` depending on main ask; priority urgent.
+   - Use `security_and_fraud` + `lost_or_stolen_device_or_sim` or `suspected_fraudulent_charges` depending on main ask; priority critical.
 6) If user asks “why is my bill high” but also says “internet is down”:
    - If internet down now → `technical_support` (high).
    - If only billing concern → `billing_inquiry`.
 7) If porting status question without explicit desire to cancel:
-   - Use `account_management` + `portability_status_inquiry`.
+   - Use `account_management` + `number_porting_request`.
    - If explicit “I want to leave/port out” → `retention_and_cancellation` + `port_out_request`.
 
 # =============================================================================
@@ -337,7 +336,7 @@ Example A — Billing dispute:
 Example B — Internet down:
 {
   "category": "technical_support",
-  "subcategory": "internet_outage_or_no_service",
+  "subcategory": "home_internet_connectivity_issue",
   "priority": "high",
   "sentiment": "negative",
   "confidence": 0.86,
@@ -375,7 +374,7 @@ Example C — SIM swap suspicion:
 {
   "category": "security_and_fraud",
   "subcategory": "sim_swap_or_number_hijack",
-  "priority": "urgent",
+  "priority": "critical",
   "sentiment": "very_negative",
   "confidence": 0.84,
   "entities": {

@@ -34,6 +34,21 @@
     },
     "geminiApiKey": {
       "value": "${GEMINI_API_KEY}"
+    },
+    "realtimeLocation": {
+      "value": "${AZURE_OPENAI_REALTIME_LOCATION}"
+    },
+    "deployVoiceModels": {
+      "value": "${DEPLOY_VOICE_MODELS}"
+    },
+    "authEasyAuthAutoLogin": {
+      "value": "${AUTH_EASYAUTH_AUTO_LOGIN}"
+    },
+    "enableAutoAssignFoundryReader": {
+      "value": "${ENABLE_AUTO_ASSIGN_FOUNDRY_READER}"
+    },
+    "deployerPrincipalId": {
+      "value": "${DEPLOYER_PRINCIPAL_ID}"
     }
   }
 }

@@ -17,6 +17,7 @@ $LOCAL_PORT          = 5000
 $CONTAINER_PORT      = 5000
 $ENV_FILE            = ".env"
 $DOCKERFILE          = "Dockerfile"
+$STORAGE_ACCOUNT_NAME = "stmodelmigration"     # Must be globally unique, lowercase, no dashes, 3-24 chars
 
 # Environment variables that contain secrets (will be stored as Container Apps secrets)
 $SECRET_VARS = @("AZURE_CLIENT_SECRET", "SMTP_PASSWORD", "FLASK_SECRET_KEY", "GEMINI_API_KEY")
@@ -149,6 +150,42 @@ function Ensure-ServicePrincipalRBAC {
         Write-Host "  FOUNDRY_PROJECT_ENDPOINT not in .env -- skipping Foundry role assignment." -ForegroundColor Yellow
     }
 
+    # --- Assign roles on dedicated Realtime/TTS endpoint (if configured) ---
+    $realtimeEp = $envVarsLocal["AZURE_OPENAI_REALTIME_ENDPOINT"]
+    if ($realtimeEp -and $realtimeEp -match 'https://([^.]+)\.') {
+        $rtResName = $matches[1]
+        Write-Host ""
+        Write-Host "  Looking up Realtime/TTS AI resource '$rtResName'..." -ForegroundColor Gray
+        $rtResId = az resource list --name $rtResName --query "[0].id" -o tsv 2>$null
+
+        if ($rtResId) {
+            # TTS (audio/speech) requires "Cognitive Services OpenAI Contributor"
+            # which includes the deployments/audio/action data action.
+            $rtRoles = @(
+                "Cognitive Services OpenAI Contributor",
+                "Cognitive Services OpenAI User"
+            )
+            foreach ($role in $rtRoles) {
+                Write-Host "  Assigning '$role' on realtime resource..." -ForegroundColor Cyan
+                az role assignment create `
+                    --assignee $SpAppId `
+                    --role $role `
+                    --scope $rtResId `
+                    --output none 2>$null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host "    OK" -ForegroundColor Green
+                } else {
+                    Write-Host "    May already exist or insufficient permissions" -ForegroundColor Yellow
+                }
+            }
+        } else {
+            Write-Host "  WARNING: Could not find realtime resource '$rtResName'." -ForegroundColor Yellow
+            Write-Host "  Assign 'Cognitive Services OpenAI Contributor' to $SpAppId manually." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  AZURE_OPENAI_REALTIME_ENDPOINT not in .env -- using main endpoint for TTS/Realtime." -ForegroundColor Gray
+    }
+
 }
 
 # =============================================================================
@@ -170,10 +207,87 @@ function Setup-FoundryServicePrincipal {
     $hasSecret = $envContent -match '(?m)^AZURE_CLIENT_SECRET=.+'
 
     if ($hasTenant -and $hasClient -and $hasSecret) {
-        Write-Host "  Service Principal credentials found in .env - skipping creation" -ForegroundColor Green
-        # Still verify RBAC roles (may be missing after backup restore or resource change)
+        Write-Host "  Service Principal credentials found in .env" -ForegroundColor Green
         $existingEnv = Read-EnvFile $ENV_FILE
-        Ensure-ServicePrincipalRBAC -SpAppId $existingEnv["AZURE_CLIENT_ID"]
+        $existingAppId  = $existingEnv["AZURE_CLIENT_ID"]
+        $existingTenant = $existingEnv["AZURE_TENANT_ID"]
+        $existingSecret = $existingEnv["AZURE_CLIENT_SECRET"]
+
+        # --- Validate the existing secret is still usable ---
+        Write-Host "  Validating credentials..." -ForegroundColor Cyan
+        $tokenOk = $false
+        try {
+            $body = "grant_type=client_credentials&client_id=$existingAppId&client_secret=$([uri]::EscapeDataString($existingSecret))&scope=https%3A%2F%2Fcognitiveservices.azure.com%2F.default"
+            $tokenResp = Invoke-RestMethod -Uri "https://login.microsoftonline.com/$existingTenant/oauth2/v2.0/token" `
+                -Method POST -ContentType "application/x-www-form-urlencoded" -Body $body -ErrorAction Stop
+            if ($tokenResp.access_token) { $tokenOk = $true }
+        } catch { }
+
+        if ($tokenOk) {
+            Write-Host "  Credentials are valid" -ForegroundColor Green
+            Ensure-ServicePrincipalRBAC -SpAppId $existingAppId
+            return
+        }
+
+        # --- Secret expired / invalid — rotate it ---
+        Write-Host "  Credential EXPIRED or INVALID — rotating secret..." -ForegroundColor Yellow
+
+        # Ensure Azure CLI is available for rotation
+        if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
+            Write-Host "  ERROR: Azure CLI (az) not found — cannot rotate secret." -ForegroundColor Red
+            Write-Host "  Install from https://aka.ms/installazurecliwindows or update AZURE_CLIENT_SECRET in .env manually." -ForegroundColor Yellow
+            return
+        }
+        $acctCheck = az account show 2>$null | ConvertFrom-Json
+        if (-not $acctCheck) {
+            Write-Host "  Not logged in to Azure CLI. Launching login..." -ForegroundColor Yellow
+            az login
+            $acctCheck = az account show 2>$null | ConvertFrom-Json
+            if (-not $acctCheck) {
+                Write-Host "  ERROR: Azure login failed — cannot rotate secret." -ForegroundColor Red
+                return
+            }
+        }
+
+        # Try to reset the credential with decreasing durations
+        $rotateOk = $false
+        $newPassword = $null
+        foreach ($days in @(90, 30, 7)) {
+            $endDate = (Get-Date).ToUniversalTime().AddDays($days).ToString("yyyy-MM-ddTHH:mm:ssZ")
+            Write-Host "  Resetting credential ($days days, expires $endDate)..." -ForegroundColor Cyan
+            $credJson = az ad app credential reset --id $existingAppId --end-date $endDate 2>&1
+            $jsonOnly = ($credJson | Where-Object { $_ -notmatch '^(WARNING|ERROR|System\.)' }) -join ""
+            $cred = $null
+            try { $cred = $jsonOnly | ConvertFrom-Json } catch { }
+            if ($cred -and $cred.password) {
+                $newPassword = $cred.password
+                $rotateOk = $true
+                break
+            }
+            Write-Host "  $days-day rejected by policy, trying shorter..." -ForegroundColor Yellow
+        }
+
+        if (-not $rotateOk) {
+            Write-Host "  ERROR: Could not rotate secret. Update AZURE_CLIENT_SECRET in .env manually." -ForegroundColor Red
+            return
+        }
+
+        # --- Update .env with the new secret ---
+        $lines = Get-Content $ENV_FILE -Encoding UTF8 | Where-Object {
+            $_ -notmatch '^AZURE_CLIENT_SECRET='
+        }
+        $updatedLines = @()
+        foreach ($l in $lines) {
+            $updatedLines += $l
+            # Insert new secret right after AZURE_CLIENT_ID line
+            if ($l -match '^AZURE_CLIENT_ID=') {
+                $updatedLines += "AZURE_CLIENT_SECRET=$newPassword"
+            }
+        }
+        $updatedLines | Set-Content $ENV_FILE -Encoding UTF8
+        Write-Host "  New secret written to .env (valid $days days)" -ForegroundColor Green
+
+        Ensure-ServicePrincipalRBAC -SpAppId $existingAppId
         return
     }
 
@@ -346,6 +460,18 @@ function Show-EnvValidation {
         Write-Host "  GEMINI_API_KEY = $masked" -ForegroundColor Green
     } else {
         Write-Host "  GEMINI_API_KEY = (not set - Gemini models disabled)" -ForegroundColor Gray
+    }
+
+    # Realtime / TTS (optional)
+    Write-Host ""
+    Write-Host "--- Realtime / TTS (optional) ---" -ForegroundColor Cyan
+    $rtVal = $finalEnv["AZURE_OPENAI_REALTIME_ENDPOINT"]
+    if ($rtVal) {
+        $masked = $rtVal.Substring(0, [Math]::Min(40, $rtVal.Length)) + "..."
+        Write-Host "  AZURE_OPENAI_REALTIME_ENDPOINT = $masked" -ForegroundColor Green
+        Write-Host "  (Speech-to-speech evaluation enabled via dedicated realtime endpoint)" -ForegroundColor Gray
+    } else {
+        Write-Host "  AZURE_OPENAI_REALTIME_ENDPOINT = (not set - using main endpoint for Realtime/TTS)" -ForegroundColor Gray
     }
 
     # RBAC auto-assign (optional)
@@ -525,14 +651,15 @@ elseif ($choice -eq "2") {
     # --- Skip-step selector ---
     Write-Host "Skip completed steps?" -ForegroundColor Yellow
     Write-Host "  0. Run all steps (default)"
-    Write-Host "  1. Skip to Step 2 (ACR)          - Resource Group already exists"
-    Write-Host "  2. Skip to Step 3 (Docker)        - ACR already exists"
-    Write-Host "  3. Skip to Step 4 (Environment)   - Image already pushed"
-    Write-Host "  4. Skip to Step 5 (Env vars)      - Environment already exists"
-    Write-Host "  5. Skip to Step 6 (Container App) - Ready to create / update app"
-    Write-Host "  6. Skip to Step 7 (Get URL)       - App already deployed"
+    Write-Host "  1. Skip to Step 2 (ACR)           - Resource Group already exists"
+    Write-Host "  2. Skip to Step 3 (Docker)         - ACR already exists"
+    Write-Host "  3. Skip to Step 4 (Environment)    - Image already pushed"
+    Write-Host "  4. Skip to Step 5 (Storage)        - Environment already exists"
+    Write-Host "  5. Skip to Step 6 (Env vars)       - Storage already exists"
+    Write-Host "  6. Skip to Step 7 (Container App)  - Ready to create / update app"
+    Write-Host "  7. Skip to Step 8 (Get URL)        - App already deployed"
     Write-Host ""
-    $startStep = Read-Host "Start from step [0-6, default 0]"
+    $startStep = Read-Host "Start from step [0-7, default 0]"
     if (-not $startStep) { $startStep = "0" }
     $startStep = [int]$startStep
 
@@ -544,7 +671,7 @@ elseif ($choice -eq "2") {
     # == Step 1: Resource Group ================================================
     if ($startStep -le 0) {
         Write-Host ""
-        Write-Host "[Step 1/7] Checking Resource Group..." -ForegroundColor Cyan
+        Write-Host "[Step 1/8] Checking Resource Group..." -ForegroundColor Cyan
 
         $rgExists = az group exists --name $RESOURCE_GROUP 2>$null
         if ($rgExists -eq "true") {
@@ -570,13 +697,13 @@ elseif ($choice -eq "2") {
         az group create --name $RESOURCE_GROUP --location $LOCATION --output none
         Test-StepSuccess "Resource Group"
     } else {
-        Write-Host "[Step 1/7] Skipped (Resource Group)" -ForegroundColor Gray
+        Write-Host "[Step 1/8] Skipped (Resource Group)" -ForegroundColor Gray
     }
 
     # == Step 2: Azure Container Registry ======================================
     if ($startStep -le 1) {
         Write-Host ""
-        Write-Host "[Step 2/7] Azure Container Registry..." -ForegroundColor Cyan
+        Write-Host "[Step 2/8] Azure Container Registry..." -ForegroundColor Cyan
 
         $acrExists = az acr show --name $ACR_NAME --query "name" -o tsv 2>$null
         if ($acrExists) {
@@ -591,7 +718,7 @@ elseif ($choice -eq "2") {
             Test-StepSuccess "ACR creation"
         }
     } else {
-        Write-Host "[Step 2/7] Skipped (ACR)" -ForegroundColor Gray
+        Write-Host "[Step 2/8] Skipped (ACR)" -ForegroundColor Gray
     }
 
     # Get ACR credentials (always needed for later steps)
@@ -609,7 +736,7 @@ elseif ($choice -eq "2") {
     # == Step 3: Build & Push Docker Image =====================================
     if ($startStep -le 2) {
         Write-Host ""
-        Write-Host "[Step 3/7] Building and pushing Docker image..." -ForegroundColor Cyan
+        Write-Host "[Step 3/8] Building and pushing Docker image..." -ForegroundColor Cyan
 
         az acr login --name $ACR_NAME
         Test-StepSuccess "ACR login"
@@ -620,13 +747,13 @@ elseif ($choice -eq "2") {
         docker push "${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}"
         Test-StepSuccess "Docker push"
     } else {
-        Write-Host "[Step 3/7] Skipped (Docker build/push)" -ForegroundColor Gray
+        Write-Host "[Step 3/8] Skipped (Docker build/push)" -ForegroundColor Gray
     }
 
     # == Step 4: Container Apps Environment ====================================
     if ($startStep -le 3) {
         Write-Host ""
-        Write-Host "[Step 4/7] Container Apps Environment..." -ForegroundColor Cyan
+        Write-Host "[Step 4/8] Container Apps Environment..." -ForegroundColor Cyan
 
         $envExists = az containerapp env show `
             --name $ENVIRONMENT_NAME `
@@ -643,12 +770,68 @@ elseif ($choice -eq "2") {
             Test-StepSuccess "Container Apps Environment"
         }
     } else {
-        Write-Host "[Step 4/7] Skipped (Environment)" -ForegroundColor Gray
+        Write-Host "[Step 4/8] Skipped (Environment)" -ForegroundColor Gray
     }
 
-    # == Step 5: Build YAML configuration ======================================
+    # == Step 5: Storage Account (user data persistence) ========================
+    if ($startStep -le 4) {
+        Write-Host ""
+        Write-Host "[Step 5/8] Storage Account (user data persistence)..." -ForegroundColor Cyan
+
+        $saExists = az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $RESOURCE_GROUP --query "name" -o tsv 2>$null
+        if ($saExists) {
+            Write-Host "  Storage Account '$STORAGE_ACCOUNT_NAME' already exists - skipping creation" -ForegroundColor Gray
+        } else {
+            az storage account create `
+                --name $STORAGE_ACCOUNT_NAME `
+                --resource-group $RESOURCE_GROUP `
+                --location $LOCATION `
+                --sku Standard_LRS `
+                --kind StorageV2 `
+                --https-only true `
+                --min-tls-version TLS1_2 `
+                --allow-blob-public-access false `
+                --allow-shared-key-access false `
+                --output none
+            Test-StepSuccess "Storage Account creation"
+        }
+
+        # Create blob container
+        az storage container create `
+            --name userdata `
+            --account-name $STORAGE_ACCOUNT_NAME `
+            --auth-mode login `
+            --output none 2>$null
+        Write-Host "  Blob container 'userdata' ensured" -ForegroundColor Gray
+
+        # Assign Storage Blob Data Contributor to the Service Principal
+        $spAppId = $envVars['AZURE_CLIENT_ID']
+        if ($spAppId) {
+            $saId = az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $RESOURCE_GROUP --query "id" -o tsv
+            $existingRole = az role assignment list --assignee $spAppId --scope $saId --role "Storage Blob Data Contributor" --query "[0].id" -o tsv 2>$null
+            if (-not $existingRole) {
+                az role assignment create `
+                    --assignee $spAppId `
+                    --role "Storage Blob Data Contributor" `
+                    --scope $saId `
+                    --output none
+                Test-StepSuccess "Storage RBAC assignment"
+            } else {
+                Write-Host "  Storage RBAC already assigned" -ForegroundColor Gray
+            }
+        }
+
+        # Add storage account name to env vars for the container
+        $envVars['AZURE_STORAGE_ACCOUNT_NAME'] = $STORAGE_ACCOUNT_NAME
+    } else {
+        Write-Host "[Step 5/8] Skipped (Storage Account)" -ForegroundColor Gray
+        # Still need the env var even if skipping
+        $envVars['AZURE_STORAGE_ACCOUNT_NAME'] = $STORAGE_ACCOUNT_NAME
+    }
+
+    # == Step 6: Build YAML configuration ======================================
     Write-Host ""
-    Write-Host "[Step 5/7] Preparing environment variables & secrets..." -ForegroundColor Cyan
+    Write-Host "[Step 6/8] Preparing environment variables & secrets..." -ForegroundColor Cyan
 
     function ConvertTo-YamlSafe {
         param([string]$Value)
@@ -736,10 +919,10 @@ $envVarsYaml
     )
     Write-Host "  Saved $yamlFile" -ForegroundColor Gray
 
-    # == Step 6: Create / Update Container App =================================
-    if ($startStep -le 5) {
+    # == Step 7: Create / Update Container App =================================
+    if ($startStep -le 6) {
         Write-Host ""
-        Write-Host "[Step 6/7] Deploying Container App..." -ForegroundColor Cyan
+        Write-Host "[Step 7/8] Deploying Container App..." -ForegroundColor Cyan
 
         $appExists = az containerapp show `
             --name $CONTAINER_APP_NAME `
@@ -774,12 +957,12 @@ $envVarsYaml
 
         Remove-Item $yamlFile -ErrorAction SilentlyContinue
     } else {
-        Write-Host "[Step 6/7] Skipped (Container App)" -ForegroundColor Gray
+        Write-Host "[Step 7/8] Skipped (Container App)" -ForegroundColor Gray
     }
 
-    # == Step 7: Get Application URL ===========================================
+    # == Step 8: Get Application URL ===========================================
     Write-Host ""
-    Write-Host "[Step 7/7] Retrieving application URL..." -ForegroundColor Cyan
+    Write-Host "[Step 8/8] Retrieving application URL..." -ForegroundColor Cyan
 
     Start-Sleep -Seconds 5
 

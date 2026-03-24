@@ -45,7 +45,7 @@ PRIORITY LEVELS
 - low: informational, no service impact, no urgency
 - medium: service degraded, billing confusion, needs timely handling
 - high: service down, imminent suspension, repeated failures, potential fraud
-- urgent: active fraud/account takeover, safety risk, widespread outage indicators, legal escalation
+- critical: active fraud/account takeover, safety risk, widespread outage indicators, legal escalation
 
 SENTIMENT VALUES
 - very_negative, negative, neutral, positive, very_positive
@@ -55,7 +55,7 @@ Return exactly this structure:
 {
   "category": "…",
   "subcategory": "…",
-  "priority": "low|medium|high|urgent",
+  "priority": "critical|high|medium|low",
   "sentiment": "very_negative|negative|neutral|positive|very_positive",
   "confidence": 0.00,
   "entities": {
@@ -122,19 +122,20 @@ taxonomy:
       mobile_data_connectivity_issue: Mobile data not working/slow/intermittent.
       voice_call_issue: Calls fail/drop/no audio/can’t receive or make calls.
       sms_mms_issue: SMS/MMS not sending/receiving.
-      internet_fiber_outage: Home internet/fiber down or frequent disconnects.
+      home_internet_connectivity_issue: Home internet/fiber down or frequent disconnects.
       wifi_router_issue: Wi‑Fi problems, router/modem lights, configuration, coverage at home.
       speed_performance_issue: Slow speeds, buffering, latency, packet loss.
       tv_service_issue: TV app/decoder issues, channels missing, signal errors.
       voip_fixed_line_issue: Fixed-line/VoIP not working, no dial tone.
       device_setup_or_apn: APN/configuration, eSIM/SIM setup, activation steps.
-      service_activation_issue: New line/service not activated or stuck provisioning.
+      sim_activation_or_replacement_issue: New SIM/eSIM/line not activated, SIM replacement, or stuck provisioning.
 
   sales_and_upgrades:
     description: New purchases, plan changes, add-ons, promotions, device upgrades.
     subcategories:
       new_service_signup: Wants to contract a new line/internet/TV/bundle.
-      plan_change: Change tariff/plan, data allowance, minutes, prepaid↔postpaid.
+      add_line_or_add_device_request: Add a new line to the account or request an additional device.
+      plan_upgrade_or_downgrade_request: Change tariff/plan, data allowance, minutes, prepaid↔postpaid.
       add_on_purchase: Add roaming pack, extra data, international add-on, TV package.
       device_purchase_or_upgrade: Buy/finance/upgrade phone/router/decoder.
       promotion_pricing_inquiry: Asks about promos, eligibility, pricing, discounts.
@@ -146,11 +147,11 @@ taxonomy:
     subcategories:
       personal_details_update: Update name, address, email, contact preferences.
       line_management: Add/remove line, change SIM, change number, multi-SIM.
-      password_pin_reset: Reset account password, PIN/PUK, app access.
+      login_or_password_issue: Reset account password, PIN/PUK, app access, login problems.
       contract_terms_inquiry: Contract duration, permanence, penalties, terms.
       ownership_transfer: Change account holder / transfer responsibility.
       invoice_profile_settings: Billing profile, tax info, invoice name/company data.
-      number_change_request: Requests new number or correction.
+      number_porting_request: Port number in/out or transfer number between lines/accounts.
       esim_sim_management: eSIM issuance, SIM replacement, lost SIM process (non-fraud).
 
   retention_and_cancellation:
@@ -162,21 +163,22 @@ taxonomy:
       portability_out: Wants to port number out to another provider.
       downgrade_request: Reduce plan/services to lower cost.
       service_pause_or_suspend: Temporary suspension/seasonal hold.
+      cancellation_other_reason: Cancellation request for other or general reasons.
 
   security_and_fraud:
     description: Suspicious activity, account compromise, SIM swap, identity/privacy concerns.
     subcategories:
       suspected_sim_swap: SIM changed unexpectedly, lost service, new SIM activation not requested.
       account_takeover: Unauthorized access, password changed, unknown devices/sessions.
-      unauthorized_charges_fraud: Charges due to suspected fraud/scam.
+      suspected_fraudulent_charges: Charges due to suspected fraud/scam.
       phishing_scam_report: Reports phishing SMS/calls/emails, social engineering.
-      device_stolen: Phone stolen; needs line/SIM blocking (security context).
+      lost_or_stolen_device_or_sim: Phone/SIM lost or stolen; needs line/SIM blocking.
       privacy_data_request: Data access/deletion concerns tied to security/privacy incident.
 
   network_coverage_and_quality:
     description: Coverage, signal strength, network quality by area; expansion/maintenance.
     subcategories:
-      poor_signal_area: Low bars/no signal in a location.
+      indoor_coverage_issue: Low/no signal indoors, building penetration issues.
       intermittent_coverage: Coverage drops in certain spots/routes.
       network_congestion: Slowdowns at peak times due to congestion.
       outage_area_wide: Suspected local/regional outage affecting many.
@@ -189,7 +191,7 @@ taxonomy:
       formal_complaint: Wants to file a complaint about service/billing/experience.
       escalation_request: Requests supervisor/manager or higher-tier support.
       unresolved_previous_case: Prior ticket not solved; repeated contacts.
-      agent_behavior_complaint: Complains about staff treatment or misinformation.
+      customer_service_experience_complaint: Complains about staff treatment, misinformation, or service experience.
       regulatory_legal_threat: Mentions regulator, lawsuit, consumer protection.
       service_quality_complaint: General dissatisfaction without a clear single fix.
 
@@ -208,7 +210,7 @@ CATEGORY SELECTION RULES
 - If the user disputes a charge or asks about a bill: billing_inquiry (even if angry).
 - If service is not working: technical_support unless clearly area-wide coverage (then network_coverage_and_quality).
 - If they want to cancel/port out: retention_and_cancellation.
-- If they report hacking/SIM swap/phishing: security_and_fraud (priority often high/urgent).
+- If they report hacking/SIM swap/phishing: security_and_fraud (priority often high/critical).
 - If they demand supervisor/legal/regulator: complaints_and_escalations (unless active fraud is primary).
 - If they ask prices/plans/promos/new service: sales_and_upgrades.
 - If they want to change personal/account details: account_management.

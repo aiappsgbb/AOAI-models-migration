@@ -52,6 +52,169 @@ _EVAL_PROMPT_TYPES = {
 }
 
 
+# ── Tool-calling response-parsing helpers ────────────────────────────
+
+def _extract_tools_from_json(response_text: str) -> set:
+    """Extract tool names from JSON structures in a model response.
+
+    Looks for ``tool_name``, ``function_name``, or ``function.name`` inside
+    common wrapper keys (``selected_tools``, ``tool_calls``, etc.) found in
+    JSON code-blocks, standalone JSON objects, or the entire response.
+
+    Returns a *set* of lower-cased tool name strings.
+    """
+    found: set = set()
+
+    def _scan(obj):
+        if isinstance(obj, dict):
+            for key in ('tool_name', 'function_name'):
+                v = obj.get(key)
+                if isinstance(v, str) and v:
+                    found.add(v.lower())
+            # OpenAI-style nested {"function": {"name": "..."}}
+            fn = obj.get('function')
+            if isinstance(fn, dict):
+                n = fn.get('name')
+                if isinstance(n, str) and n:
+                    found.add(n.lower())
+            # "name" only when an "arguments" sibling exists (avoids false
+            # positives from unrelated JSON with a "name" field)
+            if 'arguments' in obj:
+                n = obj.get('name')
+                if isinstance(n, str) and n:
+                    found.add(n.lower())
+            for arr_key in ('selected_tools', 'tool_calls', 'tools', 'functions'):
+                for item in obj.get(arr_key, []):
+                    if isinstance(item, dict):
+                        _scan(item)
+        elif isinstance(obj, list):
+            for item in obj:
+                _scan(item)
+
+    # 1. whole response is JSON
+    try:
+        _scan(json.loads(response_text.strip()))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        pass
+
+    # 2. fenced code blocks  ```json … ```
+    for m in re.finditer(r'```(?:json)?\s*\n([\s\S]*?)\n\s*```', response_text):
+        try:
+            _scan(json.loads(m.group(1)))
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
+
+    # 3. standalone { … } objects (only when nothing found yet)
+    if not found:
+        for m in re.finditer(
+            r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', response_text,
+        ):
+            try:
+                _scan(json.loads(m.group()))
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+
+    return found
+
+
+# Verbs that commonly prefix tool/function names
+_VERB_PREFIXES = frozenset({
+    'get', 'set', 'check', 'create', 'update', 'delete', 'list',
+    'find', 'search', 'add', 'remove', 'send', 'cancel', 'submit',
+    'fetch', 'retrieve', 'calculate', 'validate', 'verify', 'process',
+    'generate', 'make', 'activate', 'deactivate', 'block', 'unblock',
+    'schedule', 'modify', 'change', 'order',
+})
+
+
+def _tool_name_in_text(tool_name: str, response_lower: str) -> bool:
+    """Heuristic check whether *tool_name* is referenced in free text.
+
+    Strategies (tried in order):
+    1. Exact substring               ``get_data_usage`` in text
+    2. Underscores → spaces          ``get data usage`` in text
+    3. Function-call syntax           ``get_data_usage(`` in text
+    4. "Object phrase" after stripping leading verb prefixes,
+       e.g. ``data usage`` from ``get_data_usage``
+    5. All significant object-part words present (non-adjacent)
+    """
+    tl = tool_name.lower()
+
+    # 1. exact substring
+    if tl in response_lower:
+        return True
+
+    # 2. underscores → spaces
+    spaced = tl.replace('_', ' ')
+    if len(spaced) > 4 and spaced in response_lower:
+        return True
+
+    # 3. function-call syntax: tool_name(
+    if re.search(rf'\b{re.escape(tl)}\s*\(', response_lower):
+        return True
+
+    # 4 & 5. strip leading verbs, match "object" words
+    parts = tl.split('_')
+    idx = 0
+    while idx < len(parts) and parts[idx] in _VERB_PREFIXES:
+        idx += 1
+    obj_parts = parts[idx:] if idx < len(parts) else parts
+
+    if obj_parts:
+        obj_phrase = ' '.join(obj_parts)
+        # 4. contiguous object phrase
+        if len(obj_phrase) > 4 and obj_phrase in response_lower:
+            return True
+        # 5. all significant object words present (≥2 words, each len>2)
+        significant = [w for w in obj_parts if len(w) > 2]
+        if len(significant) >= 2 and all(w in response_lower for w in significant):
+            return True
+
+    return False
+
+
+def _extract_params_from_json(response_text: str) -> dict:
+    """Extract ``{tool_name: {param: value, …}}`` from JSON in the response."""
+    params: dict = {}
+
+    def _collect(obj):
+        if not isinstance(obj, dict):
+            return
+        for arr_key in ('selected_tools', 'tool_calls', 'tools'):
+            for tool in obj.get(arr_key, []):
+                if not isinstance(tool, dict):
+                    continue
+                name = ''
+                for nk in ('tool_name', 'function_name', 'name'):
+                    if nk in tool and isinstance(tool[nk], str):
+                        name = tool[nk]
+                        break
+                if not name:
+                    fn = tool.get('function')
+                    if isinstance(fn, dict) and isinstance(fn.get('name'), str):
+                        name = fn['name']
+                args = tool.get('arguments', tool.get('params', {}))
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except (json.JSONDecodeError, ValueError):
+                        args = {}
+                if name and isinstance(args, dict):
+                    params[name.lower()] = args
+
+    try:
+        _collect(json.loads(response_text.strip()))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        pass
+    for m in re.finditer(r'```(?:json)?\s*\n([\s\S]*?)\n\s*```', response_text):
+        try:
+            _collect(json.loads(m.group(1)))
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
+
+    return params
+
+
 class MissingPromptsError(Exception):
     """Raised when a model has no prompts for the requested evaluation type."""
     pass
@@ -69,6 +232,7 @@ class EvaluationResult:
     latency_metrics: Optional[LatencyMetrics] = None
     quality_metrics: Optional[QualityMetrics] = None
     tool_calling_metrics: Optional[ToolCallingMetrics] = None
+    realtime_metrics: Optional['RealtimeMetrics'] = None
     raw_results: List[Dict] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
     
@@ -83,6 +247,7 @@ class EvaluationResult:
             'latency_metrics': self.latency_metrics.to_dict() if self.latency_metrics else None,
             'quality_metrics': self.quality_metrics.to_dict() if self.quality_metrics else None,
             'tool_calling_metrics': self.tool_calling_metrics.to_dict() if self.tool_calling_metrics else None,
+            'realtime_metrics': self.realtime_metrics.to_dict() if self.realtime_metrics else None,
             'raw_results': self.raw_results,
             'error_count': len(self.errors),
             'errors': self.errors,
@@ -156,10 +321,10 @@ class ModelEvaluator:
         """Decide whether consistency runs should actually execute.
 
         Returns *False* (auto-disabling consistency) when the model uses a
-        rate-limited backend such as Gemini free-tier, where the extra
-        requests would quickly exhaust the daily quota.  For all other
-        backends the caller's original ``measure_consistency`` flag is
-        honoured.
+        rate-limited backend such as Gemini free-tier (5 RPM, ~20 RPD),
+        where the extra requests would quickly exhaust the daily quota.
+        For all other backends the caller's original ``measure_consistency``
+        flag is honoured.
         """
         if not measure_consistency:
             return False
@@ -967,36 +1132,70 @@ class ModelEvaluator:
                 response_text = completion.content
                 response_lower = response_text.lower()
 
-                # Evaluate tool selection accuracy
+                # ── Evaluate tool selection accuracy ──────────────
                 expected_calls = scenario.get_expected_calls_list()
+
+                # Try structured JSON extraction first, fall back to
+                # heuristic text matching.
+                json_tools = _extract_tools_from_json(response_text)
+
                 if not expected_calls:
                     # Expected: no tool call — check model didn't force one
-                    tool_accuracy = 1.0 if not any(
-                        t.get('function', {}).get('name', '').lower() in response_lower
+                    available_names = {
+                        t.get('function', {}).get('name', '').lower()
                         for t in tools_list
                         if isinstance(t, dict) and 'function' in t
-                    ) else 0.0
+                    }
+                    if json_tools:
+                        tool_accuracy = 0.0 if json_tools & available_names else 1.0
+                    else:
+                        tool_accuracy = 1.0 if not any(
+                            _tool_name_in_text(n, response_lower)
+                            for n in available_names if n
+                        ) else 0.0
                 else:
-                    matched = sum(
-                        1 for tc in expected_calls if tc.lower() in response_lower
-                    )
+                    if json_tools:
+                        matched = sum(
+                            1 for tc in expected_calls
+                            if tc.lower() in json_tools
+                        )
+                    else:
+                        matched = sum(
+                            1 for tc in expected_calls
+                            if _tool_name_in_text(tc, response_lower)
+                        )
                     tool_accuracy = matched / len(expected_calls)
 
-                # Evaluate parameter extraction (check if expected param values appear in response)
+                # ── Evaluate parameter extraction ─────────────────
                 param_accuracy = 0.0
                 expected_params = scenario.get_expected_params_dict()
                 if expected_params:
+                    json_params = _extract_params_from_json(response_text)
                     total_params = 0
                     matched_params = 0
                     for key, val in expected_params.items():
                         if isinstance(val, dict):
+                            # key = tool name, val = {param: value}
+                            tool_json_args = json_params.get(key.lower(), {})
                             for pk, pv in val.items():
                                 total_params += 1
-                                if str(pv).lower() in response_lower:
+                                pv_str = str(pv).lower()
+                                # Skip placeholder values like <customer_account_id>
+                                if pv_str.startswith('<') and pv_str.endswith('>'):
+                                    matched_params += 1
+                                    continue
+                                # Check JSON-extracted params first
+                                if pk in tool_json_args and str(tool_json_args[pk]).lower() == pv_str:
+                                    matched_params += 1
+                                elif pv_str in response_lower:
                                     matched_params += 1
                         else:
                             total_params += 1
-                            if str(val).lower() in response_lower:
+                            val_str = str(val).lower()
+                            if val_str.startswith('<') and val_str.endswith('>'):
+                                matched_params += 1
+                                continue
+                            if val_str in response_lower:
                                 matched_params += 1
                     param_accuracy = matched_params / max(total_params, 1)
                 else:

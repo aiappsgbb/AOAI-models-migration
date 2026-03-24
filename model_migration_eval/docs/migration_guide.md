@@ -124,6 +124,24 @@ def classify_customer_message(message: str, client) -> dict:
     return json.loads(response.choices[0].message.content)
 ```
 
+### 2.4 Import-Time Category Alignment
+
+When importing a topic via the web UI or CLI, the framework automatically generates optimised classification prompts for each target model.  To guarantee that **every target prompt contains the exact same categories** as the source, the import pipeline applies a multi-layer alignment process:
+
+1. **Meta-prompt enrichment** — The source prompt's categories, priority levels, and sentiment values are extracted and injected into the LLM generation call as explicit constraints.
+2. **Deterministic injection** — After generation, `_inject_missing_categories()` programmatically scans the target prompt for missing categories and inserts them into the correct format (Markdown table, bullet list, or inline mention).
+3. **LLM auto-fix fallback** — If the deterministic pass cannot handle a deeply custom format, a targeted LLM call adds only the missing categories.
+4. **Case-insensitive verification** — A final check confirms 100% overlap between source and target category sets (using `.lower()` to prevent false negatives from casing differences).
+
+Additionally, the pipeline normalises priority and sentiment values to their canonical scales:
+
+| Field | Canonical values | Legacy alias handling |
+|-------|-----------------|----------------------|
+| **Priority** | `critical`, `high`, `medium`, `low` | `critical_safety` → `critical` |
+| **Sentiment** | `positive`, `neutral`, `negative`, `mixed` | Case-insensitive matching |
+
+> **Catch-all categories:** Categories like `other_or_unclear` are no longer filtered out by the category parser — they pass through the full alignment pipeline unchanged.  This was a root-cause fix applied to `category_parser.py`'s noise-word exclusion set.
+
 ---
 
 ## 3. Dialog & Follow-up Questions
@@ -619,6 +637,13 @@ The dashboard and evaluation pages display:
 - [ ] Set up parallel evaluation environment
 - [ ] Prepare synthetic test data
 
+### Topic Import Validation
+- [ ] Verify 100% category alignment across all target models (deterministic injection + LLM auto-fix)
+- [ ] Confirm priority values use canonical scale (`critical`, `high`, `medium`, `low`)
+- [ ] Confirm sentiment values use canonical scale (`positive`, `neutral`, `negative`, `mixed`)
+- [ ] Verify dialog prompts preserve all JSON response fields from source
+- [ ] Check that `other_or_unclear` (or similar catch-all categories) are not filtered out
+
 ### Testing Phase
 - [ ] Run classification accuracy tests
 - [ ] Measure latency differences
@@ -656,4 +681,4 @@ The dashboard and evaluation pages display:
 
 ---
 
-*Last Updated: February 2026*
+*Last Updated: July 2026*

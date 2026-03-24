@@ -29,6 +29,15 @@
 <body class="bg-[#faf9f8] min-h-screen flex items-center justify-center">
 
 <div class="w-full max-w-md mx-auto px-4">
+    <!-- ═══ Auto-login overlay (shown briefly during EasyAuth redirect) ═══ -->
+    <div id="auto-login-overlay" class="hidden fixed inset-0 bg-[#faf9f8] z-50 flex items-center justify-center">
+        <div class="text-center">
+            <div class="spinner mx-auto mb-4" style="width:36px;height:36px;border-width:4px;"></div>
+            <p class="text-neutral-700 font-medium">Signing in automatically…</p>
+            <p class="text-neutral-500 text-sm mt-1">Using your organization account</p>
+        </div>
+    </div>
+
     <!-- Logo / brand -->
     <div class="text-center mb-8">
         <div class="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-brand-500 mb-4">
@@ -244,6 +253,21 @@ async function resendCode() {
         btn.disabled = false;
     }
 }
+
+// ── EasyAuth auto-login detection ──────────────────────────────────
+// If the server-side EasyAuth redirect didn't fire (e.g. the login
+// page was cached), try calling /api/auth/me to see whether the
+// session was already established by the middleware.  If so, redirect
+// to the dashboard immediately (showing a friendly spinner).
+(async function checkAutoLogin() {
+    try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+            document.getElementById('auto-login-overlay').classList.remove('hidden');
+            window.location.href = '/';
+        }
+    } catch { /* not logged in — show normal form */ }
+})();
 </script>
 </body>
 </html>

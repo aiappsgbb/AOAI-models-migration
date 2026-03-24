@@ -2,12 +2,16 @@
 openai>=1.40.0
 azure-identity>=1.15.0
 
+# Azure Blob Storage (user data persistence)
+azure-storage-blob>=12.19.0
+
 # Microsoft Foundry Control Plane Evaluation (optional)
 azure-ai-projects>=2.0.0b2
 
 # Web Framework
 flask>=3.0.0
 flask-cors>=4.0.0
+flask-compress>=1.15
 
 # Data Processing
 numpy>=1.24.0
@@ -21,6 +25,9 @@ tiktoken>=0.7.0
 
 # Async Support
 httpx>=0.26.0
+
+# WebSocket support for Realtime API (speech-to-speech)
+websockets>=12.0
 
 # Caching
 diskcache>=5.6.3

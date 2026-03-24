@@ -79,6 +79,47 @@ FAMILY_GUIDANCE: dict[str, str] = {
         "- Gemini excels at multilingual and multimodal tasks\n"
         "- Use temperature=0.1 for reproducibility"
     ),
+    "phi": (
+        "Phi family (SLM) — base best practices:\n"
+        "- Small Language Model (14B parameters) — compensate with explicit,\n"
+        "  well-structured instructions and concrete examples\n"
+        "- Use explicit Chain-of-Thought (CoT) reasoning instructions —\n"
+        "  Phi does NOT have native reasoning; spell out step-by-step logic\n"
+        "- Include 2-3 high-quality few-shot examples for consistency\n"
+        "- Keep prompts focused and well-organized with clear Markdown\n"
+        "  section headings — context window is 16K tokens (much smaller\n"
+        "  than GPT-4.1's 1M), so every token counts\n"
+        "- Be very explicit about JSON output schema with complete examples\n"
+        "  — include exact field names, types, and constraints\n"
+        "- Use standard 'system' role and 'max_tokens' (NOT developer role,\n"
+        "  NOT max_completion_tokens)\n"
+        "- Use temperature=0.1 for reproducibility; seed is NOT supported\n"
+        "- Primarily optimised for English; limited multilingual capability\n"
+        "- Excels at mathematical reasoning and complex logic\n"
+        "- Uses chat format with <|im_start|> / <|im_end|> tokens internally\n"
+        "  — structure prompts as clear system/user/assistant turns"
+    ),
+    "realtime": (
+        "Realtime (speech-to-speech) family — base best practices:\n"
+        "- These are VOICE models — prompts are session 'instructions' sent\n"
+        "  via the Realtime API session.update event\n"
+        "- Use clear, labeled sections with # headers so the model can\n"
+        "  find and follow rules: Role & Objective, Personality & Tone,\n"
+        "  Language, Unclear Audio, Instructions, Safety & Escalation\n"
+        "- Use short bullet points — NEVER long paragraphs (bullets > paragraphs)\n"
+        "- Keep spoken responses to 2-3 sentences per turn\n"
+        "- Include explicit pacing instructions: 'natural brisk pace, not slow'\n"
+        "- Add a Variety section: 'Do not repeat the same phrase twice'\n"
+        "- Add Unclear Audio handling with sample clarification phrases\n"
+        "- Add Language section: mirror user's language, default to English\n"
+        "- For tool-calling: include preamble instructions (e.g. 'Let me check\n"
+        "  that for you') before every tool call\n"
+        "- For classification: output TEXT-ONLY JSON, never spoken audio\n"
+        "- Use CAPITALIZED text for critical rules (NEVER, FORBIDDEN, etc.)\n"
+        "- Use temperature=0.8 for natural speech variation\n"
+        "- Supported voices: alloy, ash, ballad, coral, echo, sage, shimmer,\n"
+        "  verse, marin, cedar (recommend marin or cedar for best quality)"
+    ),
 }
 
 
@@ -188,6 +229,22 @@ MODEL_GUIDANCE: dict[str, str] = {
         "- Handles ambiguity and nuance better than any previous model\n"
         "- Optimal for production workloads needing top-tier quality"
     ),
+    "gpt-5.4-mini": (
+        "\nModel-specific guidance (GPT-5.4-mini — cost-effective GPT-5):\n"
+        "- Most cost-effective model in the GPT-5 family — built for\n"
+        "  high-throughput batch pipelines and latency-sensitive apps\n"
+        "- Excellent at classification, extraction, and structured output\n"
+        "- Native reasoning (like all GPT-5 models) but with shallower\n"
+        "  depth — keep prompts focused and concise\n"
+        "- Shorter, more direct prompts yield better results — eliminate\n"
+        "  non-essential instructions\n"
+        "- Fewer few-shot examples (1-2) work better than many\n"
+        "- Use max_completion_tokens (not max_tokens) per GPT-5 convention\n"
+        "- No explicit CoT needed — model reasons internally but benefits\n"
+        "  from clear, declarative task descriptions\n"
+        "- Strong structured output (JSON mode) — specify the exact schema\n"
+        "- Ideal for production workloads balancing quality and cost"
+    ),
 
     # ── Mistral family ─────────────────────────────────────────────────
     "Mistral-Large-3": (
@@ -231,6 +288,56 @@ MODEL_GUIDANCE: dict[str, str] = {
         "  high-volume production workloads"
     ),
 
+    # ── Phi family (SLMs) ──────────────────────────────────────────────
+    "Phi-4": (
+        "\nModel-specific guidance (Phi-4 — 14B SLM):\n"
+        "- State-of-the-art SLM specialising in complex reasoning, math,\n"
+        "  and structured output — outperforms many larger models on MATH\n"
+        "  and GPQA benchmarks\n"
+        "- 16K context window — keep prompts concise and prioritise the\n"
+        "  most critical rules; avoid embedding large reference documents\n"
+        "- Dense decoder-only Transformer (14B params) — strong quality\n"
+        "  for its size but needs more explicit guidance than frontier models\n"
+        "- Trained on high-quality synthetic data, academic books, and Q&A\n"
+        "  — particularly strong at logical reasoning and code (Python)\n"
+        "- Include complete JSON schema examples in the prompt — Phi-4\n"
+        "  follows schemas reliably when they are fully specified\n"
+        "- Explicit CoT prompting significantly improves multi-step tasks\n"
+        "- Few-shot examples (2-3) dramatically improve output consistency\n"
+        "- Cost-effective alternative for classification, extraction, and\n"
+        "  structured output tasks where frontier models are overkill\n"
+        "- MIT licensed — flexible for commercial use"
+    ),
+
+    # ── Realtime (speech-to-speech) models ─────────────────────────────
+    "gpt-realtime": (
+        "\nModel-specific guidance (gpt-realtime — speech-to-speech):\n"
+        "- First-generation GA realtime model for speech-to-speech\n"
+        "- Prompts should be explicit and detailed — include sample phrases\n"
+        "  for greetings, clarifications, and tool preambles\n"
+        "- Supports server_vad, semantic_vad, and manual turn detection\n"
+        "- Supports function calling and image input\n"
+        "- Session instructions via session.update — voice cannot change\n"
+        "  after first audio output in a session\n"
+        "- Maximum session duration: 30 minutes\n"
+        "- Best with alloy voice for general use\n"
+        "- Include 3-5 varied sample phrases per conversation phase\n"
+        "  to avoid robotic repetition"
+    ),
+    "gpt-realtime-1.5": (
+        "\nModel-specific guidance (gpt-realtime-1.5 — latest speech-to-speech):\n"
+        "- Latest and most capable realtime model — improved instruction\n"
+        "  following, more natural and expressive speech output\n"
+        "- Follows complex instructions more reliably than gpt-realtime —\n"
+        "  prompts can be MORE CONCISE while achieving better results\n"
+        "- Better at tool calling and multi-step conversations\n"
+        "- Supports semantic_vad for more natural turn-taking\n"
+        "- Supports MCP server integration for external tools\n"
+        "- Recommended voices: marin or cedar for best quality\n"
+        "- Session instructions can be shorter and more declarative\n"
+        "  compared to gpt-realtime — focus on WHAT not HOW"
+    ),
+
     # ── o-series reasoning models ─────────────────────────────────────
     "o1": (
         "\nModel-specific guidance (o1 — reasoning model):\n"
@@ -270,11 +377,15 @@ def resolve_model_family(
     model_key: str,
     model_family: Optional[str] = None,
 ) -> str:
-    """Return ``'gpt4'``, ``'gpt5'``, ``'mistral'``, or ``'gemini'`` family string for a model key."""
+    """Return ``'gpt4'``, ``'gpt5'``, ``'mistral'``, ``'gemini'``, or ``'realtime'`` family string for a model key."""
     if model_family:
         return model_family
+    if any(x in model_key.lower() for x in ("realtime",)):
+        return "realtime"
     if any(x in model_key.lower() for x in ("gpt5", "o1", "o3", "o4", "reasoning")):
         return "gpt5"
+    if any(x in model_key.lower() for x in ("phi",)):
+        return "phi"
     if any(x in model_key.lower() for x in ("mistral",)):
         return "mistral"
     if any(x in model_key.lower() for x in ("gemini",)):

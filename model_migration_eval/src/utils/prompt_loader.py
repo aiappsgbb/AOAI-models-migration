@@ -25,7 +25,10 @@ class PromptLoader:
             prompts_dir: Base directory containing prompt files
         """
         self.prompts_dir = Path(prompts_dir)
-        self._cache: Dict[str, str] = {}
+        # Cache stores (mtime, content) tuples keyed by "model/prompt_type".
+        # On cache hit we stat() the file (~100× cheaper than open+read)
+        # and only reload when mtime has changed.
+        self._cache: Dict[str, tuple] = {}
         
     def load_prompt(
         self, 
@@ -44,25 +47,19 @@ class PromptLoader:
         Returns:
             Loaded and processed prompt string
         """
-        # Check cache first
+        # Check cache first (mtime-validated)
         cache_key = f"{model}/{prompt_type}"
-        if cache_key in self._cache and not variables:
-            return self._cache[cache_key]
-            
-        # Construct file path
-        file_path = self.prompts_dir / model / f"{prompt_type}.md"
-        
-        if not file_path.exists():
-            # Reasoning variant → fall back to the base model's prompts
-            # e.g. gpt5_reasoning → gpt5
-            base_model = re.sub(r'_reasoning$', '', model)
-            if base_model != model:
-                file_path = self.prompts_dir / base_model / f"{prompt_type}.md"
+        file_path = self._resolve_path(model, prompt_type)
 
-        if not file_path.exists():
-            # Try without model prefix (shared template)
-            file_path = self.prompts_dir / "templates" / f"{prompt_type}.md"
-            
+        if cache_key in self._cache and not variables:
+            cached_mtime, cached_content = self._cache[cache_key]
+            try:
+                current_mtime = file_path.stat().st_mtime
+                if current_mtime == cached_mtime:
+                    return cached_content
+            except OSError:
+                pass  # file gone — fall through to reload
+
         if not file_path.exists():
             raise FileNotFoundError(f"Prompt template not found: {file_path}")
             
@@ -70,14 +67,33 @@ class PromptLoader:
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
             
-        # Cache raw content
-        self._cache[cache_key] = content
+        # Cache with mtime
+        try:
+            self._cache[cache_key] = (file_path.stat().st_mtime, content)
+        except OSError:
+            pass
         
         # Substitute variables if provided
         if variables:
             content = self._substitute_variables(content, variables)
             
         return content
+
+    def _resolve_path(self, model: str, prompt_type: str) -> Path:
+        """Resolve the filesystem path for a prompt template."""
+        file_path = self.prompts_dir / model / f"{prompt_type}.md"
+
+        if not file_path.exists():
+            # Reasoning variant → fall back to the base model's prompts
+            base_model = re.sub(r'_reasoning$', '', model)
+            if base_model != model:
+                file_path = self.prompts_dir / base_model / f"{prompt_type}.md"
+
+        if not file_path.exists():
+            # Try without model prefix (shared template)
+            file_path = self.prompts_dir / "templates" / f"{prompt_type}.md"
+
+        return file_path
         
     def _substitute_variables(self, content: str, variables: Dict[str, Any]) -> str:
         """
@@ -213,6 +229,28 @@ class PromptLoader:
             {"role": "user", "content": user_content}
         ]
 
+    # Structured output instruction appended to every tool-calling
+    # evaluation so the evaluator can reliably parse selected tools.
+    _TC_OUTPUT_FORMAT = (
+        "\n\n## Required Response Format\n"
+        "After your analysis, you MUST end your response with a JSON block "
+        "using exactly this structure:\n"
+        "```json\n"
+        "{\n"
+        '  "selected_tools": [\n'
+        '    {"tool_name": "<exact_function_name>", "arguments": {"<param>": "<value>"}}\n'
+        "  ],\n"
+        '  "clarification": "<question if required params are missing, else null>",\n'
+        '  "direct_response": "<answer if no tool is needed, else null>"\n'
+        "}\n"
+        "```\n"
+        "Rules:\n"
+        "- Always include selected_tools with the tool(s) you would call, "
+        "even if you need to ask for missing parameters first.\n"
+        "- Use the exact function names from the Available Tools list.\n"
+        "- If no tool is appropriate, use an empty selected_tools array."
+    )
+
     def load_tool_calling_prompt(
         self,
         model: str,
@@ -240,7 +278,10 @@ class PromptLoader:
                 + "\n\n"
             )
 
-        user_content = f"{tools_desc}## User Request\n{query}"
+        user_content = (
+            f"{tools_desc}## User Request\n{query}"
+            f"{self._TC_OUTPUT_FORMAT}"
+        )
 
         return [
             {"role": "system", "content": system_prompt},

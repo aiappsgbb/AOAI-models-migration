@@ -54,9 +54,17 @@ class ModelConfig:
     seed: Optional[int] = None
     reasoning_effort: Optional[str] = None  # o-series / reasoning models only
     use_max_completion_tokens: Optional[bool] = None  # Auto-detected if None
-    model_family: Optional[str] = None  # "gpt4", "gpt5", "mistral", or "gemini" — determines prompt style guidelines
-    backend: str = "azure"  # "azure" for Azure OpenAI, "gemini" for Google Gemini OpenAI-compat API
+    model_family: Optional[str] = None  # "gpt4", "gpt5", "mistral", "gemini", or "realtime" — determines prompt style guidelines
+    backend: str = "azure"  # "azure" for Azure OpenAI, "gemini" for Google Gemini, "realtime" for Realtime API
     max_concurrent: Optional[int] = None  # Per-model concurrency limit (None → use global default)
+    # Realtime-specific settings (only used when backend="realtime")
+    voice: Optional[str] = None  # TTS/realtime voice: "alloy", "echo", "shimmer", etc.
+    turn_detection: Optional[str] = None  # "server_vad" or None for manual
+
+    @property
+    def modality(self) -> str:
+        """Return 'realtime' for speech-to-speech models, 'text' otherwise."""
+        return 'realtime' if self.backend == 'realtime' else 'text'
     
 
 @dataclass
@@ -388,9 +396,13 @@ class AzureOpenAIClient:
             config = yaml.safe_load(f)
             
         models_config = config.get('azure', {}).get('models', {})
+        logger.info("register_models_from_config: found %d models in %s: %s",
+                     len(models_config), config_path, list(models_config.keys()))
         for name, params in models_config.items():
             # ModelConfig accepts 'backend' from YAML (defaults to "azure")
             self.register_model(name, ModelConfig(**params))
+        logger.info("register_models_from_config: registered %d models: %s",
+                     len(self.models), list(self.models.keys()))
             
     def enable_caching(self, cache_dir: str = ".cache/prompts"):
         """Enable response caching for repeated queries"""
@@ -487,13 +499,26 @@ class AzureOpenAIClient:
         transient per-minute rate-limit).
 
         Gemini free-tier errors include a ``QuotaFailure`` detail whose
-        ``quotaId`` contains ``PerDay``.  The error can also surface as
-        ``metadata.quota_limit`` containing ``PerDay``, a ``retryDelay``
-        of 86 400 s, or simply ``"Resource has been exhausted"`` without
-        granular details via the OpenAI-compatible endpoint.
+        ``quotaId`` contains ``PerDay``.  Per-minute rate-limits contain
+        ``PerMinute`` in the ``quotaId`` and must **not** be treated as
+        daily — they are transient and should be retried with backoff.
 
-        Retrying these is pointless until the next calendar day, so we
-        fail fast instead.
+        Only the following indicators are considered *daily* exhaustion:
+
+        1. ``quotaId`` containing ``PerDay``
+        2. ``metadata.quota_limit`` containing ``PerDay``
+        3. ``retryDelay`` >= 3 600 s (1 hour — effectively a daily reset)
+        4. Error message explicitly mentioning ``per day`` / ``PerDay``
+        5. Deep-search for ``PerDay`` in the serialised body
+        6. ``RESOURCE_EXHAUSTED`` status **only** when *no* granular quota
+           details are present (ambiguous legacy format).
+
+        If ``PerMinute`` indicators are found, we always return ``False``
+        regardless of a generic ``RESOURCE_EXHAUSTED`` message, because
+        per-minute limits should be retried — not failed.
+
+        Retrying daily limits is pointless until the next calendar day, so
+        we fail fast instead.
         """
         try:
             body = getattr(exc, 'body', None)
@@ -505,25 +530,53 @@ class AzureOpenAIClient:
                 if not isinstance(details, list):
                     details = []
 
+                _found_per_minute = False
+                _found_per_day = False
+                _found_granular_quota = False
+
                 for detail in details:
                     if not isinstance(detail, dict):
                         continue
-                    # 1. QuotaFailure violations with PerDay quotaId
+                    # 1. QuotaFailure violations — check for PerDay / PerMinute
                     for v in detail.get('violations', []):
-                        if 'PerDay' in (v.get('quotaId', '') if isinstance(v, dict) else ''):
-                            return True
-                    # 2. ErrorInfo metadata with PerDay quota_limit
+                        if not isinstance(v, dict):
+                            continue
+                        qid = v.get('quotaId', '')
+                        if qid:
+                            _found_granular_quota = True
+                        if 'PerDay' in qid:
+                            _found_per_day = True
+                        if 'PerMinute' in qid:
+                            _found_per_minute = True
+
+                    # 2. ErrorInfo metadata
                     meta = detail.get('metadata', {})
-                    if isinstance(meta, dict) and 'PerDay' in meta.get('quota_limit', ''):
-                        return True
+                    if isinstance(meta, dict):
+                        ql = meta.get('quota_limit', '')
+                        if ql:
+                            _found_granular_quota = True
+                        if 'PerDay' in ql:
+                            _found_per_day = True
+                        if 'PerMinute' in ql:
+                            _found_per_minute = True
+
                     # 3. RetryInfo with very long delay (>= 1 h → daily quota)
                     retry_delay = detail.get('retryDelay', '')
                     if isinstance(retry_delay, str) and retry_delay.endswith('s'):
                         try:
                             if float(retry_delay[:-1]) >= 3600:
-                                return True
+                                _found_per_day = True
                         except ValueError:
                             pass
+
+                # Fast path: per-minute indicator present and NO per-day
+                # indicator → this is a transient RPM limit, NOT daily.
+                if _found_per_minute and not _found_per_day:
+                    return False
+
+                # Explicit daily quota found
+                if _found_per_day:
+                    return True
 
                 # 4. Check message for explicit "per day" / "PerDay" mentions
                 msg = error_obj.get('message', '')
@@ -535,14 +588,24 @@ class AzureOpenAIClient:
                 # 5. Deep search: serialise the full body and look for PerDay
                 #    anywhere in the structure (catches any nested format).
                 try:
-                    if 'PerDay' in json.dumps(body):
+                    body_str = json.dumps(body)
+                    if 'PerDay' in body_str:
                         return True
+                    # If PerMinute is anywhere in the body → transient, not daily
+                    if 'PerMinute' in body_str:
+                        return False
                 except (TypeError, ValueError):
                     pass
 
                 # 6. Gemini "Resource has been exhausted" via OpenAI-compat
-                #    endpoint — often lacks granular details.  Combined with
-                #    RESOURCE_EXHAUSTED status this is the daily limit.
+                #    endpoint.  Only classify as daily if we found *no*
+                #    granular quota details — when details exist but have no
+                #    PerDay indicator, it is a transient per-minute limit.
+                if _found_granular_quota:
+                    return False  # Had details but no PerDay → per-minute
+
+                # No granular details at all — ambiguous.  Use generic
+                # RESOURCE_EXHAUSTED as daily heuristic only as last resort.
                 if isinstance(msg, str):
                     ml = msg.lower()
                     if ('resource' in ml and 'exhausted' in ml) or \
@@ -552,9 +615,13 @@ class AzureOpenAIClient:
         except (AttributeError, TypeError):
             pass
 
-        # 7. Last resort: check the stringified exception
-        exc_str = str(exc).lower()
-        if 'resource' in exc_str and 'exhausted' in exc_str:
+        # 7. Last resort: check the stringified exception, but exclude
+        #    cases that mention per-minute indicators.
+        exc_str = str(exc)
+        if 'PerMinute' in exc_str:
+            return False
+        exc_lower = exc_str.lower()
+        if 'resource' in exc_lower and 'exhausted' in exc_lower:
             return True
 
         return False
@@ -739,7 +806,12 @@ class AzureOpenAIClient:
             
             # Extract content — SDK v2 may return a parsed dict with
             # response_format={"type": "json_object"}, so normalise to str.
-            raw_content = response.choices[0].message.content if response.choices else ""
+            # Guard: very rarely the SDK returns a raw string instead of
+            # a ChatCompletion object (transient API edge case).
+            if isinstance(response, str):
+                raw_content = response
+            else:
+                raw_content = response.choices[0].message.content if response.choices else ""
             if isinstance(raw_content, dict):
                 content = json.dumps(raw_content, ensure_ascii=False)
             elif raw_content is None:
@@ -783,14 +855,17 @@ class AzureOpenAIClient:
                 )
                 request_params["model"] = config.deployment_name
                 response = self.client.chat.completions.create(**request_params)
-                raw_content = response.choices[0].message.content if response.choices else ""
+                if isinstance(response, str):
+                    raw_content = response
+                else:
+                    raw_content = response.choices[0].message.content if response.choices else ""
                 if isinstance(raw_content, dict):
                     content = json.dumps(raw_content, ensure_ascii=False)
                 elif raw_content is None:
                     content = ""
                 else:
                     content = raw_content
-                metrics.finalize(completion=response)
+                metrics.finalize(completion=response if not isinstance(response, str) else None)
                 self.metrics_history.append(metrics)
                 result = CompletionResult(content=content, metrics=metrics, raw_response=response)
                 if use_cache and self._cache:
@@ -821,10 +896,14 @@ class AzureOpenAIClient:
             **kwargs
         )
             
-        # Gemini free tier is very restrictive (≈20 RPD) and often returns
-        # 429/503.  We retry generously with exponential backoff + jitter
-        # for ALL transient HTTP errors (429, 500, 502, 503, 504).
-        _MAX_TRANSIENT_RETRIES = 6
+        # Gemini free tier is very restrictive (5 RPM, ~20 RPD) and
+        # often returns 429/503.  We retry generously with exponential
+        # backoff + jitter for ALL transient HTTP errors.
+        # Gemini models get more retries and a minimum inter-retry delay
+        # to stay within the 5 requests-per-minute limit.
+        _is_gemini = self._is_gemini_backend(config)
+        _MAX_TRANSIENT_RETRIES = 12 if _is_gemini else 6
+        _GEMINI_MIN_RETRY_SECS = 13.0   # 60 s / 5 RPM ≈ 12 s + margin
         _TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
 
         for _attempt in range(_MAX_TRANSIENT_RETRIES + 1):
@@ -843,14 +922,19 @@ class AzureOpenAIClient:
                     active_client = self.async_client
 
                 response = await active_client.chat.completions.create(**request_params)
-                raw_content = response.choices[0].message.content if response.choices else ""
+                # Guard: very rarely the SDK returns a raw string instead
+                # of a ChatCompletion object (transient API edge case).
+                if isinstance(response, str):
+                    raw_content = response
+                else:
+                    raw_content = response.choices[0].message.content if response.choices else ""
                 if isinstance(raw_content, dict):
                     content = json.dumps(raw_content, ensure_ascii=False)
                 elif raw_content is None:
                     content = ""
                 else:
                     content = raw_content
-                metrics.finalize(completion=response)
+                metrics.finalize(completion=response if not isinstance(response, str) else None)
                 self.metrics_history.append(metrics)
 
                 return CompletionResult(
@@ -867,7 +951,7 @@ class AzureOpenAIClient:
                     and _status in _TRANSIENT_STATUS_CODES
                     and _attempt < _MAX_TRANSIENT_RETRIES
                 ):
-                    # Daily quota exhausted (e.g. Gemini free-tier 20 RPD)
+                    # Daily quota exhausted (e.g. Gemini free-tier ~20 RPD)
                     # → retrying is pointless, fail immediately.
                     if _status == 429 and self._is_daily_quota_exhausted(e):
                         _quota_msg = (
@@ -883,6 +967,10 @@ class AzureOpenAIClient:
                     # Try to honour the server's suggested retry delay
                     _default_wait = min(2 ** _attempt * 2, 120)
                     wait = self._parse_retry_after(e, default=_default_wait)
+                    # Gemini free tier (5 RPM): enforce minimum spacing so
+                    # we don't immediately hit the per-minute limit again.
+                    if _is_gemini:
+                        wait = max(wait, _GEMINI_MIN_RETRY_SECS)
                     # Add jitter (±25 %) to avoid thundering-herd on resume
                     wait = wait * (0.75 + random.random() * 0.5)
                     logger.warning(
@@ -912,14 +1000,17 @@ class AzureOpenAIClient:
                     )
                     request_params["model"] = config.deployment_name
                     response = await self.async_client.chat.completions.create(**request_params)
-                    raw_content = response.choices[0].message.content if response.choices else ""
+                    if isinstance(response, str):
+                        raw_content = response
+                    else:
+                        raw_content = response.choices[0].message.content if response.choices else ""
                     if isinstance(raw_content, dict):
                         content = json.dumps(raw_content, ensure_ascii=False)
                     elif raw_content is None:
                         content = ""
                     else:
                         content = raw_content
-                    metrics.finalize(completion=response)
+                    metrics.finalize(completion=response if not isinstance(response, str) else None)
                     self.metrics_history.append(metrics)
                     return CompletionResult(content=content, metrics=metrics, raw_response=response)
                 metrics.finalize(error=str(e))

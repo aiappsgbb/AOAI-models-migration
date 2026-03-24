@@ -519,6 +519,38 @@ class SecurityIncidentHandler:
         self._update_metrics(event_type, severity)
 ```
 
+### 8.3 Operational Resilience — Rate-Limit & Error Isolation
+
+The framework's import and evaluation pipelines implement **error isolation** to prevent a single failure from cascading:
+
+| Scenario | Behaviour |
+|----------|-----------|
+| **HTTP 429 (rate limit)** on one model during import | Error is logged; the import continues with remaining models. The failed model's prompt is skipped — partial results are preserved |
+| **Timeout** on one generation call | Same isolation — the thread's `future.result()` is wrapped in `try/except`, so the overall import completes |
+| **Content-filter rejection** | Logged as a warning; does not crash the import or evaluation run |
+| **Gemini daily quota exhaustion** | Detected via `PerDay` in the `quotaId`; fails fast immediately instead of retrying for minutes |
+
+This pattern uses `ThreadPoolExecutor` with individual `try/except` blocks per future, ensuring that **N−1 successful models are not lost** because of 1 failure.
+
+```python
+# Error-resilient parallel execution pattern
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+with ThreadPoolExecutor(max_workers=4) as executor:
+    futures = {
+        executor.submit(generate_prompt, model): model
+        for model in target_models
+    }
+    for future in as_completed(futures):
+        model = futures[future]
+        try:
+            result = future.result()
+            # Store successful result
+        except Exception as e:
+            logger.warning(f"Model {model} failed: {e}")
+            # Import continues with remaining models
+```
+
 ---
 
 ## 9. Network Security
@@ -599,6 +631,8 @@ class SecureKeyManager:
 9. Sanitise RAG context documents for PII before sending to models
 10. Enforce tenant isolation in document retrieval
 11. Validate tool parameters against strict schemas before execution
+12. Isolate parallel LLM calls so a single 429/timeout does not crash the entire pipeline
+13. Distinguish per-minute rate limits from daily quota exhaustion and handle each appropriately
 
 ### Don'ts ❌
 
@@ -650,4 +684,4 @@ The Fluent 2 web interface serves only an **internal evaluation tool** — it is
 
 ---
 
-*Security guide version: 2.0 | Last updated: February 2026*
+*Security guide version: 2.1 | Last updated: July 2026*

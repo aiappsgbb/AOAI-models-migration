@@ -134,47 +134,57 @@
             }
 
             listEl.innerHTML = '';
-            
-            for (const result of filtered) {
-                const card = document.createElement('div');
-                card.className = 'border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors';
-                
-                const isComparison = result.filename.startsWith('comparison_');
-                const typeColors = {
-                    'classification': 'bg-blue-100 text-blue-800',
-                    'dialog': 'bg-green-100 text-green-800',
-                    'general': 'bg-brand-100 text-brand-700',
-                    'unknown': 'bg-gray-100 text-gray-800'
-                };
-                
-                const typeColor = isComparison ? 'bg-orange-100 text-orange-800' : (typeColors[result.type] || typeColors.unknown);
-                const typeLabel = isComparison ? 'comparison' : result.type;
-                const modelLabel = isComparison ? result.model : displayName(result.model);
-                const dateStr = result.timestamp ? new Date(result.timestamp).toLocaleString() : 'Unknown date';
-                const hasFoundry = result.foundry_report_url || (result.foundry_urls && Object.keys(result.foundry_urls).length > 0);
-                const foundryBadge = hasFoundry ? '<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800" title="Foundry LLM-as-Judge evaluation available">☁️ Foundry</span>' : '';
-                
-                card.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <div class="flex-1 cursor-pointer result-clickable" data-filename="${result.filename}">
-                            <div class="flex items-center space-x-3">
-                                <span class="font-medium text-gray-800">${esc(modelLabel)}</span>
-                                <span class="px-2 py-1 text-xs rounded-full ${typeColor}">${typeLabel}</span>
-                                ${foundryBadge}
-                            </div>
-                            <p class="text-sm text-gray-500 mt-1">${dateStr}</p>
+
+            // Group results by batch_id (batch comparisons appear together)
+            const batches = {};    // batch_id → [result, …]
+            const singles = [];    // results without batch_id
+            for (const r of filtered) {
+                if (r.batch_id) {
+                    (batches[r.batch_id] = batches[r.batch_id] || []).push(r);
+                } else {
+                    singles.push(r);
+                }
+            }
+
+            // Render batch groups first (each as a collapsible group)
+            for (const [batchId, items] of Object.entries(batches)) {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'border border-orange-200 rounded-lg overflow-hidden mb-3';
+                const dateStr = items[0].timestamp ? new Date(items[0].timestamp).toLocaleString() : '';
+                groupDiv.innerHTML = `
+                    <button class="batch-toggle w-full flex items-center justify-between px-4 py-3 bg-orange-50 hover:bg-orange-100 transition-colors text-left" data-batch="${batchId}">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-orange-600 font-medium">📦 Batch Comparison</span>
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-orange-100 text-orange-700">${items.length} reports</span>
+                            <span class="text-xs text-gray-500">${dateStr}</span>
                         </div>
-                        <div class="flex items-center space-x-2 ml-4">
-                            <span class="text-xs text-gray-400 hidden sm:inline max-w-[200px] truncate" title="${result.filename}">${result.filename}</span>
-                            <button class="delete-result-btn px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition" data-filename="${result.filename}" title="Delete">
-                                🗑️
-                            </button>
-                        </div>
+                        <svg class="batch-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div class="batch-body hidden">
+                        <div class="space-y-2 p-3"></div>
                     </div>
                 `;
-                
-                listEl.appendChild(card);
+                const body = groupDiv.querySelector('.batch-body > div');
+                for (const result of items) {
+                    body.appendChild(buildResultCard(result));
+                }
+                listEl.appendChild(groupDiv);
             }
+
+            // Render single (non-batch) results
+            for (const result of singles) {
+                listEl.appendChild(buildResultCard(result));
+            }
+
+            // Bind batch toggle
+            document.querySelectorAll('.batch-toggle').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const body = btn.nextElementSibling;
+                    const chevron = btn.querySelector('.batch-chevron');
+                    body.classList.toggle('hidden');
+                    chevron.classList.toggle('rotate-180');
+                });
+            });
 
             // Bind click handlers
             document.querySelectorAll('.result-clickable').forEach(el => {
@@ -186,6 +196,48 @@
                     deleteResult(el.dataset.filename);
                 });
             });
+        }
+
+        function buildResultCard(result) {
+            const card = document.createElement('div');
+            card.className = 'border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors';
+
+            const isComparison = result.filename.startsWith('comparison_');
+            const typeColors = {
+                'classification': 'bg-blue-100 text-blue-800',
+                'dialog': 'bg-green-100 text-green-800',
+                'general': 'bg-brand-100 text-brand-700',
+                'unknown': 'bg-gray-100 text-gray-800'
+            };
+
+            const typeColor = isComparison ? 'bg-orange-100 text-orange-800' : (typeColors[result.type] || typeColors.unknown);
+            const typeLabel = isComparison ? 'comparison' : result.type;
+            const modelLabel = isComparison ? result.model : displayName(result.model);
+            const dateStr = result.timestamp ? new Date(result.timestamp).toLocaleString() : 'Unknown date';
+            const hasFoundry = result.foundry_report_url || (result.foundry_urls && Object.keys(result.foundry_urls).length > 0);
+            const foundryBadge = hasFoundry ? '<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800" title="Foundry LLM-as-Judge evaluation available">☁️ Foundry</span>' : '';
+            const batchBadge = result.batch_id ? `<span class="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-700" title="Part of batch ${result.batch_id}">📦</span>` : '';
+
+            card.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 cursor-pointer result-clickable" data-filename="${result.filename}">
+                        <div class="flex items-center space-x-3">
+                            <span class="font-medium text-gray-800">${esc(modelLabel)}</span>
+                            <span class="px-2 py-1 text-xs rounded-full ${typeColor}">${typeLabel}</span>
+                            ${foundryBadge}
+                            ${batchBadge}
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">${dateStr}</p>
+                    </div>
+                    <div class="flex items-center space-x-2 ml-4">
+                        <span class="text-xs text-gray-400 hidden sm:inline max-w-[200px] truncate" title="${result.filename}">${result.filename}</span>
+                        <button class="delete-result-btn px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition" data-filename="${result.filename}" title="Delete">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `;
+            return card;
         }
 
         async function deleteResult(filename) {

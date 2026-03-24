@@ -2,14 +2,20 @@
   "topic": "Red Sea Diving Travel",
   "slug": "red_sea_diving_travel",
   "models": [
+    "gemini3_flash",
     "gpt4",
     "gpt41_mini",
     "gpt4o",
     "gpt5",
+    "gpt51",
+    "gpt52",
+    "gpt54_mini",
     "gpt5_reasoning",
-    "gemini3_flash"
+    "gpt_realtime_1",
+    "gpt_realtime_15",
+    "mistral_large_3"
   ],
-  "archived_at": "2026-02-26T18:54:08.911140",
-  "prompts_updated_at": "2026-02-26T18:47:50.413789",
-  "data_generated_at": "2026-02-26T18:49:00.405007"
+  "archived_at": "2026-03-13T11:54:54.439820",
+  "prompts_updated_at": "2026-03-13T11:49:04.234039",
+  "data_generated_at": "2026-03-13T11:54:54.247401"
 }

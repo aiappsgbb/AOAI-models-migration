@@ -24,7 +24,7 @@ FIELD RULES:
   - do NOT use a raw object; it MUST be a JSON-encoded string.
 
 SENTIMENT VALUES (use exactly one of these):
-  very_angry, angry, frustrated, concerned, worried, neutral, curious, cautious, positive, professional
+  very_negative, negative, neutral, positive, very_positive
 
 IMPORTANT RULES:
 1. ALL scenarios, customer inputs, categories, subcategories, and contexts must be domain-specific to "{topic}"
