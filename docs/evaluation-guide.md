@@ -42,15 +42,15 @@ report.print_report()
 The `azure-ai-evaluation` SDK provides pre-built evaluators for quality metrics. It runs locally but uses Azure OpenAI as the judge model.
 
 ```python
-from src.evaluate.local_eval import run_local_evaluation
+from src.evaluate.local_eval import run_local_evaluation, get_model_config
+
+# get_model_config() reads from env vars (AZURE_OPENAI_ENDPOINT, etc.)
+model_config = get_model_config(deployment="gpt-4o")  # judge model
 
 results = run_local_evaluation(
     data=report.to_dataframe(),
     evaluators=["groundedness", "relevance", "coherence", "fluency"],
-    model_config={
-        "azure_endpoint": AZURE_OPENAI_ENDPOINT,
-        "azure_deployment": "gpt-4o",  # judge model
-    }
+    model_config=model_config,
 )
 ```
 
