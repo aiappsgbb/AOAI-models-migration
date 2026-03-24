@@ -45,7 +45,10 @@
         <div id="result-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-[var(--surface-card)] rounded-lg shadow-xl border border-[var(--border-subtle)] max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
                 <div class="flex items-center justify-between p-6 border-b">
-                    <h3 id="modal-title" class="fluent-section-title text-[16px]">Result Details</h3>
+                    <h3 id="modal-title" class="fluent-section-title text-[16px] flex-1">Result Details</h3>
+                    <button id="modal-export-btn" class="inline-flex items-center px-3 py-1.5 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors mr-3" title="Export to Excel">
+                        📊 Export Excel
+                    </button>
                     <button id="close-modal" class="text-gray-500 hover:text-gray-700">
                         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -196,6 +199,12 @@
                     deleteResult(el.dataset.filename);
                 });
             });
+            document.querySelectorAll('.export-result-btn').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    exportResult(el.dataset.filename);
+                });
+            });
         }
 
         function buildResultCard(result) {
@@ -231,6 +240,9 @@
                     </div>
                     <div class="flex items-center space-x-2 ml-4">
                         <span class="text-xs text-gray-400 hidden sm:inline max-w-[200px] truncate" title="${result.filename}">${result.filename}</span>
+                        <button class="export-result-btn px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition" data-filename="${result.filename}" title="Export to Excel">
+                            📊
+                        </button>
                         <button class="delete-result-btn px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition" data-filename="${result.filename}" title="Delete">
                             🗑️
                         </button>
@@ -238,6 +250,10 @@
                 </div>
             `;
             return card;
+        }
+
+        function exportResult(filename) {
+            window.location.href = '/api/results/export/' + encodeURIComponent(filename);
         }
 
         async function deleteResult(filename) {
@@ -571,6 +587,14 @@
                 alert('Error loading result: ' + error.message);
             }
         }
+
+        // Modal export button
+        document.getElementById('modal-export-btn').addEventListener('click', () => {
+            const filename = document.getElementById('modal-title').textContent;
+            if (filename && filename !== 'Result Details') {
+                exportResult(filename);
+            }
+        });
 
         // Close modal on outside click
         document.getElementById('result-modal').addEventListener('click', (e) => {
