@@ -112,8 +112,23 @@ def call_model(
             for m in messages
         ]
 
-    return client.chat.completions.create(
-        model=deployment or model_name,
-        messages=messages,
-        **params,
-    )
+    try:
+        return client.chat.completions.create(
+            model=deployment or model_name,
+            messages=messages,
+            **params,
+        )
+    except Exception as e:
+        error_msg = str(e)
+        if "DeploymentNotFound" in error_msg or "404" in error_msg:
+            raise RuntimeError(
+                f"Deployment '{deployment or model_name}' not found. "
+                f"Check your deployment name in Azure portal or .env file. "
+                f"Available env vars: {model_name.upper().replace('-', '_').replace('.', '')}_DEPLOYMENT"
+            ) from e
+        if "401" in error_msg or "AuthenticationError" in error_msg:
+            raise RuntimeError(
+                f"Authentication failed for '{deployment or model_name}'. "
+                f"Run 'az login' for Entra ID auth, or check your API key."
+            ) from e
+        raise

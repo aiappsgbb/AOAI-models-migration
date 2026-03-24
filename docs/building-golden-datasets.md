@@ -204,10 +204,28 @@ with open("golden_dataset.jsonl", "w") as f:
 
 If you route LLM traffic through **Azure API Management** (APIM), you already have a goldmine. APIM's GenAI gateway logs capture full request/response bodies with token usage.
 
-**Setup (one-time):**
+**Setup (one-time, ~15 minutes):**
 
-1. Enable diagnostic setting → *"Logs related to generative AI gateway"* → send to Log Analytics
-2. Enable request/response logging on your LLM API in APIM
+1. **Enable GenAI diagnostic logging:**
+   - Azure Portal → your APIM instance → **Diagnostic settings** → **Add diagnostic setting**
+   - Check **"Logs related to generative AI gateway"** (`ApiManagementGatewayLlmLogs`)
+   - Destination: **Send to Log Analytics workspace** (select or create one)
+   - Save
+
+2. **Enable request/response body capture** (required for golden dataset export):
+   - APIM → **APIs** → select your OpenAI API → **Settings** tab
+   - Under **Diagnostic Logs** → select the Azure Monitor diagnostic
+   - Set **Sampling rate** to 100% (or lower if high volume — 10% is often enough)
+   - Under **Body** → check **Request** and **Response** → set bytes to log: `8192` (covers most completions)
+   - Save
+
+3. **Permissions required:**
+   - APIM: `API Management Service Contributor` or `Owner`
+   - Log Analytics: `Log Analytics Contributor` (to query logs)
+
+4. **Wait for data:** Logs appear in Log Analytics within 5–10 minutes. Allow 24–48 hours to accumulate enough samples for a golden dataset.
+
+> **📖 Full reference:** [Azure APIM GenAI gateway logging](https://learn.microsoft.com/en-us/azure/api-management/genai-gateway-capabilities#logging-and-analytics) — includes policy examples and advanced filtering.
 
 **Query your logs with KQL:**
 
