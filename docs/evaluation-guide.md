@@ -176,6 +176,148 @@ report = evaluator.run()
 
 ---
 
+## Custom Evaluators: Tailoring Quality Checks to Your Domain
+
+The built-in evaluators (groundedness, relevance, etc.) cover most migration scenarios. But if your use case has **domain-specific quality criteria** — citation format compliance, regulatory language accuracy, brand tone consistency — you can create custom evaluators in minutes.
+
+### Approach 1: LLM-as-Judge with Custom Criteria (5 minutes)
+
+The simplest approach — write a plain-text description of what "good" looks like, and the LLM judges each response against it.
+
+```python
+from src.evaluate.custom import create_judge_evaluator
+
+# Define your quality criteria in plain language
+citation_judge = create_judge_evaluator(
+    name="citation_compliance",
+    criteria="""Score the response from 1 to 5 on citation compliance:
+    5: Every factual claim has a citation in [Source: Name, Date] format
+    4: Most claims cited, minor formatting issues
+    3: Some claims cited, some missing
+    2: Few or no citations present
+    1: No citations at all, or fabricated sources
+    """,
+    # Optional: provide examples of good/bad responses
+)
+
+# Use with MigrationEvaluator
+from src.evaluate.core import MigrationEvaluator
+
+evaluator = MigrationEvaluator(
+    source_model="gpt-4o",
+    target_model="gpt-5.1",
+    test_cases="data/golden_rag.jsonl",
+    metrics=["relevance", "coherence"],  # built-in metrics
+    custom_evaluators=[citation_judge],   # your custom metric
+)
+report = evaluator.run()
+```
+
+### Approach 2: Prompty-Based Evaluator (10 minutes)
+
+Create a `.prompty` file that defines a structured judge prompt. This gives you more control over the scoring rubric and is reusable across evaluations.
+
+Create `src/evaluate/prompts/my_custom_eval.prompty`:
+```yaml
+---
+name: Brand Tone Evaluator
+description: Evaluates whether responses match the company's brand voice guidelines.
+model:
+  api: chat
+  parameters:
+    temperature: 0.0
+    max_tokens: 256
+inputs:
+  response:
+    type: string
+    description: The model response to evaluate
+  brand_guidelines:
+    type: string
+    description: The brand voice guidelines to check against
+---
+system:
+You are a brand compliance evaluator. Score the response from 1 to 5 based on
+how well it adheres to the provided brand voice guidelines.
+
+Return ONLY a JSON object: {"score": <1-5>, "reason": "<brief explanation>"}
+
+Brand guidelines:
+{{brand_guidelines}}
+
+Response to evaluate:
+{{response}}
+```
+
+Then use it:
+```python
+from src.evaluate.custom import load_prompty_evaluator
+
+brand_eval = load_prompty_evaluator(
+    "src/evaluate/prompts/my_custom_eval.prompty",
+    brand_guidelines="Tone: professional but warm. Avoid jargon. Use active voice. Max 3 sentences per paragraph."
+)
+```
+
+### Approach 3: Code-Based Evaluator (15 minutes)
+
+For deterministic checks that don't need an LLM — regex patterns, word counts, format validation, response time limits.
+
+```python
+from src.evaluate.custom import CodeEvaluator
+
+# Example: Check JSON schema compliance
+import json
+
+@CodeEvaluator(name="json_schema_compliance")
+def check_json_output(response: str, **kwargs) -> dict:
+    """Check if the response is valid JSON with required fields."""
+    try:
+        data = json.loads(response)
+        has_category = "category" in data
+        has_priority = "priority" in data
+        score = 1.0 if (has_category and has_priority) else 0.0
+        return {"score": score, "reason": f"category={'✓' if has_category else '✗'}, priority={'✓' if has_priority else '✗'}"}
+    except json.JSONDecodeError:
+        return {"score": 0.0, "reason": "Response is not valid JSON"}
+
+# Example: Check response length constraints
+@CodeEvaluator(name="response_length")
+def check_length(response: str, **kwargs) -> dict:
+    """Penalize responses that are too short or too verbose."""
+    word_count = len(response.split())
+    if 20 <= word_count <= 500:
+        return {"score": 1.0, "reason": f"{word_count} words — within range"}
+    elif word_count < 20:
+        return {"score": 0.3, "reason": f"{word_count} words — too brief"}
+    else:
+        return {"score": 0.5, "reason": f"{word_count} words — too verbose"}
+
+# Example: Check Italian language quality (useful for ENI)
+@CodeEvaluator(name="language_check")
+def check_language(response: str, expected_language: str = "it", **kwargs) -> dict:
+    """Verify the response is in the expected language."""
+    # Simple heuristic — for production, use Azure AI Language detection
+    italian_markers = ["il", "la", "di", "che", "è", "per", "un", "sono", "non", "con"]
+    words = response.lower().split()
+    marker_count = sum(1 for w in words if w in italian_markers)
+    ratio = marker_count / max(len(words), 1)
+    is_italian = ratio > 0.1
+    score = 1.0 if is_italian else 0.0
+    return {"score": score, "reason": f"Italian marker ratio: {ratio:.2f}"}
+```
+
+### Comparison: When to Use Which Approach
+
+| Approach | Effort | Best For | Requires LLM? |
+|----------|--------|----------|---------------|
+| **LLM-as-Judge** | 5 min | Subjective quality (tone, style, domain accuracy) | Yes |
+| **Prompty file** | 10 min | Reusable rubrics, team-shared criteria | Yes |
+| **Code-based** | 15 min | Deterministic checks (format, length, schema, regex) | No |
+
+> **💡 Combine them.** Use built-in metrics (groundedness, relevance) + one LLM-as-Judge for domain quality + one code-based check for format compliance. That covers 99% of enterprise evaluation needs.
+
+---
+
 ## Using Your Own Test Data
 
 Replace the built-in test cases with your production data for a realistic evaluation:

@@ -291,6 +291,97 @@ Then sample from these logs to build your dataset (see [Sampling Strategy](#samp
 
 ---
 
+## PII Redaction: Scrubbing Production Data for Evaluation
+
+When exporting production traffic to build golden datasets, the data may contain **personally identifiable information** (PII) — customer names, emails, phone numbers, addresses, etc. Depending on your compliance requirements, you may need to redact PII before using the data for evaluation.
+
+> **💡 Not always required.** If your evaluation environment has the same data access controls as production (same VNet, same RBAC), PII redaction may be unnecessary. Check with your compliance team. When in doubt, redact.
+
+### Quick Start: One-Command Redaction
+
+```bash
+# Redact PII from a golden dataset (requires Azure AI Language resource)
+python -c "
+from src.pii import redact_jsonl_file
+redact_jsonl_file('data/production_export.jsonl', 'data/production_clean.jsonl', language='it')
+"
+```
+
+### How It Works
+
+The `src/pii.py` module uses **[Azure AI Language PII detection](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/overview)** to identify and replace PII entities with category placeholders:
+
+| Original | Redacted |
+|----------|----------|
+| `"Buongiorno, sono Marco Rossi, email marco.rossi@eni.com"` | `"Buongiorno, sono [PERSON], email [EMAIL]"` |
+| `"Chiamare il +39 02 1234567 per assistenza"` | `"Chiamare il [PHONE_NUMBER] per assistenza"` |
+| `"Indirizzo: Via Roma 42, 20121 Milano"` | `"Indirizzo: [ADDRESS]"` |
+
+### Supported PII Categories
+
+Azure AI Language detects 50+ entity types. Common ones relevant for evaluation data:
+
+| Category | Examples |
+|----------|----------|
+| `Person` | Names, usernames |
+| `Email` | Email addresses |
+| `PhoneNumber` | Phone/fax numbers |
+| `Address` | Street addresses, postal codes |
+| `Organization` | Company names (optional — may want to keep) |
+| `CreditCardNumber` | Payment card numbers |
+| `IPAddress` | IP addresses |
+| `DateTime` | Specific dates (optional — often useful to keep) |
+
+You can selectively redact only specific categories:
+
+```python
+from src.pii import redact_jsonl_file
+
+# Only redact names, emails, and phone numbers — keep dates and orgs
+redact_jsonl_file(
+    "data/production_export.jsonl",
+    "data/production_clean.jsonl",
+    categories=["Person", "Email", "PhoneNumber", "Address"],
+    language="it",  # Italian PII detection
+)
+```
+
+### Programmatic Use with TestCase Objects
+
+```python
+from src.pii import redact_test_cases
+from src.evaluate.core import load_test_cases, MigrationEvaluator
+import json
+
+# Load → redact → evaluate (one pipeline)
+cases = load_test_cases("data/production_export.jsonl")
+clean_cases = redact_test_cases(cases, language="it")
+
+evaluator = MigrationEvaluator(
+    source_model="gpt-4o",
+    target_model="gpt-5.1",
+    test_cases=clean_cases,
+    metrics=["coherence", "relevance", "groundedness"],
+)
+report = evaluator.run()
+```
+
+### Setup Requirements
+
+1. **Azure AI Language resource** — [create one](https://portal.azure.com/#create/Microsoft.CognitiveServicesTextAnalytics) (free tier: 5,000 text records/month)
+2. **Environment variables:**
+   ```bash
+   AZURE_LANGUAGE_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
+   AZURE_LANGUAGE_KEY=your-key  # or use az login for Entra ID auth
+   ```
+3. **Install SDK:** `pip install azure-ai-textanalytics azure-identity`
+
+> **💰 Cost:** PII detection is ~€0.75 per 1,000 text records. For a 200-record golden dataset, that's **€0.15**. Free tier covers 5,000 records/month.
+
+> **🌍 Language support:** Azure AI Language PII detection supports [70+ languages](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/language-support), including Italian (it), German (de), Spanish (es), French (fr), and more. Set `language="it"` for Italian text.
+
+---
+
 ## Strategy 2: Generate Synthetic Data (When You Lack Production Traffic)
 
 If your app is new or you need to test scenarios you haven't seen in production yet, use **synthetic data generation**.
