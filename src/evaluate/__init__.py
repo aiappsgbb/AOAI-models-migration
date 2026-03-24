@@ -25,6 +25,12 @@ from src.evaluate.foundry import (
     ALL_FOUNDRY_METRICS,
     FOUNDRY_AVAILABLE,
 )
+from src.evaluate.custom import (
+    create_judge_evaluator,
+    load_prompty_evaluator,
+    CodeEvaluator,
+    evaluate_custom,
+)
 from src.evaluate.local_eval import (
     quick_evaluate,
     evaluate_single,
@@ -40,6 +46,11 @@ __all__ = [
     "TestCase",
     "EvalResult",
     "load_test_cases",
+    # Custom evaluators
+    "create_judge_evaluator",
+    "load_prompty_evaluator",
+    "CodeEvaluator",
+    "evaluate_custom",
     # Local SDK evaluation (quick prototyping)
     "quick_evaluate",
     "evaluate_single",

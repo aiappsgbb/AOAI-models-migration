@@ -45,6 +45,22 @@ This repo provides four ready-to-run scenarios under `src/evaluate/scenarios/`:
 | **Translation** | `src/evaluate/scenarios/translation.py` | Fluency, Coherence, Relevance | 10 examples (FR/EN/DE, business/tech/legal/medical) |
 | **Classification** | `src/evaluate/scenarios/classification.py` | Accuracy, Consistency, Relevance | 16 examples (sentiment, tickets, intent, priority) |
 
+### Ready-to-Use Golden Datasets
+
+The `data/` directory contains **54 pre-built test cases** across 7 scenarios:
+
+| File | Cases | Scenario |
+|------|-------|----------|
+| `data/golden_rag.jsonl` | 10 | RAG / grounded Q&A |
+| `data/golden_classification.jsonl` | 10 | Intent & sentiment classification |
+| `data/golden_tool_calling.jsonl` | 8 | Function calling & tool selection |
+| `data/golden_translation.jsonl` | 6 | EN→IT/DE/ES translation |
+| `data/golden_summarization.jsonl` | 6 | Meeting notes, emails, incidents |
+| `data/golden_agent.jsonl` | 8 | Multi-step agent reasoning |
+| `data/golden_multiturn.jsonl` | 6 | Multi-turn conversation context |
+
+Use these as-is for quick validation, or as templates for your own domain-specific datasets.
+
 ### Quick Start — Run a Pre-Built Scenario
 
 ```python
@@ -156,6 +172,18 @@ evaluator = MigrationEvaluator(
 report = evaluator.run()
 report.print_report()
 report.save("migration_report.json")
+```
+
+Or pass a file path directly — loads JSONL automatically:
+
+```python
+# File path variant — no need to construct TestCase objects
+evaluator = MigrationEvaluator(
+    source_model="gpt-4o",
+    target_model="gpt-5.1",
+    test_cases="data/golden_rag.jsonl",  # file path supported
+    metrics=["coherence", "fluency", "relevance", "groundedness"],
+)
 ```
 
 ---
@@ -470,6 +498,38 @@ Each evaluator outputs:
 
 Aggregate results report a **pass rate** per evaluator over the dataset.
 
+### Custom Evaluators
+
+When built-in metrics don't cover your domain-specific quality criteria, create custom evaluators:
+
+**LLM-as-Judge (5 min)** — describe your criteria in plain text:
+
+```python
+from src.evaluate.custom import create_judge_evaluator
+
+judge = create_judge_evaluator(
+    name="citation_compliance",
+    criteria="Score 1-5: 5=every claim cites [Source: Name, Date], 1=no citations"
+)
+```
+
+**Code-based (15 min)** — deterministic checks without LLM:
+
+```python
+from src.evaluate.custom import CodeEvaluator
+import json
+
+@CodeEvaluator(name="json_valid")
+def check_json(response: str, **kwargs) -> dict:
+    try:
+        json.loads(response)
+        return {"score": 1.0, "reason": "Valid JSON"}
+    except json.JSONDecodeError:
+        return {"score": 0.0, "reason": "Invalid JSON"}
+```
+
+See `docs/evaluation-guide.md` for the full guide including Prompty-based evaluators.
+
 ---
 
 ## v1 (Classic) vs v2 (Cloud) — Which API Am I Using?
@@ -741,6 +801,18 @@ from src.evaluate.core import load_test_cases
 
 test_cases = load_test_cases("golden_dataset.jsonl")
 ```
+
+### PII Redaction
+
+If your golden dataset contains production data with personally identifiable information:
+
+```python
+from src.pii import redact_jsonl_file
+
+redact_jsonl_file("data/my_export.jsonl", "data/my_export_clean.jsonl")
+```
+
+Supports selective category redaction and 70+ languages. See `docs/building-golden-datasets.md`.
 
 ## Custom Prompty Files
 

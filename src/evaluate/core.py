@@ -290,6 +290,10 @@ class MigrationEvaluator:
     Runs each test case through both models, scores outputs with LLM-as-Judge,
     and generates a comparison report.
 
+    Args:
+        test_cases: Either a list of TestCase objects or a file path (str)
+            to a JSON/JSONL file that will be loaded via load_test_cases().
+
     Usage:
         evaluator = MigrationEvaluator(
             source_model="gpt-4o",
@@ -305,7 +309,7 @@ class MigrationEvaluator:
         self,
         source_model: str,
         target_model: str,
-        test_cases: list[TestCase],
+        test_cases: "str | list[TestCase]",
         metrics: list[str] | None = None,
         judge_model: str | None = None,
         regression_threshold: float = -0.5,
@@ -317,13 +321,17 @@ class MigrationEvaluator:
     ):
         self.source_model = source_model
         self.target_model = target_model
-        self.test_cases = test_cases
         self.metrics = metrics or ["coherence", "fluency", "relevance"]
         self.judge_model = judge_model or os.getenv("EVAL_MODEL_DEPLOYMENT", "gpt-4.1")
         self.regression_threshold = regression_threshold
         self.source_deployment = source_deployment
         self.target_deployment = target_deployment
         self.judge_deployment = judge_deployment
+
+        # Accept file path (str) or list of TestCase objects
+        if isinstance(test_cases, str):
+            test_cases = load_test_cases(test_cases)
+        self.test_cases = test_cases
 
         self.source_client = create_client(source_model, endpoint, api_key)
         self.target_client = create_client(target_model, endpoint, api_key)

@@ -165,9 +165,10 @@ curl https://YOUR-RESOURCE.openai.azure.com/openai/v1/chat/completions \
 
 ```python
 # Fetch stored completions filtered by metadata
+# Requires v1 API: client = OpenAI(base_url="https://RESOURCE.openai.azure.com/openai/v1/")
 stored = client.chat.completions.list(
     metadata={"use_case": "rag"},
-    limit=200
+    limit=200,
 )
 
 # Convert to evaluation JSONL
@@ -175,16 +176,25 @@ import json
 
 with open("golden_dataset.jsonl", "w") as f:
     for completion in stored:
+        # Retrieve full messages for this completion
+        msgs = client.chat.completions.messages.list(completion.id)
+        user_msg = next((m.content for m in msgs if m.role == "user"), "")
+        system_msg = next((m.content for m in msgs if m.role == "system"), "")
+
         record = {
-            "query": next(m.content for m in completion.messages if m.role == "user"),
-            "context": next((m.content for m in completion.messages if m.role == "system"), ""),
-            "response": completion.choices[0].message.content,
-            "model": completion.model,
-            "timestamp": completion.created,
+            "prompt": user_msg,
+            "system_prompt": system_msg,
+            "expected_output": completion.choices[0].message.content,
+            "context": system_msg,  # Or extract from RAG context if applicable
+            "metadata": {"model": completion.model, "id": completion.id},
         }
         json.dump(record, f)
         f.write("\n")
 ```
+
+> **📝 Note:** The Stored Completions API uses the v1 endpoint (`/openai/v1/`). If you're using the legacy `AzureOpenAI` client with `api-version`, switch to the `OpenAI` client with `base_url`. See the [API Changes guide](api-changes-by-model.md) for details.
+>
+> For the latest API surface and field names, see the **[official Stored Completions documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/stored-completions)**.
 
 > **Cost:** Stored completions are retained for 30 days at no extra charge. You're capturing data you're already paying to generate.
 
@@ -194,10 +204,28 @@ with open("golden_dataset.jsonl", "w") as f:
 
 If you route LLM traffic through **Azure API Management** (APIM), you already have a goldmine. APIM's GenAI gateway logs capture full request/response bodies with token usage.
 
-**Setup (one-time):**
+**Setup (one-time, ~15 minutes):**
 
-1. Enable diagnostic setting → *"Logs related to generative AI gateway"* → send to Log Analytics
-2. Enable request/response logging on your LLM API in APIM
+1. **Enable GenAI diagnostic logging:**
+   - Azure Portal → your APIM instance → **Diagnostic settings** → **Add diagnostic setting**
+   - Check **"Logs related to generative AI gateway"** (`ApiManagementGatewayLlmLogs`)
+   - Destination: **Send to Log Analytics workspace** (select or create one)
+   - Save
+
+2. **Enable request/response body capture** (required for golden dataset export):
+   - APIM → **APIs** → select your OpenAI API → **Settings** tab
+   - Under **Diagnostic Logs** → select the Azure Monitor diagnostic
+   - Set **Sampling rate** to 100% (or lower if high volume — 10% is often enough)
+   - Under **Body** → check **Request** and **Response** → set bytes to log: `8192` (covers most completions)
+   - Save
+
+3. **Permissions required:**
+   - APIM: `API Management Service Contributor` or `Owner`
+   - Log Analytics: `Log Analytics Contributor` (to query logs)
+
+4. **Wait for data:** Logs appear in Log Analytics within 5–10 minutes. Allow 24–48 hours to accumulate enough samples for a golden dataset.
+
+> **📖 Full reference:** [Azure APIM GenAI gateway logging](https://learn.microsoft.com/en-us/azure/api-management/genai-gateway-capabilities#logging-and-analytics) — includes policy examples and advanced filtering.
 
 **Query your logs with KQL:**
 
@@ -260,6 +288,97 @@ def log_interaction(messages, response, metadata=None):
 ```
 
 Then sample from these logs to build your dataset (see [Sampling Strategy](#sampling-strategy) below).
+
+---
+
+## PII Redaction: Scrubbing Production Data for Evaluation
+
+When exporting production traffic to build golden datasets, the data may contain **personally identifiable information** (PII) — customer names, emails, phone numbers, addresses, etc. Depending on your compliance requirements, you may need to redact PII before using the data for evaluation.
+
+> **💡 Not always required.** If your evaluation environment has the same data access controls as production (same VNet, same RBAC), PII redaction may be unnecessary. Check with your compliance team. When in doubt, redact.
+
+### Quick Start: One-Command Redaction
+
+```bash
+# Redact PII from a golden dataset (requires Azure AI Language resource)
+python -c "
+from src.pii import redact_jsonl_file
+redact_jsonl_file('data/production_export.jsonl', 'data/production_clean.jsonl', language='it')
+"
+```
+
+### How It Works
+
+The `src/pii.py` module uses **[Azure AI Language PII detection](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/overview)** to identify and replace PII entities with category placeholders:
+
+| Original | Redacted |
+|----------|----------|
+| `"Hello, I'm John Smith, email john.smith@acme.com"` | `"Hello, I'm [PERSON], email [EMAIL]"` |
+| `"Call +1 555-0123 for assistance"` | `"Call [PHONE_NUMBER] for assistance"` |
+| `"Address: 42 Market Street, London EC2A 1AB"` | `"Address: [ADDRESS]"` |
+
+### Supported PII Categories
+
+Azure AI Language detects 50+ entity types. Common ones relevant for evaluation data:
+
+| Category | Examples |
+|----------|----------|
+| `Person` | Names, usernames |
+| `Email` | Email addresses |
+| `PhoneNumber` | Phone/fax numbers |
+| `Address` | Street addresses, postal codes |
+| `Organization` | Company names (optional — may want to keep) |
+| `CreditCardNumber` | Payment card numbers |
+| `IPAddress` | IP addresses |
+| `DateTime` | Specific dates (optional — often useful to keep) |
+
+You can selectively redact only specific categories:
+
+```python
+from src.pii import redact_jsonl_file
+
+# Only redact names, emails, and phone numbers — keep dates and orgs
+redact_jsonl_file(
+    "data/production_export.jsonl",
+    "data/production_clean.jsonl",
+    categories=["Person", "Email", "PhoneNumber", "Address"],
+    language="de",  # German PII detection — supports 70+ languages
+)
+```
+
+### Programmatic Use with TestCase Objects
+
+```python
+from src.pii import redact_test_cases
+from src.evaluate.core import load_test_cases, MigrationEvaluator
+import json
+
+# Load → redact → evaluate (one pipeline)
+cases = load_test_cases("data/production_export.jsonl")
+clean_cases = redact_test_cases(cases, language="en")
+
+evaluator = MigrationEvaluator(
+    source_model="gpt-4o",
+    target_model="gpt-5.1",
+    test_cases=clean_cases,
+    metrics=["coherence", "relevance", "groundedness"],
+)
+report = evaluator.run()
+```
+
+### Setup Requirements
+
+1. **Azure AI Language resource** — [create one](https://portal.azure.com/#create/Microsoft.CognitiveServicesTextAnalytics) (free tier: 5,000 text records/month)
+2. **Environment variables:**
+   ```bash
+   AZURE_LANGUAGE_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
+   AZURE_LANGUAGE_KEY=your-key  # or use az login for Entra ID auth
+   ```
+3. **Install SDK:** `pip install azure-ai-textanalytics azure-identity`
+
+> **💰 Cost:** PII detection is ~€0.75 per 1,000 text records. For a 200-record golden dataset, that's **€0.15**. Free tier covers 5,000 records/month.
+
+> **🌍 Language support:** Azure AI Language PII detection supports [70+ languages](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/language-support), including German (de), Spanish (es), French (fr), Italian (it), Japanese (ja), and more. Set the `language` parameter to match your data (default: `"en"`).
 
 ---
 

@@ -366,3 +366,54 @@ def check_sdk_available() -> bool:
 
 
 SDK_AVAILABLE = check_sdk_available()
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatible alias (referenced in docs/evaluation-guide.md)
+# ---------------------------------------------------------------------------
+
+def run_local_evaluation(
+    data,
+    evaluators: list[str],
+    model_config: dict,
+    source_label: str = "source",
+    target_label: str = "target",
+) -> dict:
+    """
+    Backward-compatible wrapper for compare_local() / quick_evaluate().
+
+    Accepts either:
+    - A pandas DataFrame (from ComparisonReport.to_dataframe()) with source/target columns
+    - A list[dict] of items for single-model evaluation
+
+    Args:
+        data: DataFrame with source/target responses, or list[dict] items.
+        evaluators: List of metric names (e.g., ["groundedness", "relevance"]).
+        model_config: From get_model_config().
+        source_label: Label for source model column.
+        target_label: Label for target model column.
+
+    Returns:
+        Evaluation result dict.
+    """
+    import pandas as pd
+
+    if isinstance(data, pd.DataFrame):
+        # DataFrame mode: extract source and target items, run compare_local
+        source_items = []
+        target_items = []
+        for _, row in data.iterrows():
+            base = {"query": row.get("query", row.get("prompt", ""))}
+            if "context" in row and pd.notna(row["context"]):
+                base["context"] = row["context"]
+            if "ground_truth" in row and pd.notna(row["ground_truth"]):
+                base["ground_truth"] = row["ground_truth"]
+
+            source_items.append({**base, "response": row.get("source_response", "")})
+            target_items.append({**base, "response": row.get("target_response", "")})
+
+        return compare_local(source_items, target_items, evaluators, model_config,
+                             source_label=source_label, target_label=target_label)
+    else:
+        # List mode: single evaluation
+        return quick_evaluate(data, evaluators, model_config)
