@@ -289,10 +289,16 @@ class RealtimeClient:
                             usage = response.get("usage", {})
                             result.input_tokens = usage.get("input_tokens", 0)
                             result.output_tokens = usage.get("output_tokens", 0)
+                            # input/output_token_details may be a dict (v1.5)
+                            # or a list of dicts (v1) — handle both gracefully.
                             input_details = usage.get("input_token_details", {})
                             output_details = usage.get("output_token_details", {})
-                            result.input_audio_tokens = input_details.get("audio_tokens", 0)
-                            result.output_audio_tokens = output_details.get("audio_tokens", 0)
+                            if isinstance(input_details, list):
+                                input_details = {k: v for d in input_details if isinstance(d, dict) for k, v in d.items()}
+                            if isinstance(output_details, list):
+                                output_details = {k: v for d in output_details if isinstance(d, dict) for k, v in d.items()}
+                            result.input_audio_tokens = input_details.get("audio_tokens", 0) if isinstance(input_details, dict) else 0
+                            result.output_audio_tokens = output_details.get("audio_tokens", 0) if isinstance(output_details, dict) else 0
                             done = True
 
                         elif etype == "error":
