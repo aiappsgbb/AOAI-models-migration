@@ -4,10 +4,14 @@
 //
 // Always creates all resources from scratch using a SINGLE AI Services
 // account (kind: AIServices) which:
-//   • Hosts all model deployments (gpt-4.1, gpt-4o, gpt-4.1-mini, gpt-5.4, gpt-5.4-mini,
-//     gpt-5.1, gpt-5.2, Phi-4, gpt-realtime, gpt-realtime-1.5, gpt-4o-mini-tts)
+//   • Hosts text model deployments (gpt-4.1, gpt-4o, gpt-4.1-mini, gpt-5.4,
+//     gpt-5.4-mini, gpt-5.1, gpt-5.2, Phi-4)
 //   • Acts as AI Foundry hub with a project for evaluations
 //   • Provides the OpenAI-compatible endpoint for the app
+//
+// A SEPARATE AI Services account hosts all voice models
+// (gpt-realtime, gpt-realtime-1.5, gpt-4o-mini-tts) so TTS and Realtime
+// share the same endpoint — the code sends TTS via AZURE_OPENAI_REALTIME_ENDPOINT.
 //
 // Optionally assigns RBAC roles on a SEPARATE Cognitive Services account
 // used as the dedicated Realtime/TTS voice endpoint (via realtime-access.bicep).
@@ -95,9 +99,8 @@ var modelDeployments = [
   { name: 'gpt-5.4-mini', model: 'gpt-5.4-mini', version: '2026-03-17', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.1', model: 'gpt-5.1', version: '2025-11-13', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.2', model: 'gpt-5.2', version: '2025-12-11', skuName: 'GlobalStandard', capacity: 1000 }
-  // TTS model — lives in the primary AI Services account because
-  // gpt-4o-mini-tts is only available in eastus2 (not swedencentral).
-  { name: 'gpt-4o-mini-tts', model: 'gpt-4o-mini-tts', version: '2025-03-20', skuName: 'GlobalStandard', capacity: 100 }
+  // Note: gpt-4o-mini-tts moved to voiceModelDeployments so TTS and Realtime
+  // are on the same account (the code sends TTS via the realtime endpoint).
   // Phi-4 SLM — Microsoft model catalog (format: 'Microsoft')
   { name: 'Phi-4', model: 'Phi-4', version: '2', format: 'Microsoft', skuName: 'GlobalStandard', capacity: 1 }
   // Note: Mistral removed — requires Marketplace subscription agreement that
@@ -110,10 +113,12 @@ var modelDeployments = [
 // in a region with Realtime quota (may differ from the primary region).
 // Capacity is kept low (1 RPM) to fit within default quotas; increase after
 // requesting additional quota in the Azure portal.
-// Note: gpt-4o-mini-tts is NOT here — it's only in eastus2 (primary account).
+// gpt-4o-mini-tts is here too because the code sends TTS via the realtime
+// endpoint (same pattern as deploy.ps1 where all voice models share one account).
 var voiceModelDeployments = [
   { name: 'gpt-realtime', model: 'gpt-realtime', version: '2025-08-28', skuName: 'GlobalStandard', capacity: 1 }
   { name: 'gpt-realtime-1.5', model: 'gpt-realtime-1.5', version: '2026-02-23', skuName: 'GlobalStandard', capacity: 1 }
+  { name: 'gpt-4o-mini-tts', model: 'gpt-4o-mini-tts', version: '2025-03-20', skuName: 'GlobalStandard', capacity: 100 }
 ]
 
 // Convert string param to bool (handles empty string from unset env var)
