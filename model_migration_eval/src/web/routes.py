@@ -639,6 +639,10 @@ def create_app(config_path: str = None) -> Flask:
             realtime_endpoint = client._resolve_env_var(raw_ep) if raw_ep else None
             raw_apiv = rt_cfg.get('api_version', '')
             realtime_api_version = client._resolve_env_var(raw_apiv) if raw_apiv else None
+            # TTS may live on a different endpoint than Realtime (e.g.
+            # gpt-4o-mini-tts on primary, gpt-realtime on voice account).
+            raw_tts_ep = rt_cfg.get('tts_endpoint', '')
+            tts_endpoint = client._resolve_env_var(raw_tts_ep) if raw_tts_ep else None
             tts_config = load_tts_config_from_settings({'realtime': rt_cfg})
             perf = _load_perf_settings()
             slot["realtime_evaluator"] = RealtimeEvaluator(
@@ -649,6 +653,7 @@ def create_app(config_path: str = None) -> Flask:
                 max_concurrent=min(perf.get('max_concurrent_requests', 5), 2),
                 realtime_endpoint=realtime_endpoint,
                 realtime_api_version=realtime_api_version,
+                tts_endpoint=tts_endpoint,
             )
         return slot.get("realtime_evaluator")
 
