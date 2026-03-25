@@ -36,7 +36,7 @@
       "value": "${GEMINI_API_KEY}"
     },
     "realtimeLocation": {
-      "value": "eastus2"
+      "value": "swedencentral"
     },
     "deployVoiceModels": {
       "value": "true"
