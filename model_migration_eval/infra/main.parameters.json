@@ -36,10 +36,10 @@
       "value": "${GEMINI_API_KEY}"
     },
     "realtimeLocation": {
-      "value": "${AZURE_OPENAI_REALTIME_LOCATION}"
+      "value": "eastus2"
     },
     "deployVoiceModels": {
-      "value": "${DEPLOY_VOICE_MODELS}"
+      "value": "true"
     },
     "authEasyAuthAutoLogin": {
       "value": "${AUTH_EASYAUTH_AUTO_LOGIN}"
