@@ -36,8 +36,8 @@ This framework automates that process end-to-end:
 | **General** | Format compliance, completeness, reasoning, safety, structured output |
 | **RAG** | Groundedness, relevance, context keyword overlap, response completeness, latency & cost analytics |
 | **Tool Calling** | Tool selection accuracy, parameter extraction accuracy, response correctness, latency & cost analytics |
-| **Speech-to-Speech (S2S)** | Full TTS → Realtime WebSocket → transcript pipeline for voice model evaluation.  Supports `gpt-realtime` and `gpt-realtime-1.5` via a dedicated endpoint.  Realtime-specific metrics: time-to-first-audio, session time, WebSocket connect time, audio I/O duration, audio token counts, TTS latency, TTS cache hit rate, audio cost per request |
-| **Token & Cost** | Per-request token breakdown (prompt/completion/cached/reasoning), cost estimation, cache hit rate, throughput (tok/s), **audio token pricing** for realtime models |
+| **Speech-to-Speech (S2S)** | Full TTS → Realtime WebSocket → transcript pipeline for voice model evaluation.  Supports `gpt-realtime` and `gpt-realtime-1.5` with **independent TTS and Realtime endpoints** (can live on separate Azure accounts/regions).  Realtime-specific metrics: time-to-first-audio, session time, WebSocket connect time, audio I/O duration, audio token counts, TTS latency, TTS cache hit rate.  **Audio cost estimation** in the quick test (home page) using text + audio token pricing from `cost_rates` in settings.yaml |
+| **Token & Cost** | Per-request token breakdown (prompt/completion/cached/reasoning), cost estimation, cache hit rate, throughput (tok/s).  **Audio-aware cost estimation** for realtime models — separates text vs audio tokens and applies per-type rates (`audio_input` / `audio_output`) from `cost_rates` in settings.yaml |
 | **Consistency** | Multi-run reproducibility scoring, response variance, format consistency |
 | **Model Comparison** | Head-to-head or **batch multi-model** comparison (Model A vs N Model B's) with dimension-by-dimension charts, statistical significance (Welch's t-test), and actionable recommendations |
 | **Prompt Versioning** | Every save creates a timestamped snapshot — preview, restore, or delete any version |
@@ -74,7 +74,8 @@ model_migration_eval/
 │       ├── acr-access.bicep        #   AcrPull role assignment
 │       ├── foundry-access.bicep    #   OpenAI + Foundry + Storage RBAC roles
 │       ├── foundry-resource.bicep  #   AI Services account + model deployments + Foundry project
-│       ├── realtime-access.bicep   #   OpenAI Contributor + User roles on external TTS/Realtime endpoint
+│       ├── realtime-access.bicep   #   OpenAI Contributor + User roles on dedicated Realtime voice endpoint
+│       ├── realtime-resource.bicep #   Dedicated AI Services account for voice models (gpt-realtime, gpt-realtime-1.5)
 │       ├── storage-resource.bicep  #   Storage Account + blob container for user-data persistence
 │       ├── openai-access.bicep     #   Cognitive Services OpenAI User role (legacy)
 │       └── openai-resource.bicep   #   Azure OpenAI account (legacy — replaced by foundry-resource)
@@ -231,7 +232,8 @@ AZURE_OPENAI_API_KEY=your-api-key-here
 FOUNDRY_PROJECT_ENDPOINT=https://your-hub.services.ai.azure.com/api/projects/your-project  # Optional
 
 # Realtime / Speech-to-Speech (optional — only needed if using gpt-realtime models)
-AZURE_OPENAI_REALTIME_ENDPOINT=    # Dedicated endpoint for TTS + Realtime voice models
+AZURE_OPENAI_REALTIME_ENDPOINT=    # Dedicated endpoint for Realtime WebSocket voice models
+AZURE_OPENAI_TTS_ENDPOINT=         # Dedicated endpoint for TTS (if different from realtime — see note below)
 
 # Google Gemini (optional — only needed if using Gemini models)
 GEMINI_API_KEY=            # Get from https://aistudio.google.com/
@@ -1569,10 +1571,10 @@ flowchart LR
 
 | Requirement | Details |
 |-------------|---------|
-| **Realtime model deployment** | Deploy `gpt-realtime` and/or `gpt-realtime-1.5` on your Azure OpenAI (AI Services) resource |
-| **TTS model deployment** | Deploy `gpt-4o-mini-tts` on the same resource (or on the dedicated realtime endpoint) |
-| **RBAC roles** | `Cognitive Services OpenAI Contributor` (required for TTS `audio/speech` data action) + `Cognitive Services OpenAI User` on the realtime endpoint resource |
-| **Optional: Dedicated endpoint** | Set `AZURE_OPENAI_REALTIME_ENDPOINT` in `.env` to use a separate endpoint for TTS + Realtime — avoids quota contention with text models |
+| **Realtime model deployment** | Deploy `gpt-realtime` and/or `gpt-realtime-1.5` on an Azure AI Services resource |
+| **TTS model deployment** | Deploy `gpt-4o-mini-tts` — can be on the **same** account as realtime models, or on a **different** account (e.g. when regions differ).  The `azd` Bicep deploys it on the primary account because `GlobalStandard` for TTS is not available in all regions |
+| **RBAC roles** | `Cognitive Services OpenAI Contributor` (required for TTS `audio/speech` data action) + `Cognitive Services OpenAI User` on both the TTS and Realtime endpoint resources |
+| **Optional: Dedicated endpoints** | `AZURE_OPENAI_REALTIME_ENDPOINT` → Realtime WebSocket models, `AZURE_OPENAI_TTS_ENDPOINT` → TTS model.  These can point to different accounts/regions.  If `TTS_ENDPOINT` is not set, TTS falls back to the realtime endpoint, then to the main endpoint |
 
 #### Configuration in `settings.yaml`
 
@@ -1602,9 +1604,14 @@ azure:
       turn_detection: "server_vad"
       max_concurrent: 2
 
-# Optional: dedicated endpoint for voice models
+# Optional: dedicated endpoints for voice models
+# TTS and Realtime can live on DIFFERENT accounts/regions.
+# tts_endpoint is used for gpt-4o-mini-tts synthesis;
+# endpoint is used for gpt-realtime WebSocket sessions.
+# Fallback: tts_endpoint → endpoint → main azure endpoint.
 realtime:
   endpoint: "${AZURE_OPENAI_REALTIME_ENDPOINT}"
+  tts_endpoint: "${AZURE_OPENAI_TTS_ENDPOINT}"
   api_version: "2025-04-01-preview"
   tts:
     deployment_name: "gpt-4o-mini-tts"
@@ -1617,23 +1624,27 @@ realtime:
 
 #### How Evaluation Works
 
-1. **Text → Audio** — The `TTSClient` converts each text test case to PCM16 24 kHz mono audio via the `gpt-4o-mini-tts` deployment.  Audio is cached to disk (`.cache/tts_audio/`) to avoid redundant TTS calls on re-runs.
-2. **Audio → WebSocket** — The `RealtimeClient` opens a WebSocket session to the Realtime API with the model's system prompt as `instructions`, sends the audio, and collects the response (transcript + audio).
+1. **Text → Audio** — The `TTSClient` converts each text test case to PCM16 24 kHz mono audio via the `gpt-4o-mini-tts` deployment.  TTS requests are routed to `AZURE_OPENAI_TTS_ENDPOINT` (falls back to `AZURE_OPENAI_REALTIME_ENDPOINT`, then to the main endpoint).  Audio is cached to disk (`.cache/tts_audio/`) to avoid redundant TTS calls on re-runs.
+2. **Audio → WebSocket** — The `RealtimeClient` opens a WebSocket session to the Realtime API (via `AZURE_OPENAI_REALTIME_ENDPOINT`) with the model's system prompt as `instructions`, sends the audio, and collects the response (transcript + audio).
 3. **Transcript → Metrics** — The response transcript is evaluated using the same `MetricsCalculator` as text models — classification accuracy, dialog quality, RAG groundedness, tool calling accuracy, etc.
-4. **Realtime Metrics** — Additional voice-specific metrics are computed: time-to-first-audio, session duration, WebSocket connect time, audio I/O duration, audio token counts, TTS latency, TTS cache hit rate, and audio cost per request.
+4. **Realtime Metrics** — Additional voice-specific metrics are computed: time-to-first-audio, session duration, WebSocket connect time, audio I/O duration, audio token counts, TTS latency, TTS cache hit rate.
+5. **Audio Cost Estimation** — The quick test (home page) computes cost by separating text tokens from audio tokens (as reported by the API in `response.done → usage → input_token_details / output_token_details`) and applying the per-type rates from `cost_rates` in settings.yaml (`audio_input` / `audio_output` for audio, `input` / `output` for text).
 
 #### TTS Audio Cache
 
 Synthesised audio is cached to `.cache/tts_audio/` (one `.pcm16` + `.meta.json` per text/voice combination).  This saves TTS API calls and latency on repeated evaluation runs.  Disable caching by setting `tts.cache_enabled: false` in `settings.yaml`.
 
-#### RBAC for Dedicated Realtime Endpoint
+#### RBAC for Dedicated Endpoints
 
-If you use a dedicated endpoint, the Service Principal (or managed identity) needs roles on that resource.  Both `deploy.ps1` and the Bicep `realtime-access.bicep` module handle this automatically:
+When TTS and Realtime models live on separate accounts, the Service Principal (or managed identity) needs roles on **both** resources.  The Bicep modules (`foundry-access.bicep` for the primary account with TTS, `realtime-access.bicep` for the voice account) handle this automatically:
 
-| Role | Why |
-|------|-----|
-| **Cognitive Services OpenAI Contributor** | TTS `audio/speech` endpoint requires `deployments/audio/action` data action |
-| **Cognitive Services OpenAI User** | Realtime WebSocket `chat/completions` data-plane access |
+| Role | Account | Why |
+|------|---------|-----|
+| **Cognitive Services OpenAI Contributor** | Primary (TTS) | TTS `audio/speech` endpoint requires `deployments/audio/action` data action |
+| **Cognitive Services OpenAI Contributor** | Voice (Realtime) | Realtime WebSocket session management |
+| **Cognitive Services OpenAI User** | Voice (Realtime) | Realtime WebSocket `chat/completions` data-plane access |
+
+> **Note**: In the `azd` deployment, `gpt-4o-mini-tts` lives on the **primary** AI Services account (eastus2) because `GlobalStandard` SKU for TTS is not available in all regions (e.g. swedencentral).  The Realtime models live on a **separate** account in a region with Realtime quota.  The app uses `AZURE_OPENAI_TTS_ENDPOINT` to route TTS to the primary account and `AZURE_OPENAI_REALTIME_ENDPOINT` for WebSocket sessions.
 
 ### Adding a New Model — Step by Step
 
@@ -2029,7 +2040,8 @@ flowchart TB
         R2["Azure AI Developer + User → AI Foundry project"]
         R3["Storage Blob Data Contributor → Storage Account"]
         R4["AcrPull → Container Registry"]
-        R5["Optional: OpenAI Contributor + User → Realtime/TTS endpoint"]
+        R5["OpenAI Contributor + User → Realtime voice endpoint"]
+        R6["TTS (gpt-4o-mini-tts) lives on primary AI Services account"]
     end
 
     MI -.-> RBAC
@@ -2052,6 +2064,7 @@ flowchart TB
     style R3 fill:#fbcfe8,stroke:#db2777,color:#831843
     style R4 fill:#fbcfe8,stroke:#db2777,color:#831843
     style R5 fill:#fbcfe8,stroke:#db2777,color:#831843
+    style R6 fill:#fbcfe8,stroke:#db2777,color:#831843
 ```
 
 The Bicep templates are located in the `infra/` folder:
@@ -2061,9 +2074,10 @@ The Bicep templates are located in the `infra/` folder:
 | `infra/main.bicep` | Entry point — orchestrates all resources using [Azure Verified Modules (AVM)](https://azure.github.io/Azure-Verified-Modules/) |
 | `infra/main.parameters.json` | Parameter file — values are populated from `azd` environment variables |
 | `infra/modules/acr-access.bicep` | Assigns the **AcrPull** role to the managed identity on the Container Registry |
-| `infra/modules/foundry-resource.bicep` | Creates the **AI Services account** (kind: AIServices) with model deployments + Foundry project |
+| `infra/modules/foundry-resource.bicep` | Creates the **AI Services account** (kind: AIServices) with text model deployments + TTS (`gpt-4o-mini-tts`) + Foundry project |
 | `infra/modules/foundry-access.bicep` | Assigns **OpenAI + Foundry + Storage RBAC roles** to the managed identity |
-| `infra/modules/realtime-access.bicep` | Assigns **OpenAI Contributor + User roles** on an external Cognitive Services account for TTS + Realtime WebSocket |
+| `infra/modules/realtime-resource.bicep` | Creates a **dedicated AI Services account** for Realtime voice models (`gpt-realtime`, `gpt-realtime-1.5`) in a region with Realtime quota |
+| `infra/modules/realtime-access.bicep` | Assigns **OpenAI Contributor + User roles** on the dedicated Realtime account |
 | `infra/modules/storage-resource.bicep` | Creates a **Storage Account** + blob container for persisting user data across container restarts |
 | `infra/modules/openai-access.bicep` | Assigns **Cognitive Services OpenAI User** role (legacy — superseded by foundry-access) |
 | `infra/modules/openai-resource.bicep` | Creates an Azure OpenAI account (legacy — superseded by foundry-resource) |
@@ -2080,7 +2094,8 @@ The Bicep templates are located in the `infra/` folder:
 | **User-Assigned Managed Identity** | Keyless authentication — no API keys needed |
 | **Container App** | Flask web service (1 vCPU, 2 Gi memory, scale 0–3 replicas) |
 | **Storage Account** | GPv2 with blob container `userdata` for persisting user files across container restarts |
-| **RBAC Role Assignments** | Automatic role binding for Azure OpenAI, AI Foundry, Storage, and optionally a dedicated Realtime/TTS endpoint |
+| **AI Services Account (Voice)** | *(optional, `deployVoiceModels=true`)* Dedicated account for `gpt-realtime` + `gpt-realtime-1.5` in a region with Realtime quota (default: swedencentral) |
+| **RBAC Role Assignments** | Automatic role binding for Azure OpenAI, AI Foundry, Storage, and the dedicated Realtime voice endpoint |
 
 ### Authentication Model
 
@@ -2176,7 +2191,8 @@ Open this URL in your browser to access the web interface.
 |----------|:--------:|-------------|
 | `AZURE_OPENAI_ENDPOINT` | ✅ | Azure OpenAI endpoint URL |
 | `FOUNDRY_PROJECT_ENDPOINT` | — | AI Foundry project endpoint (enables LLM-as-judge) |
-| `AZURE_OPENAI_REALTIME_ENDPOINT` | — | Dedicated endpoint for TTS + Realtime voice models (if separate from main endpoint) |
+| `AZURE_OPENAI_REALTIME_ENDPOINT` | — | Dedicated endpoint for Realtime WebSocket voice models (if separate from main endpoint) |
+| `AZURE_OPENAI_TTS_ENDPOINT` | — | Dedicated endpoint for TTS synthesis (if `gpt-4o-mini-tts` is on a different account than the Realtime models).  Falls back to `REALTIME_ENDPOINT`, then to the main endpoint |
 | `GEMINI_API_KEY` | — | Google Gemini API key (enables Gemini model evaluations) |
 | `AZURE_OPENAI_ACCOUNT_RESOURCE_ID` | — | Full resource ID of the OpenAI account (enables automatic RBAC) |
 | `AI_FOUNDRY_PROJECT_RESOURCE_ID` | — | Full resource ID of the AI Foundry project (enables automatic RBAC) |
@@ -2264,8 +2280,9 @@ The script uses Azure CLI (`az role assignment create`) instead of ARM/Graph, wh
 | **Azure AI Developer** | AI Services account | Foundry project operations |
 | **Azure AI User** | AI Services account | Foundry asset store access |
 | **Storage Blob Data Contributor** | Resource Group | Upload evaluation datasets to backing storage |
-| **Cognitive Services OpenAI Contributor** | Realtime endpoint *(optional)* | TTS `audio/speech` data action on dedicated voice endpoint |
-| **Cognitive Services OpenAI User** | Realtime endpoint *(optional)* | Realtime WebSocket access on dedicated voice endpoint |
+| **Cognitive Services OpenAI Contributor** | Realtime voice endpoint *(optional)* | Realtime session management on dedicated voice endpoint |
+| **Cognitive Services OpenAI User** | Realtime voice endpoint *(optional)* | Realtime WebSocket access on dedicated voice endpoint |
+| **Cognitive Services OpenAI Contributor** | Primary AI Services *(automatic)* | Includes TTS `audio/speech` data action for `gpt-4o-mini-tts` |
 
 #### Alternative: Ask Your Tenant Admin
 

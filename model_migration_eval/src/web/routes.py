@@ -1048,7 +1048,7 @@ def create_app(config_path: str = None) -> Flask:
                         'cached': 0,
                         'reasoning': 0,
                     },
-                    'cost': 0,  # realtime pricing differs — not estimated here
+                    'cost': _estimate_realtime_cost(model_name, rt_result),
                     'realtime': {
                         'ttfa_ms': rt_result.time_to_first_audio_ms,
                         'session_ms': rt_result.session_time_ms,
@@ -2782,6 +2782,32 @@ def create_app(config_path: str = None) -> Flask:
         return {'usd': round(cost, 6), 'breakdown': {
             'input_tokens': uncached, 'cached_tokens': ct,
             'output_tokens': comp - rt, 'reasoning_tokens': rt,
+        }}
+
+    def _estimate_realtime_cost(model_name: str, rt_result) -> dict:
+        """Return cost estimate in USD for a Realtime API request.
+
+        Realtime models are priced per text token AND per audio token.
+        Rates come from ``cost_rates.<model>.audio_input / audio_output``
+        in settings.yaml (per 1K tokens).  Falls back to text-only rates
+        when audio rates are not configured.
+        """
+        mc = get_metrics_calc()
+        r = mc.get_cost_rates(model_name)
+        # Text tokens (non-audio portion)
+        text_in = max(0, (rt_result.input_tokens or 0) - (rt_result.input_audio_tokens or 0))
+        text_out = max(0, (rt_result.output_tokens or 0) - (rt_result.output_audio_tokens or 0))
+        audio_in = rt_result.input_audio_tokens or 0
+        audio_out = rt_result.output_audio_tokens or 0
+        cost = (
+            (text_in / 1000) * r.get('input', 0.005)
+            + (text_out / 1000) * r.get('output', 0.02)
+            + (audio_in / 1000) * r.get('audio_input', r.get('input', 0.005))
+            + (audio_out / 1000) * r.get('audio_output', r.get('output', 0.02))
+        )
+        return {'usd': round(cost, 6), 'breakdown': {
+            'text_input_tokens': text_in, 'text_output_tokens': text_out,
+            'audio_input_tokens': audio_in, 'audio_output_tokens': audio_out,
         }}
 
     # =========================================================================
