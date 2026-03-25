@@ -128,10 +128,17 @@ azure:
 # to avoid quota contention with text models.  If omitted the main azure.*
 # endpoint is used.  Auth is always via Entra ID (DefaultAzureCredential).
 realtime:
-  # Optional dedicated endpoint for TTS + Realtime API voice models.
+  # Optional dedicated endpoint for Realtime API voice models (WebSocket).
   # Leave empty / remove to reuse the main azure.endpoint.
   endpoint: "${AZURE_OPENAI_REALTIME_ENDPOINT}"
   api_version: "2025-04-01-preview"
+
+  # Optional separate endpoint for TTS synthesis.
+  # When voice models are split across accounts (e.g. gpt-4o-mini-tts on the
+  # primary account, gpt-realtime on a dedicated account), set this to the
+  # endpoint hosting the TTS model.  Leave empty to reuse the realtime endpoint,
+  # or the main endpoint if no realtime endpoint is configured either.
+  tts_endpoint: "${AZURE_OPENAI_TTS_ENDPOINT}"
 
   # TTS model used to convert text test-cases to audio before sending
   # to the Realtime API.  Must be deployed on the realtime endpoint

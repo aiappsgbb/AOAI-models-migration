@@ -534,6 +534,9 @@ class ModelComparator:
             realtime_endpoint = self.client._resolve_env_var(raw_ep) if raw_ep else None
             raw_apiv = rt_cfg.get('api_version', '')
             realtime_api_version = self.client._resolve_env_var(raw_apiv) if raw_apiv else None
+            # TTS may live on a different endpoint than Realtime
+            raw_tts_ep = rt_cfg.get('tts_endpoint', '')
+            tts_endpoint = self.client._resolve_env_var(raw_tts_ep) if raw_tts_ep else None
 
             # Build TTS config from settings (not hardcoded)
             tts_config = load_tts_config_from_settings(
@@ -548,6 +551,7 @@ class ModelComparator:
                 max_concurrent=2,
                 realtime_endpoint=realtime_endpoint if realtime_endpoint else None,
                 realtime_api_version=realtime_api_version if realtime_api_version else None,
+                tts_endpoint=tts_endpoint,
             )
         return await self._realtime_evaluator.evaluate_async(
             model, evaluation_type

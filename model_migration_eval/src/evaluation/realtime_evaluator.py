@@ -68,6 +68,7 @@ class RealtimeEvaluator:
         max_concurrent: int = 2,
         realtime_endpoint: Optional[str] = None,
         realtime_api_version: Optional[str] = None,
+        tts_endpoint: Optional[str] = None,
     ):
         self.azure_client = azure_client
         self.prompt_loader = prompt_loader or PromptLoader()
@@ -76,12 +77,15 @@ class RealtimeEvaluator:
         self.consistency_runs = consistency_runs
         self.max_concurrent = max(1, max_concurrent)
 
-        # Optional dedicated endpoint for voice models (TTS + Realtime).
-        # When set, a separate AzureOpenAI client is created for TTS and
-        # the RealtimeClient uses this endpoint for WebSocket connections.
-        # Auth is always Entra ID (DefaultAzureCredential) — no API key.
+        # Optional dedicated endpoint for Realtime WebSocket voice models.
         self._realtime_endpoint = realtime_endpoint
         self._realtime_api_version = realtime_api_version or azure_client.api_version
+
+        # Optional separate endpoint for TTS synthesis.
+        # Priority: tts_endpoint > realtime_endpoint > main azure endpoint.
+        # This handles the case where gpt-4o-mini-tts is deployed on a
+        # different account than gpt-realtime (e.g. different regions).
+        self._tts_endpoint = tts_endpoint or realtime_endpoint
 
         # TTS client — uses the sync Azure OpenAI client for audio.speech
         self._tts_config = tts_config or TTSConfig()
@@ -101,10 +105,16 @@ class RealtimeEvaluator:
         return self.azure_client._token_provider
 
     def _ensure_tts(self) -> TTSClient:
-        """Lazy-init the TTS client, using the dedicated voice endpoint when configured."""
+        """Lazy-init the TTS client.
+
+        Uses ``_tts_endpoint`` when set (which may differ from the Realtime
+        endpoint when gpt-4o-mini-tts is on a different account).
+        Falls back to the main Azure OpenAI client if no dedicated TTS
+        endpoint is configured.
+        """
         if self._tts is None:
-            if self._realtime_endpoint:
-                # Build a separate AzureOpenAI client for the voice endpoint
+            if self._tts_endpoint:
+                # Build a separate AzureOpenAI client for the TTS endpoint
                 if self._tts_openai_client is None:
                     from openai import AzureOpenAI as _AzureOpenAI
                     auth_kwargs: dict = {}
@@ -113,11 +123,11 @@ class RealtimeEvaluator:
                         auth_kwargs["azure_ad_token_provider"] = tp
                     else:
                         raise ValueError(
-                            "Realtime endpoint requires Entra ID authentication. "
+                            "TTS endpoint requires Entra ID authentication. "
                             "Ensure DefaultAzureCredential is configured (az login / Managed Identity)."
                         )
                     self._tts_openai_client = _AzureOpenAI(
-                        azure_endpoint=self._realtime_endpoint,
+                        azure_endpoint=self._tts_endpoint,
                         api_version=self._realtime_api_version,
                         timeout=120.0,
                         max_retries=3,

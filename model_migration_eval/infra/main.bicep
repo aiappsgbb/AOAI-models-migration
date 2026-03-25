@@ -9,9 +9,11 @@
 //   • Acts as AI Foundry hub with a project for evaluations
 //   • Provides the OpenAI-compatible endpoint for the app
 //
-// A SEPARATE AI Services account hosts all voice models
-// (gpt-realtime, gpt-realtime-1.5, gpt-4o-mini-tts) so TTS and Realtime
-// share the same endpoint — the code sends TTS via AZURE_OPENAI_REALTIME_ENDPOINT.
+// A SEPARATE AI Services account hosts Realtime voice models
+// (gpt-realtime, gpt-realtime-1.5) in a region with Realtime quota.
+// TTS (gpt-4o-mini-tts) stays in the primary account because
+// GlobalStandard is not available for it in swedencentral.
+// The app uses AZURE_OPENAI_TTS_ENDPOINT to route TTS to the primary account.
 //
 // Optionally assigns RBAC roles on a SEPARATE Cognitive Services account
 // used as the dedicated Realtime/TTS voice endpoint (via realtime-access.bicep).
@@ -99,8 +101,11 @@ var modelDeployments = [
   { name: 'gpt-5.4-mini', model: 'gpt-5.4-mini', version: '2026-03-17', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.1', model: 'gpt-5.1', version: '2025-11-13', skuName: 'GlobalStandard', capacity: 1000 }
   { name: 'gpt-5.2', model: 'gpt-5.2', version: '2025-12-11', skuName: 'GlobalStandard', capacity: 1000 }
-  // Note: gpt-4o-mini-tts moved to voiceModelDeployments so TTS and Realtime
-  // are on the same account (the code sends TTS via the realtime endpoint).
+  // TTS model — lives in the primary AI Services account (GlobalStandard).
+  // swedencentral does not support GlobalStandard for gpt-4o-mini-tts,
+  // so it must stay in the primary account (eastus2).  The app uses
+  // AZURE_OPENAI_TTS_ENDPOINT to route TTS to this account.
+  { name: 'gpt-4o-mini-tts', model: 'gpt-4o-mini-tts', version: '2025-03-20', skuName: 'GlobalStandard', capacity: 100 }
   // Phi-4 SLM — Microsoft model catalog (format: 'Microsoft')
   { name: 'Phi-4', model: 'Phi-4', version: '2', format: 'Microsoft', skuName: 'GlobalStandard', capacity: 1 }
   // Note: Mistral removed — requires Marketplace subscription agreement that
@@ -113,12 +118,12 @@ var modelDeployments = [
 // in a region with Realtime quota (may differ from the primary region).
 // Capacity is kept low (1 RPM) to fit within default quotas; increase after
 // requesting additional quota in the Azure portal.
-// gpt-4o-mini-tts is here too because the code sends TTS via the realtime
-// endpoint (same pattern as deploy.ps1 where all voice models share one account).
+// Note: gpt-4o-mini-tts is NOT here — GlobalStandard is not available for it
+// in swedencentral.  It lives in the primary account and the app uses
+// AZURE_OPENAI_TTS_ENDPOINT to route TTS there.
 var voiceModelDeployments = [
   { name: 'gpt-realtime', model: 'gpt-realtime', version: '2025-08-28', skuName: 'GlobalStandard', capacity: 1 }
   { name: 'gpt-realtime-1.5', model: 'gpt-realtime-1.5', version: '2026-02-23', skuName: 'GlobalStandard', capacity: 1 }
-  { name: 'gpt-4o-mini-tts', model: 'gpt-4o-mini-tts', version: '2025-03-20', skuName: 'GlobalStandard', capacity: 100 }
 ]
 
 // Convert string param to bool (handles empty string from unset env var)
@@ -302,6 +307,7 @@ var geminiEnv = empty(geminiApiKey) ? [] : [
 ]
 var realtimeEnv = enableVoiceModels ? [
   { name: 'AZURE_OPENAI_REALTIME_ENDPOINT', value: realtimeServices!.outputs.endpoint }
+  { name: 'AZURE_OPENAI_TTS_ENDPOINT', value: aiServices.outputs.endpoint }
 ] : []
 var containerEnv = concat(baseEnv, smtpEnv, authEnv, codeVerifEnv, emailProviderEnv, easyAuthEnv, geminiEnv, realtimeEnv)
 
