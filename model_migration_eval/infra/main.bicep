@@ -63,8 +63,8 @@ param flaskSecretKey string = ''
 @description('Google Gemini API key for Gemini model evaluations (optional). Get from https://aistudio.google.com/')
 param geminiApiKey string = ''
 
-@description('Azure region for the dedicated Realtime/TTS voice endpoint. Voice models are deployed to a separate OpenAI account which must be in a region with gpt-realtime quota. Defaults to eastus2.')
-param realtimeLocation string = 'eastus2'
+@description('Azure region for the dedicated Realtime/TTS voice endpoint. Voice models are deployed to a separate OpenAI account which must be in a region with gpt-realtime quota. Defaults to swedencentral.')
+param realtimeLocation string = 'swedencentral'
 
 @description('Deploy voice models (gpt-realtime) to a dedicated account. Set to "false" if the subscription does not have access to Realtime models. Default: true.')
 param deployVoiceModels string = 'true'
@@ -121,10 +121,10 @@ var voiceModelDeployments = [
 // Only skip voice models when explicitly set to 'false'.
 var enableVoiceModels = toLower(deployVoiceModels) != 'false'
 
-// Use the explicit realtimeLocation; falls back to param default (eastus2)
+// Use the explicit realtimeLocation; falls back to param default (swedencentral)
 // if the env var is empty. Never use the primary 'location' — the primary
 // AI Services account already consumes the gpt-realtime quota there.
-var effectiveRealtimeLocation = !empty(realtimeLocation) ? realtimeLocation : 'eastus2'
+var effectiveRealtimeLocation = !empty(realtimeLocation) ? realtimeLocation : 'swedencentral'
 var voiceAccountName = 'oai-voice-${envNameLower}-${resourceSuffix}'
 
 var tags = {
