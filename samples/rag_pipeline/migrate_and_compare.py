@@ -65,6 +65,49 @@ class MigrationReport:
     retrieval_metrics: list[StepComparison] = field(default_factory=list)
     timing_metrics: list[StepComparison] = field(default_factory=list)
 
+    def to_dict(self) -> dict:
+        """Convert report to a serializable dictionary."""
+        return {
+            "config_a": self.config_a.label,
+            "config_b": self.config_b.label,
+            "test_cases": len(self.cases),
+            "cases": [
+                {
+                    "query": c.query,
+                    "retrieval_overlap": c.retrieval_overlap,
+                    "answer_changed": c.answer_changed,
+                    "answer_a": c.result_a.answer[:200],
+                    "answer_b": c.result_b.answer[:200],
+                    "retrieved_ids_a": c.result_a.retrieved_ids,
+                    "retrieved_ids_b": c.result_b.retrieved_ids,
+                }
+                for c in self.cases
+            ],
+            "timing": {
+                step: {
+                    "config_a_ms": _avg_timing(
+                        [c.result_a for c in self.cases], step
+                    ),
+                    "config_b_ms": _avg_timing(
+                        [c.result_b for c in self.cases], step
+                    ),
+                }
+                for step in ["rephrase", "embed", "retrieve", "generate"]
+            },
+            "summary": {
+                "retrieval_overlap_avg": sum(c.retrieval_overlap for c in self.cases) / len(self.cases) if self.cases else 0,
+                "answers_changed": sum(1 for c in self.cases if c.answer_changed),
+                "answers_total": len(self.cases),
+            },
+        }
+
+    def save_json(self, path: str) -> None:
+        """Save report to a JSON file for audit trail."""
+        import json
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, indent=2, ensure_ascii=False)
+        print(f"  Report saved to {path}")
+
     def print_report(self) -> None:
         """Print a formatted comparison report to stdout."""
         n = len(self.cases)

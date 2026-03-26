@@ -208,22 +208,31 @@ class RetrievalResult:
     query: str
     retrieved_ids: list[str]
     expected_ids: list[str]
-    precision: float  # |retrieved ∩ expected| / k
-    recall: float     # |retrieved ∩ expected| / |expected|
-    mrr: float        # 1 / rank of first relevant doc (0 if none)
+    precision: float           # |retrieved ∩ expected| / k
+    recall: float | None       # |retrieved ∩ expected| / |expected|; None for negation cases
+    mrr: float                 # 1 / rank of first relevant doc (0 if none)
+    is_negation: bool = False  # True when expected_ids is empty
 
 
 def _compute_retrieval_metrics(
     retrieved_ids: list[str],
     expected_ids: list[str],
-) -> tuple[float, float, float]:
-    """Return (precision@k, recall@k, MRR)."""
+) -> tuple[float, float | None, float]:
+    """Return (precision@k, recall@k, MRR).
+
+    For negation cases (expected_ids is empty), recall is undefined (None).
+    """
     expected_set = set(expected_ids)
     k = len(retrieved_ids)
 
     overlap = sum(1 for rid in retrieved_ids if rid in expected_set)
     precision = overlap / k if k > 0 else 0.0
-    recall = overlap / len(expected_set) if expected_set else 0.0
+
+    # Negation: nothing to recall — recall is undefined
+    if not expected_set:
+        recall: float | None = None
+    else:
+        recall = overlap / len(expected_set)
 
     # MRR: 1/rank of the first relevant hit
     mrr = 0.0
@@ -260,6 +269,7 @@ def evaluate_retrieval(
         hits = pipeline.retrieve(query_embedding)
         retrieved_ids = [h.document.id for h in hits]
 
+        is_neg = len(tc.expected_doc_ids) == 0
         precision, recall, mrr = _compute_retrieval_metrics(
             retrieved_ids, tc.expected_doc_ids,
         )
@@ -271,6 +281,7 @@ def evaluate_retrieval(
                 precision=precision,
                 recall=recall,
                 mrr=mrr,
+                is_negation=is_neg,
             )
         )
     return results
@@ -317,7 +328,19 @@ def evaluate_generation_isolated(
     results: list[GenerationResult] = []
 
     for tc in test_cases:
-        # Build context from expected docs, skipping any missing IDs
+        # Negation cases: no relevant documents expected — skip generation
+        if not tc.expected_doc_ids:
+            results.append(GenerationResult(
+                query=tc.query,
+                answer="[Negation case — no relevant documents expected]",
+                groundedness=None,
+                relevance=None,
+                correctness=None,
+                used_correct_context=True,
+            ))
+            continue
+
+        # Normal case: build context from expected docs, skipping any missing IDs
         context_parts: list[str] = []
         for doc_id in tc.expected_doc_ids:
             doc = doc_index.get(doc_id)
@@ -369,6 +392,59 @@ class DualLayerReport:
     end_to_end: list[EndToEndResult]
     retrieval: list[RetrievalResult]
     generation: list[GenerationResult]
+    test_cases: list[RAGTestCase] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        """Convert report to a serializable dictionary."""
+        return {
+            "end_to_end": [
+                {
+                    "query": r.query,
+                    "answer": r.answer,
+                    "groundedness": r.groundedness,
+                    "relevance": r.relevance,
+                    "correctness": r.correctness,
+                    "retrieved_ids": r.retrieved_ids,
+                }
+                for r in self.end_to_end
+            ],
+            "retrieval": [
+                {
+                    "query": r.query,
+                    "retrieved_ids": r.retrieved_ids,
+                    "expected_ids": r.expected_ids,
+                    "precision": r.precision,
+                    "recall": r.recall,
+                    "mrr": r.mrr,
+                }
+                for r in self.retrieval
+            ],
+            "generation": [
+                {
+                    "query": r.query,
+                    "answer": r.answer,
+                    "groundedness": r.groundedness,
+                    "relevance": r.relevance,
+                    "correctness": r.correctness,
+                }
+                for r in self.generation
+            ],
+            "summary": {
+                "e2e_groundedness": _avg([r.groundedness for r in self.end_to_end]),
+                "e2e_relevance": _avg([r.relevance for r in self.end_to_end]),
+                "e2e_correctness": _avg([r.correctness for r in self.end_to_end]),
+                "retrieval_precision": _avg([r.precision for r in self.retrieval]),
+                "retrieval_recall": _avg([r.recall for r in self.retrieval]),
+                "retrieval_mrr": _avg([r.mrr for r in self.retrieval]),
+            },
+        }
+
+    def save_json(self, path: str) -> None:
+        """Save report to a JSON file for audit trail."""
+        import json
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, indent=2, ensure_ascii=False)
+        print(f"  Report saved to {path}")
 
     def print_summary(self) -> None:
         """Print a concise summary of both evaluation layers."""
@@ -437,7 +513,48 @@ class DualLayerReport:
         else:
             print(f"    No generation-model problems detected.")
 
+        self._print_category_breakdown()
+
         print(f"\n{'=' * 60}\n")
+
+    def _print_category_breakdown(self) -> None:
+        """Print per-category score breakdown."""
+        if not self.test_cases:
+            return
+
+        from collections import defaultdict
+
+        # Build per-category indices
+        cat_indices: dict[str, list[int]] = defaultdict(list)
+        for i, tc in enumerate(self.test_cases):
+            cat_indices[tc.category].append(i)
+
+        print(f"\n  Per-Category Scores")
+        print(f"  {'-' * 40}")
+
+        for cat in sorted(cat_indices):
+            idxs = cat_indices[cat]
+            count = len(idxs)
+
+            # E2E scores
+            g_vals = [self.end_to_end[i].groundedness for i in idxs]
+            r_vals = [self.end_to_end[i].relevance for i in idxs]
+            c_vals = [self.end_to_end[i].correctness for i in idxs]
+            e2e_g = _avg(g_vals)
+            e2e_r = _avg(r_vals)
+            e2e_c = _avg(c_vals)
+
+            # Retrieval scores
+            p_vals = [self.retrieval[i].precision for i in idxs]
+            rec_vals = [self.retrieval[i].recall for i in idxs]
+            mrr_vals = [self.retrieval[i].mrr for i in idxs]
+            avg_p = _avg(p_vals)
+            avg_rec = _avg(rec_vals)
+            avg_mrr = _avg(mrr_vals)
+
+            print(f"  {cat} ({count} cases)")
+            print(f"    E2E: groundedness={_fmt(e2e_g)}, relevance={_fmt(e2e_r)}, correctness={_fmt(e2e_c)}")
+            print(f"    Retrieval: precision={_fmt(avg_p)}, recall={_fmt(avg_rec)}, MRR={_fmt(avg_mrr)}")
 
 
 def evaluate_dual_layer(
@@ -473,6 +590,7 @@ def evaluate_dual_layer(
         end_to_end=e2e,
         retrieval=retrieval,
         generation=generation,
+        test_cases=test_cases,
     )
 
 
