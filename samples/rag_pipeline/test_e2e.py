@@ -48,13 +48,13 @@ RESULTS_DIR = DATA_DIR / "results"
 ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 # Using Entra ID auth — no API key needed
 
-SOURCE_MODEL = "gpt-4o"
-TARGET_MODEL = "gpt-4.1"
-EMBEDDING_MODEL = "text-embedding-3-large"
-REPHRASER_MODEL = "gpt-4o-mini"  # 3rd model — demonstrates true multi-model pipeline
+SOURCE_MODEL = os.getenv("RAG_SOURCE_MODEL", "gpt-4o")
+TARGET_MODEL = os.getenv("RAG_TARGET_MODEL", "gpt-4.1")
+EMBEDDING_MODEL = os.getenv("RAG_EMBEDDING_MODEL", "text-embedding-3-large")
+REPHRASER_MODEL = os.getenv("RAG_REPHRASER_MODEL", "gpt-4o-mini")
 
 # Use an INDEPENDENT judge model (not source or target) to avoid self-eval bias
-JUDGE_MODEL = "gpt-4o"  # Independent from target (gpt-4.1)
+JUDGE_MODEL = os.getenv("RAG_JUDGE_MODEL", "gpt-4o")
 
 
 def separator(title: str) -> None:

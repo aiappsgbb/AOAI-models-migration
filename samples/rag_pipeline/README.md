@@ -37,58 +37,43 @@ Each step is isolated — you can swap individual models without touching the re
 ```bash
 # From the repo root
 pip install -r requirements.txt
-cp .env_example .env
-# Edit .env with your Azure OpenAI endpoint and deployments
+cp .env.template .env
+# Edit .env with your Azure OpenAI endpoint
 ```
 
-### 2. Run the Pipeline
+### 2. Run End-to-End Test
 
-```python
-from samples.rag_pipeline.pipeline import RAGPipeline, PipelineConfig
-from samples.rag_pipeline.knowledge_base import KnowledgeBase
-from src.clients import create_client
+The fastest way to validate a migration — change `.env`, run the same script:
 
-# Load knowledge base
-kb = KnowledgeBase.from_json("samples/rag_pipeline/data/documents.json")
+```bash
+# Edit .env to set your models:
+#   RAG_SOURCE_MODEL=gpt-4o
+#   RAG_TARGET_MODEL=gpt-4.1
 
-# Embed documents (one-time, uses embedding model)
-client = create_client("text-embedding-3-large")
-kb.embed_documents(client)
-
-# Create pipeline with current models
-config = PipelineConfig(generator_model="gpt-4o")
-pipeline = RAGPipeline(kb, config)
-
-# Run a query
-result = pipeline.run("What is the remote work policy?")
-print(result.answer)
-print(f"Retrieved: {result.retrieved_ids}")
-print(f"Total time: {result.total_ms:.0f}ms")
+python samples/rag_pipeline/test_e2e.py
 ```
 
-### 3. Evaluate (Dual-Layer)
+This runs 15 tests × 2 models with full dual-layer evaluation, per-category
+breakdown, and exports JSON results. **Change only `.env` to test different
+model pairs — zero code changes.**
 
-```python
-from samples.rag_pipeline.evaluate_pipeline import evaluate_dual_layer
+### 3. Swap Models — Config Only
 
-report = evaluate_dual_layer(
-    pipeline=pipeline,
-    golden_path="samples/rag_pipeline/data/golden_tests.jsonl",
-    kb=kb,
-    judge_model="gpt-4o",
-)
-report.print_summary()
+```bash
+# .env — just change these lines:
+RAG_SOURCE_MODEL=gpt-4.1
+RAG_TARGET_MODEL=gpt-5.4
+
+# Run the exact same script:
+python samples/rag_pipeline/test_e2e.py
+# → Compares gpt-4.1 vs gpt-5.4 with the same golden tests
 ```
-
-This runs both layers:
-- **End-to-end**: Full pipeline → LLM-as-judge scoring (groundedness, relevance, correctness)
-- **Task-level retrieval**: Precision@k, Recall@k vs expected documents (no LLM cost)
-- **Task-level generation**: Correct context → answer quality (isolates generation from retrieval)
 
 ### 4. Compare Models (A/B Migration)
 
 ```python
 from samples.rag_pipeline.migrate_and_compare import compare_from_golden
+from samples.rag_pipeline.pipeline import PipelineConfig
 
 config_a = PipelineConfig(generator_model="gpt-4o")
 config_b = PipelineConfig(generator_model="gpt-4.1")
@@ -114,10 +99,13 @@ Output shows:
 |------|---------|
 | `pipeline.py` | RAG pipeline class with 4 swappable steps |
 | `knowledge_base.py` | In-memory vector store (numpy cosine similarity) |
-| `evaluate_pipeline.py` | Dual-layer evaluation (end-to-end + task-level) |
+| `evaluate_pipeline.py` | Dual-layer evaluation (end-to-end + task-level + per-category) |
 | `migrate_and_compare.py` | A/B migration comparison script |
+| `test_e2e.py` | Full E2E test — .env-driven, JSON export |
+| `upload_to_foundry.py` | Upload results to Azure AI Foundry dashboard |
 | `data/documents.json` | 20 enterprise IT policy documents |
 | `data/golden_tests.jsonl` | 15 golden test cases with expected results |
+| `data/results/` | JSON audit trail (auto-generated, gitignored) |
 
 ## Knowledge Base
 
@@ -165,6 +153,36 @@ For 15 golden test cases:
 6. If OK: lock in change, move to next model
 7. All models migrated: final regression suite
 ```
+
+## Upload Results to Azure AI Foundry
+
+Push evaluation results to the Foundry portal for visual dashboards and
+cross-run comparison. Uses `azure-ai-projects>=2.0.0` (new Foundry SDK).
+
+### Setup
+
+```bash
+# Add to .env:
+AZURE_AI_PROJECT_ENDPOINT=https://YOUR-ACCOUNT.services.ai.azure.com/api/projects/YOUR-PROJECT
+FOUNDRY_JUDGE_DEPLOYMENT=gpt-4o
+```
+
+### Upload
+
+```bash
+# After running test_e2e.py (which exports JSON results):
+python samples/rag_pipeline/upload_to_foundry.py
+```
+
+This will:
+1. Read the latest JSON results from `data/results/`
+2. Create a **named evaluation group** (e.g. "RAG Migration: gpt-4o → gpt-4.1")
+3. Create **labeled runs** for each model config
+4. Run Foundry built-in evaluators (coherence, groundedness, relevance)
+5. Print the portal dashboard URL
+
+Each run is named with the model config + timestamp, so you can compare
+different migration scenarios side-by-side in the Foundry portal.
 
 ## See Also
 
