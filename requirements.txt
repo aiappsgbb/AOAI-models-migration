@@ -15,3 +15,6 @@ azure-ai-agents>=1.2.0
 
 # Data processing (used by run_local_evaluation)
 pandas>=2.0.0,<3.0.0
+
+# Vector similarity (used by RAG pipeline sample)
+numpy>=1.24.0,<3.0.0
