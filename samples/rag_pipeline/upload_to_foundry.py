@@ -7,6 +7,16 @@ evaluation format, and creates labeled evaluation runs in the Foundry portal.
 Each run is named with the model config + timestamp so you can compare
 different migration scenarios side-by-side in the dashboard.
 
+NOTE on score alignment:
+    Local evaluation (test_e2e.py) uses a custom LLM-as-judge prompt that
+    produces scores on a 1-5 scale for groundedness, relevance, correctness.
+    Foundry built-in evaluators (builtin.coherence, builtin.groundedness, etc.)
+    use Microsoft's standardized rubrics, which may produce slightly different
+    scores. Both are valid — local scores are faster for dev iteration, Foundry
+    scores provide standardized dashboards for cross-team comparison.
+    Use local eval for rapid A/B during development; use Foundry for governance
+    and stakeholder reporting.
+
 Requirements:
     pip install "azure-ai-projects>=2.0.0" azure-identity python-dotenv
 

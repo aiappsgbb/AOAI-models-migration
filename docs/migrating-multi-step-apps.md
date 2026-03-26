@@ -274,6 +274,76 @@ At this cost, there is no reason to skip evaluation. Run it on every model chang
 
 **Scaling note:** Costs scale linearly with golden dataset size. A 50-case dataset costs roughly 3× more (~$6 per cycle). A 100-case dataset costs ~$12. For most applications, 15–30 cases provide sufficient signal—see [Building Golden Datasets](building-golden-datasets.md) for guidance on dataset sizing.
 
+## Cost at Scale
+
+| Golden Test Cases | API Calls (approx.) | Cost per Cycle | Time |
+|-------------------|---------------------|----------------|------|
+| 15 (smoke test) | ~166 | ~$1-2 | ~5 min |
+| 50 (standard) | ~550 | ~$4-6 | ~15 min |
+| 100 (thorough) | ~1,100 | ~$8-12 | ~30 min |
+| 500 (critical) | ~5,500 | ~$40-60 | ~2 hrs |
+
+**Dataset building is a one-time cost**, reused across every migration cycle.
+A golden dataset built for gpt-4o → gpt-4.1 works unchanged for gpt-4.1 → gpt-5.4.
+For 10 use cases with 50 test cases each, a full migration validation costs **$40-60 total** — not €10k-25k.
+
+## Adapt to Your Application
+
+The RAG pipeline sample demonstrates the methodology. Here's how to apply it to **your** multi-step application:
+
+### Step 1: Map Your Pipeline
+
+Identify every model call in your application and its role:
+
+```
+# Example: Customer support agent
+User query → Intent classifier (gpt-4o-mini) → Tool router (gpt-4o) → Tool execution → Response generator (gpt-4o)
+
+# Example: Document processing
+Document → OCR/extraction → Summarizer (gpt-4o) → Classifier (gpt-4o-mini) → Quality check (gpt-4o)
+```
+
+### Step 2: Build Your Golden Dataset
+
+For each pipeline, create test cases with:
+- Input query/document
+- Expected output (or reference answer)
+- Expected intermediate results (e.g., correct tool call, correct classification)
+
+Use `store=True` on production calls to mine real data — see [Building Golden Datasets](building-golden-datasets.md).
+
+### Step 3: Wire Into the Evaluation Framework
+
+```bash
+# Point test_e2e.py at YOUR data:
+python samples/rag_pipeline/test_e2e.py \
+    --golden-path path/to/your/golden_tests.jsonl \
+    --docs-path path/to/your/documents.json \
+    --results-dir path/to/your/results/
+```
+
+Or adapt the evaluation code directly — the key pattern is:
+1. Run pipeline with **source** model → collect outputs
+2. Run pipeline with **target** model → collect outputs
+3. Score both with an **independent judge** model
+4. Compare scores side-by-side
+
+### Step 4: Automate
+
+Add the evaluation to your CI/CD pipeline — see `.github/workflows/eval-on-schedule.yml` for a ready-to-use GitHub Actions workflow that runs nightly and flags regressions.
+
+### Architecture Patterns Beyond RAG
+
+| Pattern | Models to Test | Key Metrics |
+|---------|---------------|-------------|
+| **RAG** | Embedder, rephraser, generator | Recall@k, groundedness, correctness |
+| **Classification** | Classifier model | Accuracy, F1, confusion matrix |
+| **Tool calling / Agents** | Planner, tool-caller | Tool selection accuracy, argument correctness |
+| **Translation** | Translation model | BLEU, semantic similarity, fluency |
+| **Summarization** | Summarizer | ROUGE, faithfulness, compression ratio |
+
+For all patterns, the dual-layer approach applies: E2E catches regressions, task-level pinpoints which step broke.
+
 ## Checklist
 
 Before declaring a multi-step migration complete:

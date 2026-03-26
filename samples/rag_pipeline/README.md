@@ -142,6 +142,9 @@ For 15 golden test cases:
 | LLM-as-judge | 30 judgments | ~$0.50 |
 | **Total** | | **~$2.00** |
 
+**Scaling:** Cost grows linearly. 50 cases ≈ $6 | 100 ≈ $12 | 500 ≈ $60.
+Dataset building is one-time — reuse across every migration cycle.
+
 ## Migration Workflow
 
 ```
@@ -187,5 +190,6 @@ different migration scenarios side-by-side in the Foundry portal.
 ## See Also
 
 - [Migrating Multi-Step Applications](../../docs/migrating-multi-step-apps.md) — Full methodology guide
-- [Building Golden Datasets](../../docs/building-golden-datasets.md) — How to create test sets
+- [Building Golden Datasets](../../docs/building-golden-datasets.md) — How to create test sets + sizing guide
 - [Evaluation Guide](../../docs/evaluation-guide.md) — LLM-as-judge and Foundry evaluation
+- [CI/CD Automation](../../.github/workflows/eval-on-schedule.yml) — Sample GitHub Actions for nightly eval

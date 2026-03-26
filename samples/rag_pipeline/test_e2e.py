@@ -301,9 +301,41 @@ def main():
     print(f"    Total API calls: ~{total_calls}")
     print(f"    Estimated total cost: ~$0.50-1.50")
     print()
+    print(f"  Scaling note: cost scales linearly with test cases.")
+    print(f"    50 cases ≈ $4-6  |  100 cases ≈ $8-12  |  500 cases ≈ $40-60")
+    print(f"    Dataset building is a one-time cost, reused across every migration cycle.")
+    print()
     print(f"  This is what it takes to validate a model migration. 🚀")
     print()
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="RAG pipeline E2E migration test",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--golden-path", type=str, default=None,
+        help="Path to golden test cases JSONL (default: samples/rag_pipeline/data/golden_tests.jsonl)",
+    )
+    parser.add_argument(
+        "--docs-path", type=str, default=None,
+        help="Path to knowledge base documents JSON (default: samples/rag_pipeline/data/documents.json)",
+    )
+    parser.add_argument(
+        "--results-dir", type=str, default=None,
+        help="Directory for JSON result export (default: samples/rag_pipeline/data/results/)",
+    )
+    args = parser.parse_args()
+
+    # Override defaults if CLI args provided
+    if args.golden_path:
+        GOLDEN_PATH = Path(args.golden_path)
+    if args.docs_path:
+        DOCS_PATH = Path(args.docs_path)
+    if args.results_dir:
+        RESULTS_DIR = Path(args.results_dir)
+
     main()

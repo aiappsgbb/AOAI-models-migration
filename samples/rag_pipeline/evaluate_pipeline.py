@@ -86,7 +86,8 @@ and an expected answer, rate the answer on three dimensions (1-5 scale):
 3. CORRECTNESS: Is the answer factually aligned with the expected answer? \
 (1=wrong, 5=matches expected)
 
-Return your ratings as JSON: {"groundedness": X, "relevance": X, "correctness": X}
+Return your ratings as JSON with a brief explanation for any score below 5:
+{"groundedness": X, "relevance": X, "correctness": X, "explanation": "one sentence reason for any deduction, or 'all perfect' if all 5s"}
 Do NOT include any other text — only the JSON object."""
 
 _JUDGE_USER_TEMPLATE = """\
@@ -134,15 +135,16 @@ def judge_answer(
         # Extract the first JSON object from the response
         match = re.search(r"\{[^}]+\}", raw)
         if not match:
-            return {"groundedness": None, "relevance": None, "correctness": None}
+            return {"groundedness": None, "relevance": None, "correctness": None, "explanation": ""}
         scores = json.loads(match.group())
         return {
             "groundedness": float(scores.get("groundedness")) if scores.get("groundedness") is not None else None,
             "relevance": float(scores.get("relevance")) if scores.get("relevance") is not None else None,
             "correctness": float(scores.get("correctness")) if scores.get("correctness") is not None else None,
+            "explanation": scores.get("explanation", ""),
         }
     except Exception:
-        return {"groundedness": None, "relevance": None, "correctness": None}
+        return {"groundedness": None, "relevance": None, "correctness": None, "explanation": ""}
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +160,7 @@ class EndToEndResult:
     groundedness: float | None = None
     relevance: float | None = None
     correctness: float | None = None
+    explanation: str = ""
     retrieved_ids: list[str] = field(default_factory=list)
 
 
@@ -191,6 +194,7 @@ def evaluate_end_to_end(
                 groundedness=scores["groundedness"],
                 relevance=scores["relevance"],
                 correctness=scores["correctness"],
+                explanation=scores.get("explanation", ""),
                 retrieved_ids=pr.retrieved_ids,
             )
         )
@@ -300,6 +304,7 @@ class GenerationResult:
     groundedness: float | None = None
     relevance: float | None = None
     correctness: float | None = None
+    explanation: str = ""
     used_correct_context: bool = True  # Always True for isolated gen eval
 
 
@@ -365,6 +370,7 @@ def evaluate_generation_isolated(
                 groundedness=scores["groundedness"],
                 relevance=scores["relevance"],
                 correctness=scores["correctness"],
+                explanation=scores.get("explanation", ""),
             )
         )
     return results
@@ -485,31 +491,35 @@ class DualLayerReport:
         print(f"  {'-' * 40}")
 
         # Cases where end-to-end failed but generation passed → retrieval problem
-        retrieval_issues: list[str] = []
+        retrieval_issues: list[tuple[str, str]] = []
         for e2e, gen in zip(self.end_to_end, self.generation):
             e2e_ok = e2e.correctness is not None and e2e.correctness >= 4
             gen_ok = gen.correctness is not None and gen.correctness >= 4
             if gen_ok and not e2e_ok:
-                retrieval_issues.append(e2e.query)
+                retrieval_issues.append((e2e.query, e2e.explanation))
 
         if retrieval_issues:
             print(f"    Retrieval problems (e2e failed, gen OK): {len(retrieval_issues)}")
-            for q in retrieval_issues[:5]:
+            for q, expl in retrieval_issues[:5]:
                 print(f"      - {q[:70]}")
+                if expl and expl != "all perfect":
+                    print(f"        → {expl}")
         else:
             print(f"    No retrieval-specific problems detected.")
 
         # Cases where generation also failed → model problem
-        model_issues: list[str] = []
+        model_issues: list[tuple[str, str]] = []
         for gen in self.generation:
             gen_ok = gen.correctness is not None and gen.correctness >= 4
             if not gen_ok:
-                model_issues.append(gen.query)
+                model_issues.append((gen.query, gen.explanation))
 
         if model_issues:
             print(f"    Model problems (gen failed with correct context): {len(model_issues)}")
-            for q in model_issues[:5]:
+            for q, expl in model_issues[:5]:
                 print(f"      - {q[:70]}")
+                if expl and expl != "all perfect":
+                    print(f"        → {expl}")
         else:
             print(f"    No generation-model problems detected.")
 

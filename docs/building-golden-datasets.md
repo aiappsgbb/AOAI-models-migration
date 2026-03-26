@@ -602,6 +602,25 @@ response = client.chat.completions.create(
 
 ---
 
+## Dataset Sizing Guide
+
+How many test cases do you need? It depends on the risk level:
+
+| Scenario | Recommended Size | Why | Eval Cost per Cycle |
+|----------|-----------------|-----|-------------------|
+| **Smoke test** (routine update) | 15-30 | Catches obvious regressions quickly | $1-3 |
+| **Standard** (model family change) | 50-100 | Statistical confidence across categories | $4-12 |
+| **Thorough** (critical production app) | 100-200 | Covers edge cases and tail distribution | $8-25 |
+| **Comprehensive** (regulated / high-risk) | 200-500 | Regulatory compliance, full coverage | $20-60 |
+
+**Rules of thumb:**
+- Aim for **minimum 3 test cases per category** (e.g., per topic, per query type)
+- Include **10-20% adversarial/edge cases** (empty inputs, prompt injections, negation)
+- **15 well-chosen cases** catch 80%+ of regressions — start small, grow as needed
+- Dataset is a **one-time investment** — reuse it across every migration cycle
+
+**Statistical significance:** With 50 test cases, a 0.5-point score change (on 1-5 scale) is significant. With 15 cases, you need a 1.0+ point change to be confident. If your use case demands precision, go for 100+.
+
 ## Sampling Strategy
 
 You don't need thousands of records. A well-curated dataset of **50–200 records** catches the vast majority of regressions. Here's how to sample effectively:
