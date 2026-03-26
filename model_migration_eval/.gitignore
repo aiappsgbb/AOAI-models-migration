@@ -52,3 +52,4 @@ tests/
 data/users/
 tools/eval_screenshots/
 tools/compare_screenshots/
+*.code-workspace
