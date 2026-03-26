@@ -7,7 +7,7 @@ Together they implement the hybrid evaluation methodology described in
 docs/migrating-multi-step-apps.md.
 
 Why two layers?
-- End-to-end catches regressions quickly (cheap, automatable).
+- End-to-end catches regressions quickly (fast, automatable).
 - Task-level pinpoints *which step* regressed (retrieval vs generation).
   If end-to-end quality drops but isolated generation is fine, the
   problem is retrieval.  If isolated generation also drops, the model
@@ -171,7 +171,7 @@ def evaluate_end_to_end(
 ) -> list[EndToEndResult]:
     """Run the full pipeline on all test cases, score with LLM-as-judge.
 
-    This is the *monitoring layer* — cheap, automatable, answers
+    This is the *monitoring layer* — fast, automatable, answers
     "did quality change after a model swap?"
     """
     judge_client = create_client(judge_model)

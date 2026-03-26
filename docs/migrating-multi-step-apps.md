@@ -54,7 +54,7 @@ for test_case in golden_dataset:
 
 **When to run:** Every deployment, every nightly build, after any model or config change. This is your smoke test.
 
-**Cost:** For 15 golden test cases comparing two model configurations: ~30 pipeline runs + ~30 LLM-as-judge calls. Under $1 in API costs.
+**Effort:** For 15 golden test cases comparing two model configurations: ~30 pipeline runs + ~30 LLM-as-judge calls. Runs in minutes.
 
 **What it tells you:** "Overall quality changed." It does **not** tell you which step caused the change.
 
@@ -107,7 +107,7 @@ intent_score = judge.evaluate(
 
 **When to run:** Only when end-to-end evaluation detects a regression. Task-level evaluation is your debugging tool, not your monitoring tool.
 
-**Cost:** Retrieval evaluation is free (no LLM calls). Generation and rephrase evaluation costs ~$0.50 per 15-case comparison.
+**Effort:** Retrieval evaluation requires zero LLM calls (pure computation). Generation and rephrase evaluation adds a few dozen calls per comparison.
 
 ### When to Use Which
 
@@ -258,34 +258,31 @@ For the evaluation methodology itself—building golden datasets, choosing metri
 - [Building Golden Datasets](building-golden-datasets.md)
 - [Evaluation Guide](evaluation-guide.md)
 
-## Cost Estimation
+## Evaluation Effort
 
-For a typical RAG pipeline with **15 golden test cases**, here's what a full A/B evaluation cycle costs:
+For a typical RAG pipeline with **15 golden test cases**, here's what a full A/B evaluation cycle involves:
 
-| Evaluation Layer | What It Does | LLM Calls | Estimated Cost |
-|-----------------|-------------|-----------|----------------|
-| End-to-end eval | 15 test cases × 2 configs (old + new) | 30 pipeline runs | < $1.00 |
-| Task-level: Retrieval | Precision/recall vs. expected docs | 0 (pure computation) | $0.00 |
-| Task-level: Generation | 15 isolated generation calls × 2 models | 30 generation calls | < $0.50 |
-| LLM-as-judge scoring | 30 judgments × ~500 tokens each (~15K tokens) | 30 judge calls | < $0.50 |
-| **Total** | | | **< $2.00** |
+| Evaluation Layer | What It Does | LLM Calls |
+|-----------------|-------------|-----------|
+| End-to-end eval | 15 test cases × 2 configs (old + new) | 30 pipeline runs |
+| Task-level: Retrieval | Precision/recall vs. expected docs | 0 (pure computation) |
+| Task-level: Generation | 15 isolated generation calls × 2 models | 30 generation calls |
+| LLM-as-judge scoring | 30 judgments × ~500 tokens each | 30 judge calls |
+| **Total** | | **~120 API calls** |
 
-At this cost, there is no reason to skip evaluation. Run it on every model change, every prompt update, every config tweak.
+The evaluation is lightweight enough to run on every model change, every prompt update, every config tweak.
 
-**Scaling note:** Costs scale linearly with golden dataset size. A 50-case dataset costs roughly 3× more (~$6 per cycle). A 100-case dataset costs ~$12. For most applications, 15–30 cases provide sufficient signal—see [Building Golden Datasets](building-golden-datasets.md) for guidance on dataset sizing.
+Effort scales linearly with golden dataset size. For most applications, 15–30 cases provide sufficient signal — see [Building Golden Datasets](building-golden-datasets.md) for guidance on dataset sizing.
 
-## Cost at Scale
+| Golden Test Cases | API Calls (approx.) | Typical Runtime |
+|-------------------|---------------------|-----------------|
+| 15 (smoke test) | ~166 | ~5 min |
+| 50 (standard) | ~550 | ~15 min |
+| 100 (thorough) | ~1,100 | ~30 min |
+| 500 (critical) | ~5,500 | ~2 hrs |
 
-| Golden Test Cases | API Calls (approx.) | Cost per Cycle | Time |
-|-------------------|---------------------|----------------|------|
-| 15 (smoke test) | ~166 | ~$1-2 | ~5 min |
-| 50 (standard) | ~550 | ~$4-6 | ~15 min |
-| 100 (thorough) | ~1,100 | ~$8-12 | ~30 min |
-| 500 (critical) | ~5,500 | ~$40-60 | ~2 hrs |
-
-**Dataset building is a one-time cost**, reused across every migration cycle.
+**Dataset building is a one-time effort**, reused across every migration cycle.
 A golden dataset built for gpt-4o → gpt-4.1 works unchanged for gpt-4.1 → gpt-5.4.
-For 10 use cases with 50 test cases each, a full migration validation costs **$40-60 total** — not €10k-25k.
 
 ## Adapt to Your Application
 

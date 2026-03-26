@@ -419,8 +419,6 @@ outputs.to_eval_qr_json_lines("golden_dataset.jsonl")
 - Runs each query through your app to capture the response
 - Outputs ready-to-evaluate JSONL
 
-> **Cost:** Roughly $0.50–2.00 for 100 synthetic queries using GPT-4o as judge. Actual costs depend on prompt length and model pricing.
-
 ### Option B: LLM-Powered Generation from Examples
 
 If you have a few examples but need more, use an LLM to generate diverse variations:
@@ -606,12 +604,12 @@ response = client.chat.completions.create(
 
 How many test cases do you need? It depends on the risk level:
 
-| Scenario | Recommended Size | Why | Eval Cost per Cycle |
-|----------|-----------------|-----|-------------------|
-| **Smoke test** (routine update) | 15-30 | Catches obvious regressions quickly | $1-3 |
-| **Standard** (model family change) | 50-100 | Statistical confidence across categories | $4-12 |
-| **Thorough** (critical production app) | 100-200 | Covers edge cases and tail distribution | $8-25 |
-| **Comprehensive** (regulated / high-risk) | 200-500 | Regulatory compliance, full coverage | $20-60 |
+| Scenario | Recommended Size | Why |
+|----------|-----------------|-----|
+| **Smoke test** (routine update) | 15-30 | Catches obvious regressions quickly |
+| **Standard** (model family change) | 50-100 | Statistical confidence across categories |
+| **Thorough** (critical production app) | 100-200 | Covers edge cases and tail distribution |
+| **Comprehensive** (regulated / high-risk) | 200-500 | Regulatory compliance, full coverage |
 
 **Rules of thumb:**
 - Aim for **minimum 3 test cases per category** (e.g., per topic, per query type)
@@ -788,19 +786,19 @@ report.print_report()
 
 ---
 
-## Cost Summary
+## Effort Summary
 
-| Approach | Records | Cost | Time |
-|----------|---------|------|------|
-| Stored Completions export | 200 | No extra charge (data already generated) | 1 hour |
-| APIM log export | 200 | No extra charge (logs already collected) | 1 hour |
-| App-level log sampling | 200 | No extra charge (code instrumentation) | 2 hours |
-| Synthetic generation (SDK Simulator) | 100 | **~$1-2** (LLM inference) | 30 min |
-| LLM-powered variations from examples | 50 | **~$0.50** (LLM inference) | 15 min |
-| LLM-assisted ground truth labeling | 200 | **~$2-5** (LLM inference) | 1 hour |
+| Approach | Records | Compute Effort | Setup Time |
+|----------|---------|---------------|------------|
+| Stored Completions export | 200 | No extra (data already generated) | 1 hour |
+| APIM log export | 200 | No extra (logs already collected) | 1 hour |
+| App-level log sampling | 200 | No extra (code instrumentation) | 2 hours |
+| Synthetic generation (SDK Simulator) | 100 | Minimal (LLM inference) | 30 min |
+| LLM-powered variations from examples | 50 | Minimal (LLM inference) | 15 min |
+| LLM-assisted ground truth labeling | 200 | Minimal (LLM inference) | 1 hour |
 | Human SME labeling (spot-check) | 50 | SME time (~1 hour per person) | 1 hour |
 
-> **Key takeaway:** Most of the cost is in human time, not compute. Production log–based approaches leverage data you've already paid to generate, and synthetic generation costs are modest. The biggest investment is curating and maintaining the dataset — but even that can be done incrementally.
+> **Key takeaway:** Production log–based approaches leverage data you've already generated. Synthetic generation adds minimal overhead. The biggest investment is curating and maintaining the dataset — but even that can be done incrementally, and the dataset is **reusable across every migration cycle**.
 
 ---
 

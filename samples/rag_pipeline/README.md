@@ -130,20 +130,19 @@ Output shows:
 | Debugging regression | Initial signal | ✅ Root cause |
 | New model family (4o→5.1) | ✅ Required | ✅ Recommended |
 
-### Cost per Evaluation Cycle
+### API Calls per Evaluation Cycle
 
 For 15 golden test cases:
 
-| Component | API Calls | Cost |
-|-----------|-----------|------|
-| End-to-end (2 configs × 15 cases) | 30 pipeline runs | ~$1.00 |
-| Retrieval scoring | 0 (computation only) | $0.00 |
-| Generation scoring (isolated) | 30 generation calls | ~$0.50 |
-| LLM-as-judge | 30 judgments | ~$0.50 |
-| **Total** | | **~$2.00** |
+| Component | API Calls |
+|-----------|-----------|
+| End-to-end (2 configs × 15 cases) | 30 pipeline runs |
+| Retrieval scoring | 0 (computation only) |
+| Generation scoring (isolated) | 30 generation calls |
+| LLM-as-judge | 30 judgments |
+| **Total** | **~120 calls** |
 
-**Scaling:** Cost grows linearly. 50 cases ≈ $6 | 100 ≈ $12 | 500 ≈ $60.
-Dataset building is one-time — reuse across every migration cycle.
+Scales linearly with test cases. Dataset is reusable across every migration cycle.
 
 ## Migration Workflow
 
@@ -186,6 +185,25 @@ This will:
 
 Each run is named with the model config + timestamp, so you can compare
 different migration scenarios side-by-side in the Foundry portal.
+
+## Use Your Own Data
+
+This sample comes with pre-built test data, but it's designed to work with **your** application's data:
+
+```bash
+# Point to your own golden tests and knowledge base:
+python samples/rag_pipeline/test_e2e.py \
+    --golden-path /path/to/your/golden_tests.jsonl \
+    --docs-path /path/to/your/documents.json \
+    --results-dir /path/to/your/results/
+```
+
+Golden test JSONL format (one per line):
+```json
+{"query": "your question", "expected_doc_ids": ["doc-1"], "expected_answer": "reference answer", "category": "your-category"}
+```
+
+See [Building Golden Datasets](../../docs/building-golden-datasets.md) for how to mine production traffic into this format.
 
 ## See Also
 

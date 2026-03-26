@@ -285,27 +285,20 @@ def main():
     print(f"  ✓ JSON audit trail saved to {RESULTS_DIR}/")
     print()
 
-    # API cost estimate
-    # Pipeline: 1 rephrase + 1 embed + 1 generate per case per model = 3 calls × 15 cases × 2 models
-    # Judge: 1 call per case × 2 models (E2E) + isolated gen for non-negation
+    # API call summary
     pipeline_calls = len(golden_tests) * 2 * 3  # rephrase + embed + generate per case per model
     n_non_neg = len(golden_tests) - n_negation
     judge_calls = len(golden_tests) * 2  # E2E for both models
     iso_gen_calls = n_non_neg * 2  # isolated generation eval
     total_calls = pipeline_calls + judge_calls + iso_gen_calls + len(kb)  # +kb embeddings
-    print(f"  Cost estimate:")
+    print(f"  API call summary:")
     print(f"    Pipeline calls: {pipeline_calls} ({len(golden_tests)} tests × 2 models × 3 steps)")
     print(f"    Judge calls (E2E): {judge_calls}")
     print(f"    Isolated generation calls: {iso_gen_calls} (excl. {n_negation} negation)")
     print(f"    KB embedding calls: {len(kb)}")
     print(f"    Total API calls: ~{total_calls}")
-    print(f"    Estimated total cost: ~$0.50-1.50")
     print()
-    print(f"  Scaling note: cost scales linearly with test cases.")
-    print(f"    50 cases ≈ $4-6  |  100 cases ≈ $8-12  |  500 cases ≈ $40-60")
-    print(f"    Dataset building is a one-time cost, reused across every migration cycle.")
-    print()
-    print(f"  This is what it takes to validate a model migration. 🚀")
+    print(f"  Dataset is reusable — same golden tests work for every migration cycle.")
     print()
 
 
