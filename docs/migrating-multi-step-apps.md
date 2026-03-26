@@ -354,6 +354,72 @@ Before declaring a multi-step migration complete:
 - [ ] Scores documented and stored for future reference
 - [ ] Rollback plan in place (can revert to previous model deployments)
 
+## Remediation Playbook
+
+When evaluation detects a regression, use this decision tree to identify the root cause and fix it.
+
+### Scenario 1: E2E score drops, task-level generation is fine
+
+**Diagnosis:** Retrieval changed — the model gets different context than before.
+
+| Signal | Action |
+|--------|--------|
+| Recall dropped | New embedding model retrieves different docs → re-embed the KB and validate recall before proceeding |
+| Precision dropped | Rephraser rewords queries differently → test with the original query (bypass rephrase) to isolate |
+| Scores inconsistent across categories | The model handles some topics worse → check per-category breakdown with `drift_analysis.py` |
+
+**Fix:** Adjust retrieval (top-k, similarity threshold) or roll back the embedding/rephraser change.
+
+### Scenario 2: E2E score drops AND isolated generation drops
+
+**Diagnosis:** The generation model itself produces worse answers, even with correct context.
+
+| Signal | Action |
+|--------|--------|
+| Groundedness dropped | Model hallucinates more → add stricter system prompt ("Only use provided context") |
+| Correctness dropped | Model misinterprets instructions → adapt prompt for the new model's style (see `docs/api-changes-by-model.md`) |
+| Relevance dropped | Model produces off-topic responses → check if `max_tokens` / `temperature` need adjustment for new model |
+
+**Fix:** Tune the generation prompt or parameters. If scores don't recover, this model version is not suitable — try the next candidate.
+
+### Scenario 3: Scores stable, but latency regressed
+
+**Diagnosis:** The new model is slower. This is common with larger models.
+
+| Signal | Action |
+|--------|--------|
+| Generation step slower | Expected for more capable models → evaluate whether quality improvement justifies latency |
+| Embedding step slower | Check if batch embedding is available → batch calls reduce wall-clock time |
+| All steps slower | Network or throttling issue → check APIM / rate limits before blaming the model |
+
+**Fix:** If latency is unacceptable, try the `-mini` variant of the target model (e.g., `gpt-4.1-mini` instead of `gpt-4.1`).
+
+### Scenario 4: One category regresses, others are fine
+
+**Diagnosis:** The model handles certain topic types differently.
+
+| Signal | Action |
+|--------|--------|
+| Security/compliance topics drop | New model may be more conservative on sensitive topics → test with explicit "answer from context" instructions |
+| Negation queries fail | New model handles negation differently → ensure golden test set includes negation cases |
+| Long-context queries degrade | Context window handling differs → check if chunking strategy needs adjustment |
+
+**Fix:** Add category-specific test cases, adjust prompts per category if needed, or use different models for different use-case categories.
+
+### Drift Over Time
+
+Run `drift_analysis.py` after each evaluation cycle to track trends:
+
+```bash
+python samples/rag_pipeline/drift_analysis.py --results-dir data/results/
+```
+
+This shows:
+- **Timeline**: All evaluation runs with aggregate scores
+- **Per-model trends**: How each model's scores evolved across runs
+- **Per-category cluster analysis**: Which categories regressed, improved, or stayed stable
+- **Retrieval stability**: Whether retrieval behavior is consistent across model changes
+
 ## See Also
 
 - [Building Golden Datasets](building-golden-datasets.md) — How to create test data for your pipeline

@@ -102,6 +102,7 @@ Output shows:
 | `evaluate_pipeline.py` | Dual-layer evaluation (end-to-end + task-level + per-category) |
 | `migrate_and_compare.py` | A/B migration comparison script |
 | `test_e2e.py` | Full E2E test — .env-driven, JSON export |
+| `drift_analysis.py` | Temporal drift analysis across historical result files |
 | `upload_to_foundry.py` | Upload results to Azure AI Foundry dashboard |
 | `data/documents.json` | 20 enterprise IT policy documents |
 | `data/golden_tests.jsonl` | 15 golden test cases with expected results |
@@ -155,6 +156,25 @@ Scales linearly with test cases. Dataset is reusable across every migration cycl
 6. If OK: lock in change, move to next model
 7. All models migrated: final regression suite
 ```
+
+## Drift Analysis Over Time
+
+After multiple evaluation runs (e.g., testing gpt-4o → gpt-4.1, then gpt-4o → gpt-5.4-mini),
+the `data/results/` folder accumulates JSON audit trails. The drift analysis script reads
+all of them and identifies trends:
+
+```bash
+python samples/rag_pipeline/drift_analysis.py
+```
+
+Output includes:
+- **Timeline**: All evaluation runs with aggregate scores
+- **Per-model trend**: Which metrics improved, regressed, or stayed stable
+- **Per-category cluster analysis**: Identifies if specific topic categories (e.g., Security, HR) regressed while others improved
+- **Retrieval stability**: Whether the same documents are being retrieved across model versions
+
+This maps directly to the **drift detection and cluster analysis** pattern: instead of
+one-off comparisons, you track quality trends across every migration cycle.
 
 ## Upload Results to Azure AI Foundry
 

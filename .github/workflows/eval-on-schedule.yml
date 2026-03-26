@@ -23,20 +23,32 @@ on:
         description: 'Target model (migration candidate)'
         default: 'gpt-4.1'
 
-env:
-  AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-  RAG_SOURCE_MODEL: ${{ github.event.inputs.source_model || 'gpt-4o' }}
-  RAG_TARGET_MODEL: ${{ github.event.inputs.target_model || 'gpt-4.1' }}
-  RAG_EMBEDDING_MODEL: 'text-embedding-3-large'
-  RAG_REPHRASER_MODEL: 'gpt-4o-mini'
-  RAG_JUDGE_MODEL: 'gpt-4o'
-
 jobs:
   evaluate:
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # For Azure OIDC login
       contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - source: ${{ github.event.inputs.source_model || 'gpt-4o' }}
+            target: ${{ github.event.inputs.target_model || 'gpt-4.1' }}
+          # Add more model pairs to test in parallel:
+          # - source: gpt-4o
+          #   target: gpt-5.4-mini
+          # - source: gpt-4o-mini
+          #   target: gpt-4.1-mini
+
+    env:
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      RAG_SOURCE_MODEL: ${{ matrix.source }}
+      RAG_TARGET_MODEL: ${{ matrix.target }}
+      RAG_EMBEDDING_MODEL: 'text-embedding-3-large'
+      RAG_REPHRASER_MODEL: 'gpt-4o-mini'
+      RAG_JUDGE_MODEL: 'gpt-4o'
 
     steps:
       - uses: actions/checkout@v4
@@ -71,9 +83,14 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: eval-results-${{ github.run_number }}
+          name: eval-results-${{ matrix.source }}-${{ matrix.target }}-${{ github.run_number }}
           path: eval-results/
           retention-days: 90
+
+      - name: Drift analysis
+        run: |
+          python samples/rag_pipeline/drift_analysis.py \
+            --results-dir eval-results/
 
       - name: Check for regressions
         run: |

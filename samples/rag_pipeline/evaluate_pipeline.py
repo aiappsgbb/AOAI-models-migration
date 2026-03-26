@@ -402,6 +402,9 @@ class DualLayerReport:
 
     def to_dict(self) -> dict:
         """Convert report to a serializable dictionary."""
+        # Build category lookup from test cases
+        cat_map = {tc.query: tc.category for tc in self.test_cases}
+
         return {
             "end_to_end": [
                 {
@@ -411,6 +414,7 @@ class DualLayerReport:
                     "relevance": r.relevance,
                     "correctness": r.correctness,
                     "retrieved_ids": r.retrieved_ids,
+                    "category": cat_map.get(r.query, "unknown"),
                 }
                 for r in self.end_to_end
             ],
@@ -422,6 +426,7 @@ class DualLayerReport:
                     "precision": r.precision,
                     "recall": r.recall,
                     "mrr": r.mrr,
+                    "category": cat_map.get(r.query, "unknown"),
                 }
                 for r in self.retrieval
             ],
@@ -432,6 +437,7 @@ class DualLayerReport:
                     "groundedness": r.groundedness,
                     "relevance": r.relevance,
                     "correctness": r.correctness,
+                    "category": cat_map.get(r.query, "unknown"),
                 }
                 for r in self.generation
             ],
