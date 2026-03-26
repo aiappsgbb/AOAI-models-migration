@@ -1447,13 +1447,17 @@ def create_app(config_path: str = None) -> Flask:
             _uctx = UserContext(user_id=_bg_user_id, base_dir='data/users')
             token = _current_run_id.set(run_id)
             try:
-                def _progress(completed_idx, total, current_mb, report):
+                def _progress(completed_idx, total, current_mb, report, *, starting=False):
                     with _compare_jobs_lock:
                         job = _compare_jobs.get(run_id)
                         if not job:
                             return
-                        job['completed'] = completed_idx
                         job['current_model_b'] = current_mb
+                        if starting:
+                            # Only update which model is being compared;
+                            # don't touch completed count or results yet.
+                            return
+                        job['completed'] = completed_idx
                         if report is not None:
                             try:
                                 report.save(results_dir)
