@@ -863,7 +863,9 @@
                             document.getElementById('batch-progress-label').textContent =
                                 completed >= total
                                     ? `Completed ${completed}/${total} comparisons`
-                                    : `Comparing ${displayName(modelA)} vs ${displayName(currentMb || '…')} (${completed + 1}/${total})`;
+                                    : currentMb
+                                        ? `Comparing ${displayName(modelA)} vs ${displayName(currentMb)} (${completed + 1}/${total})`
+                                        : `Evaluating ${displayName(modelA)}… (0/${total})`;
 
                             // Log new completions
                             if (completed > lastCompleted) {
