@@ -719,12 +719,14 @@ evaluation/
 
 ### 🔹 LLM-Only App (e.g., chatbot, RAG, summarizer)
 
+> **Import format:** Use **RAG** (if you have context passages) or **General** (free-form prompts). See [Formatting Data for the Evaluation Tool](#formatting-data-for-the-evaluation-tool) below.
+
 ```bash
 # Day 1: Enable stored completions in production
 # Add store=True to your chat.completions.create() calls
 
-# Day 2: Export 200 records, stratified sample
-# → golden_dataset.jsonl
+# Day 2: Export 200 records, convert to RAG or General import format
+# → rag_import.json or general_import.json
 
 # Day 3: Run evaluation
 python -c "
@@ -737,25 +739,29 @@ report.print_report()
 
 ### 🔹 AI Gateway App (APIM in front of Azure OpenAI)
 
+> **Import format:** Export as CSV from Log Analytics, then convert to **RAG**, **Classification**, or **General** format. APIM logs map naturally to CSV — see [CSV Formatting Rules](#csv-formatting-rules) below.
+
 ```bash
 # Day 1: Enable GenAI gateway diagnostic logs in APIM
 # Enable request/response body logging for your LLM API
 
 # Day 2: Run KQL query to export 200 records from Log Analytics
-# → golden_dataset.csv → upload to Foundry
+# → Convert to task-specific CSV (RAG, Classification, or General)
 
-# Day 3: Run evaluation in Foundry portal
+# Day 3: Import into evaluation tool or upload to Foundry
 # Compare runs across models with statistical significance
 ```
 
 ### 🔹 Agent-Based App (tool calling, multi-step)
+
+> **Import format:** Use **Tool Calling** for function/tool selection tests, or **Dialog** for multi-turn conversation flows. See [Agent Traces → Tool Calling conversion](#conversion-examples) below.
 
 ```bash
 # Day 1: Add trace logging to your agent loop
 # Capture: input, tool calls (name + args + result), final output
 
 # Day 2: Collect 1 week of traces, filter to representative set
-# Convert to golden dataset with expected tool sequences
+# Convert to Tool Calling import format (JSON or CSV)
 
 # Day 3: Run evaluation with tool-specific metrics
 # Tool Accuracy, Parameter Accuracy, Step Efficiency, Task Completion
@@ -779,8 +785,131 @@ report.print_report()
 
 ---
 
+## Formatting Data for the Evaluation Tool
+
+Once you have captured production data (via Stored Completions, APIM logs, or application logging), you need to format it into one of the **five task types** recognized by the evaluation tool's import feature. The tool accepts both **JSON** and **CSV** files; CSV files are automatically converted to JSON on import.
+
+> **📄 For exact field schemas, sample records, and CSV escaping rules, see the [Import Samples](/import-samples) page** in the evaluation tool. The examples below show how to map your raw captured data into each task-specific format.
+
+### Task Types and Required Fields
+
+| Task Type | Required Fields | Best For |
+|-----------|----------------|----------|
+| **Classification** | `id`, `customer_input`, `expected_category`, `expected_subcategory`, `expected_priority`, `expected_sentiment` | Intent detection, sentiment analysis, ticket routing |
+| **Dialog** | `id`, `conversation`, `context_gaps`, `optimal_follow_up`, `follow_up_rules`, `expected_resolution_turns` | Multi-turn conversation quality, context tracking |
+| **General** | `id`, `test_type`, `prompt`, `complexity`, `expected_behavior` | Instruction following, structured output, free-form reasoning |
+| **RAG** | `id`, `query`, `context`, `ground_truth` | Retrieval-augmented generation, grounded Q&A |
+| **Tool Calling** | `id`, `query`, `available_tools`, `expected_tool_calls`, `expected_parameters` | Function calling accuracy, parameter extraction |
+
+### Mapping Production Data to Import Formats
+
+The raw data you capture from production (Strategy 1) uses a generic schema — typically `prompt`, `system_prompt`, `expected_output`, `context`. Here's how each field maps to the task-specific import formats:
+
+| Production Field | → Classification | → Dialog | → General | → RAG | → Tool Calling |
+|-----------------|-----------------|----------|-----------|-------|----------------|
+| `prompt` / user message | `customer_input` | `conversation` | `prompt` | `query` | `query` |
+| `system_prompt` | *(not imported — set in prompt template)* | `follow_up_rules` | *(not imported)* | *(not imported)* | *(not imported)* |
+| `expected_output` | `expected_category` + `expected_subcategory` + `expected_priority` + `expected_sentiment` | `optimal_follow_up` | `expected_behavior` | `ground_truth` | `expected_tool_calls` + `expected_parameters` |
+| `context` | `context` *(optional)* | `context_gaps` | *(not used)* | `context` | `available_tools` |
+| `metadata` | Use to generate `id` prefix (e.g., `CLASS_001`) | Use for `expected_resolution_turns` | Use for `test_type`, `complexity` | Use to generate `id` | Use to generate `id` |
+
+### Conversion Examples
+
+#### Production JSONL → RAG Format (JSON)
+
+```python
+import json
+
+# Read raw production export
+with open("production_export.jsonl") as f:
+    records = [json.loads(line) for line in f]
+
+# Convert to RAG import format
+rag_records = []
+for i, rec in enumerate(records, 1):
+    rag_records.append({
+        "id": f"RAG_{i:03d}",
+        "query": rec["prompt"],
+        "context": rec.get("context", ""),
+        "ground_truth": rec.get("expected_output", ""),
+    })
+
+# Save as JSON (ready for import)
+with open("rag_import.json", "w") as f:
+    json.dump(rag_records, f, indent=2)
+```
+
+#### Production JSONL → Classification Format (CSV)
+
+```python
+import json, csv
+
+with open("production_export.jsonl") as f:
+    records = [json.loads(line) for line in f]
+
+with open("classification_import.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["id", "customer_input", "expected_category", "expected_subcategory",
+                     "expected_priority", "expected_sentiment", "context"])
+    for i, rec in enumerate(records, 1):
+        # Parse structured expected_output if it's JSON
+        expected = json.loads(rec["expected_output"]) if rec.get("expected_output", "").startswith("{") else {}
+        writer.writerow([
+            f"CLASS_{i:03d}",
+            rec["prompt"],
+            expected.get("category", ""),
+            expected.get("subcategory", ""),
+            expected.get("priority", ""),
+            expected.get("sentiment", ""),
+            json.dumps(rec.get("metadata", {})),  # Context as JSON string
+        ])
+```
+
+#### Agent Traces → Tool Calling Format (JSON)
+
+```python
+import json
+
+with open("agent_traces.jsonl") as f:
+    traces = [json.loads(line) for line in f]
+
+tc_records = []
+for i, trace in enumerate(traces, 1):
+    tool_calls = [s for s in trace["steps"] if s["type"] == "tool_call"]
+    if not tool_calls:
+        continue
+    tc_records.append({
+        "id": f"TC_{i:03d}",
+        "query": trace["input"],
+        "available_tools": json.dumps(trace.get("tools", [])),  # JSON string
+        "expected_tool_calls": " | ".join(tc["name"] for tc in tool_calls),
+        "expected_parameters": json.dumps(
+            {tc["name"]: tc["args"] for tc in tool_calls}
+        ),
+    })
+
+with open("tool_calling_import.json", "w") as f:
+    json.dump(tc_records, f, indent=2)
+```
+
+### CSV Formatting Rules
+
+When creating CSV files for import, keep these rules in mind:
+
+- **Header row is required** — field names must match exactly (case-sensitive).
+- **Quote fields** that contain commas, newlines, or double-quotes.
+- **Escape inner quotes** by doubling them: `""` (e.g., `"{""key"": ""value""}"`).
+- **JSON-valued fields** (like `context`, `conversation`, `available_tools`, `expected_parameters`) are stored as **strings** in CSV — they'll be parsed at evaluation time.
+- The **`id` field** should be unique within each file (use prefixes: `CLASS_001`, `DLG_001`, `RAG_001`, `TC_001`, `GEN_001`).
+- CSV files are automatically converted to JSON on import. The canonical storage format is JSON.
+
+> **💡 Tip:** Start with JSON format if you're generating files programmatically. Use CSV only when exporting from spreadsheets, APIM logs, or Log Analytics.
+
+---
+
 ## Next Steps
 
 - **[Evaluation Guide](evaluation-guide.md)** — run your golden dataset through the evaluation framework
 - **[Cloud Eval Tracking](cloud-eval-tracking-across-models.md)** — track metrics across model generations in Foundry
 - **[Lifecycle Best Practices](llm-upgrade-lifecycle-best-practices.md)** — integrate golden dataset maintenance into your upgrade lifecycle
+- **[📄 Import Samples](/import-samples)** — exact JSON and CSV schemas for each task type, with copy-paste examples

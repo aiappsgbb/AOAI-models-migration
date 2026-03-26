@@ -31,7 +31,16 @@
             </a>
         </div>
         <h1 class="text-2xl font-bold text-gray-900 mb-1">📄 Import Samples — JSON &amp; CSV</h1>
-        <p class="text-sm text-gray-500 mb-6">Copy these examples to create your own test data files. Each task type requires specific fields. Both JSON and CSV formats are accepted; CSV files are converted to JSON on import.</p>
+        <p class="text-sm text-gray-500 mb-4">Copy these examples to create your own test data files. Each task type requires specific fields. Both JSON and CSV formats are accepted; CSV files are converted to JSON on import.</p>
+
+        <!-- Building guide callout -->
+        <div class="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-3">
+            <span class="text-lg mt-0.5">🏗️</span>
+            <div>
+                <h3 class="text-sm font-semibold text-emerald-800 mb-0.5">Need to build your dataset from production data?</h3>
+                <p class="text-xs text-emerald-700">The <a href="https://github.com/your-org/AOAI-models-migration/blob/main/docs/building-golden-datasets.md" target="_blank" class="font-medium text-emerald-900 underline hover:text-emerald-700">Building Your Golden Dataset</a> guide shows how to capture real production traffic (Stored Completions, APIM logs, application logging), apply PII redaction, generate synthetic data, and convert it into the task-specific formats shown below. Includes field mapping tables and conversion scripts for each task type.</p>
+            </div>
+        </div>
 
         <!-- Task Navigation -->
         <nav class="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto" id="task-nav">
