@@ -22,6 +22,18 @@ Single-call evaluation would miss this entirely. You'd test the embedding model 
 
 ## The Hybrid Evaluation Methodology
 
+### Prerequisites: Golden Test Data
+
+Before running any evaluation, you need a golden dataset — representative queries with expected outcomes. **Don't build this from scratch.** Mine it from production traffic:
+
+- **Azure OpenAI Stored Completions** → export real user queries + model responses (zero code changes)
+- **APIM logs** → capture request/response pairs at the gateway level
+- **Application-level logging** → instrument your pipeline to log intermediate steps
+
+See [Building Golden Datasets](building-golden-datasets.md) for step-by-step extraction, PII redaction, and dataset maintenance as production traffic evolves.
+
+> **Key insight:** Golden datasets are reusable across every migration cycle. Build once, reuse for every model swap. This is what makes incremental cost near-zero.
+
 ### End-to-End Evaluation (Monitoring Layer)
 
 Run the full pipeline against a set of golden test cases and score the **final output only**.

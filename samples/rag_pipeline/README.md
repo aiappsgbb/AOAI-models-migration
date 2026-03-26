@@ -3,6 +3,13 @@
 A self-contained Retrieval-Augmented Generation pipeline designed to demonstrate
 **how to evaluate and migrate multi-model applications**.
 
+> **This is a methodology demo, not a production RAG system.** The in-memory
+> vector store and sample documents are intentionally simple so you can focus
+> on the evaluation patterns. Replace them with your own retrieval backend
+> (Azure AI Search, pgvector, Pinecone, etc.) and your own documents — the
+> evaluation framework, golden test format, and scoring methodology all
+> transfer directly.
+
 Most enterprise AI apps are not single model calls — they chain multiple models
 together (embedding → retrieval → generation). When you migrate one model in the
 chain, you need to know:
@@ -53,7 +60,7 @@ The fastest way to validate a migration — change `.env`, run the same script:
 python samples/rag_pipeline/test_e2e.py
 ```
 
-This runs 15 tests × 2 models with full dual-layer evaluation, per-category
+This runs 20 tests × 2 models with full dual-layer evaluation, per-category
 breakdown, and exports JSON results. **Change only `.env` to test different
 model pairs — zero code changes.**
 
@@ -105,7 +112,7 @@ Output shows:
 | `drift_analysis.py` | Temporal drift analysis across historical result files |
 | `upload_to_foundry.py` | Upload results to Azure AI Foundry dashboard |
 | `data/documents.json` | 20 enterprise IT policy documents |
-| `data/golden_tests.jsonl` | 15 golden test cases with expected results |
+| `data/golden_tests.jsonl` | 20 golden test cases (incl. 5 adversarial) with expected results |
 | `data/results/` | JSON audit trail (auto-generated, gitignored) |
 
 ## Knowledge Base
@@ -120,6 +127,25 @@ Output shows:
 | Data Governance | 4 | Retention, GDPR, backups, access requests |
 | Development | 3 | Code review, CI/CD, API versioning |
 
+## Golden Test Cases
+
+20 test cases across 7 difficulty categories:
+
+| Category | Count | Tests |
+|----------|-------|-------|
+| Simple lookup | 5 | Single-doc factual retrieval |
+| Multi-doc | 4 | Requires combining info from 2-3 documents |
+| Cross-category | 2 | Spans policy domains (e.g., security + remote work) |
+| Specific detail | 2 | Precise numerical answers (RTO, mileage rate) |
+| Negation | 2 | Should answer "not enough information" |
+| Adversarial — misleading | 2 | Questions with wrong assumptions the model must correct |
+| Adversarial — nuance | 1 | Requires distinguishing overlapping policies |
+| Adversarial — contradiction | 1 | Asks about seemingly conflicting policies |
+| Adversarial — multi-hop | 1 | Requires reasoning across 4 documents |
+
+The adversarial cases are designed to break naive retrieval and generation — they
+test whether a model change introduces subtle reasoning failures, not just factual recall.
+
 ## Evaluation Methodology
 
 ### When to Use Which Layer
@@ -133,15 +159,15 @@ Output shows:
 
 ### API Calls per Evaluation Cycle
 
-For 15 golden test cases:
+For 20 golden test cases:
 
 | Component | API Calls |
 |-----------|-----------|
-| End-to-end (2 configs × 15 cases) | 30 pipeline runs |
+| End-to-end (2 configs × 20 cases) | 40 pipeline runs |
 | Retrieval scoring | 0 (computation only) |
-| Generation scoring (isolated) | 30 generation calls |
-| LLM-as-judge | 30 judgments |
-| **Total** | **~120 calls** |
+| Generation scoring (isolated) | 36 generation calls |
+| LLM-as-judge | 40 judgments |
+| **Total** | **~156 calls** |
 
 Scales linearly with test cases. Dataset is reusable across every migration cycle.
 

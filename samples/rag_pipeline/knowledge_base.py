@@ -39,6 +39,12 @@ class SearchResult:
 class KnowledgeBase:
     """In-memory vector store backed by numpy cosine similarity.
 
+    This is a methodology demo — intentionally simple so the evaluation
+    patterns are the focus, not retrieval infrastructure. In production,
+    swap this for Azure AI Search, pgvector, Pinecone, or any vector DB.
+    The evaluation framework (golden tests, dual-layer scoring, drift
+    analysis) works identically regardless of the retrieval backend.
+
     Parameters
     ----------
     documents : list[Document]

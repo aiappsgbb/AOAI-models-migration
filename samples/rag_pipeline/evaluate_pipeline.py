@@ -79,12 +79,12 @@ _JUDGE_SYSTEM_PROMPT = """\
 You are an expert evaluator. Given a question, context documents, an answer, \
 and an expected answer, rate the answer on three dimensions (1-5 scale):
 
-1. GROUNDEDNESS: Is the answer supported by the context? \
-(1=hallucinated, 5=fully grounded)
-2. RELEVANCE: Does the answer address the question? \
-(1=off-topic, 5=directly answers)
+1. GROUNDEDNESS: Is the answer supported ONLY by the provided context? \
+(1=hallucinated, 5=fully grounded) — Evaluate against the CONTEXT, not the expected answer.
+2. RELEVANCE: Does the answer directly address the user's question? \
+(1=off-topic, 5=directly answers) — Evaluate against the QUESTION, not the expected answer.
 3. CORRECTNESS: Is the answer factually aligned with the expected answer? \
-(1=wrong, 5=matches expected)
+(1=wrong, 5=matches expected) — This is the ONLY metric that uses the expected answer.
 
 Return your ratings as JSON with a brief explanation for any score below 5:
 {"groundedness": X, "relevance": X, "correctness": X, "explanation": "one sentence reason for any deduction, or 'all perfect' if all 5s"}
@@ -224,19 +224,26 @@ def _compute_retrieval_metrics(
 ) -> tuple[float, float | None, float]:
     """Return (precision@k, recall@k, MRR).
 
-    For negation cases (expected_ids is empty), recall is undefined (None).
+    For negation cases (expected_ids is empty):
+    - Precision measures false-positive rate: 0.0 means the pipeline correctly
+      retrieved nothing relevant (good); >0 is impossible since there's nothing
+      to match, but we track it as 1.0 if no docs retrieved, 0.0 if docs were
+      retrieved (penalizing false retrieval).
+    - Recall is undefined (None).
     """
     expected_set = set(expected_ids)
     k = len(retrieved_ids)
 
+    # Negation case: no documents should be retrieved
+    if not expected_set:
+        # Precision = 1.0 if retriever returned nothing, 0.0 if it returned docs
+        # This penalizes false positives: retrieving docs when none are relevant
+        precision = 1.0 if k == 0 else 0.0
+        return precision, None, 0.0
+
     overlap = sum(1 for rid in retrieved_ids if rid in expected_set)
     precision = overlap / k if k > 0 else 0.0
-
-    # Negation: nothing to recall — recall is undefined
-    if not expected_set:
-        recall: float | None = None
-    else:
-        recall = overlap / len(expected_set)
+    recall = overlap / len(expected_set)
 
     # MRR: 1/rank of the first relevant hit
     mrr = 0.0
