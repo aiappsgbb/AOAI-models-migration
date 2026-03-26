@@ -380,10 +380,17 @@ class AzureOpenAIClient:
         logger.info("Gemini client: initialised (OpenAI-compatible endpoint)")
         
     def _resolve_env_var(self, value: str) -> str:
-        """Resolve environment variable references like ${VAR_NAME}"""
+        """Resolve environment variable references like ${VAR_NAME}.
+
+        Returns the env-var value when set, or ``""`` when not set.
+        Returning empty (falsy) instead of the raw ``${…}`` template
+        lets callers fall back gracefully (``or`` chains, ``if raw:``
+        guards, etc.) instead of treating the template literal as a
+        real URL/key.
+        """
         if value and value.startswith('${') and value.endswith('}'):
             env_var = value[2:-1]
-            return os.getenv(env_var, value)
+            return os.getenv(env_var, '')
         return value
     
     def register_model(self, name: str, config: ModelConfig):

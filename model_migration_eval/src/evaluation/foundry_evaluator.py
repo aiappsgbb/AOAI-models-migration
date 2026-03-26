@@ -1076,16 +1076,21 @@ class FoundryEvaluator:
 # ---------------------------------------------------------------------------
 
 def _resolve_env_var(value: str) -> str:
-    """Resolve ${VAR_NAME} references in config values."""
+    """Resolve ${VAR_NAME} references in config values.
+
+    Returns ``""`` when the referenced env-var is not set, so callers
+    can rely on falsy checks instead of receiving the raw ``${…}``
+    template string.
+    """
     if not value:
         return value
     # Full-value pattern: "${VAR}"
     if value.startswith('${') and value.endswith('}'):
         env_var = value[2:-1]
-        return os.getenv(env_var, value)
+        return os.getenv(env_var, '')
     # Inline pattern: "prefix ${VAR} suffix"
     def _repl(m):
-        return os.getenv(m.group(1), m.group(0))
+        return os.getenv(m.group(1), '')
     return re.sub(r'\$\{(\w+)\}', _repl, value)
 
 
