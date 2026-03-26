@@ -19,7 +19,15 @@ V1_MODELS = {
     "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
     "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5-mini", "gpt-5-nano",
     "gpt-5-pro", "gpt-5-codex", "gpt-5.1-codex", "gpt-5.1-codex-mini",
+    "gpt-5.4", "gpt-5.4-mini",
+    "gpt-5-chat",
     "codex-mini",
+}
+
+# Models that require max_completion_tokens instead of max_tokens
+# (all v1 models + o-series; classic gpt-4o still uses max_tokens)
+MAX_COMPLETION_TOKEN_MODELS = V1_MODELS | {
+    "o1", "o1-pro", "o3-mini", "o3", "o3-pro", "o3-deep-research", "o4-mini",
 }
 
 # Reasoning models (no temperature/top_p, use max_completion_tokens, developer role)
@@ -77,7 +85,11 @@ def load_config(env_path: Optional[str] = None) -> dict:
         "gpt-5.1": "GPT51_DEPLOYMENT",
         "gpt-5.2": "GPT52_DEPLOYMENT",
         "gpt-5-mini": "GPT5_MINI_DEPLOYMENT",
+        "gpt-5.4": "GPT54_DEPLOYMENT",
+        "gpt-5.4-mini": "GPT54_MINI_DEPLOYMENT",
+        "gpt-5-chat": "GPT5_DEPLOYMENT",
         "o3": "O3_DEPLOYMENT",
+        "o3-mini": "O3_MINI_DEPLOYMENT",
         "o4-mini": "O4_MINI_DEPLOYMENT",
     }
 
