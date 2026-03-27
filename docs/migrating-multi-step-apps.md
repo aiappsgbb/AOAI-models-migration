@@ -212,34 +212,81 @@ Query → Rephrase → Embed → Retrieve → Generate → Answer
 - Retrieval: precision@5, recall@5, MRR
 - Generation: groundedness, relevance, correctness
 
-### Agent Workflow
+### Agentic Applications
 
+Agentic apps use LLMs to reason about requests, call tools, and take autonomous actions. Unlike RAG pipelines (which have a fixed step sequence), agent behavior is dynamic — the model decides what to do at each turn. This makes them both easier to migrate (model = one config value) and harder to validate (behavior can change subtly).
+
+#### Model Swap = Config Change
+
+Regardless of the framework you use, the model is always a configuration property. Migration means changing one value:
+
+```bash
+# .env — the ONLY change needed to swap the model
+AZURE_OPENAI_DEPLOYMENT=gpt-4o          # before
+AZURE_OPENAI_DEPLOYMENT=gpt-4.1         # after
 ```
-User request → Planner (decides steps) → Tool Caller (executes) → Summarizer (formats response)
+
+**Foundry Agent Service** — model is a property of `PromptAgentDefinition`:
+```python
+# Foundry: model is a config property, swap = change one value
+agent = project_client.agents.create_agent(
+    model=os.environ["AZURE_OPENAI_DEPLOYMENT"],  # ← from .env
+    instructions="You are a helpful assistant...",
+    tools=[...],
+)
 ```
 
-**Migration order:**
-1. **Planner** (determines the entire execution path—highest risk)
-2. **Tool Caller** (must produce valid function calls—test with deterministic accuracy)
-3. **Summarizer** (lowest risk—mostly formatting)
+**Microsoft Agent Framework** (successor to Semantic Kernel + AutoGen):
+```python
+# Agent Framework: model is a constructor parameter
+client = AzureOpenAIResponsesClient(
+    project_endpoint=os.environ["AZURE_AI_PROJECT_ENDPOINT"],
+    deployment_name=os.environ["AZURE_OPENAI_DEPLOYMENT"],  # ← from .env
+    credential=credential,
+)
+agent = client.as_agent(name="MyAgent", instructions="...")
+```
 
-**Why planner first:** The planner decides _which_ tools to call and in _what order_. If a new model changes the plan, every downstream step receives different inputs. This is analogous to changing the embedding model in RAG — the cascade is unpredictable. Always migrate and validate the planner before touching tool-caller or summarizer models.
+**LangChain / LangGraph**:
+```python
+# LangChain: model is a constructor parameter
+from langchain_openai import AzureChatOpenAI
+llm = AzureChatOpenAI(
+    azure_deployment=os.environ["AZURE_OPENAI_DEPLOYMENT"],  # ← from .env
+)
+agent = create_react_agent(model=llm, tools=tools)
+```
 
-**Watch out for:** Planner regressions are subtle. A new model might choose different tool sequences that still produce correct results but with different latency or cost profiles. Include tool-call sequence comparison in your evaluation, not just final output quality.
+#### What Actually Breaks When You Swap the Model
 
-#### Task-Level Metrics for Agentic Apps
+The risk is NOT in the code change (it's trivial). The risk is in **behavior change**:
 
-| Component | Metric | How to Measure | LLM Judge Needed? |
-|-----------|--------|----------------|-------------------|
-| **Planner** | Plan correctness | Compare chosen tools + order vs golden plan | No — deterministic match |
-| **Planner** | Tool-selection accuracy | % of correct tool choices across test cases | No |
-| **Planner** | Step-ordering stability | Does the plan order match expected? Account for acceptable variations | No |
-| **Tool Caller** | Function-call accuracy | Does the generated function name match expected? | No |
-| **Tool Caller** | Parameter extraction fidelity | Do extracted parameters match expected values? | No — exact/fuzzy match |
-| **Tool Caller** | Schema compliance | Does the call conform to the tool's JSON schema? | No — schema validation |
-| **Summarizer** | Groundedness | Is the summary supported by tool execution results? | Yes |
-| **Summarizer** | Relevance | Does the summary address the user's original request? | Yes |
-| **Summarizer** | Correctness | Does it match the expected answer? | Yes |
+| Risk | What Happens | How to Detect |
+|------|-------------|---------------|
+| **Tool-calling behavior** | New model selects different tools or calls them in a different order | Compare tool selections against golden expected tool sequences |
+| **Parameter extraction** | New model extracts different values from the same user input | Validate extracted parameters against expected values |
+| **Instruction adherence** | Model follows system/developer instructions more literally or more loosely | E2E test: compare final answers before/after swap |
+| **Structured output stability** | Function call schemas or JSON outputs parsed differently | Schema validation: does the call conform to the tool's JSON schema? |
+| **Reasoning changes** | GPT-5+ models use `developer` role instead of `system`, `max_completion_tokens` instead of `max_tokens` | Use parameter adaptation helpers (see [migration skill](../src/config.py)) |
+
+> **Note on reasoning models (GPT-5, GPT-5.1, GPT-5.2, o-series):** These models bring built-in chain-of-thought, which can change agent behavior significantly. They may produce better tool selections but take different paths to get there. Use `reasoning_effort` to tune the tradeoff between quality and latency.
+
+#### Evaluation Strategy for Agentic Apps
+
+The same **dual-layer methodology** applies, with agentic-specific metrics:
+
+**Layer 1: End-to-End** — Run the agent on golden requests, compare final answers:
+- Groundedness, Relevance, Correctness (same LLM-as-judge rubric as RAG)
+- This catches regressions in the overall experience
+
+**Layer 2: Task-Level** — Inspect intermediate behavior:
+
+| What to Check | Metric | LLM Judge Needed? |
+|---------------|--------|-------------------|
+| Tool selection | Does the model call the expected tools? | No — deterministic match |
+| Parameter accuracy | Are extracted parameters correct? | No — exact/fuzzy match |
+| Schema compliance | Do function calls conform to tool schemas? | No — schema validation |
+| Response quality | Is the final response grounded and relevant? | Yes — LLM-as-judge |
 
 #### Tool-Sequence Stability
 
@@ -260,13 +307,14 @@ Evaluation logic: if the actual tool sequence matches `expected_tools` OR any en
 
 #### Agentic Migration Checklist
 
-- [ ] Inventory all LLM calls: which serve as planner, tool-caller, summarizer?
-- [ ] Build golden dataset with expected tool sequences AND acceptable alternatives
-- [ ] Migrate planner model first — validate plan correctness and tool-selection accuracy
-- [ ] Migrate tool-caller model second — validate function-call accuracy and parameter fidelity
-- [ ] Migrate summarizer last — validate with LLM-as-judge (groundedness, relevance, correctness)
-- [ ] Run end-to-end test across all steps combined
-- [ ] Monitor tool-sequence stability post-migration (drift analysis)
+- [ ] Identify the model config: where is the deployment name set? (.env, portal config, YAML, constructor)
+- [ ] Build golden dataset: requests + expected tool calls + expected parameters + expected answers
+- [ ] Include alternative acceptable tool paths for tasks with multiple valid approaches
+- [ ] Swap the model in config — verify the app still starts and handles basic requests
+- [ ] Run E2E evaluation: compare final answers before/after
+- [ ] Run task-level evaluation: check tool selections, parameter accuracy, schema compliance
+- [ ] For reasoning models (GPT-5+): verify `developer` role and `max_completion_tokens` handling
+- [ ] Monitor post-migration: track tool-calling patterns and answer quality over time
 
 ### Classification + Generation
 
@@ -346,14 +394,14 @@ Identify every model call in your application and its role:
 # Example: RAG-based Q&A
 User query → Rephraser (gpt-4o) → Embedder (text-embedding-3-large) → Retrieve → Generator (gpt-4o)
 
-# Example: Customer support agent
-User query → Planner/Router (gpt-4o) → Tool Caller (gpt-4o) → Tool execution → Summarizer (gpt-4o)
+# Example: Agentic app (Foundry Agent Service / Agent Framework / LangChain)
+User query → Agent (gpt-4o) → [Tool calls: search, calculate, ...] → Response (gpt-4o)
 
 # Example: Document processing
 Document → OCR/extraction → Summarizer (gpt-4o) → Classifier (gpt-4o-mini) → Quality check (gpt-4o)
 ```
 
-For agentic apps, pay special attention to which model serves as the planner — this is your highest-risk component.
+For agentic apps: the model is typically ONE deployment used for reasoning + tool calling + response. The swap is a single config change (see [Agentic Applications](#agentic-applications) above). The challenge is validating that tool-calling behavior and instruction adherence remain consistent.
 
 ### Step 2: Build Your Golden Dataset
 
@@ -361,7 +409,7 @@ For each pipeline, create test cases with:
 - Input query/document
 - Expected output (or reference answer)
 - Expected intermediate results (e.g., correct tool call, correct classification)
-- For agentic apps: expected tool sequences, expected parameters, and acceptable alternative tool paths (see [Agent Workflow](#agent-workflow) section above)
+- For agentic apps: expected tool calls, expected parameters, and acceptable alternative tool paths (see [Agentic Applications](#agentic-applications) above)
 
 Use `store=True` on production calls to mine real data — see [Building Golden Datasets](building-golden-datasets.md).
 
