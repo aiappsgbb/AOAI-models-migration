@@ -223,12 +223,50 @@ User request → Planner (decides steps) → Tool Caller (executes) → Summariz
 2. **Tool Caller** (must produce valid function calls—test with deterministic accuracy)
 3. **Summarizer** (lowest risk—mostly formatting)
 
+**Why planner first:** The planner decides _which_ tools to call and in _what order_. If a new model changes the plan, every downstream step receives different inputs. This is analogous to changing the embedding model in RAG — the cascade is unpredictable. Always migrate and validate the planner before touching tool-caller or summarizer models.
+
 **Watch out for:** Planner regressions are subtle. A new model might choose different tool sequences that still produce correct results but with different latency or cost profiles. Include tool-call sequence comparison in your evaluation, not just final output quality.
 
-**Task-level metrics:**
-- Planner: plan correctness (does it choose the right tools in the right order?)
-- Tool Caller: function call accuracy, parameter accuracy (see [Evaluation Guide](evaluation-guide.md))
-- Summarizer: coherence, completeness
+#### Task-Level Metrics for Agentic Apps
+
+| Component | Metric | How to Measure | LLM Judge Needed? |
+|-----------|--------|----------------|-------------------|
+| **Planner** | Plan correctness | Compare chosen tools + order vs golden plan | No — deterministic match |
+| **Planner** | Tool-selection accuracy | % of correct tool choices across test cases | No |
+| **Planner** | Step-ordering stability | Does the plan order match expected? Account for acceptable variations | No |
+| **Tool Caller** | Function-call accuracy | Does the generated function name match expected? | No |
+| **Tool Caller** | Parameter extraction fidelity | Do extracted parameters match expected values? | No — exact/fuzzy match |
+| **Tool Caller** | Schema compliance | Does the call conform to the tool's JSON schema? | No — schema validation |
+| **Summarizer** | Groundedness | Is the summary supported by tool execution results? | Yes |
+| **Summarizer** | Relevance | Does the summary address the user's original request? | Yes |
+| **Summarizer** | Correctness | Does it match the expected answer? | Yes |
+
+#### Tool-Sequence Stability
+
+A key challenge with agentic apps: a new model may choose a _different_ sequence of tools but arrive at the _same correct result_. Your evaluation must distinguish:
+
+- **Different path, same result** → acceptable variation (don't flag as regression)
+- **Different path, different result** → investigate (may be better or worse)
+- **Wrong tools chosen** → regression (model cannot solve the task)
+
+To handle this, golden datasets should include **alternative acceptable tool paths**:
+
+```jsonl
+{"user_request": "What's the weather in Paris tomorrow?", "expected_tools": ["weather.forecast"], "expected_params": {"city": "Paris", "days": 1}, "expected_answer": "Tomorrow in Paris: 18°C, partly cloudy", "alt_tool_paths": [["weather.search", "weather.get_forecast"]]}
+{"user_request": "Book a meeting with John next Tue 2pm", "expected_tools": ["calendar.check_availability", "calendar.create_event"], "expected_params": {"attendee": "John", "day": "Tuesday", "time": "14:00"}, "expected_answer": "Meeting booked for Tuesday at 2:00 PM with John", "alt_tool_paths": [["calendar.search", "calendar.create_event"]]}
+```
+
+Evaluation logic: if the actual tool sequence matches `expected_tools` OR any entry in `alt_tool_paths`, mark as pass. Otherwise, flag for review — but also check if the _final answer_ is correct (a new valid path the golden dataset didn't anticipate).
+
+#### Agentic Migration Checklist
+
+- [ ] Inventory all LLM calls: which serve as planner, tool-caller, summarizer?
+- [ ] Build golden dataset with expected tool sequences AND acceptable alternatives
+- [ ] Migrate planner model first — validate plan correctness and tool-selection accuracy
+- [ ] Migrate tool-caller model second — validate function-call accuracy and parameter fidelity
+- [ ] Migrate summarizer last — validate with LLM-as-judge (groundedness, relevance, correctness)
+- [ ] Run end-to-end test across all steps combined
+- [ ] Monitor tool-sequence stability post-migration (drift analysis)
 
 ### Classification + Generation
 
@@ -305,12 +343,17 @@ The RAG pipeline sample demonstrates the methodology. Here's how to apply it to 
 Identify every model call in your application and its role:
 
 ```
+# Example: RAG-based Q&A
+User query → Rephraser (gpt-4o) → Embedder (text-embedding-3-large) → Retrieve → Generator (gpt-4o)
+
 # Example: Customer support agent
-User query → Intent classifier (gpt-4o-mini) → Tool router (gpt-4o) → Tool execution → Response generator (gpt-4o)
+User query → Planner/Router (gpt-4o) → Tool Caller (gpt-4o) → Tool execution → Summarizer (gpt-4o)
 
 # Example: Document processing
 Document → OCR/extraction → Summarizer (gpt-4o) → Classifier (gpt-4o-mini) → Quality check (gpt-4o)
 ```
+
+For agentic apps, pay special attention to which model serves as the planner — this is your highest-risk component.
 
 ### Step 2: Build Your Golden Dataset
 
@@ -318,6 +361,7 @@ For each pipeline, create test cases with:
 - Input query/document
 - Expected output (or reference answer)
 - Expected intermediate results (e.g., correct tool call, correct classification)
+- For agentic apps: expected tool sequences, expected parameters, and acceptable alternative tool paths (see [Agent Workflow](#agent-workflow) section above)
 
 Use `store=True` on production calls to mine real data — see [Building Golden Datasets](building-golden-datasets.md).
 
@@ -347,7 +391,7 @@ Add the evaluation to your CI/CD pipeline — see `.github/workflows/eval-on-sch
 |---------|---------------|-------------|
 | **RAG** | Embedder, rephraser, generator | Recall@k, groundedness, correctness |
 | **Classification** | Classifier model | Accuracy, F1, confusion matrix |
-| **Tool calling / Agents** | Planner, tool-caller | Tool selection accuracy, argument correctness |
+| **Agentic / Tool calling** | Planner, tool-caller, summarizer | Plan correctness, tool-selection accuracy, parameter fidelity, tool-sequence stability |
 | **Translation** | Translation model | BLEU, semantic similarity, fluency |
 | **Summarization** | Summarizer | ROUGE, faithfulness, compression ratio |
 
