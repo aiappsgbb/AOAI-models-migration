@@ -29,7 +29,6 @@ from dotenv import load_dotenv
 load_dotenv(_REPO_ROOT / ".env")
 
 from src.clients import create_client, call_model
-from src.config import load_config
 from samples.rag_pipeline.knowledge_base import KnowledgeBase
 from samples.rag_pipeline.pipeline import RAGPipeline, PipelineConfig, PipelineResult
 from samples.rag_pipeline.evaluate_pipeline import (

@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -33,10 +34,7 @@ from samples.rag_pipeline.pipeline import RAGPipeline, PipelineConfig
 from samples.rag_pipeline.knowledge_base import KnowledgeBase
 
 
-# ---------------------------------------------------------------------------
 # Test case loading
-# ---------------------------------------------------------------------------
-
 @dataclass
 class RAGTestCase:
     """A single golden test case for RAG evaluation."""
@@ -71,10 +69,7 @@ def load_golden_tests(path: str) -> list[RAGTestCase]:
     return tests
 
 
-# ---------------------------------------------------------------------------
 # LLM-as-judge helper
-# ---------------------------------------------------------------------------
-
 _JUDGE_SYSTEM_PROMPT = """\
 You are an expert evaluator. Given a question, context documents, an answer, \
 and an expected answer, rate the answer on three dimensions (1-5 scale):
@@ -147,10 +142,7 @@ def judge_answer(
         return {"groundedness": None, "relevance": None, "correctness": None, "explanation": ""}
 
 
-# ---------------------------------------------------------------------------
 # Layer 1: End-to-End Evaluation
-# ---------------------------------------------------------------------------
-
 @dataclass
 class EndToEndResult:
     """Result from a single end-to-end evaluation run."""
@@ -201,10 +193,7 @@ def evaluate_end_to_end(
     return results
 
 
-# ---------------------------------------------------------------------------
 # Layer 2a: Task-Level Retrieval Evaluation
-# ---------------------------------------------------------------------------
-
 @dataclass
 class RetrievalResult:
     """Deterministic retrieval metrics for a single query."""
@@ -261,15 +250,7 @@ def evaluate_retrieval(
 ) -> list[RetrievalResult]:
     """Evaluate retrieval quality WITHOUT running generation.
 
-    No LLM calls needed for scoring — pure computation.
-    Answers: "Is the retrieval step finding the right documents?"
-
-    Steps per test case:
-    1. Optionally rephrase the query (uses the pipeline's rephraser)
-    2. Embed the (rephrased) query
-    3. Retrieve top-k documents
-    4. Compare retrieved IDs against expected IDs
-    5. Compute precision@k, recall@k, MRR
+    No LLM calls — pure computation. Compares retrieved doc IDs against expected.
     """
     results: list[RetrievalResult] = []
 
@@ -298,10 +279,7 @@ def evaluate_retrieval(
     return results
 
 
-# ---------------------------------------------------------------------------
 # Layer 2b: Task-Level Generation Evaluation
-# ---------------------------------------------------------------------------
-
 @dataclass
 class GenerationResult:
     """LLM-as-judge scores for generation given *correct* context."""
@@ -323,17 +301,8 @@ def evaluate_generation_isolated(
 ) -> list[GenerationResult]:
     """Evaluate generation quality with CORRECT context fed in.
 
-    Isolates generation from retrieval:
-    - Instead of using retrieved docs, feed the expected (correct) context.
-    - This tells you: "If retrieval were perfect, how good is the answer?"
-
-    Answers: "Is the generation model the problem, or is it the retrieval?"
-
-    Steps per test case:
-    1. Look up expected_doc_ids from the knowledge base
-    2. Build context string from those docs (bypass retrieval)
-    3. Call ``generate_answer()`` with the correct context
-    4. Score the answer with LLM-as-judge
+    Bypasses retrieval — feeds expected docs directly to the generator.
+    Answers: "Is the generation model the problem, or the retrieval?"
     """
     judge_client = create_client(judge_model)
     doc_index = {doc.id: doc for doc in kb.documents}
@@ -383,10 +352,7 @@ def evaluate_generation_isolated(
     return results
 
 
-# ---------------------------------------------------------------------------
 # Combined Report
-# ---------------------------------------------------------------------------
-
 def _avg(values: list[float | None]) -> float | None:
     """Return the average of non-None values, or None if all are None."""
     nums = [v for v in values if v is not None]
@@ -460,7 +426,6 @@ class DualLayerReport:
 
     def save_json(self, path: str) -> None:
         """Save report to a JSON file for audit trail."""
-        import json
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=2, ensure_ascii=False)
         print(f"  Report saved to {path}")
@@ -545,8 +510,6 @@ class DualLayerReport:
         if not self.test_cases:
             return
 
-        from collections import defaultdict
-
         # Build per-category indices
         cat_indices: dict[str, list[int]] = defaultdict(list)
         for i, tc in enumerate(self.test_cases):
@@ -617,10 +580,7 @@ def evaluate_dual_layer(
     )
 
 
-# ---------------------------------------------------------------------------
 # CLI entry point
-# ---------------------------------------------------------------------------
-
 if __name__ == "__main__":
     import argparse
 

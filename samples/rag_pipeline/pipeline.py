@@ -26,17 +26,13 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src.clients import create_client, call_model
-from src.config import is_v1
 from samples.rag_pipeline.knowledge_base import (
     KnowledgeBase,
     SearchResult,
 )
 
 
-# ---------------------------------------------------------------------------
 # Data classes for pipeline results
-# ---------------------------------------------------------------------------
-
 @dataclass
 class StepTiming:
     """Timing for a single pipeline step."""
@@ -66,10 +62,7 @@ class PipelineResult:
         return f"PipelineResult(docs={n_docs}, total={total}, answer={self.answer[:80]!r}...)"
 
 
-# ---------------------------------------------------------------------------
 # Pipeline configuration
-# ---------------------------------------------------------------------------
-
 @dataclass
 class PipelineConfig:
     """Model configuration for the RAG pipeline.
@@ -95,10 +88,7 @@ class PipelineConfig:
         return ", ".join(parts)
 
 
-# ---------------------------------------------------------------------------
 # RAG Pipeline
-# ---------------------------------------------------------------------------
-
 REPHRASE_SYSTEM_PROMPT = (
     "You are a query rewriter. Given a user question, rewrite it to be more "
     "specific and effective for searching a knowledge base. Return ONLY the "
@@ -149,10 +139,7 @@ class RAGPipeline:
             )
         return self._clients[model_name]
 
-    # ------------------------------------------------------------------
     # Step 1: Query rephrasing (optional)
-    # ------------------------------------------------------------------
-
     def rephrase_query(self, query: str) -> str | None:
         """Rephrase the query for better retrieval. Returns None if disabled."""
         if not self.config.rephraser_model:
@@ -173,29 +160,20 @@ class RAGPipeline:
         )
         return response.choices[0].message.content.strip()
 
-    # ------------------------------------------------------------------
     # Step 2: Embedding
-    # ------------------------------------------------------------------
-
     def embed_query(self, query: str) -> list[float]:
         """Embed the query using the configured embedding model."""
         client = self._get_client(self.config.embedding_model)
         return self.kb.embed_query(client, query)
 
-    # ------------------------------------------------------------------
     # Step 3: Retrieval
-    # ------------------------------------------------------------------
-
     def retrieve(
         self, query_embedding: list[float], top_k: int | None = None,
     ) -> list[SearchResult]:
         """Retrieve top-k documents from the knowledge base."""
         return self.kb.search(query_embedding, top_k=top_k or self.config.top_k)
 
-    # ------------------------------------------------------------------
     # Step 4: Answer generation
-    # ------------------------------------------------------------------
-
     def generate_answer(self, query: str, context_text: str) -> str:
         """Generate an answer grounded in the retrieved context."""
         client = self._get_client(self.config.generator_model)
@@ -218,10 +196,7 @@ class RAGPipeline:
         )
         return response.choices[0].message.content.strip()
 
-    # ------------------------------------------------------------------
     # Full pipeline
-    # ------------------------------------------------------------------
-
     def _format_context(self, results: list[SearchResult]) -> str:
         """Format retrieved documents into a context string."""
         parts = []

@@ -63,10 +63,7 @@ class KnowledgeBase:
         self.documents = documents
         self.embedding_model = embedding_model
 
-    # ------------------------------------------------------------------
     # Construction helpers
-    # ------------------------------------------------------------------
-
     @classmethod
     def from_json(
         cls,
@@ -91,10 +88,7 @@ class KnowledgeBase:
         ]
         return cls(docs, embedding_model=embedding_model)
 
-    # ------------------------------------------------------------------
     # Embedding
-    # ------------------------------------------------------------------
-
     def embed_documents(self, client: OpenAI) -> None:
         """Embed every document using the provided OpenAI client.
 
@@ -119,10 +113,7 @@ class KnowledgeBase:
         )
         return response.data[0].embedding
 
-    # ------------------------------------------------------------------
     # Search
-    # ------------------------------------------------------------------
-
     def search(
         self,
         query_embedding: list[float],
@@ -176,10 +167,7 @@ class KnowledgeBase:
         query_embedding = self.embed_query(client, query)
         return self.search(query_embedding, top_k=top_k)
 
-    # ------------------------------------------------------------------
     # Dunder helpers
-    # ------------------------------------------------------------------
-
     def __len__(self) -> int:
         return len(self.documents)
 
