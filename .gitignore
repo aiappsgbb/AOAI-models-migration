@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 .env
 samples/rag_pipeline/data/results/
+docs/~$*
