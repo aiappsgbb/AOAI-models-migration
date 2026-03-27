@@ -48,7 +48,20 @@ cp .env.template .env
 # Edit .env with your Azure OpenAI endpoint
 ```
 
-### 2. Run End-to-End Test
+### 2. Launch Chat UI
+
+Interactive chat interface with live model swapping:
+
+```bash
+cd samples/rag_pipeline
+chainlit run app.py
+```
+
+Open http://localhost:8000 — ask questions, then change the model via ⚙️ **Settings**.
+Each pipeline step (Rephrase → Embed → Retrieve → Generate) is visible as an
+expandable step with timing. **Swap models live — zero code changes.**
+
+### 3. Run End-to-End Test
 
 The fastest way to validate a migration — change `.env`, run the same script:
 
@@ -64,7 +77,7 @@ This runs 20 tests × 2 models with full dual-layer evaluation, per-category
 breakdown, and exports JSON results. **Change only `.env` to test different
 model pairs — zero code changes.**
 
-### 3. Swap Models — Config Only
+### 4. Swap Models — Config Only
 
 ```bash
 # .env — just change these lines:
@@ -76,7 +89,7 @@ python samples/rag_pipeline/test_e2e.py
 # → Compares gpt-4.1 vs gpt-5.4 with the same golden tests
 ```
 
-### 4. Compare Models (A/B Migration)
+### 5. Compare Models (A/B Migration)
 
 ```python
 from samples.rag_pipeline.migrate_and_compare import compare_from_golden
@@ -104,6 +117,7 @@ Output shows:
 
 | File | Purpose |
 |------|---------|
+| `app.py` | Chainlit chat UI — interactive demo with live model swap |
 | `pipeline.py` | RAG pipeline class with 4 swappable steps |
 | `knowledge_base.py` | In-memory vector store (numpy cosine similarity) |
 | `evaluate_pipeline.py` | Dual-layer evaluation (end-to-end + task-level + per-category) |
