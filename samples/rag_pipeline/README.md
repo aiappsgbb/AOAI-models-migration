@@ -263,6 +263,30 @@ Golden test JSONL format (one per line):
 
 See [Building Golden Datasets](../../docs/building-golden-datasets.md) for how to mine production traffic into this format.
 
+## Sample Results
+
+Running `python test_e2e.py` with default settings produces dual-layer scores.
+Here are representative results from the sample knowledge base (20 golden tests):
+
+| Metric | gpt-4o (baseline) | gpt-4.1 | gpt-5.4-mini |
+|---|---|---|---|
+| **Groundedness** | 4.93 | 5.00 ↑ | 5.00 ↑ |
+| **Relevance** | 4.93 | 5.00 ↑ | 5.00 ↑ |
+| **Correctness** | 4.80 | 4.73 | 4.80 = |
+| **Avg Latency** | 2,100 ms | 1,700 ms (−19 %) | 1,700 ms (−19 %) |
+| **Retrieval Stability** | — | 14/15 identical | 14/15 identical |
+
+**Key takeaways:**
+
+- **gpt-4o → gpt-4.1**: quality improved or equal on every metric, 19 % faster, zero regressions.
+- **gpt-4o → gpt-5.4-mini**: equal or better on all metrics, 19 % faster with a smaller model.
+- Both runs were uploaded to Azure AI Foundry for side-by-side dashboard comparison.
+
+**Evaluation effort:** a few hundred total API calls · 20 golden tests × 2 models · dual-layer scoring · runtime ~3 minutes on Azure OpenAI · full JSON audit trail exported automatically.
+
+> These results come from the **sample** knowledge base shipped with this repo.
+> Your numbers will differ based on your domain, dataset size, and model versions — the methodology and tooling are the same.
+
 ## See Also
 
 - [Migrating Multi-Step Applications](../../docs/migrating-multi-step-apps.md) — Full methodology guide

@@ -133,6 +133,20 @@ This repo includes three **[GitHub Copilot Skills](https://docs.github.com/en/co
 - **[What's New in Azure OpenAI](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/whats-new)** — latest changes
 - **[Responses API](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/responses)** — new API surface
 
+## Frequently Asked Questions
+
+| Question | Short answer | Deep dive |
+|---|---|---|
+| **How much effort per migration cycle?** | Reusable golden dataset + config-only model swap → a few hundred API calls per cycle. | [Sample Results](samples/rag_pipeline/README.md#sample-results) |
+| **How do I find WHERE a regression occurred?** | Dual-layer evaluation: E2E detects the problem, task-level scoring localizes it. | [Hybrid Methodology](docs/migrating-multi-step-apps.md) |
+| **What methodology should I follow?** | Hybrid approach with a clear decision table and structured scoring rubrics. | [Evaluation Guide](docs/evaluation-guide.md) |
+| **How do I automate at scale?** | `.env` swap + CI/CD nightly runs + matrix strategy for parallel model testing. | [CI/CD Workflow](.github/workflows/eval-on-schedule.yml) |
+| **Do I need new datasets each time?** | No — mine from production traffic (Stored Completions, APIM logs). Data already exists. | [Building Golden Datasets](docs/building-golden-datasets.md) |
+| **What if a regression is detected?** | 4-scenario remediation playbook: diagnosis → root cause → fix, plus rollback by deployment type. | [Remediation Playbook](docs/migrating-multi-step-apps.md) |
+| **Why LLM-as-judge over similarity scoring?** | Similarity penalizes better answers and misses hallucination; LLM judges evaluate meaning. | [Evaluation Guide](docs/evaluation-guide.md) |
+| **How do I track quality over time?** | Azure AI Foundry named evaluation runs + portal side-by-side, or Fabric + Power BI for cross-org. | [Cloud Eval Tracking](docs/cloud-eval-tracking-across-models.md) |
+| **Does this work for agentic apps?** | Same config-only swap — model is one env variable in every framework (SK, LangChain, etc.). | [Agentic Workflow](docs/migrating-multi-step-apps.md) |
+
 ## License
 
 MIT

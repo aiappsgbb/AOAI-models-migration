@@ -217,3 +217,14 @@ python -c "from src import is_v1, is_reasoning; print('OK')"
 - **[API Changes](api-changes-by-model.md)** — understand the code changes needed
 - **[Evaluation Guide](evaluation-guide.md)** — run a full evaluation before deploying
 - **[Lifecycle Best Practices](llm-upgrade-lifecycle-best-practices.md)** — enterprise-grade migration lifecycle
+
+## Migration Checklist
+
+A step-by-step checklist for teams starting their first model migration:
+
+1. **Align on methodology** — share the [Evaluation Guide](evaluation-guide.md) with stakeholders so everyone understands the hybrid (E2E + task-level) approach.
+2. **Choose a data strategy** — decide between real production logs ([Stored Completions / APIM](building-golden-datasets.md)) or synthetic generation. Both are supported.
+3. **Pilot one use case** — pick a single production app, build a golden dataset (10–20 cases for a smoke test), and run [`test_e2e.py`](../samples/rag_pipeline/) against it.
+4. **Scale golden datasets** — extend to additional use cases. Enable [CI/CD automation](../docs/cloud-eval-tracking-across-models.md) for nightly regression detection.
+5. **Set up dashboards** — upload evaluation results to [Azure AI Foundry](cloud-eval-tracking-across-models.md) for ongoing monitoring and cross-run comparison.
+6. **Establish central visibility** — for organizations with many AI workloads, use one Foundry eval definition per agent or build a [Fabric + Power BI](cloud-eval-tracking-across-models.md) dashboard for cross-org quality tracking.
