@@ -37,6 +37,20 @@ from samples.rag_pipeline.evaluate_pipeline import (
 )
 from samples.rag_pipeline.migrate_and_compare import compare_from_golden
 
+
+def _retry(fn, *, max_attempts: int = 3, backoff: float = 2.0):
+    """Run *fn()* with simple exponential-backoff retry on transient errors."""
+    import openai
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return fn()
+        except (openai.APITimeoutError, openai.RateLimitError, openai.APIConnectionError) as exc:
+            if attempt == max_attempts:
+                raise
+            wait = backoff ** attempt
+            print(f"    ⚠ {type(exc).__name__} — retrying in {wait:.0f}s (attempt {attempt}/{max_attempts})")
+            time.sleep(wait)
+
 # Paths
 DATA_DIR = _REPO_ROOT / "samples" / "rag_pipeline" / "data"
 DOCS_PATH = DATA_DIR / "documents.json"
@@ -106,7 +120,7 @@ def main():
     results_a: list[PipelineResult] = []
     for i, tc in enumerate(golden_tests):
         t0 = time.perf_counter()
-        result = pipeline_a.run(tc.query)
+        result = _retry(lambda q=tc.query: pipeline_a.run(q))
         elapsed = (time.perf_counter() - t0) * 1000
         results_a.append(result)
         retrieved_str = ", ".join(result.retrieved_ids)
@@ -133,7 +147,7 @@ def main():
     results_b: list[PipelineResult] = []
     for i, tc in enumerate(golden_tests):
         t0 = time.perf_counter()
-        result = pipeline_b.run(tc.query)
+        result = _retry(lambda q=tc.query: pipeline_b.run(q))
         elapsed = (time.perf_counter() - t0) * 1000
         results_b.append(result)
         retrieved_str = ", ".join(result.retrieved_ids)

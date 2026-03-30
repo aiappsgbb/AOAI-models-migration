@@ -62,6 +62,8 @@ report.print_report()
 | 🚀 **[Getting Started](docs/getting-started.md)** | Prerequisites, setup, authentication, quick start |
 | 🔗 **[Migrating Multi-Step Apps](docs/migrating-multi-step-apps.md)** | Hybrid evaluation methodology for RAG pipelines and agent workflows |
 
+> **📊 Prefer slides?** See [`docs/azure-openai-model-migration-approach.pptx`](docs/azure-openai-model-migration-approach.pptx) for an executive-level overview (useful for stakeholder meetings and team onboarding).
+
 ## Sample: RAG Pipeline Migration
 
 The [`samples/rag_pipeline/`](samples/rag_pipeline/) directory contains a **self-contained RAG application** that demonstrates how to evaluate and migrate multi-model pipelines:

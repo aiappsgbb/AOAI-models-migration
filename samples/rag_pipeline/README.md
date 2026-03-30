@@ -162,6 +162,8 @@ test whether a model change introduces subtle reasoning failures, not just factu
 
 ## Evaluation Methodology
 
+> **⚠️ Judge model independence:** The evaluation uses an LLM-as-judge to score answer quality. The judge model **must be different** from both the source and target models being compared — otherwise the judge is biased toward its own outputs. By default, `RAG_JUDGE_MODEL` is set to `gpt-4o`. If you're comparing `gpt-4o` vs another model, change the judge to a different model (e.g., `gpt-4.1`).
+
 ### When to Use Which Layer
 
 | Scenario | End-to-End | Task-Level |
@@ -173,17 +175,9 @@ test whether a model change introduces subtle reasoning failures, not just factu
 
 ### API Calls per Evaluation Cycle
 
-For 20 golden test cases:
+The number of API calls scales linearly with the number of golden test cases and the evaluation layers you enable. For a typical run with ~20 test cases, expect a few hundred API calls total — covering pipeline runs for both models, LLM-as-judge scoring, and isolated generation evaluation.
 
-| Component | API Calls |
-|-----------|-----------|
-| End-to-end (2 configs × 20 cases) | 40 pipeline runs |
-| Retrieval scoring | 0 (computation only) |
-| Generation scoring (isolated) | 36 generation calls |
-| LLM-as-judge | 40 judgments |
-| **Total** | **~156 calls** |
-
-Scales linearly with test cases. Dataset is reusable across every migration cycle.
+The dataset is reusable across every migration cycle — you pay the API cost once per evaluation run, not per migration.
 
 ## Migration Workflow
 

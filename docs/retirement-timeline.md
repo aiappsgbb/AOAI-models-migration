@@ -174,6 +174,27 @@ Provisioned (PTU) deployments do **not** support automatic model upgrades. You m
 - **Auto-upgrade** — For Standard/Global/DataZone deployments, Microsoft automatically switches your deployment to the replacement model. Your endpoint URL stays the same, but the model behind it changes.
 - **No-longer-available (NLA)** — After retirement, the model cannot be deployed or re-deployed. Existing deployments with `NoAutoUpgrade` stop working.
 
+### Incident Response & Rollback
+
+If a migration (auto-upgrade or manual) introduces a regression in production, here's what to do based on your deployment type:
+
+| Deployment Type | Rollback Options |
+|----------------|-----------------|
+| **Standard (auto-upgraded)** | 1. Create a **new deployment** with the previous model version (if still available before retirement). 2. Adjust prompts/parameters to work with the upgraded model. 3. Contact Azure Support for urgent cases — reference your subscription ID, resource group, and deployment name. |
+| **Standard (NoAutoUpgrade)** | Re-deploy the same model version — it hasn't changed. Investigate why you're seeing issues (likely a code or config change, not the model). |
+| **Provisioned (in-place)** | In-place migrations cannot be reverted once complete. Use a **multi-deployment strategy** (below) to avoid this. |
+| **Provisioned (multi-deployment)** | Shift traffic back to the old deployment. This is why multi-deployment (blue-green) is recommended for critical workloads. |
+
+**Prevention — recommended pattern for production:**
+
+1. **Before any upgrade window:** run your [evaluation suite](evaluation-guide.md) against the target model in a staging deployment
+2. **Use `NoAutoUpgrade`** on critical production deployments so you control the timing
+3. **Multi-deployment migration** for Provisioned workloads — keep the old deployment alive until you've validated the new one
+4. **Monitor post-migration:** track error rates, latency P95, and user-reported quality for at least 48 hours after cutover
+5. **Escalation:** if you discover a model-level regression (not prompt/config), file an Azure Support ticket with before/after examples from your evaluation suite
+
+> **Key point:** Auto-upgraded Standard deployments cannot be "rolled back" to the old model after retirement. The mitigation is to test *before* the auto-upgrade window using a staging deployment with `OnceNewDefaultVersionAvailable`.
+
 ### What You Should Do
 
 1. **Inventory your deployments** — Know which models, deployment types, and update policies you're using. Use the CLI command above, or see the [Lifecycle Best Practices guide](llm-upgrade-lifecycle-best-practices.md).
