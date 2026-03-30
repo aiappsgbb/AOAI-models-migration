@@ -861,9 +861,11 @@
                             document.getElementById('batch-progress-pct').textContent = pct + '%';
                             const currentMb = sd.current_model_b;
                             document.getElementById('batch-progress-label').textContent =
-                                completed < total
-                                    ? `Comparing ${displayName(modelA)} vs ${displayName(currentMb || '…')} (${completed}/${total})`
-                                    : `Completed ${completed}/${total} comparisons`;
+                                completed >= total
+                                    ? `Completed ${completed}/${total} comparisons`
+                                    : currentMb
+                                        ? `Comparing ${displayName(modelA)} vs ${displayName(currentMb)} (${completed + 1}/${total})`
+                                        : `Evaluating ${displayName(modelA)}… (0/${total})`;
 
                             // Log new completions
                             if (completed > lastCompleted) {

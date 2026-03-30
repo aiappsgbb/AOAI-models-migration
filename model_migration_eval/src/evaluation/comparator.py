@@ -395,6 +395,15 @@ class ModelComparator:
                 f"[Batch {batch_id}] Comparing {model_a} vs {model_b} "
                 f"({idx + 1}/{total})"
             )
+
+            # Notify that this comparison is *starting* so the UI can
+            # update the progress label immediately (before the eval runs).
+            if progress_callback:
+                try:
+                    progress_callback(idx, total, model_b, None, starting=True)
+                except Exception:
+                    pass
+
             try:
                 self._validate_modality(model_a, model_b)
                 result_b = await self._evaluate_single_model_async(model_b, evaluation_type)
