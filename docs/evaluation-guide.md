@@ -4,6 +4,8 @@ The evaluation framework helps you **detect regressions** before deploying a new
 
 > **Why evaluate?** Auto-upgrades and model swaps can subtly change behavior — a model might be "better" on benchmarks but worse for your specific prompts, schemas, or tone. Always evaluate on **your** data before switching.
 
+> **Why LLM-as-judge, not similarity?** This repo uses LLM-as-judge (semantic correctness, groundedness, relevance) rather than similarity-based metrics (cosine similarity, BLEU, ROUGE). Similarity metrics only measure whether the output *changed* — not whether it *improved or regressed*. Two answers can be textually different but equally correct, or textually similar but one subtly wrong. For model migration, what matters is whether the new model's answer is **correct, grounded, and relevant** — not whether it's lexically identical to the old one.
+
 ---
 
 ## Evaluation Approaches

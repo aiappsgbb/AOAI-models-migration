@@ -59,6 +59,21 @@ These are the models you should be migrating **to**. Their retirement dates give
 
 > **Tip:** Models with later retirement dates give you more runway. GPT-5.1 and GPT-5.2 won't retire until mid-2027 at the earliest.
 
+### Planning Beyond Mid-2027
+
+Azure OpenAI follows a predictable pattern: new model generations are released every 6–12 months, and each GA model is guaranteed a **minimum 12-month support window**. While specific models beyond GPT-5.2 are not yet announced, the pattern means:
+
+- **If you migrate to GPT-5.1 or GPT-5.2 today**, you have runway until at least mid-2027
+- **When the next generation launches** (GPT-6 or equivalent), it will overlap with GPT-5.x support — giving you months to evaluate and migrate again
+- **The evaluation infrastructure you build now is model-agnostic**: golden datasets, eval definitions, CI/CD gates, and Foundry dashboards all carry forward. Each new model generation is just another eval run against your existing test suite — not a rebuild from scratch
+
+For organizations with multi-year compliance timelines, the recommended approach is:
+
+1. **Invest in evaluation infrastructure now** — golden datasets, automated CI/CD eval gates, Foundry eval definitions. This is the durable asset.
+2. **Use `OnceCurrentVersionExpired` policy** on production deployments to maximize runway on each model
+3. **Use `OnceNewDefaultVersionAvailable` in staging** to get early visibility into the next generation
+4. **Track Azure OpenAI announcements** via [What's New](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/whats-new) and Azure Service Health alerts
+
 ---
 
 ## How Azure OpenAI Retirements Work
