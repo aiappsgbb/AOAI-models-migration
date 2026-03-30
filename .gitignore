@@ -3,6 +3,7 @@ __pycache__/
 .env
 samples/rag_pipeline/data/results/
 docs/~$*
+*.pptx
 
 # Chainlit auto-generated
 .chainlit/
