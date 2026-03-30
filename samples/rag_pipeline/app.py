@@ -47,7 +47,7 @@ _kb: KnowledgeBase | None = None
 def get_kb() -> KnowledgeBase:
     global _kb
     if _kb is None:
-        _kb = KnowledgeBase(str(_DATA_DIR / "documents.json"))
+        _kb = KnowledgeBase.from_json(str(_DATA_DIR / "documents.json"))
     return _kb
 
 
@@ -71,7 +71,7 @@ async def on_start():
         await msg.send()
         from src.clients import create_client
         embed_client = create_client(EMBEDDING_MODELS[0])
-        kb.embed_all(embed_client)
+        kb.embed_documents(embed_client)
         msg.content = f"✅ Knowledge base ready — {len(kb.documents)} documents embedded."
         await msg.update()
 
@@ -164,7 +164,7 @@ async def on_message(message: cl.Message):
         for i, r in enumerate(results, 1):
             docs_text += (
                 f"**{i}. [{r.document.id}] {r.document.title}** "
-                f"(similarity: {r.similarity:.3f})\n"
+                f"(similarity: {r.score:.3f})\n"
                 f"> {r.document.content[:150]}...\n\n"
             )
         step.output = f"{docs_text}⏱️ {duration:.0f}ms"

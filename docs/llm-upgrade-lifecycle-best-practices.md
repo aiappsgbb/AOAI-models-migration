@@ -4,7 +4,7 @@
 > Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements)** for the latest authoritative information. See also: **[What's New in Azure OpenAI](https://learn.microsoft.com/azure/ai-foundry/openai/whats-new)**.
 
 > **Audience:** Platform teams, architects, and engineering leads building on Azure OpenAI / Microsoft Foundry.
-> **Last updated:** February 2026
+> **Last updated:** March 2026
 
 ---
 

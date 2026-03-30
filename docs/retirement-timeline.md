@@ -2,7 +2,7 @@
 
 > **⚠️ Retirement dates and model availability change frequently.** Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements)** for the latest authoritative information.
 >
-> This page was last updated **February 2026**.
+> This page was last verified **March 2026**.
 
 ---
 
@@ -17,7 +17,7 @@
 | **Global** | 2026-10-01 | 2026-10-01 |
 | **DataZone** | 2026-10-01 | 2026-10-01 |
 
-> **⏰ Urgent:** Standard GPT-4o (05-13, 08-06) auto-upgrade to GPT-5.1 begins **2026-03-09** — less than a month away. If you haven't tested against GPT-5.1 yet, start now. See the [Evaluation Guide](evaluation-guide.md) for how to validate quality.
+> **⏰ Urgent:** Standard GPT-4o (05-13, 08-06) auto-upgrade to GPT-5.1 began **2026-03-09** and retirement is **2026-03-31**. If you haven't tested against GPT-5.1 yet, start immediately. See the [Evaluation Guide](evaluation-guide.md) for how to validate quality.
 
 ### GPT-4o-mini
 
