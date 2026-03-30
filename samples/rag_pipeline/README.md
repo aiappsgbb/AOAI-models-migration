@@ -162,7 +162,9 @@ test whether a model change introduces subtle reasoning failures, not just factu
 
 ## Evaluation Methodology
 
-> **⚠️ Judge model independence:** The evaluation uses an LLM-as-judge to score answer quality. The judge model **must be different** from both the source and target models being compared — otherwise the judge is biased toward its own outputs. By default, `RAG_JUDGE_MODEL` is set to `gpt-4o`. If you're comparing `gpt-4o` vs another model, change the judge to a different model (e.g., `gpt-4.1`).
+> **Why LLM-as-judge instead of similarity scoring?** Similarity-based evaluators (e.g., cosine similarity between old and new responses, or BLEU/ROUGE scores) only tell you if the output *changed* — not whether it *improved or regressed*. Two answers can be textually different but equally correct, or textually similar but one subtly wrong. LLM-as-judge evaluates **semantic correctness, groundedness, and relevance** — the qualities that actually matter to end users. This is especially critical for model migrations where the new model may express the same answer differently.
+
+> **⚠️ Judge model independence:** The judge model **must be different** from both the source and target models being compared — otherwise the judge is biased toward its own outputs. By default, `RAG_JUDGE_MODEL` is set to `gpt-4o`. If you're comparing `gpt-4o` vs another model, change the judge to a different model (e.g., `gpt-4.1`).
 
 ### When to Use Which Layer
 
@@ -178,6 +180,8 @@ test whether a model change introduces subtle reasoning failures, not just factu
 The number of API calls scales linearly with the number of golden test cases and the evaluation layers you enable. For a typical run with ~20 test cases, expect a few hundred API calls total — covering pipeline runs for both models, LLM-as-judge scoring, and isolated generation evaluation.
 
 The dataset is reusable across every migration cycle — you pay the API cost once per evaluation run, not per migration.
+
+> **🔑 Designed for repeatability:** The entire evaluation — data preparation, dual-layer scoring, A/B comparison, and JSON audit export — runs as a single script invocation (`python test_e2e.py`). Swap models by changing `.env`, re-run the same command, compare. Golden datasets are write-once, reuse-forever: the same test cases work for every migration cycle (gpt-4o → gpt-4.1, then gpt-4.1 → gpt-5.1, etc.) without rebuilding anything. This keeps the evaluation effort proportional to the number of *use cases you have*, not the number of *model changes you make*.
 
 ## Migration Workflow
 
