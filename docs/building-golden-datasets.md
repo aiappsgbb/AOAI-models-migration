@@ -419,8 +419,6 @@ outputs.to_eval_qr_json_lines("golden_dataset.jsonl")
 - Runs each query through your app to capture the response
 - Outputs ready-to-evaluate JSONL
 
-> **Cost:** Roughly $0.50–2.00 for 100 synthetic queries using GPT-4o as judge. Actual costs depend on prompt length and model pricing.
-
 ### Option B: LLM-Powered Generation from Examples
 
 If you have a few examples but need more, use an LLM to generate diverse variations:
@@ -602,6 +600,25 @@ response = client.chat.completions.create(
 
 ---
 
+## Dataset Sizing Guide
+
+How many test cases do you need? It depends on the risk level:
+
+| Scenario | Recommended Size | Why |
+|----------|-----------------|-----|
+| **Smoke test** (routine update) | 15-30 | Catches obvious regressions quickly |
+| **Standard** (model family change) | 50-100 | Statistical confidence across categories |
+| **Thorough** (critical production app) | 100-200 | Covers edge cases and tail distribution |
+| **Comprehensive** (regulated / high-risk) | 200-500 | Regulatory compliance, full coverage |
+
+**Rules of thumb:**
+- Aim for **minimum 3 test cases per category** (e.g., per topic, per query type)
+- Include **10-20% adversarial/edge cases** (empty inputs, prompt injections, negation)
+- **15 well-chosen cases** catch 80%+ of regressions — start small, grow as needed
+- Dataset is a **one-time investment** — reuse it across every migration cycle
+
+**Statistical significance:** With 50 test cases, a 0.5-point score change (on 1-5 scale) is significant. With 15 cases, you need a 1.0+ point change to be confident. If your use case demands precision, go for 100+.
+
 ## Sampling Strategy
 
 You don't need thousands of records. A well-curated dataset of **50–200 records** catches the vast majority of regressions. Here's how to sample effectively:
@@ -769,19 +786,141 @@ report.print_report()
 
 ---
 
-## Cost Summary
+## Effort Summary
 
-| Approach | Records | Cost | Time |
-|----------|---------|------|------|
-| Stored Completions export | 200 | No extra charge (data already generated) | 1 hour |
-| APIM log export | 200 | No extra charge (logs already collected) | 1 hour |
-| App-level log sampling | 200 | No extra charge (code instrumentation) | 2 hours |
-| Synthetic generation (SDK Simulator) | 100 | **~$1-2** (LLM inference) | 30 min |
-| LLM-powered variations from examples | 50 | **~$0.50** (LLM inference) | 15 min |
-| LLM-assisted ground truth labeling | 200 | **~$2-5** (LLM inference) | 1 hour |
+| Approach | Records | Compute Effort | Setup Time |
+|----------|---------|---------------|------------|
+| Stored Completions export | 200 | No extra (data already generated) | 1 hour |
+| APIM log export | 200 | No extra (logs already collected) | 1 hour |
+| App-level log sampling | 200 | No extra (code instrumentation) | 2 hours |
+| Synthetic generation (SDK Simulator) | 100 | Minimal (LLM inference) | 30 min |
+| LLM-powered variations from examples | 50 | Minimal (LLM inference) | 15 min |
+| LLM-assisted ground truth labeling | 200 | Minimal (LLM inference) | 1 hour |
 | Human SME labeling (spot-check) | 50 | SME time (~1 hour per person) | 1 hour |
 
-> **Key takeaway:** Most of the cost is in human time, not compute. Production log–based approaches leverage data you've already paid to generate, and synthetic generation costs are modest. The biggest investment is curating and maintaining the dataset — but even that can be done incrementally.
+> **Key takeaway:** Production log–based approaches leverage data you've already generated. Synthetic generation adds minimal overhead. The biggest investment is curating and maintaining the dataset — but even that can be done incrementally, and the dataset is **reusable across every migration cycle**.
+
+---
+
+## Formatting Data for the Evaluation Tool
+
+Once you have captured production data (via Stored Completions, APIM logs, or application logging), you need to format it into one of the **five task types** recognized by the evaluation tool's import feature. The tool accepts both **JSON** and **CSV** files; CSV files are automatically converted to JSON on import.
+
+> **📄 For exact field schemas, sample records, and CSV escaping rules, see the [Import Samples](/import-samples) page** in the evaluation tool. The examples below show how to map your raw captured data into each task-specific format.
+
+### Task Types and Required Fields
+
+| Task Type | Required Fields | Best For |
+|-----------|----------------|----------|
+| **Classification** | `id`, `customer_input`, `expected_category`, `expected_subcategory`, `expected_priority`, `expected_sentiment` | Intent detection, sentiment analysis, ticket routing |
+| **Dialog** | `id`, `conversation`, `context_gaps`, `optimal_follow_up`, `follow_up_rules`, `expected_resolution_turns` | Multi-turn conversation quality, context tracking |
+| **General** | `id`, `test_type`, `prompt`, `complexity`, `expected_behavior` | Instruction following, structured output, free-form reasoning |
+| **RAG** | `id`, `query`, `context`, `ground_truth` | Retrieval-augmented generation, grounded Q&A |
+| **Tool Calling** | `id`, `query`, `available_tools`, `expected_tool_calls`, `expected_parameters` | Function calling accuracy, parameter extraction |
+
+### Mapping Production Data to Import Formats
+
+The raw data you capture from production (Strategy 1) uses a generic schema — typically `prompt`, `system_prompt`, `expected_output`, `context`. Here's how each field maps to the task-specific import formats:
+
+| Production Field | → Classification | → Dialog | → General | → RAG | → Tool Calling |
+|-----------------|-----------------|----------|-----------|-------|----------------|
+| `prompt` / user message | `customer_input` | `conversation` | `prompt` | `query` | `query` |
+| `system_prompt` | *(not imported — set in prompt template)* | `follow_up_rules` | *(not imported)* | *(not imported)* | *(not imported)* |
+| `expected_output` | `expected_category` + `expected_subcategory` + `expected_priority` + `expected_sentiment` | `optimal_follow_up` | `expected_behavior` | `ground_truth` | `expected_tool_calls` + `expected_parameters` |
+| `context` | `context` *(optional)* | `context_gaps` | *(not used)* | `context` | `available_tools` |
+| `metadata` | Use to generate `id` prefix (e.g., `CLASS_001`) | Use for `expected_resolution_turns` | Use for `test_type`, `complexity` | Use to generate `id` | Use to generate `id` |
+
+### Conversion Examples
+
+#### Production JSONL → RAG Format (JSON)
+
+```python
+import json
+
+# Read raw production export
+with open("production_export.jsonl") as f:
+    records = [json.loads(line) for line in f]
+
+# Convert to RAG import format
+rag_records = []
+for i, rec in enumerate(records, 1):
+    rag_records.append({
+        "id": f"RAG_{i:03d}",
+        "query": rec["prompt"],
+        "context": rec.get("context", ""),
+        "ground_truth": rec.get("expected_output", ""),
+    })
+
+# Save as JSON (ready for import)
+with open("rag_import.json", "w") as f:
+    json.dump(rag_records, f, indent=2)
+```
+
+#### Production JSONL → Classification Format (CSV)
+
+```python
+import json, csv
+
+with open("production_export.jsonl") as f:
+    records = [json.loads(line) for line in f]
+
+with open("classification_import.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["id", "customer_input", "expected_category", "expected_subcategory",
+                     "expected_priority", "expected_sentiment", "context"])
+    for i, rec in enumerate(records, 1):
+        # Parse structured expected_output if it's JSON
+        expected = json.loads(rec["expected_output"]) if rec.get("expected_output", "").startswith("{") else {}
+        writer.writerow([
+            f"CLASS_{i:03d}",
+            rec["prompt"],
+            expected.get("category", ""),
+            expected.get("subcategory", ""),
+            expected.get("priority", ""),
+            expected.get("sentiment", ""),
+            json.dumps(rec.get("metadata", {})),  # Context as JSON string
+        ])
+```
+
+#### Agent Traces → Tool Calling Format (JSON)
+
+```python
+import json
+
+with open("agent_traces.jsonl") as f:
+    traces = [json.loads(line) for line in f]
+
+tc_records = []
+for i, trace in enumerate(traces, 1):
+    tool_calls = [s for s in trace["steps"] if s["type"] == "tool_call"]
+    if not tool_calls:
+        continue
+    tc_records.append({
+        "id": f"TC_{i:03d}",
+        "query": trace["input"],
+        "available_tools": json.dumps(trace.get("tools", [])),  # JSON string
+        "expected_tool_calls": " | ".join(tc["name"] for tc in tool_calls),
+        "expected_parameters": json.dumps(
+            {tc["name"]: tc["args"] for tc in tool_calls}
+        ),
+    })
+
+with open("tool_calling_import.json", "w") as f:
+    json.dump(tc_records, f, indent=2)
+```
+
+### CSV Formatting Rules
+
+When creating CSV files for import, keep these rules in mind:
+
+- **Header row is required** — field names must match exactly (case-sensitive).
+- **Quote fields** that contain commas, newlines, or double-quotes.
+- **Escape inner quotes** by doubling them: `""` (e.g., `"{""key"": ""value""}"`).
+- **JSON-valued fields** (like `context`, `conversation`, `available_tools`, `expected_parameters`) are stored as **strings** in CSV — they'll be parsed at evaluation time.
+- The **`id` field** should be unique within each file (use prefixes: `CLASS_001`, `DLG_001`, `RAG_001`, `TC_001`, `GEN_001`).
+- CSV files are automatically converted to JSON on import. The canonical storage format is JSON.
+
+> **💡 Tip:** Start with JSON format if you're generating files programmatically. Use CSV only when exporting from spreadsheets, APIM logs, or Log Analytics.
 
 ---
 

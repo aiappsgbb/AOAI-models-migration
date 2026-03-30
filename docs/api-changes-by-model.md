@@ -77,6 +77,12 @@ if uses_developer_role(model_name):
 | GPT-5.2 | Reasoning | `none`, `low`, `medium`, `high` | `none` |
 | o-series (o1, o3, o4-mini) | Reasoning | `low`, `medium`, `high` | `medium` |
 
+> **💡 What if you don't set `reasoning_effort` at all?**
+>
+> - **GPT-5.1 and GPT-5.2** default to `"none"` — reasoning is completely disabled. The model behaves like a standard (non-reasoning) model: no internal chain-of-thought, no reasoning tokens, same cost profile as GPT-4.1. This makes GPT-5.1 a safe drop-in replacement for GPT-4o without unexpected cost or latency increases.
+> - **GPT-5, GPT-5-mini, GPT-5-nano** default to `"medium"` — reasoning **is active by default**, which means higher latency and additional reasoning token costs compared to GPT-4o. If you're migrating from GPT-4o and want equivalent behavior, explicitly set `reasoning_effort="minimal"` (or consider GPT-5.1 with `"none"` instead).
+> - **o-series (o3, o4-mini)** default to `"medium"` — these are purpose-built reasoning models; reasoning is always active at some level.
+
 ## Model Family Classification
 
 Use these helpers (from `src/config.py`) to determine which API and parameters a model requires:

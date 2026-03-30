@@ -60,6 +60,23 @@ report.print_report()
 | ☁️ **[Cloud Eval Tracking](docs/cloud-eval-tracking-across-models.md)** | Reusable eval definitions in Azure AI Foundry, cross-model comparison, CI/CD |
 | 🔄 **[Lifecycle Best Practices](docs/llm-upgrade-lifecycle-best-practices.md)** | Deployment inventory, notifications, rollout strategies, fine-tuned models, multi-region |
 | 🚀 **[Getting Started](docs/getting-started.md)** | Prerequisites, setup, authentication, quick start |
+| 🔗 **[Migrating Multi-Step Apps](docs/migrating-multi-step-apps.md)** | Hybrid evaluation methodology for RAG pipelines and agent workflows |
+
+
+## Sample: RAG Pipeline Migration
+
+The [`samples/rag_pipeline/`](samples/rag_pipeline/) directory contains a **self-contained RAG application** that demonstrates how to evaluate and migrate multi-model pipelines:
+
+```
+Query → [Rephrase (LLM)] → [Embed] → [Retrieve (vector search)] → [Generate (LLM)] → Answer
+```
+
+- **20 knowledge base documents** + **15 golden test cases**
+- **Dual-layer evaluation**: end-to-end quality + task-level retrieval/generation scoring
+- **A/B migration comparison**: swap one model, see per-step regression analysis
+- **Zero infra dependencies**: in-memory vector store with numpy
+
+See the [RAG Pipeline README](samples/rag_pipeline/README.md) for a full walkthrough.
 
 ## Repository Structure
 
@@ -85,6 +102,13 @@ report.print_report()
 │       ├── scenarios/                        #     Pre-built test scenarios (RAG, tools, etc.)
 │       └── prompts/                          #     .prompty templates for LLM-as-Judge
 ├── model_migration_eval/                     # Web UI for visual model comparison
+├── samples/                                  # Sample applications
+│   └── rag_pipeline/                         #   Multi-step RAG pipeline migration demo
+│       ├── pipeline.py                       #     RAG pipeline with 4 swappable steps
+│       ├── knowledge_base.py                 #     In-memory vector store (numpy)
+│       ├── evaluate_pipeline.py              #     Dual-layer evaluation (E2E + task-level)
+│       ├── migrate_and_compare.py            #     A/B migration comparison
+│       └── data/                             #     20 KB docs + 15 golden test cases
 ├── .github/skills/                           # GitHub Copilot Skills (see below)
 ├── requirements.txt
 └── .env_example
@@ -108,6 +132,20 @@ This repo includes three **[GitHub Copilot Skills](https://docs.github.com/en/co
 - **[Azure AI Foundry Evaluation](https://learn.microsoft.com/en-us/azure/ai-foundry/evaluation/)** — evaluation tools
 - **[What's New in Azure OpenAI](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/whats-new)** — latest changes
 - **[Responses API](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/responses)** — new API surface
+
+## Frequently Asked Questions
+
+| Question | Short answer | Deep dive |
+|---|---|---|
+| **How much effort per migration cycle?** | Reusable golden dataset + config-only model swap → a few hundred API calls per cycle. | [Sample Results](samples/rag_pipeline/README.md#sample-results) |
+| **How do I find WHERE a regression occurred?** | Dual-layer evaluation: E2E detects the problem, task-level scoring localizes it. | [Hybrid Methodology](docs/migrating-multi-step-apps.md) |
+| **What methodology should I follow?** | Hybrid approach with a clear decision table and structured scoring rubrics. | [Evaluation Guide](docs/evaluation-guide.md) |
+| **How do I automate at scale?** | `.env` swap + CI/CD nightly runs + matrix strategy for parallel model testing. | [CI/CD Workflow](.github/workflows/eval-on-schedule.yml) |
+| **Do I need new datasets each time?** | No — mine from production traffic (Stored Completions, APIM logs). Data already exists. | [Building Golden Datasets](docs/building-golden-datasets.md) |
+| **What if a regression is detected?** | 4-scenario remediation playbook: diagnosis → root cause → fix, plus rollback by deployment type. | [Remediation Playbook](docs/migrating-multi-step-apps.md) |
+| **Why LLM-as-judge over similarity scoring?** | Similarity penalizes better answers and misses hallucination; LLM judges evaluate meaning. | [Evaluation Guide](docs/evaluation-guide.md) |
+| **How do I track quality over time?** | Azure AI Foundry named evaluation runs + portal side-by-side, or Fabric + Power BI for cross-org. | [Cloud Eval Tracking](docs/cloud-eval-tracking-across-models.md) |
+| **Does this work for agentic apps?** | Same config-only swap — model is one env variable in every framework (SK, LangChain, etc.). | [Agentic Workflow](docs/migrating-multi-step-apps.md) |
 
 ## License
 

@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 from openai import AzureOpenAI, OpenAI
 
-from src.config import is_v1, is_reasoning, uses_developer_role
+from src.config import is_v1, is_reasoning, uses_developer_role, MAX_COMPLETION_TOKEN_MODELS
 
 
 def _get_token_provider():
@@ -96,8 +96,8 @@ def call_model(
     - Drops temperature/top_p for reasoning models
     - system → developer role for reasoning models (GPT-5+, o-series)
     """
-    # max_tokens → max_completion_tokens for v1 models
-    if "max_tokens" in params and is_v1(model_name):
+    # max_tokens → max_completion_tokens for models that require it
+    if "max_tokens" in params and model_name in MAX_COMPLETION_TOKEN_MODELS:
         params["max_completion_tokens"] = params.pop("max_tokens")
 
     # Reasoning models don't support temperature/top_p

@@ -2,7 +2,7 @@
 
 > **⚠️ Retirement dates and model availability change frequently.** Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements)** for the latest authoritative information.
 >
-> This page was last updated **February 2026**.
+> This page was last verified **March 2026**.
 
 ---
 
@@ -17,7 +17,7 @@
 | **Global** | 2026-10-01 | 2026-10-01 |
 | **DataZone** | 2026-10-01 | 2026-10-01 |
 
-> **⏰ Urgent:** Standard GPT-4o (05-13, 08-06) auto-upgrade to GPT-5.1 begins **2026-03-09** — less than a month away. If you haven't tested against GPT-5.1 yet, start now. See the [Evaluation Guide](evaluation-guide.md) for how to validate quality.
+> **⏰ Urgent:** Standard GPT-4o (05-13, 08-06) auto-upgrade to GPT-5.1 began **2026-03-09** and retirement is **2026-03-31**. If you haven't tested against GPT-5.1 yet, start immediately. See the [Evaluation Guide](evaluation-guide.md) for how to validate quality.
 
 ### GPT-4o-mini
 
@@ -58,6 +58,21 @@ These are the models you should be migrating **to**. Their retirement dates give
 | `model-router` | 2025-11-18 | 2027-05-20 | — |
 
 > **Tip:** Models with later retirement dates give you more runway. GPT-5.1 and GPT-5.2 won't retire until mid-2027 at the earliest.
+
+### Planning Beyond Mid-2027
+
+Azure OpenAI follows a predictable pattern: new model generations are released every 6–12 months, and each GA model is guaranteed a **minimum 12-month support window**. While specific models beyond GPT-5.2 are not yet announced, the pattern means:
+
+- **If you migrate to GPT-5.1 or GPT-5.2 today**, you have runway until at least mid-2027
+- **When the next generation launches** (GPT-6 or equivalent), it will overlap with GPT-5.x support — giving you months to evaluate and migrate again
+- **The evaluation infrastructure you build now is model-agnostic**: golden datasets, eval definitions, CI/CD gates, and Foundry dashboards all carry forward. Each new model generation is just another eval run against your existing test suite — not a rebuild from scratch
+
+For organizations with multi-year compliance timelines, the recommended approach is:
+
+1. **Invest in evaluation infrastructure now** — golden datasets, automated CI/CD eval gates, Foundry eval definitions. This is the durable asset.
+2. **Use `OnceCurrentVersionExpired` policy** on production deployments to maximize runway on each model
+3. **Use `OnceNewDefaultVersionAvailable` in staging** to get early visibility into the next generation
+4. **Track Azure OpenAI announcements** via [What's New](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/whats-new) and Azure Service Health alerts
 
 ---
 
@@ -173,6 +188,27 @@ Provisioned (PTU) deployments do **not** support automatic model upgrades. You m
 - **"Retirement (not before)"** — Microsoft guarantees the model will be available until at least this date. The actual retirement may be later.
 - **Auto-upgrade** — For Standard/Global/DataZone deployments, Microsoft automatically switches your deployment to the replacement model. Your endpoint URL stays the same, but the model behind it changes.
 - **No-longer-available (NLA)** — After retirement, the model cannot be deployed or re-deployed. Existing deployments with `NoAutoUpgrade` stop working.
+
+### Incident Response & Rollback
+
+If a migration (auto-upgrade or manual) introduces a regression in production, here's what to do based on your deployment type:
+
+| Deployment Type | Rollback Options |
+|----------------|-----------------|
+| **Standard (auto-upgraded)** | 1. Create a **new deployment** with the previous model version (if still available before retirement). 2. Adjust prompts/parameters to work with the upgraded model. 3. Contact Azure Support for urgent cases — reference your subscription ID, resource group, and deployment name. |
+| **Standard (NoAutoUpgrade)** | Re-deploy the same model version — it hasn't changed. Investigate why you're seeing issues (likely a code or config change, not the model). |
+| **Provisioned (in-place)** | In-place migrations cannot be reverted once complete. Use a **multi-deployment strategy** (below) to avoid this. |
+| **Provisioned (multi-deployment)** | Shift traffic back to the old deployment. This is why multi-deployment (blue-green) is recommended for critical workloads. |
+
+**Prevention — recommended pattern for production:**
+
+1. **Before any upgrade window:** run your [evaluation suite](evaluation-guide.md) against the target model in a staging deployment
+2. **Use `NoAutoUpgrade`** on critical production deployments so you control the timing
+3. **Multi-deployment migration** for Provisioned workloads — keep the old deployment alive until you've validated the new one
+4. **Monitor post-migration:** track error rates, latency P95, and user-reported quality for at least 48 hours after cutover
+5. **Escalation:** if you discover a model-level regression (not prompt/config), file an Azure Support ticket with before/after examples from your evaluation suite
+
+> **Key point:** Auto-upgraded Standard deployments cannot be "rolled back" to the old model after retirement. The mitigation is to test *before* the auto-upgrade window using a staging deployment with `OnceNewDefaultVersionAvailable`.
 
 ### What You Should Do
 
