@@ -98,33 +98,31 @@ The o-series models are dedicated reasoning models with `reasoning_effort` suppo
 
 | Priority | GPT-4o replacement | GPT-4o-mini replacement |
 |----------|-------------------|------------------------|
-| **Low latency / high throughput** | GPT-4.1 (deprecated) | GPT-4.1-mini (deprecated) |
-| **Balanced (cost + quality)** | GPT-5.1 | GPT-5.4-mini |
+| **Best quality/latency tradeoff** | GPT-5.4-mini | GPT-5.4-nano |
 | **Best overall quality** | GPT-5.4 | GPT-5.4-mini |
-| **Best reasoning / agentic** | GPT-5 | GPT-5-mini |
+| **Best reasoning / agentic** | GPT-5.4 | GPT-5.4-mini |
 | **Lowest cost** | GPT-5.4-nano | GPT-5.4-nano |
 | **Smart model routing** | `model-router` | `model-router` |
 
-> **💡 Skip-a-generation strategy:** The official auto-migration path is GPT-4o → GPT-5.1 and GPT-4.1 → GPT-5. However, if you're planning a **manual migration** (recommended), consider targeting the **GPT-5.4 family** directly instead:
+> **💡 Tier-down strategy:** Newer-generation smaller models often match or exceed the quality of older-generation larger ones — with better latency and lower cost. If you're planning a **manual migration**, consider dropping a tier:
 >
-> | Instead of… | Consider… | Why |
-> |------------|-----------|-----|
-> | GPT-4.1 / GPT-5 | **GPT-5.4** | Latest quality, 18-month runway (retires Sep 2027) |
-> | GPT-4.1-mini / GPT-5-mini | **GPT-5.4-mini** | Same tier, longer runway, improved quality |
-> | GPT-4.1-nano / GPT-4o-mini | **GPT-5.4-nano** | Ultra-low-cost with reasoning capability |
+> | Migrating from… | Target… | Why |
+> |-----------------|---------|-----|
+> | GPT-4o / GPT-4.1 | **GPT-5.4-mini** | Comparable quality to GPT-4.1 at lower cost and latency, with 18-month runway (retires Sep 2027) |
+> | GPT-4o-mini / GPT-4.1-mini | **GPT-5.4-nano** | Comparable quality to GPT-4.1-mini at a fraction of the cost |
 >
-> This avoids a second migration when GPT-5/5.1 retire in early 2027. The API surface is identical across all GPT-5.x models — the only difference is `reasoning_effort` defaults. See [API Changes](api-changes-by-model.md) for details.
+> This gives you a better quality-to-latency tradeoff *and* avoids a second migration when GPT-5/5.1 retire in early 2027. The API surface is identical across all GPT-5.x models — the only difference is `reasoning_effort` defaults. See [API Changes](api-changes-by-model.md) for details.
 
 ### Decision Tree
 
 1. **Do you need reasoning (chain-of-thought)?**
-   - **No** → Use **GPT-5.4-mini** (or GPT-5.4-nano for lowest cost). Set `reasoning_effort="none"` for standard-model behavior with longest runway. GPT-4.1 also works but is deprecated — new customers can't deploy it.
+   - **No** → Use **GPT-5.4-mini** (replaces GPT-4o/4.1 at lower cost) or **GPT-5.4-nano** (replaces GPT-4o-mini/4.1-mini). Set `reasoning_effort="none"` for standard-model behavior.
    - **Yes** → Continue below.
 
 2. **How much reasoning do you need?**
    - **Light reasoning, mostly standard use** → **GPT-5.4-mini** with `reasoning_effort="none"` by default, bump to `"medium"` or `"high"` for specific prompts.
    - **Heavy reasoning / agentic workflows** → **GPT-5.4** with `reasoning_effort="high"`.
-   - **Best quality, latest model** → **GPT-5.4** or **GPT-5.4-pro**.
+   - **Best quality, cost is secondary** → **GPT-5.4** or **GPT-5.4-pro**.
 
 3. **Are you currently on o-series?**
    - **o1** → Migrate to **o3**.
