@@ -1,6 +1,16 @@
 ---
 name: aoai-model-migration
-description: "Migrate Azure OpenAI applications from GPT-4o/GPT-4o-mini to newer models (GPT-4.1, GPT-5, GPT-5.1, GPT-5.2, o-series). Covers API changes, client configuration, parameter adaptation, prompt adjustments, and authentication."
+description: >
+  Migrate Azure OpenAI applications from GPT-4o/GPT-4o-mini to newer models
+  (GPT-4.1, GPT-5, GPT-5.1 through GPT-5.4, o-series).
+  Covers API changes, client configuration, parameter adaptation, prompt adjustments,
+  and authentication.
+  USE FOR: migrate model, switch model, upgrade model, GPT-4o replacement,
+  AzureOpenAI to OpenAI client, v1 API, max_completion_tokens, reasoning_effort,
+  developer role, system role, parameter adaptation, client factory, model classification.
+  DO NOT USE FOR: retirement dates or lifecycle planning (use aoai-model-lifecycle),
+  evaluation or A/B testing (use aoai-migration-evaluation),
+  building agents (use agent-framework-azure-ai-py).
 ---
 
 # Azure OpenAI Model Migration Skill
@@ -25,14 +35,15 @@ Guide developers through migrating Azure OpenAI applications from GPT-4o / GPT-4
 
 | Source Model | Target Model | Type | Best For |
 |---|---|---|---|
-| GPT-4o | **GPT-4.1** | Standard | Low-latency, high-throughput, drop-in replacement, lowest cost |
-| GPT-4o | **GPT-5.1** | Reasoning | Official auto-migration target, built-in reasoning, `reasoning_effort=none` supported |
-| GPT-4o | **GPT-5.2** | Reasoning | Latest GA model (Dec 2025), best overall quality |
-| GPT-4o | **GPT-5** | Reasoning | Best reasoning and agentic capability |
-| GPT-4o-mini | **GPT-4.1-mini** | Standard | Official auto-migration target, lowest cost |
-| GPT-4o-mini | **GPT-5-mini** | Reasoning | Alternative with reasoning (higher cost) |
+| GPT-4o / GPT-4.1 | **GPT-5.4-mini** | Reasoning | **Recommended** — comparable quality at lower cost/latency (tier-down strategy) |
+| GPT-4o-mini / GPT-4.1-mini | **GPT-5.4-nano** | Reasoning | **Recommended** — comparable quality at a fraction of the cost |
+| GPT-4o | **GPT-5.1** | Reasoning | Official auto-migration target (Standard deployments, completed March 2026) |
+| GPT-4o | **GPT-5.4** | Reasoning | Best overall quality (Mar 2026), longest runway |
+| GPT-4o-mini | **GPT-4.1-mini** | Standard | Official auto-migration target (Standard deployments) |
 
-> **⚠️ GPT-4o-mini retires March 31, 2026 (Standard).** Replace `gpt-4o-mini` deployments with `gpt-4.1-mini` as the official auto-migration target.
+> **💡 Tier-down strategy:** Newer-generation smaller models match or exceed older-generation larger ones with better latency and lower cost. Target **GPT-5.4-mini** instead of GPT-4.1/GPT-5, and **GPT-5.4-nano** instead of GPT-4.1-mini — longer runway (Sep 2027), better quality-to-cost tradeoff.
+
+> **📝 Note:** GPT-4o Standard deployments were auto-upgraded to GPT-5.1 and retired on 2026-03-31. GPT-4.1 family was deprecated on 2026-04-14 (no new customers).
 
 ### o-Series (Reasoning Models)
 
@@ -46,11 +57,10 @@ Guide developers through migrating Azure OpenAI applications from GPT-4o / GPT-4
 
 | Priority | GPT-4o replacement | GPT-4o-mini replacement |
 |---|---|---|
-| **Low latency / high throughput** | GPT-4.1 | GPT-4.1-mini |
-| **Balanced (cost + quality)** | GPT-5.1 | GPT-4.1-mini |
-| **Best overall quality** | GPT-5.2 | GPT-5-mini |
-| **Best reasoning / agentic** | GPT-5 | GPT-5-mini |
-| **Lowest cost** | GPT-4.1 | GPT-4.1-mini |
+| **Best quality/latency tradeoff** | GPT-5.4-mini | GPT-5.4-nano |
+| **Best overall quality** | GPT-5.4 | GPT-5.4-mini |
+| **Best reasoning / agentic** | GPT-5.4 | GPT-5.4-mini |
+| **Lowest cost** | GPT-5.4-nano | GPT-5.4-nano |
 
 ## Key API Changes
 
@@ -103,13 +113,16 @@ V1_MODELS = {
     "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
     "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5-mini", "gpt-5-nano",
     "gpt-5-pro", "gpt-5-codex", "gpt-5.1-codex", "gpt-5.1-codex-mini",
+    "gpt-5.2-codex", "gpt-5.3-codex",
+    "gpt-5.4", "gpt-5.4-pro", "gpt-5.4-mini", "gpt-5.4-nano",
     "codex-mini",
 }
 
 # Reasoning models (no temperature/top_p, use max_completion_tokens, developer role)
 REASONING_MODELS = {
     "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5-mini", "gpt-5-nano",
-    "gpt-5-pro",
+    "gpt-5-pro", "gpt-5.3-codex", "gpt-5.2-codex",
+    "gpt-5.4", "gpt-5.4-pro", "gpt-5.4-mini", "gpt-5.4-nano",
 }
 
 # o-series reasoning models (also no temperature/top_p, use max_completion_tokens)
@@ -121,7 +134,7 @@ O_SERIES_MODELS = {
 
 ### 3. Parameter Adaptation
 
-| Parameter | GPT-4o | GPT-4.1 | GPT-5 / GPT-5.1 / GPT-5.2 | o-series (o1, o3, o4-mini) |
+| Parameter | GPT-4o | GPT-4.1 | GPT-5 / GPT-5.x | o-series (o1, o3, o4-mini) |
 |---|---|---|---|---|
 | `max_tokens` | Supported | Use `max_completion_tokens` | Use `max_completion_tokens` | Use `max_completion_tokens` |
 | `temperature` | Supported | Supported | **Not supported** (remove it) | **Not supported** (remove it) |
@@ -155,14 +168,15 @@ def adapt_params(model_name: str, params: dict) -> dict:
 | GPT-4.1 / 4.1-mini / 4.1-nano | Standard | N/A (no reasoning) | — |
 | GPT-5 / 5-mini / 5-nano | Reasoning | `minimal`, `low`, `medium`, `high` | `medium` |
 | GPT-5.1 | Reasoning | `none`, `low`, `medium`, `high` | `none` |
-| GPT-5.2 | Reasoning | `none`, `low`, `medium`, `high` | `none` |
+| GPT-5.2 / 5.3-codex / 5.4 / 5.4-pro | Reasoning | `none`, `low`, `medium`, `high` | `none` |
+| GPT-5.4-mini / 5.4-nano | Reasoning | `none`, `low`, `medium`, `high` | `none` |
 | o-series (o1, o3, o4-mini) | Reasoning | `low`, `medium`, `high` | `medium` |
 
 > **Important:** `reasoning_effort="none"` is only supported from GPT-5.1 onwards (GPT-5.1 and GPT-5.2). GPT-5, GPT-5-mini, and GPT-5-nano minimum is `"minimal"`, which still incurs reasoning tokens and added latency.
 
 ### 5. System Role for Reasoning Models
 
-GPT-5/GPT-5.1/GPT-5.2 and o-series models use `"developer"` instead of `"system"` for the system message role:
+GPT-5.x and o-series models use `"developer"` instead of `"system"` for the system message role:
 
 ```python
 # GPT-4o / GPT-4.1
@@ -171,7 +185,7 @@ messages = [
     {"role": "user", "content": query},
 ]
 
-# GPT-5 / GPT-5.1 / GPT-5.2 / o-series
+# GPT-5.x / o-series
 messages = [
     {"role": "developer", "content": "You are a helpful assistant."},
     {"role": "user", "content": query},
@@ -237,13 +251,23 @@ This repo provides reusable modules under `src/`:
 - `src/clients.py` — Client factory (`create_client()`), parameter-adapting `call_model()` with automatic role adaptation
 - `src/evaluate/` — Full evaluation framework for comparing models (see `aoai-migration-evaluation` skill)
 
+**Deep-dive documentation** (always check these for the latest dates and guidance):
+
+- [`docs/retirement-timeline.md`](../../../docs/retirement-timeline.md) — authoritative retirement dates and planning matrix
+- [`docs/migration-paths.md`](../../../docs/migration-paths.md) — detailed migration paths with decision trees
+- [`docs/api-changes-by-model.md`](../../../docs/api-changes-by-model.md) — comprehensive API changes reference
+- [`docs/evaluation-guide.md`](../../../docs/evaluation-guide.md) — evaluation methodology and setup
+- [`samples/rag_pipeline/`](../../../samples/rag_pipeline/) — working end-to-end migration example
+
+> **💡 Tip:** This skill provides quick guidance for common migration tasks. For the latest model dates, detailed walkthroughs, and working code samples, always check the repo documentation above — it is updated more frequently than this skill.
+
 ## Steps for a Migration
 
-1. **Identify your target model** using the migration paths table above.
+1. **Identify your target model** using the migration paths table above — consider the tier-down strategy (GPT-5.4-mini/nano) for best cost-quality tradeoff.
 2. **Update client initialization** — switch from `AzureOpenAI` to `OpenAI` for v1 models.
 3. **Adapt parameters** — replace `max_tokens` with `max_completion_tokens`, remove `temperature`/`top_p` for reasoning models.
-4. **Update system message role** — use `"developer"` for GPT-5/GPT-5.1/GPT-5.2 and o-series models.
-5. **Set `reasoning_effort`** if using a reasoning model (start with `"low"` for cost-sensitive workloads).
+4. **Update system message role** — use `"developer"` for GPT-5.x and o-series models.
+5. **Set `reasoning_effort`** if using a reasoning model — GPT-5.4-mini supports `"none"` for zero reasoning overhead; start with `"low"` for cost-sensitive workloads.
 6. **Run evaluations** to validate the new model matches or exceeds the old model's quality (see `aoai-migration-evaluation` skill).
 7. **Deploy progressively** — canary rollout for high-traffic workloads.
 
@@ -269,7 +293,8 @@ See the **aoai-migration-evaluation** skill for full evaluation guidance, includ
 ## Must Not
 
 - Hard-code model names deep in application code. Use config/environment variables.
-- Use `temperature` or `top_p` with reasoning models (GPT-5, GPT-5.1, GPT-5.2, o-series) — they are not supported.
+- Use `temperature` or `top_p` with reasoning models (GPT-5.x, o-series) — they are not supported.
+- Assume GPT-4.1 family is still available for new deployments — it was deprecated April 14, 2026.
 - Use `max_tokens` with v1 API models — use `max_completion_tokens` instead.
 - Skip evaluation before deploying a new model in production.
 - Assume `reasoning_effort="none"` works on GPT-5/GPT-5-mini — only GPT-5.1+ supports it.

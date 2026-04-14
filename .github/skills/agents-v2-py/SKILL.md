@@ -1,11 +1,15 @@
 ---
 name: agents-v2-py
-description: |
-  Build container-based Foundry Agents using Azure AI Projects SDK with ImageBasedHostedAgentDefinition.
-  Use when creating hosted agents that run custom code in Azure AI Foundry with your own container images.
-  Triggers: "ImageBasedHostedAgentDefinition", "hosted agent", "container agent", "Foundry Agent",
-  "create_version", "ProtocolVersionRecord", "AgentProtocol.RESPONSES", "custom agent image".
-package: azure-ai-projects
+description: >
+  Build container-based Foundry Agents using Azure AI Projects SDK with
+  ImageBasedHostedAgentDefinition. Use when creating hosted agents that run
+  custom code in Azure AI Foundry with your own container images.
+  USE FOR: ImageBasedHostedAgentDefinition, hosted agent, container agent,
+  Foundry Agent, create_version, ProtocolVersionRecord, AgentProtocol.RESPONSES,
+  custom agent image, azure-ai-projects SDK, container-based agent.
+  DO NOT USE FOR: Agent Framework SDK agents (use agent-framework-azure-ai-py),
+  model migration (use aoai-model-migration),
+  evaluation (use aoai-migration-evaluation).
 ---
 
 # Azure AI Hosted Agents (Python)
@@ -15,10 +19,10 @@ Build container-based hosted agents using `ImageBasedHostedAgentDefinition` from
 ## Installation
 
 ```bash
-pip install azure-ai-projects>=2.0.0b3 azure-identity
+pip install azure-ai-projects>=2.0.0 azure-identity
 ```
 
-**Minimum SDK Version:** `2.0.0b3` or later required for hosted agent support.
+**Minimum SDK Version:** `2.0.0` or later required for hosted agent support.
 
 ## Environment Variables
 
@@ -33,7 +37,7 @@ Before creating hosted agents:
 1. **Container Image** - Build and push to Azure Container Registry (ACR)
 2. **ACR Pull Permissions** - Grant your project's managed identity `AcrPull` role on the ACR
 3. **Capability Host** - Account-level capability host with `enablePublicHostingEnvironment=true`
-4. **SDK Version** - Ensure `azure-ai-projects>=2.0.0b3`
+4. **SDK Version** - Ensure `azure-ai-projects>=2.0.0`
 
 ## Authentication
 
@@ -317,6 +321,14 @@ async def create_hosted_agent_async():
 3. **Environment Variables** - Use for all configuration, never hardcode
 4. **Error Handling** - Wrap agent creation in try/except blocks
 5. **Cleanup** - Delete unused agent versions to free resources
+
+## Repository Resources
+
+> **💡 Tip:** This skill covers container-based Foundry Agents. For model migration guidance, evaluation, and retirement timelines relevant to your agent's model choice, check the repo documentation.
+
+- [`docs/migration-paths.md`](../../../docs/migration-paths.md) — choosing the right model for your agent
+- [`docs/api-changes-by-model.md`](../../../docs/api-changes-by-model.md) — API differences by model family
+- [`README.md`](../../../README.md) — repo overview and all available guides
 
 ## Reference Links
 
