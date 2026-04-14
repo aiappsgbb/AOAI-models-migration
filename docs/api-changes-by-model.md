@@ -33,7 +33,7 @@ client = OpenAI(
 
 ## Parameter Changes
 
-| Parameter | GPT-4o | GPT-4.1 | GPT-5 / GPT-5.1 / GPT-5.2 | o-series (o1, o3, o4-mini) |
+| Parameter | GPT-4o | GPT-4.1 | GPT-5 / GPT-5.x | o-series (o1, o3, o4-mini) |
 |-----------|--------|---------|---------------------------|---------------------------|
 | `max_tokens` | Supported | Use `max_completion_tokens` | Use `max_completion_tokens` | Use `max_completion_tokens` |
 | `temperature` | Supported | Supported | **Not supported** | **Not supported** |
@@ -74,7 +74,8 @@ if uses_developer_role(model_name):
 | GPT-4.1 / 4.1-mini / 4.1-nano | Standard | N/A (no reasoning) | — |
 | GPT-5 / 5-mini / 5-nano | Reasoning | `minimal`, `low`, `medium`, `high` | `medium` |
 | GPT-5.1 | Reasoning | `none`, `low`, `medium`, `high` | `none` |
-| GPT-5.2 | Reasoning | `none`, `low`, `medium`, `high` | `none` |
+| GPT-5.2 / 5.3-codex / 5.4 / 5.4-pro | Reasoning | `none`, `low`, `medium`, `high` | `none` |
+| GPT-5.4-mini / 5.4-nano | Reasoning | `none`, `low`, `medium`, `high` | `none` |
 | o-series (o1, o3, o4-mini) | Reasoning | `low`, `medium`, `high` | `medium` |
 
 > **💡 What if you don't set `reasoning_effort` at all?**
