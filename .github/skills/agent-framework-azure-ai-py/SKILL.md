@@ -1,7 +1,18 @@
 ---
 name: agent-framework-azure-ai-py
-description: Build Azure AI Foundry agents using the Microsoft Agent Framework Python SDK (agent-framework-azure-ai). Use when creating persistent agents with AzureAIAgentsProvider, using hosted tools (code interpreter, file search, web search), integrating MCP servers, managing conversation threads, or implementing streaming responses. Covers function tools, structured outputs, and multi-tool agents.
-package: agent-framework-azure-ai
+description: >
+  Build Azure AI Foundry agents using the Microsoft Agent Framework Python SDK
+  (agent-framework-azure-ai). Use when creating persistent agents with
+  AzureAIAgentsProvider, using hosted tools (code interpreter, file search,
+  web search), integrating MCP servers, managing conversation threads,
+  or implementing streaming responses.
+  USE FOR: agent framework, AzureAIAgentsProvider, persistent agent, hosted tools,
+  code interpreter, file search, web search, MCP server, conversation thread,
+  streaming response, function tool, structured output, multi-tool agent,
+  agent-framework-azure-ai SDK.
+  DO NOT USE FOR: container-based hosted agents (use agents-v2-py),
+  model migration (use aoai-model-migration),
+  evaluation (use aoai-migration-evaluation).
 ---
 
 # Agent Framework Azure Hosted Agents
@@ -324,6 +335,14 @@ if __name__ == "__main__":
 - Use `Annotated[type, Field(description=...)]` for function parameters
 - Use `get_new_thread()` for multi-turn conversations
 - Prefer `HostedMCPTool` for service-managed MCP, `MCPStreamableHTTPTool` for client-managed
+
+## Repository Resources
+
+> **💡 Tip:** This skill covers the Agent Framework SDK. For model migration guidance, evaluation, and retirement timelines relevant to your agent's model choice, check the repo documentation.
+
+- [`docs/migration-paths.md`](../../../docs/migration-paths.md) — choosing the right model for your agent
+- [`docs/api-changes-by-model.md`](../../../docs/api-changes-by-model.md) — API differences by model family
+- [`README.md`](../../../README.md) — repo overview and all available guides
 
 ## Reference Files
 
