@@ -1,6 +1,16 @@
 ---
 name: aoai-model-lifecycle
-description: "Plan and manage the Azure OpenAI model upgrade lifecycle. Covers retirement timelines, deployment inventory, update policies, operational checklists, and mid-to-long term migration planning."
+description: >
+  Plan and manage the Azure OpenAI model upgrade lifecycle.
+  Covers retirement timelines, deployment inventory, update policies,
+  operational checklists, and mid-to-long term migration planning.
+  USE FOR: retirement date, model lifecycle, deprecation, model retirement,
+  when does model retire, deployment inventory, update policy, auto-upgrade,
+  migration planning, model governance, notification setup, Azure Service Health,
+  fine-tuned model retirement, embedding model retirement, model-router.
+  DO NOT USE FOR: code-level API migration (use aoai-model-migration),
+  evaluation or A/B testing (use aoai-migration-evaluation),
+  building agents (use agent-framework-azure-ai-py).
 ---
 
 # Azure OpenAI Model Lifecycle Management Skill
@@ -38,32 +48,40 @@ Model Launch (GA)
 
 **Preview models** follow an accelerated timeline: 90-120 day "not sooner than" retirement with 30 days' notice.
 
-## Current Retirement Dates (as of February 2026)
+## Current Retirement Dates (as of April 2026)
 
 > These are "not sooner than" dates — they can be extended but not shortened.
 > 📌 **Note:** ChatGPT (consumer) and Azure Foundry (enterprise) have **independent** retirement schedules.
 
 ### GPT Series
 
-| Model | GA Version | Retirement (not before) | Replacement |
-|---|---|---|---|
-| `gpt-4o` | 2024-08-06 | 2026-03-31 (Standard) / 2026-10-01 (Provisioned) | `gpt-5.1` |
-| `gpt-4o-mini` | 2024-07-18 | 2026-03-31 (Standard) / 2026-10-01 (Provisioned) | `gpt-4.1-mini` |
-| `gpt-4.1` | 2025-04-14 | 2026-10-14 | `gpt-5` |
-| `gpt-4.1-mini` | 2025-04-14 | 2026-10-14 | `gpt-5-mini` |
-| `gpt-4.1-nano` | 2025-04-14 | 2026-10-14 | `gpt-5-nano` |
-| `gpt-5` | 2025-08-07 | 2027-02-05 | — |
-| `gpt-5-mini` | 2025-08-07 | 2027-02-06 | — |
-| `gpt-5.1` | 2025-11-13 | 2027-05-15 | — |
-| `gpt-5.2` | 2025-12-11 | ~2027-05-12 | — |
+| Model | GA Version | Status | Retirement (not before) | Replacement |
+|---|---|---|---|---|
+| `gpt-4o` | 2024-08-06 | Standard: **Retired** / Others: Active | Standard: 2026-03-31 ✅ / Provisioned+Global+DataZone: 2026-10-01 | `gpt-5.1` |
+| `gpt-4o-mini` | 2024-07-18 | Standard: **Retired** / Others: Active | Standard: 2026-03-31 ✅ / Provisioned+Global+DataZone: 2026-10-01 | `gpt-4.1-mini` |
+| `gpt-4.1` | 2025-04-14 | **Deprecated** (no new customers) | 2026-10-14 | `gpt-5` |
+| `gpt-4.1-mini` | 2025-04-14 | **Deprecated** (no new customers) | 2026-10-14 | `gpt-5-mini` |
+| `gpt-4.1-nano` | 2025-04-14 | **Deprecated** (no new customers) | 2026-10-14 | `gpt-5-nano` |
+| `gpt-5` | 2025-08-07 | Active | 2027-02-06 | — |
+| `gpt-5-mini` | 2025-08-07 | Active | 2027-02-06 | — |
+| `gpt-5.1` | 2025-11-13 | Active | 2027-05-15 | — |
+| `gpt-5.2` | 2025-12-11 | Active | ~2027-05-12 | — |
+| `gpt-5.3-codex` | 2026-02-24 | Active | 2027-08-25 | — |
+| `gpt-5.4` | 2026-03-05 | Active | 2027-09-05 | — |
+| `gpt-5.4-pro` | 2026-03-05 | Active | 2027-09-05 | — |
+| `gpt-5.4-mini` | 2026-03-17 | Active | 2027-09-17 | — |
+| `gpt-5.4-nano` | 2026-03-17 | Active | 2027-09-17 | — |
 
 ### o-Series (Reasoning)
 
 | Model | GA Version | Retirement (not before) | Replacement |
 |---|---|---|---|
 | `o1` | 2024-12-17 | 2026-07-15 | `o3` |
+| `o1-pro` | 2025-03-19 | 2026-09-18 | `o3-pro` |
 | `o3-mini` | 2025-01-31 | 2026-08-02 | `o4-mini` |
 | `o3` | 2025-04-16 | 2026-10-16 | — |
+| `o3-pro` | 2025-06-10 | 2026-12-10 | — |
+| `o3-deep-research` | 2025-06-26 | 2026-12-26 | — |
 | `o4-mini` | 2025-04-16 | 2026-10-16 | — |
 
 ### Other
@@ -71,6 +89,7 @@ Model Launch (GA)
 | Model | GA Version | Retirement (not before) | Notes |
 |---|---|---|---|
 | `model-router` | 2025-11-18 | 2027-05-20 | Auto-routes requests to optimal model |
+| `codex-mini` | 2025-05-16 | 2026-11-15 | Lightweight code generation |
 
 > Always verify against the [official retirements page](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements).
 
@@ -78,8 +97,10 @@ Model Launch (GA)
 
 | Deployment Type | GPT-4o (05-13, 08-06) | GPT-4o (11-20) | GPT-4o-mini |
 |---|---|---|---|
-| **Standard** | 2026-03-31 (auto-upgrade starts 03-09) | 2026-10-01 | 2026-03-31 |
+| **Standard** | **Retired** 2026-03-31 ✅ | 2026-10-01 | **Retired** 2026-03-31 ✅ |
 | **Provisioned / Global / DataZone** | 2026-10-01 | 2026-10-01 | 2026-10-01 |
+
+> **⚠️ GPT-4.1 family deprecated (April 14, 2026):** No new customers can create GPT-4.1, GPT-4.1-mini, or GPT-4.1-nano deployments. Existing deployments continue until retirement on 2026-10-14. Plan migration to GPT-5 family — or better yet, use the **tier-down strategy**: target GPT-5.4-mini (replaces 4.1) and GPT-5.4-nano (replaces 4.1-mini) for better quality at lower cost. See `docs/migration-paths.md` for details.
 
 > **📋 Pre-upgrade checklist:** See `docs/migration-paths.md` for a detailed GPT-4o → GPT-5.1 verification checklist covering client type, parameter names, role changes, and reasoning effort configuration.
 
@@ -273,6 +294,16 @@ See `docs/building-golden-datasets.md` for framework-specific integration (LangC
 - Wait until auto-upgrade kicks in to test a replacement model
 - Mix embeddings from different model versions in the same vector store
 - Skip the cleanup step — old deployments waste quota
+
+## Repository Resources
+
+> **💡 Tip:** This skill provides lifecycle planning guidance. For the latest retirement dates, model data, and migration details, always check the repo documentation — it is updated more frequently than this skill.
+
+- [`docs/retirement-timeline.md`](../../../docs/retirement-timeline.md) — detailed retirement timeline with planning matrix
+- [`docs/migration-paths.md`](../../../docs/migration-paths.md) — choosing your target model, decision trees
+- [`docs/getting-started.md`](../../../docs/getting-started.md) — migration checklist and setup
+- [`data/`](../../../data/) — 54 pre-built golden test cases for regression testing
+- [`README.md`](../../../README.md) — repo overview, guides table, FAQ
 
 ## References
 

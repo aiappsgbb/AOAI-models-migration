@@ -61,6 +61,7 @@ report.print_report()
 | 🔗 **[Migrating Multi-Step Apps](docs/migrating-multi-step-apps.md)** | Hybrid evaluation methodology for RAG pipelines and agent workflows |
 | ☁️ **[Cloud Eval Tracking](docs/cloud-eval-tracking-across-models.md)** | Reusable eval definitions in Azure AI Foundry, cross-model comparison, CI/CD |
 | 🔄 **[Lifecycle Best Practices](docs/llm-upgrade-lifecycle-best-practices.md)** | Deployment inventory, notifications, rollout strategies, fine-tuned models, multi-region |
+| 🤖 **[Using Copilot Skills](docs/using-copilot-skills.md)** | How to use the built-in Copilot Skills for guided migration assistance |
 
 ## Sample: RAG Pipeline Migration
 
@@ -122,7 +123,7 @@ See the [RAG Pipeline README](samples/rag_pipeline/README.md) for a full walkthr
 
 ## GitHub Copilot Skills
 
-This repo includes three **[GitHub Copilot Skills](https://docs.github.com/en/copilot/customizing-copilot/adding-custom-skills-for-copilot)** that provide contextual guidance automatically:
+This repo includes five **[GitHub Copilot Skills](https://docs.github.com/en/copilot/customizing-copilot/adding-custom-skills-for-copilot)** that provide contextual guidance automatically. See **[Using Copilot Skills](docs/using-copilot-skills.md)** for setup and usage instructions.
 
 | Skill | What It Does |
 |-------|--------------|
