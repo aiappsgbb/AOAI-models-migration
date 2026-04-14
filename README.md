@@ -123,15 +123,13 @@ See the [RAG Pipeline README](samples/rag_pipeline/README.md) for a full walkthr
 
 ## GitHub Copilot Skills
 
-This repo includes five **[GitHub Copilot Skills](https://docs.github.com/en/copilot/customizing-copilot/adding-custom-skills-for-copilot)** that provide contextual guidance automatically. See **[Using Copilot Skills](docs/using-copilot-skills.md)** for setup and usage instructions.
+This repo includes three **[GitHub Copilot Skills](https://docs.github.com/en/copilot/customizing-copilot/adding-custom-skills-for-copilot)** that provide contextual guidance automatically. See **[Using Copilot Skills](docs/using-copilot-skills.md)** for setup and usage instructions.
 
 | Skill | What It Does |
 |-------|--------------|
 | **[aoai-model-migration](.github/skills/aoai-model-migration/SKILL.md)** | API changes, client configuration, parameter adaptation |
 | **[aoai-migration-evaluation](.github/skills/aoai-migration-evaluation/SKILL.md)** | A/B testing, LLM-as-Judge, SDK & Foundry evaluation |
 | **[aoai-model-lifecycle](.github/skills/aoai-model-lifecycle/SKILL.md)** | Retirement timelines, governance, operational checklists |
-| **[agent-framework-azure-ai-py](.github/skills/agent-framework-azure-ai-py/SKILL.md)** | Building agents with Microsoft Agent Framework SDK |
-| **[agents-v2-py](.github/skills/agents-v2-py/SKILL.md)** | Container-based Foundry Agents with Azure AI Projects SDK |
 
 ## Official Documentation
 

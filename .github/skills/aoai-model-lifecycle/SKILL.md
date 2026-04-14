@@ -9,8 +9,7 @@ description: >
   migration planning, model governance, notification setup, Azure Service Health,
   fine-tuned model retirement, embedding model retirement, model-router.
   DO NOT USE FOR: code-level API migration (use aoai-model-migration),
-  evaluation or A/B testing (use aoai-migration-evaluation),
-  building agents (use agent-framework-azure-ai-py).
+  evaluation or A/B testing (use aoai-migration-evaluation).
 ---
 
 # Azure OpenAI Model Lifecycle Management Skill

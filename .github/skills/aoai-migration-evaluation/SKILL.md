@@ -9,8 +9,7 @@ description: >
   cloud evaluation, quality metrics, coherence, relevance, groundedness, regression test,
   before deploying new model, validate migration, eval pipeline, continuous evaluation.
   DO NOT USE FOR: code-level API migration (use aoai-model-migration),
-  retirement dates or lifecycle planning (use aoai-model-lifecycle),
-  building agents (use agent-framework-azure-ai-py).
+  retirement dates or lifecycle planning (use aoai-model-lifecycle).
 ---
 
 # Azure OpenAI Migration Evaluation Skill

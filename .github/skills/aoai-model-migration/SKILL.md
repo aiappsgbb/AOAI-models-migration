@@ -9,8 +9,7 @@ description: >
   AzureOpenAI to OpenAI client, v1 API, max_completion_tokens, reasoning_effort,
   developer role, system role, parameter adaptation, client factory, model classification.
   DO NOT USE FOR: retirement dates or lifecycle planning (use aoai-model-lifecycle),
-  evaluation or A/B testing (use aoai-migration-evaluation),
-  building agents (use agent-framework-azure-ai-py).
+  evaluation or A/B testing (use aoai-migration-evaluation).
 ---
 
 # Azure OpenAI Model Migration Skill
