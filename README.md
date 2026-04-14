@@ -11,6 +11,13 @@ Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI model
 > [!TIP]
 > **Looking for a visual evaluation tool?** The [`model_migration_eval/`](model_migration_eval/) subfolder contains a full-featured **web UI** for comparing models side-by-side. Run it with `cd model_migration_eval && pip install -r requirements.txt && python app.py`.
 
+> [!TIP]
+> **Quick start with AI agent skills:** Install our migration skills into your coding agent (GitHub Copilot, Claude Code, Cursor, and [40+ more](https://github.com/vercel-labs/skills#supported-agents)) and get instant guidance:
+> ```bash
+> npx skills add aiappsgbb/AOAI-models-migration
+> ```
+> Then just ask: *"How do I migrate from GPT-4o to GPT-5.4-mini?"* — see **[Using Skills](docs/using-copilot-skills.md)** for details.
+
 ## Migration at a Glance
 
 1. **[Pick your target model](docs/migration-paths.md)** — choose based on your priorities (cost, quality, reasoning)
@@ -61,7 +68,7 @@ report.print_report()
 | 🔗 **[Migrating Multi-Step Apps](docs/migrating-multi-step-apps.md)** | Hybrid evaluation methodology for RAG pipelines and agent workflows |
 | ☁️ **[Cloud Eval Tracking](docs/cloud-eval-tracking-across-models.md)** | Reusable eval definitions in Azure AI Foundry, cross-model comparison, CI/CD |
 | 🔄 **[Lifecycle Best Practices](docs/llm-upgrade-lifecycle-best-practices.md)** | Deployment inventory, notifications, rollout strategies, fine-tuned models, multi-region |
-| 🤖 **[Using Copilot Skills](docs/using-copilot-skills.md)** | How to use the built-in Copilot Skills for guided migration assistance |
+| 🤖 **[Using AI Agent Skills](docs/using-copilot-skills.md)** | Install and use the built-in Skills for guided migration assistance |
 
 ## Sample: RAG Pipeline Migration
 
@@ -121,15 +128,21 @@ See the [RAG Pipeline README](samples/rag_pipeline/README.md) for a full walkthr
 └── .env.template
 ```
 
-## GitHub Copilot Skills
+## AI Agent Skills
 
-This repo includes three **[GitHub Copilot Skills](https://docs.github.com/en/copilot/customizing-copilot/adding-custom-skills-for-copilot)** that provide contextual guidance automatically. See **[Using Copilot Skills](docs/using-copilot-skills.md)** for setup and usage instructions.
+This repo includes three **agent skills** that provide contextual migration guidance in any supported coding agent. Install them with one command:
+
+```bash
+npx skills add aiappsgbb/AOAI-models-migration
+```
 
 | Skill | What It Does |
 |-------|--------------|
 | **[aoai-model-migration](.github/skills/aoai-model-migration/SKILL.md)** | API changes, client configuration, parameter adaptation |
 | **[aoai-migration-evaluation](.github/skills/aoai-migration-evaluation/SKILL.md)** | A/B testing, LLM-as-Judge, SDK & Foundry evaluation |
 | **[aoai-model-lifecycle](.github/skills/aoai-model-lifecycle/SKILL.md)** | Retirement timelines, governance, operational checklists |
+
+> Works with **GitHub Copilot**, **Claude Code**, **Cursor**, **Codex**, and [40+ other agents](https://github.com/vercel-labs/skills#supported-agents). See **[Using Skills](docs/using-copilot-skills.md)** for full setup and usage instructions.
 
 ## Official Documentation
 

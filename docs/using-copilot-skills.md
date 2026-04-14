@@ -1,15 +1,45 @@
-# Using the Copilot Skills in This Repo
+# Using the AI Agent Skills in This Repo
 
-This repository includes **three GitHub Copilot Skills** that provide contextual, up-to-date guidance when you're working on Azure OpenAI model migrations. Skills are activated automatically when your question matches their domain — you don't need to memorize commands.
+This repository includes **three AI agent skills** that provide contextual, up-to-date guidance when you're working on Azure OpenAI model migrations. Skills are activated automatically when your question matches their domain — you don't need to memorize commands.
 
-## What Are Copilot Skills?
+## Quick Install (Any Coding Agent)
 
-[GitHub Copilot Skills](https://docs.github.com/en/copilot/customizing-copilot/adding-custom-skills-for-copilot) are markdown-based knowledge files that Copilot reads when activated. They give Copilot domain-specific expertise about your project — in this case, Azure OpenAI model migration patterns and evaluation techniques.
+Install our skills into your own project or globally using [`npx skills`](https://github.com/vercel-labs/skills) — the universal skill installer that supports **40+ coding agents** including GitHub Copilot, Claude Code, Cursor, Codex, and more.
 
-Skills work in:
-- **GitHub Copilot Chat** (VS Code, Visual Studio, JetBrains)
-- **GitHub Copilot CLI** (terminal)
-- **GitHub.com** (Copilot in pull requests, issues)
+```bash
+# Install all 3 skills into your current project
+npx skills add aiappsgbb/AOAI-models-migration
+
+# Install globally (available across all your projects)
+npx skills add aiappsgbb/AOAI-models-migration -g
+
+# Install a specific skill only
+npx skills add aiappsgbb/AOAI-models-migration --skill aoai-model-migration
+
+# Target specific agents
+npx skills add aiappsgbb/AOAI-models-migration -a github-copilot -a claude-code
+
+# List available skills before installing
+npx skills add aiappsgbb/AOAI-models-migration --list
+```
+
+> **💡 Tip:** No need to clone this repo — `npx skills add` fetches and installs skills directly from GitHub. After installation, your coding agent automatically discovers and activates them based on your questions.
+
+### Manage Installed Skills
+
+```bash
+npx skills list          # See what's installed
+npx skills update        # Pull latest versions
+npx skills remove        # Uninstall skills
+```
+
+## What Are Agent Skills?
+
+[Agent skills](https://github.com/vercel-labs/skills) are markdown-based knowledge files (`SKILL.md`) that coding agents read when activated. They give your agent domain-specific expertise — in this case, Azure OpenAI model migration patterns and evaluation techniques.
+
+Skills work natively in:
+- **GitHub Copilot** (VS Code, CLI, GitHub.com)
+- **Claude Code**, **Cursor**, **Codex**, **Windsurf**, and [40+ other agents](https://github.com/vercel-labs/skills#supported-agents)
 
 ## Available Skills
 
@@ -27,23 +57,23 @@ Skills work in:
 
 ### In VS Code (GitHub Copilot Chat)
 
-1. Open this repo in VS Code
+1. Open this repo in VS Code (or install skills into your project with `npx skills add`)
 2. Open **Copilot Chat** (`Ctrl+Shift+I` or click the Copilot icon)
 3. Ask a question — Copilot automatically activates the relevant skill based on your query
 
 **Example prompts:**
 ```
-How do I switch from AzureOpenAI client to the v1 API?
+How do I migrate from GPT-4o to GPT-5.4-mini?
 What's the reasoning_effort default for GPT-5.4-mini?
 When does GPT-4.1 retire and what should I migrate to?
 How do I run an A/B comparison between GPT-4o and GPT-5.4-mini?
 ```
 
-> **💡 Tip:** You don't need to mention the skill by name. Copilot matches your question to the right skill automatically based on keywords.
+> **💡 Tip:** You don't need to mention the skill by name. Your agent matches your question to the right skill automatically based on keywords.
 
 ### In GitHub Copilot CLI
 
-1. Open a terminal in this repo directory
+1. Open a terminal in a directory where skills are installed
 2. Launch `copilot`
 3. Ask migration-related questions — skills activate automatically
 
@@ -51,6 +81,10 @@ How do I run an A/B comparison between GPT-4o and GPT-5.4-mini?
 copilot
 > When does GPT-4.1 retire and what should I replace it with?
 ```
+
+### In Other Coding Agents (Claude Code, Cursor, Codex, etc.)
+
+After installing with `npx skills add`, skills are automatically available in whichever agents you selected during installation. Just ask a migration-related question and the agent will activate the relevant skill.
 
 ### On GitHub.com
 
