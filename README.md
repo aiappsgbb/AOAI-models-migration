@@ -12,7 +12,7 @@ Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI model
 > **Looking for a visual evaluation tool?** The [`model_migration_eval/`](model_migration_eval/) subfolder contains a full-featured **web UI** for comparing models side-by-side. Run it with `cd model_migration_eval && pip install -r requirements.txt && python app.py`.
 
 > [!TIP]
-> **Quick start with AI agent skills:** Install our migration skills into your coding agent (GitHub Copilot, Claude Code, Cursor, and [40+ more](https://github.com/vercel-labs/skills#supported-agents)) and get instant guidance:
+> **Quick start with AI agent skills:** Install our migration skills into your coding agent and get instant guidance:
 > ```bash
 > npx skills add aiappsgbb/AOAI-models-migration
 > ```
@@ -142,7 +142,7 @@ npx skills add aiappsgbb/AOAI-models-migration
 | **[aoai-migration-evaluation](.github/skills/aoai-migration-evaluation/SKILL.md)** | A/B testing, LLM-as-Judge, SDK & Foundry evaluation |
 | **[aoai-model-lifecycle](.github/skills/aoai-model-lifecycle/SKILL.md)** | Retirement timelines, governance, operational checklists |
 
-> Works with **GitHub Copilot**, **Claude Code**, **Cursor**, **Codex**, and [40+ other agents](https://github.com/vercel-labs/skills#supported-agents). See **[Using Skills](docs/using-copilot-skills.md)** for full setup and usage instructions.
+> Works with [40+ coding agents](https://github.com/vercel-labs/skills#supported-agents). See **[Using Skills](docs/using-copilot-skills.md)** for full setup and usage instructions.
 
 ## Official Documentation
 
