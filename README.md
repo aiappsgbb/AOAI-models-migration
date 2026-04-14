@@ -4,7 +4,7 @@ Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI model
 
 > **⚠️ Retirement dates and model availability change frequently.**
 > Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements)** for the latest authoritative information.
-> This guide was last updated **March 2026**.
+> This guide was last updated **April 2026**.
 
 > **Scope:** This guide focuses on **text generation models** (GPT series and o-series). For audio, image, and embedding models, see the [official retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements).
 
