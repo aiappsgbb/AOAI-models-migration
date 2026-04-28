@@ -230,8 +230,40 @@ class UserContext:
             logger.debug(f"No topic archive '{slug}' for active-topic seeding")
             return []
 
+        # Read the archive's models contract — only models listed there
+        # belong to the topic. Any newly-seeded model that is NOT in this
+        # list must be removed so the user does not see "leak" prompts
+        # for models that don't participate in the active topic.
+        archived_models: set | None = None
+        archive_meta_path = archive_dir / "topic.json"
+        if archive_meta_path.exists():
+            try:
+                with open(archive_meta_path, "r", encoding="utf-8") as f:
+                    archive_meta = json.load(f)
+                _m = archive_meta.get("models")
+                if isinstance(_m, list):
+                    archived_models = set(_m)
+            except (json.JSONDecodeError, OSError):
+                pass
+
         patched: list = []
         for model_name in model_names:
+            # If the topic has an explicit models list and this model
+            # isn't part of it, drop the seeded directory entirely.
+            if archived_models is not None and model_name not in archived_models:
+                dest = self.prompts_dir / model_name
+                try:
+                    if dest.exists():
+                        shutil.rmtree(dest)
+                        logger.info(
+                            f"Removed seeded prompts for '{model_name}' — "
+                            f"not part of active topic '{slug}'"
+                        )
+                except OSError as exc:
+                    logger.warning(
+                        f"Could not remove non-topic seeded dir '{dest}': {exc}"
+                    )
+                continue
             src_model = archive_dir / model_name
             if not src_model.exists():
                 logger.info(

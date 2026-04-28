@@ -423,6 +423,9 @@
             return stopFn;
         }
 
+        // Models that belong to the active topic (null = no filter / show all)
+        let activeTopicModels = null;
+
         async function loadActiveTopic() {
             try {
                 const resp = await fetch('/api/topics');
@@ -430,6 +433,11 @@
                 const active = (data.topics || []).find(t => t.active);
                 const el = document.getElementById('active-topic-subtitle');
                 if (active && active.topic) el.textContent = '📌 Topic: ' + active.topic;
+                if (active && Array.isArray(active.models) && active.models.length > 0) {
+                    activeTopicModels = active.models.slice();
+                } else {
+                    activeTopicModels = null;
+                }
             } catch(e) {}
         }
 
@@ -439,11 +447,17 @@
             try {
                 const resp = await fetch('/api/models');
                 const data = await resp.json();
-                const models = (data.models || []).sort((a, b) => (a.display_name || a.deployment).localeCompare(b.display_name || b.deployment));
+                let models = (data.models || []).sort((a, b) => (a.display_name || a.deployment).localeCompare(b.display_name || b.deployment));
+                // Always populate display name lookup before filtering
+                models.forEach(m => { modelNames[m.name] = m.display_name || m.deployment; });
+                // Restrict the evaluable models to those in the active topic
+                if (activeTopicModels) {
+                    const filtered = models.filter(m => activeTopicModels.includes(m.name));
+                    if (filtered.length > 0) models = filtered;
+                }
                 const sel = document.getElementById('model');
                 sel.innerHTML = '';
                 models.forEach(m => {
-                    modelNames[m.name] = m.display_name || m.deployment;
                     const opt = document.createElement('option');
                     opt.value = m.name;
                     opt.textContent = m.display_name || m.deployment;
@@ -457,9 +471,9 @@
         
         // Initial load
         document.addEventListener('DOMContentLoaded', async () => {
+            await loadActiveTopic();
             await loadModels();
             loadDataPreview();
-            loadActiveTopic();
             checkFoundryStatus();
         });
 

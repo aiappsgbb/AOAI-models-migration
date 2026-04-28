@@ -2452,6 +2452,24 @@ def create_app(config_path: str = None) -> Flask:
             f'Import topic: all target prompts generated in {round(_time.time() - t_total, 1)}s (parallel)'
         )
 
+        # Abort if every single target generation failed — writing an
+        # archive with only the source prompt would leave a half-broken
+        # topic that mis-purges other prompts on activation.
+        if results == [] and tasks_to_run:
+            err_summary = '; '.join(
+                f'{tgt} {task}: {msg.splitlines()[0][:160]}'
+                for task, tgt, msg in failed[:3]
+            )
+            return jsonify({
+                'error': (
+                    f'All {len(tasks_to_run)} target-prompt generations failed. '
+                    f'No archive was written. First errors: {err_summary}'
+                ),
+                'failed': [
+                    {'task': t, 'model': m, 'error': e} for t, m, e in failed
+                ],
+            }), 502
+
         # Build prompts_map: {task: {model: content}}
         prompts_map: dict[str, dict[str, str]] = {}
         gen_times: dict[str, float] = {}
@@ -2513,6 +2531,8 @@ def create_app(config_path: str = None) -> Flask:
             test_data_map=data_files,
             prompts_topics_dir=uctx.topics_dir,
             data_topics_dir=uctx.data_topics_dir,
+            source_model=source_model,
+            target_models=target_models,
         )
 
         # ── Invalidate caches ──
@@ -2549,6 +2569,10 @@ def create_app(config_path: str = None) -> Flask:
             'target_models': target_models,
             'prompts': prompt_summary,
             'data': data_summary,
+            'failed_generations': [
+                {'task': t, 'model': m, 'error': e.splitlines()[0][:200]}
+                for t, m, e in failed
+            ] if failed else [],
         })
 
     # =========================================================================

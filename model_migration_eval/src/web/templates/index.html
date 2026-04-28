@@ -379,24 +379,38 @@
                 } else {
                     el.textContent = '';
                 }
+                if (active && Array.isArray(active.models) && active.models.length > 0) {
+                    activeTopicModels = active.models.slice();
+                } else {
+                    activeTopicModels = null;
+                }
             } catch(e) {}
         }
 
+        // Models that belong to the active topic (null = no filter)
+        let activeTopicModels = null;
+
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', async function() {
+            await loadActiveTopic();
             await loadModels();
             await checkHealth();
             await loadStats();
-            loadActiveTopic();
         });
 
         async function loadModels() {
             try {
                 const resp = await fetch('/api/models');
                 const data = await resp.json();
-                const models = (data.models || []).sort((a, b) => (a.display_name || a.deployment).localeCompare(b.display_name || b.deployment));
-                availableModels = models;
-                models.forEach(m => { modelNames[m.name] = m.display_name || m.deployment; });
+                const allModels = (data.models || []).sort((a, b) => (a.display_name || a.deployment).localeCompare(b.display_name || b.deployment));
+                availableModels = allModels;
+                allModels.forEach(m => { modelNames[m.name] = m.display_name || m.deployment; });
+                // Restrict Quick Evaluation checkboxes to models in the active topic
+                let models = allModels;
+                if (activeTopicModels) {
+                    const filtered = allModels.filter(m => activeTopicModels.includes(m.name));
+                    if (filtered.length > 0) models = filtered;
+                }
                 // Populate Quick Evaluation model checkboxes dynamically
                 const cbContainer = document.getElementById('test-model-checkboxes');
                 if (cbContainer) {

@@ -480,6 +480,9 @@
         let isEditing = false;
         let selectedVersionId = null;
         let availableModels = [];
+        // Models that belong to the active topic (null = no filter / show all).
+        // Populated from the topic's topic.json `models` field via /api/topics.
+        let activeTopicModels = null;
         // Track which views have been loaded so we don't clear them on tab switch
         let viewLoaded = { single: false, compare: false, history: false, data: false };
 
@@ -513,7 +516,20 @@
                 const el = $('active-topic-subtitle');
                 if (active && active.topic) el.textContent = '\ud83d\udccc Topic: ' + active.topic;
                 else el.textContent = '';
+                // Capture the topic-scoped model list so the Manage / Compare /
+                // History selectors only show models that belong to this topic.
+                if (active && Array.isArray(active.models) && active.models.length > 0) {
+                    activeTopicModels = active.models.slice();
+                } else {
+                    activeTopicModels = null;
+                }
             } catch(e) {}
+        }
+
+        // True if a model belongs to the active topic (or no topic filter set).
+        function isModelInActiveTopic(modelName) {
+            if (!activeTopicModels) return true;
+            return activeTopicModels.includes(modelName);
         }
 
         // ── Test data count helpers ──────────────────────────────────
@@ -541,13 +557,13 @@
 
         // ── Init ──────────────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', async () => {
+            await loadActiveTopic(); // resolve topic-scoped model list first
             await loadModels();      // must resolve first so displayName() works
             loadTestDataCounts();    // populate test data count inputs from config
             loadTopics();
             loadPromptList();
             bindEvents();
             checkSyncStatus();
-            loadActiveTopic();
         });
 
         // ── Event Binding ─────────────────────────────────────────────
@@ -712,6 +728,8 @@
                     if (['templates', 'history', 'topics'].includes(model)) continue;
                     // Only show prompts for models that are active in settings.yaml
                     if (!availableModels.find(m => m.name === model)) continue;
+                    // Hide models that are not part of the active topic
+                    if (!isModelInActiveTopic(model)) continue;
                     const mInfo = availableModels.find(m => m.name === model) || {};
                     const mFamily = mInfo.model_family || 'gpt4';
                     const headColor = mFamily === 'gpt5' ? 'text-purple-700' : mFamily === 'gemini' ? 'text-emerald-700' : mFamily === 'mistral' ? 'text-amber-700' : mFamily === 'phi' ? 'text-teal-700' : 'text-blue-700';
@@ -761,6 +779,12 @@
                 const data = await resp.json();
                 availableModels = (data.models || []).sort((a, b) => (a.display_name || a.deployment).localeCompare(b.display_name || b.deployment));
                 availableModels.forEach(m => { modelNames[m.name] = m.display_name || m.deployment; });
+                // Topic-scoped subset: only models present in the active topic.
+                // Used for Manage / Compare / History selectors so the user
+                // does not see prompts for models that don't belong to the
+                // active topic.  Falls back to all models when no topic
+                // contract is set (legacy archives).
+                const topicModels = availableModels.filter(m => isModelInActiveTopic(m.name));
                 // Text-only models (exclude realtime) for generator dropdowns
                 const textModels = availableModels.filter(m => m.modality !== 'realtime');
                 const sel = $('gen-model');
@@ -805,13 +829,14 @@
                 });
                 // Update compare-view headings
                 // (compare-view is now fully dynamic, no hardcoded titles)
-                // Populate compare model A / B dropdowns
+                // Populate compare model A / B dropdowns (topic-scoped)
                 const cmpA = $('compare-model-a');
                 const cmpB = $('compare-model-b');
-                cmpA.innerHTML = availableModels.map((m, i) =>
+                const compareModels = topicModels.length > 0 ? topicModels : availableModels;
+                cmpA.innerHTML = compareModels.map((m, i) =>
                     `<option value="${m.name}"${i === 0 ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
-                cmpB.innerHTML = availableModels.map((m, i) =>
+                cmpB.innerHTML = compareModels.map((m, i) =>
                     `<option value="${m.name}"${i === 1 ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
                 // Reload compare when selection changes
@@ -819,11 +844,12 @@
                 cmpB.addEventListener('change', () => { viewLoaded.compare = false; if (currentView === 'compare' && currentPromptType) { loadComparePrompts(currentPromptType); viewLoaded.compare = true; } });
                 // Update Go to Compare link
                 $('btn-go-compare').href = `/compare?model_a=${encodeURIComponent(cmpA.value)}&model_b=${encodeURIComponent(cmpB.value)}`;
-                // Update sidebar Key Differences — build dynamically by family
+                // Update sidebar Key Differences — build dynamically by family (topic-scoped)
                 const keyDiffContainer = $('key-diff-container');
                 if (keyDiffContainer) {
                     const families = {};
-                    availableModels.forEach(m => {
+                    const keyDiffModels = topicModels.length > 0 ? topicModels : availableModels;
+                    keyDiffModels.forEach(m => {
                         const fam = m.model_family || 'gpt4';
                         if (!families[fam]) families[fam] = [];
                         families[fam].push(m.display_name || m.deployment);
@@ -846,15 +872,16 @@
                         </div>`;
                     }).join('');
                 }
-                // Populate model selector dropdown — ALL models
+                // Populate model selector dropdown (Manage tab) — topic-scoped
                 const curSel = $('current-model');
-                curSel.innerHTML = availableModels
+                const manageModels = topicModels.length > 0 ? topicModels : availableModels;
+                curSel.innerHTML = manageModels
                     .map(m => `<option value="${m.name}">${m.display_name || m.deployment}</option>`)
                     .join('');
-                // Populate history filter model dropdown
+                // Populate history filter model dropdown (topic-scoped)
                 const histSel = $('history-filter-model');
                 histSel.innerHTML = '<option value="">All models</option>' +
-                    availableModels.map(m => `<option value="${m.name}">${m.display_name || m.deployment}</option>`).join('');
+                    manageModels.map(m => `<option value="${m.name}">${m.display_name || m.deployment}</option>`).join('');
             } catch (err) {
                 console.error('Failed to load models', err);
             }
@@ -1218,11 +1245,20 @@
                             html += `<br><span class="text-yellow-600">⚠️ ${task}: ${esc(info.warnings.join('; '))}</span>`;
                         }
                     }
+                    // Show per-target generation failures (auth errors, quota, etc.)
+                    if (Array.isArray(data.failed_generations) && data.failed_generations.length) {
+                        html += `<br><span class="text-red-600">⚠️ ${data.failed_generations.length} prompt generation(s) failed:</span>`;
+                        data.failed_generations.forEach(f => {
+                            html += `<br><span class="text-red-600 text-xs ml-3">• ${esc(displayName(f.model))} ${esc(f.task)}: ${esc(f.error)}</span>`;
+                        });
+                    }
                     $('import-status').innerHTML = html;
 
                     // Reload sidebar topics and caches
                     viewLoaded = { single: false, compare: false, history: false, data: false };
-                    await Promise.all([loadTopics(), loadPromptList(), checkSyncStatus(), loadActiveTopic()]);
+                    await loadActiveTopic();
+                    await loadModels();
+                    await Promise.all([loadTopics(), loadPromptList(), checkSyncStatus()]);
 
                     // Clear file inputs for next import
                     ['import-class-prompt','import-dialog-prompt','import-rag-prompt','import-tool-prompt',
@@ -1333,8 +1369,11 @@
                 statusEl.innerHTML = `<span class="text-green-600">✅ Switched to "${escapeHtml(data.topic?.topic || slug)}"</span>`;
                 // Reset view caches so content reloads for the new topic
                 viewLoaded = { single: false, compare: false, history: false, data: false };
+                // Refresh active-topic models BEFORE reloading model selectors
+                await loadActiveTopic();
+                await loadModels();
                 // Reload everything
-                await Promise.all([loadTopics(), loadPromptList(), checkSyncStatus(), loadActiveTopic()]);
+                await Promise.all([loadTopics(), loadPromptList(), checkSyncStatus()]);
                 if (currentPromptType) loadPrompt(currentModel, currentPromptType);
             } catch (err) {
                 statusEl.innerHTML = `<span class="text-red-600">❌ ${escapeHtml(err.message)}</span>`;

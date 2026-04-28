@@ -348,6 +348,40 @@ class PromptManager:
 
     # ── Multi-topic management ────────────────────────────────────────
 
+    def _extend_topic_models(self, topic: str, models: List[str]) -> None:
+        """Add *models* to the ``models`` field of an existing topic archive.
+
+        No-op when there is no existing archive (the topic will be created
+        fresh by ``archive_current_topic``).  When the archive exists, the
+        ``models`` list is extended (deduplicated) so subsequent
+        re-archives don't drop the newly-generated model directories.
+        """
+        if not topic or not models:
+            return
+        slug = _slugify(topic)
+        meta_path = self.topics_dir / slug / "topic.json"
+        if not meta_path.exists():
+            return
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return
+        existing = set(meta.get("models") or [])
+        merged = sorted(existing | set(models))
+        if merged == sorted(existing):
+            return
+        meta["models"] = merged
+        try:
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump(meta, f, indent=2, ensure_ascii=False)
+            logger.info(
+                f"_extend_topic_models: topic '{slug}' models extended "
+                f"with {sorted(set(models) - existing)} (now {merged})"
+            )
+        except OSError as exc:
+            logger.warning(f"Could not update topic.json for '{slug}': {exc}")
+
     def archive_current_topic(self) -> Optional[str]:
         """Archive the current active prompts + data into a topic snapshot.
 
@@ -362,9 +396,31 @@ class PromptManager:
         prompt_snapshot = self.topics_dir / slug
         data_snapshot = self.data_topics_dir / slug
 
-        # Archive prompt files (all model directories found)
+        # If an archive for this topic already exists with an explicit
+        # model list (e.g. from import_topic), only re-archive those
+        # models. This protects against accidentally absorbing stale
+        # leak directories from previous topics into the archive.
+        allowed_models: Optional[set] = None
+        existing_meta_path = prompt_snapshot / "topic.json"
+        if existing_meta_path.exists():
+            try:
+                with open(existing_meta_path, "r", encoding="utf-8") as f:
+                    _existing = json.load(f)
+                _models_field = _existing.get("models")
+                if isinstance(_models_field, list) and _models_field:
+                    allowed_models = set(_models_field)
+            except (OSError, json.JSONDecodeError):
+                pass
+
+        # Archive prompt files (all model directories found, filtered)
         archived_models = []
         for model_dir in self._get_model_dirs():
+            if allowed_models is not None and model_dir not in allowed_models:
+                logger.debug(
+                    f"archive_current_topic: skipping '{model_dir}' "
+                    f"(not in topic '{slug}' model list)"
+                )
+                continue
             src = self.prompts_dir / model_dir
             dst = prompt_snapshot / model_dir
             if src.exists():
@@ -390,6 +446,17 @@ class PromptManager:
             "prompts_updated_at": meta.get("prompts_updated_at", ""),
             "data_generated_at": meta.get("data_generated_at", ""),
         }
+        # Preserve source_model / target_models from the existing archive
+        # so re-archiving doesn't lose the topic's original contract.
+        if existing_meta_path.exists():
+            try:
+                with open(existing_meta_path, "r", encoding="utf-8") as f:
+                    _prev = json.load(f)
+                for _k in ("source_model", "target_models"):
+                    if _prev.get(_k) is not None:
+                        snapshot_meta[_k] = _prev[_k]
+            except (OSError, json.JSONDecodeError):
+                pass
         with open(prompt_snapshot / "topic.json", "w", encoding="utf-8") as f:
             json.dump(snapshot_meta, f, indent=2, ensure_ascii=False)
 
@@ -434,14 +501,30 @@ class PromptManager:
             )
 
         # Restore prompt files – clean active dirs first, then copy from archive.
-        # IMPORTANT: only clean model dirs that ARE in the archive so that
-        # models added *after* the topic was created keep their prompts.
+        # A topic owns an explicit set of models (recorded in topic.json).
+        # Active model directories that are NOT part of this topic are stale
+        # leftovers from a previous topic and must be removed so the UI only
+        # shows the models that belong to the active topic.
         archive_models = set(self._get_archive_model_dirs(prompt_snapshot))
         for model_dir in self._get_model_dirs():
+            dst = self.prompts_dir / model_dir
             if model_dir in archive_models:
-                dst = self.prompts_dir / model_dir
+                # Will be repopulated from the archive below — clear .md files
                 for old_file in dst.glob("*.md"):
                     old_file.unlink()
+            else:
+                # Not part of the active topic → drop the model directory
+                # entirely (prompts belong to a different topic and must
+                # have been archived already by archive_current_topic).
+                try:
+                    shutil.rmtree(dst)
+                    logger.info(
+                        f"Removed model dir '{model_dir}' (not in topic '{slug}')"
+                    )
+                except OSError as exc:
+                    logger.warning(
+                        f"Could not remove stale model dir '{model_dir}': {exc}"
+                    )
         # Copy model dirs from the archive
         for model_dir in archive_models:
             src = prompt_snapshot / model_dir
@@ -1812,6 +1895,11 @@ class PromptManager:
             )
         else:
             logger.info("== Step 4/4: SKIPPED (scope=prompts_only) ==")
+
+        # If the active topic already has an archive with an explicit
+        # model list, extend it so the just-generated models become part
+        # of the topic (otherwise archive_current_topic would skip them).
+        self._extend_topic_models(topic, models)
 
         # Archive the newly generated topic so it's recoverable
         self.archive_current_topic()

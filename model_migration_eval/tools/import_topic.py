@@ -1038,6 +1038,8 @@ def write_archived_topic(
     *,
     prompts_topics_dir: Path = None,
     data_topics_dir: Path = None,
+    source_model: str = None,
+    target_models: list = None,
 ) -> Path:
     """Write an archived topic into the solution structure.
 
@@ -1118,6 +1120,10 @@ def write_archived_topic(
         "data_generated_at": now,
         "models": sorted(all_models),
     }
+    if source_model:
+        meta["source_model"] = source_model
+    if target_models is not None:
+        meta["target_models"] = sorted(set(target_models))
     meta_file = prompt_topic_dir / "topic.json"
     meta_file.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
     log.info(f"  Metadata topic.json")

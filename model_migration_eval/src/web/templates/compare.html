@@ -463,10 +463,18 @@
                 const active = (data.topics || []).find(t => t.active);
                 const el = document.getElementById('active-topic-subtitle');
                 if (active && active.topic) el.textContent = '📌 Topic: ' + active.topic;
+                if (active && Array.isArray(active.models) && active.models.length > 0) {
+                    activeTopicModels = active.models.slice();
+                } else {
+                    activeTopicModels = null;
+                }
             } catch(e) {}
         }
 
         function displayName(key) { return modelNames[key] || key; }
+
+        // Models that belong to the active topic (null = no filter)
+        let activeTopicModels = null;
 
         // ── Model B Multiselect ─────────────────────────────────────
         let _allModels = [];
@@ -554,7 +562,15 @@
             try {
                 const resp = await fetch('/api/models');
                 const data = await resp.json();
-                _allModels = (data.models || []).sort((a, b) => (a.display_name || a.deployment).localeCompare(b.display_name || b.deployment));
+                let allModels = (data.models || []).sort((a, b) => (a.display_name || a.deployment).localeCompare(b.display_name || b.deployment));
+                // Always populate display name lookup before filtering
+                allModels.forEach(m => { modelNames[m.name] = m.display_name || m.deployment; });
+                // Restrict to models in the active topic (if any)
+                if (activeTopicModels) {
+                    const filtered = allModels.filter(m => activeTopicModels.includes(m.name));
+                    if (filtered.length > 0) allModels = filtered;
+                }
+                _allModels = allModels;
                 const selA = document.getElementById('model-a');
                 selA.innerHTML = '';
 
@@ -616,9 +632,9 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
+            await loadActiveTopic();
             await loadModels();
             await checkFoundryStatus();
-            loadActiveTopic();
             updateCompareHeading();
 
             // Excel export handler
