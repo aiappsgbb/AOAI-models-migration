@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 def _email_to_slug(email: str) -> str:
     """Convert an email address to a filesystem-safe slug.
 
-    Example: ``angel.garcia@microsoft.com`` → ``angel_garcia_at_microsoft_com``
+    Example: ``user@contoso.com`` → ``user_at_contoso_com``
     """
     s = email.lower().strip()
     s = s.replace("@", "_at_")

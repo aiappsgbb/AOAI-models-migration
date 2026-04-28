@@ -2,39 +2,42 @@
 
 > **⚠️ Retirement dates and model availability change frequently.** Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements)** for the latest authoritative information.
 >
-> This page was last updated **February 2026**.
+> This page was last verified **April 2026**.
 
 ---
 
 ## Models Being Retired
 
-### GPT-4o
+### GPT-4o / GPT-4o-mini (Standard) — Retired
 
 | Deployment Type | GPT-4o (2024-05-13, 2024-08-06) | GPT-4o (2024-11-20) |
 |----------------|----------------------------------|---------------------|
-| **Standard** | **2026-03-31** (auto-upgrade starts 2026-03-09) | 2026-10-01 |
+| **Standard** | **Retired 2026-03-31** (auto-upgraded to GPT-5.1) | 2026-10-01 |
 | **Provisioned** | 2026-10-01 | 2026-10-01 |
 | **Global** | 2026-10-01 | 2026-10-01 |
 | **DataZone** | 2026-10-01 | 2026-10-01 |
 
-> **⏰ Urgent:** Standard GPT-4o (05-13, 08-06) auto-upgrade to GPT-5.1 begins **2026-03-09** — less than a month away. If you haven't tested against GPT-5.1 yet, start now. See the [Evaluation Guide](evaluation-guide.md) for how to validate quality.
+> **📝 Note:** Standard GPT-4o (05-13, 08-06) and GPT-4o-mini Standard deployments were **auto-upgraded on 2026-03-09** and **retired on 2026-03-31**. If your Standard deployments still show the old model version, they have already been upgraded behind the scenes. Non-Standard deployment types (Provisioned, Global, DataZone) still have until **2026-10-01**.
 
 ### GPT-4o-mini
 
 | Deployment Type | GPT-4o-mini |
 |----------------|-------------|
-| **Standard** | **2026-03-31** (auto-upgrade starts 2026-03-09) |
+| **Standard** | **Retired 2026-03-31** (auto-upgraded to GPT-4.1-mini) |
 | **Provisioned** | 2026-10-01 |
 | **Global** | 2026-10-01 |
 | **DataZone** | 2026-10-01 |
 
-> **Auto-migration target:** GPT-4o-mini Standard → **GPT-4.1-mini**.
+### GPT-4.1 Family — Deprecated (No New Customers)
 
-### o1 and o3-mini
+> **⚠️ New (April 2026):** As of **2026-04-14**, GPT-4.1, GPT-4.1-mini, and GPT-4.1-nano are **deprecated** — no new customers can create deployments. Existing deployments continue to work until retirement on **2026-10-14**. Plan your migration to GPT-5 family now.
+
+### o-series
 
 | Model | Retirement Date | Replacement |
 |-------|----------------|-------------|
 | `o1` (2024-12-17) | **2026-07-15** | `o3` |
+| `o1-pro` (2025-03-19) | **2026-09-18** | `o3-pro` |
 | `o3-mini` (2025-01-31) | **2026-08-02** | `o4-mini` |
 
 ---
@@ -43,21 +46,48 @@
 
 These are the models you should be migrating **to**. Their retirement dates give you a planning horizon.
 
-| Model | GA Date | Retirement (not before) | Successor |
-|-------|---------|------------------------|-----------|
-| `gpt-4.1` | 2025-04-14 | 2026-10-14 | `gpt-5` |
-| `gpt-4.1-mini` | 2025-04-14 | 2026-10-14 | `gpt-5-mini` |
-| `gpt-4.1-nano` | 2025-04-14 | 2026-10-14 | `gpt-5-nano` |
-| `o3` | 2025-04-16 | 2026-10-16 | — |
-| `o4-mini` | 2025-04-16 | 2026-10-16 | — |
-| `gpt-5` | 2025-07-17 | 2027-01-17 | — |
-| `gpt-5-mini` | 2025-08-07 | 2027-02-06 | — |
-| `gpt-5-nano` | 2025-08-07 | 2027-02-06 | — |
-| `gpt-5.1` | 2025-11-13 | 2027-05-15 | — |
-| `gpt-5.2` | 2025-12-11 | ~2027-05-12 | — |
-| `model-router` | 2025-11-18 | 2027-05-20 | — |
+| Model | GA Date | Deprecation (no new customers) | Retirement (not before) | Successor |
+|-------|---------|-------------------------------|------------------------|-----------|
+| `gpt-4.1` | 2025-04-14 | **2026-04-14** | 2026-10-14 | `gpt-5` |
+| `gpt-4.1-mini` | 2025-04-14 | **2026-04-14** | 2026-10-14 | `gpt-5-mini` |
+| `gpt-4.1-nano` | 2025-04-14 | **2026-04-14** | 2026-10-14 | `gpt-5-nano` |
+| `o3` | 2025-04-16 | 2026-04-16 | 2026-10-16 | — |
+| `o4-mini` | 2025-04-16 | 2026-04-16 | 2026-10-16 | — |
+| `o3-pro` | 2025-06-10 | 2026-06-10 | 2026-12-10 | — |
+| `o3-deep-research` | 2025-06-26 | 2026-06-26 | 2026-12-26 | — |
+| `codex-mini` | 2025-05-16 | 2026-05-16 | 2026-11-15 | — |
+| `gpt-5` | 2025-08-07 | 2026-08-07 | 2027-02-06 | — |
+| `gpt-5-mini` | 2025-08-07 | 2026-08-07 | 2027-02-06 | — |
+| `gpt-5-nano` | 2025-08-07 | 2026-08-07 | 2027-02-06 | — |
+| `gpt-5-codex` | 2025-09-15 | 2026-09-15 | 2027-03-17 | — |
+| `gpt-5-pro` | 2025-10-06 | 2026-10-06 | 2027-04-07 | — |
+| `gpt-5.1` | 2025-11-13 | 2026-11-13 | 2027-05-15 | — |
+| `gpt-5.1-codex` | 2025-11-13 | 2026-11-13 | 2027-05-15 | — |
+| `model-router` | 2025-11-18 | 2026-11-18 | 2027-05-20 | — |
+| `gpt-5.2` | 2025-12-11 | ~2026-12-12 | ~2027-05-12 | — |
+| `gpt-5.2-codex` | 2026-01-14 | 2027-01-14 | 2027-07-14 | — |
+| `gpt-5.3-codex` | 2026-02-24 | 2027-02-25 | 2027-08-25 | — |
+| `gpt-5.4` | 2026-03-05 | 2027-03-05 | 2027-09-05 | — |
+| `gpt-5.4-pro` | 2026-03-05 | 2027-03-05 | 2027-09-05 | — |
+| `gpt-5.4-mini` | 2026-03-17 | 2027-03-17 | 2027-09-17 | — |
+| `gpt-5.4-nano` | 2026-03-17 | 2027-03-17 | 2027-09-17 | — |
 
-> **Tip:** Models with later retirement dates give you more runway. GPT-5.1 and GPT-5.2 won't retire until mid-2027 at the earliest.
+> **💡 Tip:** Models with later retirement dates give you more runway. GPT-5.1+ won't retire until mid-2027 at the earliest. The GPT-5.4 family (launched March 2026) gives you until September 2027.
+
+### Planning Beyond Mid-2027
+
+Azure OpenAI follows a predictable pattern: new model generations are released every 6–12 months, and each GA model is guaranteed a **minimum 12-month support window**. While specific models beyond GPT-5.2 are not yet announced, the pattern means:
+
+- **If you migrate to GPT-5.1 or GPT-5.2 today**, you have runway until at least mid-2027
+- **When the next generation launches** (GPT-6 or equivalent), it will overlap with GPT-5.x support — giving you months to evaluate and migrate again
+- **The evaluation infrastructure you build now is model-agnostic**: golden datasets, eval definitions, CI/CD gates, and Foundry dashboards all carry forward. Each new model generation is just another eval run against your existing test suite — not a rebuild from scratch
+
+For organizations with multi-year compliance timelines, the recommended approach is:
+
+1. **Invest in evaluation infrastructure now** — golden datasets, automated CI/CD eval gates, Foundry eval definitions. This is the durable asset.
+2. **Use `OnceCurrentVersionExpired` policy** on production deployments to maximize runway on each model
+3. **Use `OnceNewDefaultVersionAvailable` in staging** to get early visibility into the next generation
+4. **Track Azure OpenAI announcements** via [What's New](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/whats-new) and Azure Service Health alerts
 
 ---
 
@@ -174,6 +204,27 @@ Provisioned (PTU) deployments do **not** support automatic model upgrades. You m
 - **Auto-upgrade** — For Standard/Global/DataZone deployments, Microsoft automatically switches your deployment to the replacement model. Your endpoint URL stays the same, but the model behind it changes.
 - **No-longer-available (NLA)** — After retirement, the model cannot be deployed or re-deployed. Existing deployments with `NoAutoUpgrade` stop working.
 
+### Incident Response & Rollback
+
+If a migration (auto-upgrade or manual) introduces a regression in production, here's what to do based on your deployment type:
+
+| Deployment Type | Rollback Options |
+|----------------|-----------------|
+| **Standard (auto-upgraded)** | 1. Create a **new deployment** with the previous model version (if still available before retirement). 2. Adjust prompts/parameters to work with the upgraded model. 3. Contact Azure Support for urgent cases — reference your subscription ID, resource group, and deployment name. |
+| **Standard (NoAutoUpgrade)** | Re-deploy the same model version — it hasn't changed. Investigate why you're seeing issues (likely a code or config change, not the model). |
+| **Provisioned (in-place)** | In-place migrations cannot be reverted once complete. Use a **multi-deployment strategy** (below) to avoid this. |
+| **Provisioned (multi-deployment)** | Shift traffic back to the old deployment. This is why multi-deployment (blue-green) is recommended for critical workloads. |
+
+**Prevention — recommended pattern for production:**
+
+1. **Before any upgrade window:** run your [evaluation suite](evaluation-guide.md) against the target model in a staging deployment
+2. **Use `NoAutoUpgrade`** on critical production deployments so you control the timing
+3. **Multi-deployment migration** for Provisioned workloads — keep the old deployment alive until you've validated the new one
+4. **Monitor post-migration:** track error rates, latency P95, and user-reported quality for at least 48 hours after cutover
+5. **Escalation:** if you discover a model-level regression (not prompt/config), file an Azure Support ticket with before/after examples from your evaluation suite
+
+> **Key point:** Auto-upgraded Standard deployments cannot be "rolled back" to the old model after retirement. The mitigation is to test *before* the auto-upgrade window using a staging deployment with `OnceNewDefaultVersionAvailable`.
+
 ### What You Should Do
 
 1. **Inventory your deployments** — Know which models, deployment types, and update policies you're using. Use the CLI command above, or see the [Lifecycle Best Practices guide](llm-upgrade-lifecycle-best-practices.md).
@@ -188,13 +239,15 @@ Provisioned (PTU) deployments do **not** support automatic model upgrades. You m
 
 | If you're on... | Urgency | Recommended action |
 |----------------|---------|-------------------|
-| GPT-4o Standard (05-13, 08-06) | 🔴 **Urgent** — auto-upgrade 2026-03-09 | Test GPT-5.1 or GPT-4.1 now. See [Migration Paths](migration-paths.md). |
-| GPT-4o-mini Standard | 🔴 **Urgent** — auto-upgrade 2026-03-09 | Test GPT-4.1-mini now. |
-| GPT-4o Provisioned | 🟡 **Plan by Q3 2026** | Create new deployment with target model before 2026-10-01. |
+| GPT-4o Standard (05-13, 08-06) | ✅ **Complete** — retired 2026-03-31 | Already auto-upgraded to GPT-5.1. Verify quality with [Evaluation Guide](evaluation-guide.md). |
+| GPT-4o-mini Standard | ✅ **Complete** — retired 2026-03-31 | Already auto-upgraded to GPT-4.1-mini. Verify quality. |
+| GPT-4o non-Standard (Provisioned, Global, DataZone) | 🟡 **Plan by Q3 2026** | Retirement 2026-10-01. Create new deployment with target model. |
 | GPT-4o (11-20) any | 🟡 **Plan by Q3 2026** | Retirement 2026-10-01. |
+| GPT-4.1 family | 🟡 **Deprecated today** — plan migration | No new deployments. Retirement 2026-10-14. Migrate to GPT-5 family. |
 | o1 | 🟡 **Plan by Q2 2026** | Migrate to o3 before 2026-07-15. |
 | o3-mini | 🟡 **Plan by Q2 2026** | Migrate to o4-mini before 2026-08-02. |
-| GPT-4.1 family | 🟢 **No rush** | Retirement not before 2026-10-14. Start planning for GPT-5 family. |
+| o1-pro | 🟡 **Plan by Q3 2026** | Migrate to o3-pro before 2026-09-18. |
+| GPT-5 / 5.1 / 5.2+ | 🟢 **No rush** | Runway until 2027+. Focus on building evaluation infrastructure. |
 
 ---
 

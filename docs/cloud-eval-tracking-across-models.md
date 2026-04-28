@@ -422,6 +422,55 @@ migration-quality-gate-safety       → violence, self_harm, hate_unfairness
 
 Each eval becomes a focused dashboard for one concern. Stakeholders can review what matters to them.
 
+### Scaling to a Central AI Platform
+
+Organizations that operate a **central AI platform** with many agents or use cases sharing the same underlying models face a specific challenge: when a model changes, you need to know **which agents regressed** — not just whether a single pipeline is OK.
+
+The Foundry eval definitions pattern scales naturally to this:
+
+```
+# One eval definition per agent / use case
+platform-agent-customer-support     → coherence, groundedness, resolution_rate
+platform-agent-code-assistant       → correctness, helpfulness
+platform-agent-document-analyzer    → extraction_accuracy, formatting
+platform-agent-knowledge-search     → relevance, groundedness
+```
+
+Each agent team maintains their own golden dataset and eval definition. When a model migration is planned:
+
+1. **Trigger all eval definitions** against the candidate model (via CI/CD or script)
+2. **Review results in the Foundry portal** — each eval definition shows its own pass rates, so you see at a glance which agents are impacted
+3. **Prioritize remediation** — focus on agents with regressions, leave passing ones alone
+4. **Sign off per-agent** — stakeholders for each agent can review their own dashboard independently
+
+This turns a platform-wide model migration from an "evaluate everything from scratch" exercise into a **targeted, parallelizable process** where each agent's eval runs independently and results are centrally visible.
+
+### Alternative: Custom Dashboards with Fabric + Power BI
+
+For organizations that need cross-agent aggregation, custom KPIs, or integration with existing BI infrastructure, the Foundry portal can be complemented with a **Microsoft Fabric + Power BI** approach:
+
+```mermaid
+graph LR
+    EVAL["Eval Runs<br/>(Foundry or local JSON)"] --> EXPORT["Export Results"]
+    EXPORT --> LAKEHOUSE["Fabric Lakehouse<br/>(Delta tables)"]
+    LAKEHOUSE --> SPARK["Spark Notebooks<br/>(aggregation, trend analysis)"]
+    SPARK --> PBI["Power BI Dashboard"]
+    PBI --> STAKE["Stakeholders"]
+```
+
+**How it works:**
+
+1. **Export eval results** — from Foundry runs (via API) or from local JSON audit trails (e.g., `data/results/*.json` from the sample app)
+2. **Ingest into a Fabric Lakehouse** — store as Delta tables partitioned by `agent_name`, `model`, `run_date`
+3. **Aggregate with Spark** — compute cross-agent trends, identify regressions, calculate platform-wide quality scores
+4. **Visualize in Power BI** — build dashboards showing per-agent pass rates over time, model comparison heat maps, and drill-down into specific test cases
+
+This approach is particularly valuable when:
+- You need to combine eval metrics with other operational data (latency, cost, usage volume)
+- Stakeholders prefer Power BI over the Foundry portal
+- You want custom alerting rules (e.g., "notify the agent owner if groundedness drops below 80%")
+- You operate across multiple Azure AI Foundry projects or subscriptions
+
 ### Automating with CI/CD
 
 Add a run to your eval from a CI pipeline after every model change or on a schedule:
@@ -466,6 +515,7 @@ jobs:
 | Approach | Best For | Tracking Over Time? |
 |---|---|---|
 | **This technique (v2 eval reuse)** | Production migration gates, stakeholder visibility, statistical rigor | ✅ All runs in one portal page |
+| **Fabric + Power BI** | Cross-agent aggregation, custom KPIs, integration with existing BI | ✅ Full historical trends + custom dashboards |
 | Built-in LLM-as-Judge (`MigrationEvaluator`) | Quick local prototyping, no Azure dependencies | ❌ Results in local JSON only |
 | Local SDK (`azure-ai-evaluation`) | CI/CD gates, fast iteration, custom evaluators | ⚠️ Only if you pass `azure_ai_project` to log to Foundry |
 | One-off v2 eval (new eval per run) | Quick experiments | ❌ Results scattered across eval definitions |

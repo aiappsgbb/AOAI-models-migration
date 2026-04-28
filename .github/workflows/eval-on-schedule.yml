@@ -1,0 +1,118 @@
+# Sample: Automated evaluation on schedule or model update
+# Customize triggers, secrets, and paths for your environment.
+#
+# This workflow runs the RAG pipeline E2E test on a schedule (nightly)
+# or on-demand, then uploads results to Azure AI Foundry for tracking.
+#
+# Prerequisites:
+#   - Azure OpenAI endpoint accessible from GitHub Actions runner
+#   - AZURE_CREDENTIALS secret (service principal JSON) or federated identity
+#   - Env vars set in GitHub repository secrets
+
+name: Evaluation — Nightly Migration Check
+
+on:
+  schedule:
+    - cron: '0 3 * * 1-5'  # Weekdays at 3am UTC
+  workflow_dispatch:
+    inputs:
+      source_model:
+        description: 'Source model (baseline)'
+        default: 'gpt-4o'
+      target_model:
+        description: 'Target model (migration candidate)'
+        default: 'gpt-4.1'
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # For Azure OIDC login
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - source: ${{ github.event.inputs.source_model || 'gpt-4o' }}
+            target: ${{ github.event.inputs.target_model || 'gpt-4.1' }}
+          # Add more model pairs to test in parallel:
+          # - source: gpt-4o
+          #   target: gpt-5.4-mini
+          # - source: gpt-4o-mini
+          #   target: gpt-4.1-mini
+
+    env:
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      RAG_SOURCE_MODEL: ${{ matrix.source }}
+      RAG_TARGET_MODEL: ${{ matrix.target }}
+      RAG_EMBEDDING_MODEL: 'text-embedding-3-large'
+      RAG_REPHRASER_MODEL: 'gpt-4o-mini'
+      RAG_JUDGE_MODEL: 'gpt-4o'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Run E2E evaluation
+        run: |
+          python samples/rag_pipeline/test_e2e.py \
+            --results-dir eval-results/
+
+      - name: Upload results to Foundry (optional)
+        if: ${{ secrets.AZURE_AI_PROJECT_ENDPOINT != '' }}
+        env:
+          AZURE_AI_PROJECT_ENDPOINT: ${{ secrets.AZURE_AI_PROJECT_ENDPOINT }}
+        run: |
+          python samples/rag_pipeline/upload_to_foundry.py \
+            --source-results eval-results/dual_layer_${{ env.RAG_SOURCE_MODEL }}_*.json \
+            --target-results eval-results/dual_layer_${{ env.RAG_TARGET_MODEL }}_*.json
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results-${{ matrix.source }}-${{ matrix.target }}-${{ github.run_number }}
+          path: eval-results/
+          retention-days: 90
+
+      - name: Drift analysis
+        run: |
+          python samples/rag_pipeline/drift_analysis.py \
+            --results-dir eval-results/
+
+      - name: Check for regressions
+        run: |
+          python3 -c "
+          import json, glob, sys
+          files = sorted(glob.glob('eval-results/dual_layer_*.json'))
+          if len(files) < 2:
+              print('Not enough results to compare'); sys.exit(0)
+          baseline = json.load(open(files[0]))
+          target = json.load(open(files[1]))
+          b_scores = baseline.get('summary', {})
+          t_scores = target.get('summary', {})
+          regressions = []
+          for metric in ['groundedness', 'relevance', 'correctness']:
+              b = b_scores.get(f'e2e_{metric}', 0) or 0
+              t = t_scores.get(f'e2e_{metric}', 0) or 0
+              if t < b - 0.3:  # Threshold: >0.3 drop = regression
+                  regressions.append(f'{metric}: {b:.2f} → {t:.2f} (Δ{t-b:+.2f})')
+          if regressions:
+              print('⚠️  REGRESSION DETECTED:')
+              for r in regressions: print(f'  {r}')
+              sys.exit(1)
+          else:
+              print('✅ No regressions detected.')
+          "

@@ -702,10 +702,10 @@ The script assigns two roles on the AI Services resource:
 Create a text file with one email per line.  Blank lines and `#` comments are ignored:
 
 ```text
-# Workshop attendees - 2026-03-04
-riccardo.chiodaroli@microsoft.com
-jane.doe@microsoft.com
-john.smith@microsoft.com
+# Workshop attendees
+user1@contoso.com
+user2@contoso.com
+user3@contoso.com
 ```
 
 ```powershell
@@ -717,7 +717,7 @@ The script resolves each user in Azure AD by display-name search (works for both
 ```
   =========================================================
   Results: 3 succeeded, 0 failed (of 3 total)
-  [OK] Succeeded: riccardo.chiodaroli@microsoft.com, jane.doe@microsoft.com, john.smith@microsoft.com
+  [OK] Succeeded: user1@contoso.com, user2@contoso.com, user3@contoso.com
   =========================================================
 ```
 

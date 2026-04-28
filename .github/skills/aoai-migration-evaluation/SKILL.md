@@ -1,6 +1,15 @@
 ---
 name: aoai-migration-evaluation
-description: "Evaluate and validate Azure OpenAI model migrations using A/B comparison, LLM-as-Judge, local SDK evaluation, and Azure AI Foundry cloud evaluation. Covers RAG, tool calling, translation, and classification scenarios."
+description: >
+  Evaluate and validate Azure OpenAI model migrations using A/B comparison,
+  LLM-as-Judge, local SDK evaluation, and Azure AI Foundry cloud evaluation.
+  Covers RAG, tool calling, translation, and classification scenarios.
+  USE FOR: evaluate model, compare models, A/B test, LLM judge, migration evaluation,
+  golden dataset, test cases, azure-ai-evaluation, azure-ai-projects, Foundry eval,
+  cloud evaluation, quality metrics, coherence, relevance, groundedness, regression test,
+  before deploying new model, validate migration, eval pipeline, continuous evaluation.
+  DO NOT USE FOR: code-level API migration (use aoai-model-migration),
+  retirement dates or lifecycle planning (use aoai-model-lifecycle).
 ---
 
 # Azure OpenAI Migration Evaluation Skill
@@ -95,8 +104,8 @@ There are **two fundamentally different evaluation SDKs** offered by Microsoft. 
 
 | Aspect | **v1 — Local SDK (`azure-ai-evaluation`)** | **v2 — Cloud Evals API (`azure-ai-projects`)** |
 |---|---|---|
-| **Package** | `pip install azure-ai-evaluation` | `pip install "azure-ai-projects>=2.0.0b1" azure-identity openai` |
-| **Latest version** | `azure-ai-evaluation>=1.15.0` (Feb 2026) | `azure-ai-projects>=2.0.0b3` (Jan 2026) |
+| **Package** | `pip install azure-ai-evaluation` | `pip install "azure-ai-projects>=2.0.0" azure-identity openai` |
+| **Latest version** | `azure-ai-evaluation>=1.15.0` (Feb 2026) | `azure-ai-projects>=2.0.0` (GA) |
 | **Execution** | Runs **locally** on your machine (Python process) | Runs **in Azure cloud** (server-side, async) |
 | **Entry point** | `from azure.ai.evaluation import evaluate` | `client = project_client.get_openai_client()` then `client.evals.create()` / `client.evals.runs.create()` |
 | **Evaluator specification** | Python class instances: `CoherenceEvaluator(model_config=...)` | Dict-based `testing_criteria` with `"evaluator_name": "builtin.coherence"` |
@@ -180,7 +189,7 @@ Or pass a file path directly — loads JSONL automatically:
 # File path variant — no need to construct TestCase objects
 evaluator = MigrationEvaluator(
     source_model="gpt-4o",
-    target_model="gpt-5.1",
+    target_model="gpt-5.1",  # or "gpt-5.4-mini" for tier-down strategy
     test_cases="data/golden_rag.jsonl",  # file path supported
     metrics=["coherence", "fluency", "relevance", "groundedness"],
 )
@@ -297,7 +306,7 @@ Runs evaluations **in Azure cloud** using the OpenAI Evals API surfaced through 
 ### Installation
 
 ```bash
-pip install "azure-ai-projects>=2.0.0b1" azure-identity openai
+pip install "azure-ai-projects>=2.0.0" azure-identity openai
 ```
 
 ### Client Setup
@@ -451,7 +460,7 @@ Run the **same evaluation** against different models to compare them directly:
 
 ```python
 # Same eval definition, different model targets
-for model_name in ["gpt-4o", "gpt-4.1", "gpt-5.1"]:
+for model_name in ["gpt-4o", "gpt-4.1", "gpt-5.1"]:  # or "gpt-5.4-mini" for tier-down strategy
     data_source = {
         "type": "azure_ai_target_completions",
         "source": {"type": "file_id", "id": data_id},
@@ -548,7 +557,7 @@ Use this **quick reference** if you are looking at existing code:
 | `testing_criteria` with `"evaluator_name": "builtin.*"` | **v2 — Cloud Evals API** |
 | `EvaluatorConfiguration` + `EvaluatorIds` | **v1 via `azure-ai-projects` cloud wrapper** (hybrid, uses v1 evaluators in cloud) |
 
-> **NOTE**: The `azure-ai-projects` v1.x SDK also had a cloud evaluation path using `EvaluatorConfiguration` and `EvaluatorIds` enums with `${data.field}` mapping syntax. This is a **hybrid** approach — v1 evaluators run in the cloud. The v2 path (`azure-ai-projects>=2.0.0b1`) uses the OpenAI Evals API with `testing_criteria` and `{{item.field}}` syntax. Do not mix them.
+> **NOTE**: The `azure-ai-projects` v1.x SDK also had a cloud evaluation path using `EvaluatorConfiguration` and `EvaluatorIds` enums with `${data.field}` mapping syntax. This is a **hybrid** approach — v1 evaluators run in the cloud. The v2 path (`azure-ai-projects>=2.0.0`) uses the OpenAI Evals API with `testing_criteria` and `{{item.field}}` syntax. Do not mix them.
 
 ---
 
@@ -617,7 +626,7 @@ jobs:
     │  Drift alerts if scores drop                     │
     └──────────────────────┬──────────────────────────┘
                            │
-              NEW MODEL ANNOUNCED (e.g., gpt-5.1)
+              NEW MODEL ANNOUNCED (e.g., GPT-5.4 family)
                            │
     ┌──────────────────────▼──────────────────────────┐
     │  1. Deploy candidate in staging                  │
@@ -633,7 +642,7 @@ jobs:
 The v2 Evals API separates **eval definitions** from **runs**. This means you can create a single eval definition once — encoding your testing criteria, data schema, and pass/fail thresholds — and then create a new **run** each time you evaluate a different model or a new dataset snapshot. All runs are stored under the same eval in the Foundry portal, giving you a **single pane of glass** to compare metrics across model versions over time.
 
 **Why this matters for migrations:**
-- Every model candidate (gpt-4o → gpt-4.1 → gpt-5.1 → gpt-5.2) gets its own run under the same eval
+- Every model candidate (gpt-4o → gpt-4.1 → gpt-5.1 → GPT-5.4 family) gets its own run under the same eval
 - The Foundry portal shows all runs side-by-side with pass rates, score distributions, and per-item drill-down
 - You build a historical record of how each model performed on your exact workload — no spreadsheets, no manual tracking
 - When the next retirement is announced, you already have baseline runs to compare against
@@ -714,7 +723,7 @@ data = project_client.datasets.upload_file(
 
 # ── Step 3: Create a run for EACH model you want to evaluate ────────
 # Each run is labeled with the model name + date, all under the same eval_id.
-models_to_evaluate = ["gpt-4o", "gpt-4.1", "gpt-5.1"]
+models_to_evaluate = ["gpt-4o", "gpt-4.1", "gpt-5.1"]  # or "gpt-5.4-mini" for tier-down strategy
 
 for model in models_to_evaluate:
     run = client.evals.runs.create(
@@ -732,13 +741,13 @@ for model in models_to_evaluate:
 # All runs appear in a single view with side-by-side metric comparison.
 ```
 
-**Later, when a new model becomes available (e.g., gpt-5.2):**
+**Later, when a new model becomes available (e.g., GPT-5.4 family (Mar 2026) is the latest):**
 
 ```python
 # Reuse the SAME eval_id — no need to recreate testing criteria
 run = client.evals.runs.create(
     eval_id=EVAL_ID,  # Same eval definition from months ago
-    name=f"gpt-5.2_{datetime.now().strftime('%Y%m%d')}",
+    name=f"gpt-5.4_{datetime.now().strftime('%Y%m%d')}",
     data_source=CreateEvalJSONLRunDataSourceParam(
         type="jsonl",
         source=SourceFileID(type="file_id", id=data.id),
@@ -852,6 +861,18 @@ print(prompty["system_prompt"])
 - Mix v1 `${data.field}` syntax with v2 `{{item.field}}` syntax — they are incompatible
 - Use `EvaluatorConfiguration` / `EvaluatorIds` (v1 cloud wrapper) when targeting the v2 OpenAI Evals API
 - Skip continuous evaluation setup — one-off evals increase migration costs for every model generation
+
+## Repository Resources
+
+> **💡 Tip:** This skill provides evaluation guidance. For the latest model dates and migration paths, always check the repo documentation — it is updated more frequently than this skill.
+
+- [`docs/evaluation-guide.md`](../../../docs/evaluation-guide.md) — detailed evaluation methodology
+- [`docs/cloud-evaluation-guide.md`](../../../docs/cloud-evaluation-guide.md) — Azure AI Foundry cloud evaluation deep dive
+- [`docs/retirement-timeline.md`](../../../docs/retirement-timeline.md) — current retirement dates and planning matrix
+- [`docs/migration-paths.md`](../../../docs/migration-paths.md) — choosing target models (tier-down strategy)
+- [`samples/rag_pipeline/`](../../../samples/rag_pipeline/) — working end-to-end RAG migration with evaluation
+- [`data/`](../../../data/) — 54 pre-built golden test cases (RAG, classification, tool calling, translation, summarization, agent, multi-turn)
+- [`README.md`](../../../README.md) — repo overview and FAQ
 
 ## References
 

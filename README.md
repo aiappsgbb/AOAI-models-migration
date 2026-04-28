@@ -2,14 +2,23 @@
 
 Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI models (GPT-4.1, GPT-5.1, o-series), with **evaluation tools** and **ready-to-use golden datasets** to validate quality before deploying.
 
-> **⚠️ Retirement dates and model availability change frequently.**
+> [!WARNING]
+> **Retirement dates and model availability change frequently.**
 > Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements)** for the latest authoritative information.
-> This guide was last updated **March 2026**.
+> This guide was last updated **April 2026**.
 
+> [!NOTE]
 > **Scope:** This guide focuses on **text generation models** (GPT series and o-series). For audio, image, and embedding models, see the [official retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements).
 
 > [!TIP]
 > **Looking for a visual evaluation tool?** The [`model_migration_eval/`](model_migration_eval/) subfolder contains a full-featured **web UI** for comparing models side-by-side. Run it with `cd model_migration_eval && pip install -r requirements.txt && python app.py`.
+
+> [!TIP]
+> **Quick start with AI agent skills:** Install our migration skills into your coding agent and get instant guidance:
+> ```bash
+> npx skills add aiappsgbb/AOAI-models-migration
+> ```
+> Then just ask: *"How do I migrate from GPT-4o to GPT-5.4-mini?"* — see **[Using Skills](docs/using-copilot-skills.md)** for details.
 
 ## Migration at a Glance
 
@@ -52,14 +61,31 @@ report.print_report()
 
 | Guide | Description |
 |-------|-------------|
+| 🚀 **[Getting Started](docs/getting-started.md)** | Prerequisites, setup, authentication, migration checklist |
 | 📖 **[Migration Paths](docs/migration-paths.md)** | Which model to migrate to, decision matrix, standard vs reasoning trade-offs |
 | 📅 **[Retirement Timeline](docs/retirement-timeline.md)** | All retirement dates, auto-upgrade behavior, urgency planning |
 | 🔧 **[API Changes by Model](docs/api-changes-by-model.md)** | Client config, parameter tables, reasoning effort, structured outputs, C#/JS/Java SDKs |
 | 🧪 **[Evaluation Guide](docs/evaluation-guide.md)** | Pre-built scenarios (RAG, tool calling, translation, classification), LLM-as-Judge, SDK eval |
 | 📊 **[Building Golden Datasets](docs/building-golden-datasets.md)** | How to build eval test data from production logs, AI gateways, agent traces, and synthetic generation |
+| 🔗 **[Migrating Multi-Step Apps](docs/migrating-multi-step-apps.md)** | Hybrid evaluation methodology for RAG pipelines and agent workflows |
 | ☁️ **[Cloud Eval Tracking](docs/cloud-eval-tracking-across-models.md)** | Reusable eval definitions in Azure AI Foundry, cross-model comparison, CI/CD |
 | 🔄 **[Lifecycle Best Practices](docs/llm-upgrade-lifecycle-best-practices.md)** | Deployment inventory, notifications, rollout strategies, fine-tuned models, multi-region |
-| 🚀 **[Getting Started](docs/getting-started.md)** | Prerequisites, setup, authentication, quick start |
+| 🤖 **[Using AI Agent Skills](docs/using-copilot-skills.md)** | Install and use the built-in Skills for guided migration assistance |
+
+## Sample: RAG Pipeline Migration
+
+The [`samples/rag_pipeline/`](samples/rag_pipeline/) directory contains a **self-contained RAG application** that demonstrates how to evaluate and migrate multi-model pipelines:
+
+```
+Query → [Rephrase (LLM)] → [Embed] → [Retrieve (vector search)] → [Generate (LLM)] → Answer
+```
+
+- **20 knowledge base documents** + **20 golden test cases**
+- **Dual-layer evaluation**: end-to-end quality + task-level retrieval/generation scoring
+- **A/B migration comparison**: swap one model, see per-step regression analysis
+- **Zero infra dependencies**: in-memory vector store with numpy
+
+See the [RAG Pipeline README](samples/rag_pipeline/README.md) for a full walkthrough.
 
 ## Repository Structure
 
@@ -73,8 +99,17 @@ report.print_report()
 │   ├── golden_summarization.jsonl            #   Meeting notes, emails, incidents (6 cases)
 │   ├── golden_agent.jsonl                    #   Multi-step agent reasoning (8 cases)
 │   └── golden_multiturn.jsonl                #   Multi-turn conversation context (6 cases)
-├── azure_openai_migration_technical.ipynb    # Interactive technical migration notebook
-├── azure_openai_evaluation_guide.ipynb       # Interactive evaluation demo notebook
+├── samples/
+│   └── rag_pipeline/                         # Multi-step RAG pipeline migration demo
+│       ├── app.py                            #   Chainlit chat UI with live model swap
+│       ├── pipeline.py                       #   RAG pipeline with 4 swappable steps
+│       ├── knowledge_base.py                 #   In-memory vector store (numpy)
+│       ├── evaluate_pipeline.py              #   Dual-layer evaluation (E2E + task-level)
+│       ├── test_e2e.py                       #   End-to-end test runner with retry logic
+│       ├── migrate_and_compare.py            #   A/B migration comparison
+│       ├── upload_to_foundry.py              #   Upload results to Azure AI Foundry
+│       ├── drift_analysis.py                 #   Cross-migration trend analysis
+│       └── data/                             #   20 KB docs + 20 golden test cases
 ├── src/                                      # Reusable Python modules
 │   ├── config.py                             #   Model helpers (is_v1, is_reasoning, is_o_series)
 │   ├── clients.py                            #   Client factory, call_model() with auto-adaptation
@@ -85,20 +120,31 @@ report.print_report()
 │       ├── scenarios/                        #     Pre-built test scenarios (RAG, tools, etc.)
 │       └── prompts/                          #     .prompty templates for LLM-as-Judge
 ├── model_migration_eval/                     # Web UI for visual model comparison
-├── .github/skills/                           # GitHub Copilot Skills (see below)
+├── azure_openai_migration_technical.ipynb    # Interactive technical migration notebook
+├── azure_openai_evaluation_guide.ipynb       # Interactive evaluation demo notebook
+├── .github/
+│   ├── copilot-instructions.md               # Repo conventions and safety rules
+│   ├── workflows/eval-on-schedule.yml        # Nightly CI/CD evaluation pipeline
+│   └── skills/                               # GitHub Copilot Skills (see below)
 ├── requirements.txt
-└── .env_example
+└── .env.template
 ```
 
-## GitHub Copilot Skills
+## AI Agent Skills
 
-This repo includes three **[GitHub Copilot Skills](https://docs.github.com/en/copilot/customizing-copilot/adding-custom-skills-for-copilot)** that provide contextual guidance automatically:
+This repo includes three **agent skills** that provide contextual migration guidance in any supported coding agent. Install them with one command:
+
+```bash
+npx skills add aiappsgbb/AOAI-models-migration
+```
 
 | Skill | What It Does |
 |-------|--------------|
 | **[aoai-model-migration](.github/skills/aoai-model-migration/SKILL.md)** | API changes, client configuration, parameter adaptation |
 | **[aoai-migration-evaluation](.github/skills/aoai-migration-evaluation/SKILL.md)** | A/B testing, LLM-as-Judge, SDK & Foundry evaluation |
 | **[aoai-model-lifecycle](.github/skills/aoai-model-lifecycle/SKILL.md)** | Retirement timelines, governance, operational checklists |
+
+> Works with [40+ coding agents](https://github.com/vercel-labs/skills#supported-agents). See **[Using Skills](docs/using-copilot-skills.md)** for full setup and usage instructions.
 
 ## Official Documentation
 
@@ -108,6 +154,20 @@ This repo includes three **[GitHub Copilot Skills](https://docs.github.com/en/co
 - **[Azure AI Foundry Evaluation](https://learn.microsoft.com/en-us/azure/ai-foundry/evaluation/)** — evaluation tools
 - **[What's New in Azure OpenAI](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/whats-new)** — latest changes
 - **[Responses API](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/responses)** — new API surface
+
+## Frequently Asked Questions
+
+| Question | Short answer | Deep dive |
+|---|---|---|
+| **How much effort per migration cycle?** | Reusable golden dataset + config-only model swap → a few hundred API calls per cycle. | [Sample Results](samples/rag_pipeline/README.md#sample-results) |
+| **How do I find WHERE a regression occurred?** | Dual-layer evaluation: E2E detects the problem, task-level scoring localizes it. | [Hybrid Methodology](docs/migrating-multi-step-apps.md) |
+| **What methodology should I follow?** | Hybrid approach with a clear decision table and structured scoring rubrics. | [Evaluation Guide](docs/evaluation-guide.md) |
+| **How do I automate at scale?** | `.env` swap + CI/CD nightly runs + matrix strategy for parallel model testing. | [CI/CD Workflow](.github/workflows/eval-on-schedule.yml) |
+| **Do I need new datasets each time?** | No — mine from production traffic (Stored Completions, APIM logs). Data already exists. | [Building Golden Datasets](docs/building-golden-datasets.md) |
+| **What if a regression is detected?** | 4-scenario remediation playbook: diagnosis → root cause → fix, plus rollback by deployment type. | [Remediation Playbook](docs/migrating-multi-step-apps.md) |
+| **Why LLM-as-judge over similarity scoring?** | Similarity penalizes better answers and misses hallucination; LLM judges evaluate meaning. | [Evaluation Guide](docs/evaluation-guide.md) |
+| **How do I track quality over time?** | Azure AI Foundry named evaluation runs + portal side-by-side, or Fabric + Power BI for cross-org. | [Cloud Eval Tracking](docs/cloud-eval-tracking-across-models.md) |
+| **Does this work for agentic apps?** | Same config-only swap — model is one env variable in every framework (SK, LangChain, etc.). | [Agentic Workflow](docs/migrating-multi-step-apps.md) |
 
 ## License
 
