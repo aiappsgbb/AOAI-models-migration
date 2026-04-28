@@ -43,6 +43,7 @@ Thumbs.db
 
 # Other
 OLD/
+test_data_for_importing//
 .dockerignore
 *.pptx
 prompts/history/*.md
