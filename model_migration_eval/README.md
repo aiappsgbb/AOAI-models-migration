@@ -1405,7 +1405,7 @@ azure:
       max_tokens: 16384
       temperature: 0.1
 
-    gpt5:
+    gpt54:
       deployment_name: "gpt-5.4"
       model_family: "gpt5"
       model_version: "2026-03-05"

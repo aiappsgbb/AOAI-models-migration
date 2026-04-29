@@ -18,7 +18,8 @@ here so there is a **single source of truth**.
 
 from __future__ import annotations
 
-from typing import Optional
+import re
+from typing import Any, Iterable, Mapping, Optional
 
 
 # =====================================================================
@@ -38,11 +39,33 @@ FAMILY_GUIDANCE: dict[str, str] = {
     ),
     "gpt5": (
         "GPT-5.x family — base best practices:\n"
-        "- Leverage native reasoning (no explicit CoT needed)\n"
-        "- Use YAML-based schema definitions for structure\n"
-        "- Streamlined, concise instructions — focus on WHAT not HOW\n"
-        "- Use <system_configuration> blocks for model params\n"
-        "- Use max_completion_tokens instead of max_tokens"
+        "- Use Markdown structure with `##` section headers (e.g. ROLE,\n"
+        "  OBJECTIVE, RULES, OUTPUT FORMAT, EXAMPLES, DO NOT) — GPT-5\n"
+        "  models follow well-organised sections precisely\n"
+        "- Be DECLARATIVE: state goals, constraints and output schema;\n"
+        "  do NOT inflate prompts with verbose explicit Chain-of-Thought\n"
+        "  step-by-step instructions (the model reasons natively)\n"
+        "- Use a `## DO NOT` block with explicit prohibitions — GPT-5\n"
+        "  respects negative constraints better than paraphrased ones\n"
+        "- Persistence: include 'Continue until the user request is\n"
+        "  fully resolved before yielding' for agentic tasks\n"
+        "- Eagerness control: include 'If unsure between options, pick\n"
+        "  the most likely and proceed; only ask if blocking' to avoid\n"
+        "  overhedging on simple tasks\n"
+        "- Verbosity control: state explicitly when responses must be\n"
+        "  concise (conversational) vs exhaustive (JSON/structured)\n"
+        "- Tool preambles: in tool-calling tasks, instruct the model to\n"
+        "  narrate intent in one short sentence before each tool call\n"
+        "- Self-reflection rubric (complex tasks only): allow the model\n"
+        "  to internally build a 5-7 criteria rubric before answering\n"
+        "- JSON schemas MUST be COMPLETE: types, enums, constraints,\n"
+        "  array item types — do NOT rely on inference\n"
+        "- Few-shot is OPTIONAL: 1-3 high-quality examples are enough;\n"
+        "  more examples do NOT improve quality (unlike Mistral/Phi)\n"
+        "- Use `developer` role (not `system`) and `max_completion_tokens`\n"
+        "  (not `max_tokens`) — the SDK auto-converts both\n"
+        "- Reasoning variants (gpt-5.1-reasoning, o-series): do NOT set\n"
+        "  temperature, do NOT add explicit CoT, USE `reasoning_effort`"
     ),
     "mistral": (
         "Mistral family — base best practices:\n"
@@ -193,13 +216,18 @@ MODEL_GUIDANCE: dict[str, str] = {
 
     # ── GPT-5 family ──────────────────────────────────────────────────
     "gpt-5": (
-        "\nModel-specific guidance (GPT-5 flagship):\n"
-        "- Most capable model overall — excels at complex multi-step tasks,\n"
-        "  nuanced analysis, and creative synthesis\n"
-        "- Superior instruction following and ambiguity resolution\n"
+        "\nModel-specific guidance (GPT-5 — first flagship release):\n"
+        "- Most capable model of the original GPT-5 generation — excels at\n"
+        "  complex multi-step tasks, nuanced analysis, and creative synthesis\n"
+        "- Superior instruction following and ambiguity resolution —\n"
+        "  detailed system prompts are respected precisely\n"
         "- Native deep reasoning without requiring reasoning_effort param\n"
-        "- Excellent at synthesising information from very large contexts\n"
-        "- Can handle open-ended, under-specified tasks effectively\n"
+        "- Use complete JSON schemas (types + enums + array items) — the\n"
+        "  model is reliable when the contract is fully specified\n"
+        "- Persistence: 'Continue until the user request is fully resolved'\n"
+        "- Eagerness control: 'Pick the most likely option and proceed;\n"
+        "  only ask clarifying questions when truly blocking'\n"
+        "- Verbosity: explicit per-output (concise prose, exhaustive JSON)\n"
         "- For cost/latency control, optionally set reasoning_effort"
     ),
     "gpt-5.1": (
@@ -215,19 +243,50 @@ MODEL_GUIDANCE: dict[str, str] = {
         "- Use max_completion_tokens (not max_tokens)\n"
         "- Prompts should be DECLARATIVE: state the goal and constraints,\n"
         "  not the reasoning steps\n"
+        "- Schemas, taxonomies and constraints SHOULD still be detailed —\n"
+        "  declarative does NOT mean short; it means non-procedural\n"
         "- Best for complex analytical tasks, math, code, and formal logic"
     ),
     "gpt-5.2": (
-        "\nModel-specific guidance (GPT-5.2 — latest flagship):\n"
-        "- Latest and most capable flagship model in the GPT-5 family\n"
-        "- Superior performance on complex multi-step reasoning, analysis,\n"
-        "  and creative generation tasks\n"
+        "\nModel-specific guidance (GPT-5.2 — mid-generation flagship):\n"
+        "- High-quality flagship: superior performance on complex\n"
+        "  multi-step reasoning, analysis, and creative generation\n"
         "- Excellent instruction following — detailed system prompts are\n"
-        "  respected precisely\n"
+        "  respected precisely; do NOT strip detail to make prompts shorter\n"
         "- Native reasoning without needing reasoning_effort parameter,\n"
         "  but you can set it to control cost/latency trade-off\n"
-        "- Handles ambiguity and nuance better than any previous model\n"
-        "- Optimal for production workloads needing top-tier quality"
+        "- Handles ambiguity and nuance very well\n"
+        "- Use full Markdown structure with `##` headers (ROLE, OBJECTIVE,\n"
+        "  RULES, OUTPUT FORMAT, EXAMPLES, DO NOT)\n"
+        "- Specify complete JSON schemas with types, enums and constraints\n"
+        "- Persistence + eagerness control directives still apply"
+    ),
+    "gpt-5.4": (
+        "\nModel-specific guidance (GPT-5.4 — latest flagship):\n"
+        "- Latest and most capable flagship in the GPT-5 family — strongest\n"
+        "  reasoning, instruction following and structured-output quality\n"
+        "- Native reasoning without needing reasoning_effort parameter\n"
+        "- Excellent on complex classification, multi-turn dialog, grounded\n"
+        "  RAG answers, and tool-calling pipelines\n"
+        "- DECLARATIVE prompts work best, but DO NOT under-specify — a\n"
+        "  declarative prompt MUST still include: complete taxonomy, full\n"
+        "  JSON schema with types/enums, explicit DO NOT block, verbosity\n"
+        "  & persistence directives, and 1-3 high-quality examples\n"
+        "- Detailed system prompts are respected precisely — keep ALL\n"
+        "  domain detail from the source prompt; only TRIM verbose explicit\n"
+        "  Chain-of-Thought (the model reasons natively)\n"
+        "- Use Markdown `##` section headers — GPT-5.4 navigates structure\n"
+        "  better than dense paragraphs\n"
+        "- Strong JSON mode and tool-calling — ALWAYS specify full schemas\n"
+        "  including item types for arrays and enum values for fixed sets\n"
+        "- Use `developer` role and `max_completion_tokens` (auto-converted)\n"
+        "- For tool-calling: include preamble instruction\n"
+        "  ('briefly narrate intent before each tool call')\n"
+        "- For agentic tasks: include persistence + eagerness directives\n"
+        "- Few-shot is OPTIONAL but encouraged for nuanced classification\n"
+        "  taxonomies (1-3 examples covering edge cases)\n"
+        "- Ideal target for high-quality production workloads where the\n"
+        "  GPT-5.4-mini quality budget is insufficient"
     ),
     "gpt-5.4-mini": (
         "\nModel-specific guidance (GPT-5.4-mini — cost-effective GPT-5):\n"
@@ -235,14 +294,22 @@ MODEL_GUIDANCE: dict[str, str] = {
         "  high-throughput batch pipelines and latency-sensitive apps\n"
         "- Excellent at classification, extraction, and structured output\n"
         "- Native reasoning (like all GPT-5 models) but with shallower\n"
-        "  depth — keep prompts focused and concise\n"
-        "- Shorter, more direct prompts yield better results — eliminate\n"
-        "  non-essential instructions\n"
-        "- Fewer few-shot examples (1-2) work better than many\n"
+        "  depth — compensate by being EXPLICIT, not by being short\n"
+        "- Keep ALL domain rules, taxonomies and JSON schemas COMPLETE —\n"
+        "  do NOT drop categories, do NOT abbreviate enums, do NOT remove\n"
+        "  subcategory descriptions; mini models perform WORSE with under-\n"
+        "  specified prompts than flagship models do\n"
+        "- Trim ONLY verbose explicit CoT and redundant repetitions; keep\n"
+        "  the structural skeleton (sections, schemas, examples) intact\n"
+        "- Use clear `##` section headers — mini models follow structure\n"
+        "  better than long paragraphs\n"
+        "- Few-shot examples (1-2 SHORT high-quality ones) significantly\n"
+        "  improve consistency on classification edge cases\n"
         "- Use max_completion_tokens (not max_tokens) per GPT-5 convention\n"
-        "- No explicit CoT needed — model reasons internally but benefits\n"
-        "  from clear, declarative task descriptions\n"
-        "- Strong structured output (JSON mode) — specify the exact schema\n"
+        "- Strong structured output (JSON mode) — specify the EXACT schema\n"
+        "  with types, enums, array item types and constraints\n"
+        "- Add persistence + eagerness directives so the model commits to\n"
+        "  a decision instead of overhedging on borderline inputs\n"
         "- Ideal for production workloads balancing quality and cost"
     ),
 
@@ -367,6 +434,88 @@ MODEL_GUIDANCE: dict[str, str] = {
 
 # Ordered patterns for fallback matching (longest / most specific first)
 _MATCH_ORDER: list[str] = sorted(MODEL_GUIDANCE.keys(), key=len, reverse=True)
+
+
+# Regex to extract a numeric version from a deployment name like
+# "gpt-5.4" → 5.4 / "gpt-5.4-mini" → 5.4 / "gpt-4.1" → 4.1.
+_VERSION_RE = re.compile(r"(\d+(?:\.\d+)?)")
+
+
+def _deployment_version(deployment_name: str) -> float:
+    """Extract the leading numeric version from a deployment name.
+
+    Returns ``0.0`` when no version can be parsed.  Used by
+    :func:`pick_recommended_generator` to rank flagship candidates.
+    """
+    if not deployment_name:
+        return 0.0
+    m = _VERSION_RE.search(deployment_name)
+    try:
+        return float(m.group(1)) if m else 0.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def pick_recommended_generator(
+    models: Mapping[str, Any],
+    preferred_families: Iterable[str] = ("gpt5", "gpt4"),
+) -> Optional[str]:
+    """Pick the most capable model key suitable for prompt generation.
+
+    Iterates *models* (mapping ``{key: ModelConfig | dict}``) and returns the
+    key of the best flagship for use as the *generator_model* when creating
+    target prompts.
+
+    Selection rules (highest priority first):
+      1. Skip realtime / voice models (``backend == 'realtime'`` or
+         ``modality == 'realtime'`` or ``model_family == 'realtime'``).
+      2. Skip reasoning variants (``reasoning_effort`` set) — reasoning
+         models are great targets but poor generators because they
+         strip non-procedural detail.
+      3. Skip cost-optimised variants (key contains ``mini`` or ``nano``)
+         when a non-mini sibling is available.
+      4. Prefer model families in *preferred_families* order.
+      5. Within the same family, prefer the highest deployment version
+         (e.g. ``gpt-5.4`` > ``gpt-5.2`` > ``gpt-5``).
+
+    Returns ``None`` when *models* is empty or contains nothing eligible.
+    """
+    def _attr(cfg, name, default=None):
+        if isinstance(cfg, Mapping):
+            return cfg.get(name, default)
+        return getattr(cfg, name, default)
+
+    candidates: list[tuple[int, float, int, str]] = []
+    fam_order = {fam: i for i, fam in enumerate(preferred_families)}
+
+    for key, cfg in models.items():
+        family = _attr(cfg, "model_family") or resolve_model_family(key)
+        backend = _attr(cfg, "backend")
+        modality = _attr(cfg, "modality")
+        reasoning = _attr(cfg, "reasoning_effort")
+        deployment = _attr(cfg, "deployment_name") or key
+
+        # Rule 1: skip realtime / voice
+        if family == "realtime" or backend == "realtime" or modality == "realtime":
+            continue
+        # Rule 2: skip reasoning variants
+        if reasoning:
+            continue
+        # Rule 3: deprioritise mini / nano
+        is_small = any(s in key.lower() for s in ("mini", "nano"))
+
+        # Rule 4: family preference (lower index = better; unknown family last)
+        family_rank = fam_order.get(family, len(fam_order))
+
+        # Rule 5: version (higher = better) — negate so smaller sorts better
+        version_rank = -_deployment_version(deployment)
+
+        candidates.append((family_rank, version_rank, 1 if is_small else 0, key))
+
+    if not candidates:
+        return None
+    candidates.sort()
+    return candidates[0][3]
 
 
 # =====================================================================

@@ -444,7 +444,7 @@ class AzureOpenAIClient:
                     "additionalProperties": False,
                 },
             )
-            result = client.complete(messages, model_name="gpt5", response_format=fmt)
+            result = client.complete(messages, model_name="gpt54", response_format=fmt)
         """
         return {
             "type": "json_schema",
@@ -764,7 +764,7 @@ class AzureOpenAIClient:
         
         Args:
             messages: List of message dicts with 'role' and 'content'
-            model_name: Registered model name (e.g., 'gpt4', 'gpt5')
+            model_name: Registered model name (e.g., 'gpt4', 'gpt54')
             response_format: Response format specification (e.g., {"type": "json_object"})
             tools: Tool/function definitions for function calling
             use_cache: Whether to use cached responses

@@ -795,11 +795,19 @@ def create_app(config_path: str = None) -> Flask:
         
     @app.route('/api/models')
     def list_models():
-        """List available model configurations"""
+        """List available model configurations.
+
+        Each entry includes a ``recommended_generator`` boolean flag that
+        marks the most capable non-reasoning text model available — the UI
+        uses this flag to pre-select the default "Generator model" in
+        prompt-generation forms (instead of a hard-coded model key).
+        """
+        from src.utils.model_guidance import pick_recommended_generator
         client = get_client()
         if not client:
             return jsonify({'error': 'Client not configured'}), 500
-            
+
+        recommended = pick_recommended_generator(client.models)
         models = []
         for name, config in client.models.items():
             # Build a human-friendly display name:
@@ -816,6 +824,7 @@ def create_app(config_path: str = None) -> Flask:
                 'max_tokens': config.max_tokens,
                 'model_family': config.model_family or 'gpt4',
                 'modality': config.modality,
+                'recommended_generator': name == recommended,
             })
         return jsonify({'models': models})
 
@@ -1306,7 +1315,7 @@ def create_app(config_path: str = None) -> Flask:
         run_id = _normalize_run_id(data.get('run_id') if data else None)
         _cleanup_run_logs()
         model_a = data.get('model_a', 'gpt4')
-        model_b = data.get('model_b', 'gpt5')
+        model_b = data.get('model_b', 'gpt54')
         evaluation_type = data.get('type', 'classification')
         include_foundry = bool(data.get('include_foundry', False))
 
@@ -1682,7 +1691,7 @@ def create_app(config_path: str = None) -> Flask:
         run_id = _normalize_run_id(data.get('run_id'))
         _cleanup_run_logs()
         topic = data.get('topic', '')
-        generator_model = data.get('generator_model', 'gpt5')
+        generator_model = data.get('generator_model', 'gpt54')
         target_models = data.get('target_models')  # Optional list of model keys
         data_counts = data.get('data_counts')       # Optional {type: int} overrides
         instructions = data.get('instructions', '')  # Optional custom instructions
@@ -1796,7 +1805,7 @@ def create_app(config_path: str = None) -> Flask:
         run_id = _normalize_run_id(data.get('run_id'))
         _cleanup_run_logs()
         topic = data.get('topic')
-        generator_model = data.get('generator_model', 'gpt5')
+        generator_model = data.get('generator_model', 'gpt54')
         data_counts = data.get('data_counts')  # Optional {type: int} overrides
 
         try:
@@ -2226,7 +2235,7 @@ def create_app(config_path: str = None) -> Flask:
             source_model    (str, optional)  — Model key for the source prompts (default: gpt4).
             target_models   (str, optional)  — Comma-separated model keys to generate for.
                                                Default: all configured models except source.
-            generator_model (str, optional)  — Model key for AI generation (default: gpt5).
+            generator_model (str, optional)  — Model key for AI generation (default: gpt54).
             force           (str, optional)  — 'true' to overwrite existing.
 
             Source prompt files (at least one required):
@@ -2266,7 +2275,7 @@ def create_app(config_path: str = None) -> Flask:
             return jsonify({'error': 'topic is required'}), 400
 
         source_model = request.form.get('source_model', 'gpt4')
-        generator_model = request.form.get('generator_model', 'gpt5')
+        generator_model = request.form.get('generator_model', 'gpt54')
         force = request.form.get('force', 'false').lower() == 'true'
         slug = _slugify(topic_name)
 
@@ -2279,7 +2288,7 @@ def create_app(config_path: str = None) -> Flask:
             all_models = list(app.config.get('SETTINGS', {}).get('azure', {}).get('models', {}).keys())
             target_models = [m for m in all_models if m != source_model]
             if not target_models:
-                target_models = ['gpt5']  # fallback
+                target_models = ['gpt54']  # fallback
 
         # Build model_family and model_deployment lookups from config
         model_families = {}
@@ -2504,7 +2513,11 @@ def create_app(config_path: str = None) -> Flask:
                     source_set = set(c.lower() for c in domain_categories)
                     target_set = set(c.lower() for c in tgt_cats)
                     overlap = len(source_set & target_set) / max(len(source_set), 1)
-                    if overlap < 0.80:
+                    # Step 2: If still very low overlap (<50%), try LLM-based fix as last resort.
+                    # Deterministic injection already covers most cases; LLM rewrite is
+                    # expensive and can introduce its own drift, so trigger it only when
+                    # category alignment is clearly broken.
+                    if overlap < 0.50:
                         app.logger.warning(
                             f'Import topic: {tgt_model} classification has {overlap:.0%} category overlap '
                             f'({len(source_set & target_set)}/{len(source_set)}) after injection — LLM auto-fixing...'

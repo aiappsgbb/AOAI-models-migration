@@ -596,7 +596,7 @@ class ModelComparator:
     def compare_full(
         self,
         model_a: str = "gpt4",
-        model_b: str = "gpt5"
+        model_b: str = "gpt54"
     ) -> Dict[str, ComparisonReport]:
         """
         Run full comparison across all evaluation types.
@@ -1189,5 +1189,5 @@ if __name__ == "__main__":
     print("=" * 50)
     print("\nUsage:")
     print("  comparator = ModelComparator(client)")
-    print("  report = comparator.compare_models('gpt4', 'gpt5', 'classification')")
+    print("  report = comparator.compare_models('gpt4', 'gpt54', 'classification')")
     print("  print(report.to_markdown())")

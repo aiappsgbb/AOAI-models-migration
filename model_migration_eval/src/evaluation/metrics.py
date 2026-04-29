@@ -404,7 +404,7 @@ class MetricsCalculator:
             ttft_values: Optional list of time-to-first-token values
             token_data: Optional per-request token data [{prompt_tokens, completion_tokens,
                         cached_tokens, reasoning_tokens}]
-            model_name: Model name for cost estimation (e.g. 'gpt4', 'gpt4o', 'gpt5')
+            model_name: Model name for cost estimation (e.g. 'gpt4', 'gpt4o', 'gpt54')
             
         Returns:
             LatencyMetrics object

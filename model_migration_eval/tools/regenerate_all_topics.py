@@ -36,7 +36,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-GENERATOR_MODEL = "gpt5"            # must be >= target models in capability
+GENERATOR_MODEL = "gpt54"            # must be >= target models in capability
 CONFIG_PATH     = "config/settings.yaml"
 PROMPTS_DIR     = "prompts"
 DATA_DIR        = "data/synthetic"

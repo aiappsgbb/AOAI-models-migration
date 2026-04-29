@@ -35,7 +35,7 @@ How it works:
     2. Filters out batch, fine-tuning, provisioned, grader, and codex meters.
     3. Keeps only **Global** (default) or **DataZone** tier meters.
     4. For each meter, classifies:
-       - The **model** (gpt4, gpt4o, gpt41_mini, gpt5, gpt54_mini, …)
+       - The **model** (gpt4, gpt4o, gpt41_mini, gpt54, gpt54_mini, …)
        - The **token type** (input, output, cached_input, audio_input, …)
     5. Normalises all prices to **USD per 1K tokens**.
     6. Merges the fetched prices into the existing ``cost_rates`` section of
@@ -159,7 +159,7 @@ _MODEL_RULES: List[Tuple[re.Pattern, str]] = [
     # GPT-5.4-mini  (before 5.4)
     (re.compile(r"5\.4[\s-]*mini|5\.4[\s-]*mn"), "gpt54_mini"),
     # GPT-5.4
-    (re.compile(r"5\.4\b"), "gpt5"),
+    (re.compile(r"5\.4\b"), "gpt54"),
     # GPT-5.1
     (re.compile(r"5\.1\b"), "gpt51"),
     # GPT-5.2

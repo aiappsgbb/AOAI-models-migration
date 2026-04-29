@@ -75,13 +75,17 @@ sys.path.insert(0, str(_PROJECT_ROOT))
 from src.clients.azure_openai import create_client_from_config, AzureOpenAIClient
 from src.utils.category_parser import extract_categories_from_prompt as _extract_categories_from_prompt
 from src.utils.prompt_manager import _slugify
-from src.utils.model_guidance import get_guidance as _get_model_guidance, resolve_model_family as _resolve_model_family
+from src.utils.model_guidance import (
+    get_guidance as _get_model_guidance,
+    resolve_model_family as _resolve_model_family,
+    pick_recommended_generator as _pick_recommended_generator,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 CONFIG_PATH = str(_PROJECT_ROOT / "config" / "settings.yaml")
-GENERATOR_MODEL = "gpt5"
+GENERATOR_MODEL = "gpt54"
 
 TASK_PROMPT_MAP = {
     "classification": "classification_agent_system",
@@ -514,7 +518,7 @@ Create {task_descriptions.get(task, task)}
 ## REFERENCE (source prompt for the SAME topic — adapt the STYLE to the
 target model's best practices but keep the EXACT SAME domain knowledge,
 category codes, tool definitions, and behavioral rules)
-{source_prompt[:6000]}
+{source_prompt}
 
 ## REQUIREMENTS
 1. The prompt must be fully self-contained (no placeholders left)
@@ -554,7 +558,7 @@ def _fix_target_categories(
     target_prompt: str,
     target_categories: List[str],
     generator_model: str,
-    target_model: str = "gpt5",
+    target_model: str = "gpt54",
 ) -> str:
     """Regenera el prompt del modelo destino con enforcement más estricto de las categorías."""
     fix_prompt = (
@@ -733,7 +737,7 @@ def generate_target_prompt(
     task: str,
     source_prompt: str,
     generator_model: str,
-    target_model: str = "gpt5",
+    target_model: str = "gpt54",
     model_family: Optional[str] = None,
     deployment_name: Optional[str] = None,
     *,
@@ -835,7 +839,7 @@ def generate_target_prompt(
                 overlap_ratio = len(overlap) / max(len(source_set), 1)
 
             # Step 2: LLM-based fix only if still below threshold
-            if overlap_ratio < 0.80:
+            if overlap_ratio < 0.50:
                 log.warning(
                     f"Prompt {target_model.upper()} aún tiene bajo solapamiento "
                     f"({len(overlap)}/{len(source_set)}, {overlap_ratio:.0%}) tras inyección. "
@@ -859,7 +863,7 @@ def generate_gpt5_prompt(client, topic, task, gpt4_prompt, generator_model):
     """Deprecated alias — use :func:`generate_target_prompt` instead."""
     return generate_target_prompt(
         client, topic, task, gpt4_prompt, generator_model,
-        target_model="gpt5", model_family="gpt5",
+        target_model="gpt54", model_family="gpt5",
     )
 
 _fix_gpt5_categories = lambda client, prompt, cats, gen_model: _fix_target_categories(
@@ -1416,7 +1420,7 @@ def main():
                             target_set = {c.lower() for c in tgt_cats}
                             overlap = source_set & target_set
                             overlap_ratio = len(overlap) / max(len(source_set), 1)
-                        if overlap_ratio < 0.80:
+                        if overlap_ratio < 0.50:
                             log.warning(
                                 f"Still low overlap for {tgt_model} ({task_name}) after injection. LLM auto-fix..."
                             )

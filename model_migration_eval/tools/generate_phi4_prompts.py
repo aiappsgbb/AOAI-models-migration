@@ -31,7 +31,7 @@ SOURCE_MODEL = "gpt4"
 TARGET_MODEL = "phi4"
 TARGET_FAMILY = "phi"
 DEPLOYMENT_NAME = "Phi-4"
-GENERATOR_MODEL = "gpt5"
+GENERATOR_MODEL = "gpt54"
 
 TASKS = [
     "classification_agent_system",

@@ -787,24 +787,30 @@
                 const topicModels = availableModels.filter(m => isModelInActiveTopic(m.name));
                 // Text-only models (exclude realtime) for generator dropdowns
                 const textModels = availableModels.filter(m => m.modality !== 'realtime');
+                // Default generator: backend-flagged "recommended_generator" (most
+                // capable non-reasoning text model). Falls back to first text model.
+                const recommendedGen = (textModels.find(m => m.recommended_generator) || textModels[0] || {}).name;
+                // Default source model for IMPORT: the most-capable GPT-4 family model.
+                // Same logic as backend pick_recommended_generator but limited to gpt4 family.
+                const recommendedGpt4Src = (textModels.filter(m => (m.model_family || 'gpt4') === 'gpt4')[0] || {}).name;
                 const sel = $('gen-model');
                 sel.innerHTML = textModels.map(m =>
-                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
+                    `<option value="${m.name}"${m.name === recommendedGen ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
                 // Also populate regen model dropdown
                 const regenSel = $('regen-model');
                 regenSel.innerHTML = textModels.map(m =>
-                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
+                    `<option value="${m.name}"${m.name === recommendedGen ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
                 // Populate import source-model dropdown
                 const importSrcSel = $('import-source-model');
                 importSrcSel.innerHTML = textModels.map(m =>
-                    `<option value="${m.name}"${m.name === 'gpt4' ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
+                    `<option value="${m.name}"${m.name === recommendedGpt4Src ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
                 // Populate import generator-model dropdown
                 const importGenSel = $('import-gen-model');
                 importGenSel.innerHTML = textModels.map(m =>
-                    `<option value="${m.name}"${m.name === 'gpt5' ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
+                    `<option value="${m.name}"${m.name === recommendedGen ? ' selected' : ''}>${m.display_name || m.deployment}</option>`
                 ).join('');
                 // Populate import target-models checkboxes
                 const importTargets = $('import-target-models');

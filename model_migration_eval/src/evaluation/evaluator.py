@@ -366,7 +366,7 @@ class ModelEvaluator:
         Delegates to the async implementation for parallel execution.
         
         Args:
-            model_name: Name of a registered model (e.g. 'gpt4', 'gpt4o', 'gpt5')
+            model_name: Name of a registered model (e.g. 'gpt4', 'gpt4o', 'gpt54')
             scenarios: List of scenarios (default: load from data)
             measure_consistency: Whether to run consistency tests
             

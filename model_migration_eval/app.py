@@ -135,7 +135,7 @@ def run_cli_evaluation(
 
 def run_cli_comparison(
     model_a: str = "gpt4",
-    model_b: str = "gpt5",
+    model_b: str = "gpt54",
     evaluation_type: str = "classification",
     config_path: str = "config/settings.yaml"
 ):
@@ -182,7 +182,7 @@ def main():
     
     # Evaluate command
     eval_parser = subparsers.add_parser("evaluate", help="Run evaluation")
-    eval_parser.add_argument("--model", required=True, help="Model name as defined in settings.yaml (e.g., gpt4, gpt5, gpt4o)")
+    eval_parser.add_argument("--model", required=True, help="Model name as defined in settings.yaml (e.g., gpt4, gpt54, gpt4o)")
     eval_parser.add_argument("--type", required=True, choices=["classification", "dialog", "general"], help="Evaluation type")
     eval_parser.add_argument("--config", default="config/settings.yaml", help="Config file path")
     eval_parser.add_argument("--no-save", action="store_true", help="Don't save results")
@@ -190,7 +190,7 @@ def main():
     # Compare command
     compare_parser = subparsers.add_parser("compare", help="Compare two models")
     compare_parser.add_argument("--model-a", default="gpt4", help="First model")
-    compare_parser.add_argument("--model-b", default="gpt5", help="Second model")
+    compare_parser.add_argument("--model-b", default="gpt54", help="Second model")
     compare_parser.add_argument("--type", default="classification", choices=["classification", "dialog", "general", "all"], help="Evaluation type (use 'all' to run all types)")
     compare_parser.add_argument("--config", default="config/settings.yaml", help="Config file path")
     

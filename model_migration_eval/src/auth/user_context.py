@@ -21,7 +21,7 @@ class UserContext:
         data/users/<user_id>/
         ├── prompts/
         │   ├── gpt4/
-        │   ├── gpt5/
+        │   ├── gpt54/
         │   ├── history/
         │   └── topics/
         ├── synthetic/
@@ -76,8 +76,9 @@ class UserContext:
     def ensure_dirs(self, model_keys: Optional[list] = None):
         """Create the full directory skeleton for a new user.
 
-        If *model_keys* is provided (e.g. ``['gpt4', 'gpt5', 'gpt4o']``),
+        If *model_keys* is provided (e.g. ``['gpt4', 'gpt54', 'gpt4o']``),
         a sub-directory is created under ``prompts/`` for each model.
+        
         """
         for d in (
             self.prompts_dir,
