@@ -17,11 +17,11 @@ from dotenv import load_dotenv
 # Models using the new v1 API (OpenAI client with /openai/v1/ endpoint)
 V1_MODELS = {
     "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
-    "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5-mini", "gpt-5-nano",
-    "gpt-5-pro", "gpt-5-codex", "gpt-5.1-codex", "gpt-5.1-codex-mini",
+    "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5.5", "gpt-5-mini", "gpt-5-nano",
+    "gpt-5-pro", "gpt-5-codex", "gpt-5.1-codex", "gpt-5.1-codex-max", "gpt-5.1-codex-mini",
     "gpt-5.2-codex", "gpt-5.3-codex",
     "gpt-5.4", "gpt-5.4-pro", "gpt-5.4-mini", "gpt-5.4-nano",
-    "gpt-5-chat",
+    "gpt-5-chat", "gpt-5.1-chat", "gpt-5.2-chat", "gpt-5.3-chat",
     "codex-mini",
 }
 
@@ -33,7 +33,7 @@ MAX_COMPLETION_TOKEN_MODELS = V1_MODELS | {
 
 # Reasoning models (no temperature/top_p, use max_completion_tokens, developer role)
 REASONING_MODELS = {
-    "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5-mini", "gpt-5-nano",
+    "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5.5", "gpt-5-mini", "gpt-5-nano",
     "gpt-5-pro", "gpt-5.3-codex", "gpt-5.2-codex",
     "gpt-5.4", "gpt-5.4-pro", "gpt-5.4-mini", "gpt-5.4-nano",
 }

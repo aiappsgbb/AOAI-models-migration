@@ -2,7 +2,7 @@
 
 > **⚠️ Retirement dates and model availability change frequently.** Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements)** for the latest authoritative information.
 >
-> This page was last verified **April 2026**.
+> This page was last verified **May 2026**.
 
 ---
 
@@ -53,32 +53,37 @@ These are the models you should be migrating **to**. Their retirement dates give
 | `gpt-4.1-nano` | 2025-04-14 | **2026-04-14** | 2026-10-14 | `gpt-5-nano` |
 | `o3` | 2025-04-16 | 2026-04-16 | 2026-10-16 | — |
 | `o4-mini` | 2025-04-16 | 2026-04-16 | 2026-10-16 | — |
-| `o3-pro` | 2025-06-10 | 2026-06-10 | 2026-12-10 | — |
-| `o3-deep-research` | 2025-06-26 | 2026-06-26 | 2026-12-26 | — |
 | `codex-mini` | 2025-05-16 | 2026-05-16 | 2026-11-15 | — |
+| `gpt-5.1-codex-max` | 2025-12-04 | ~2026-12-05 | 2026-12-05 | — |
+| `o3-pro` | 2025-06-10 | 2026-06-10 | 2026-12-10 | — |
+| `gpt-5.2` | 2025-12-11 | ~2026-12-12 | 2026-12-12 | — |
+| `o3-deep-research` | 2025-06-26 | 2026-06-26 | 2026-12-26 | — |
+| `gpt-5.2-codex` | 2026-01-14 | 2027-01-14 | 2027-01-14 | — |
 | `gpt-5` | 2025-08-07 | 2026-08-07 | 2027-02-06 | — |
 | `gpt-5-mini` | 2025-08-07 | 2026-08-07 | 2027-02-06 | — |
 | `gpt-5-nano` | 2025-08-07 | 2026-08-07 | 2027-02-06 | — |
+| `gpt-5.3-codex` | 2026-02-24 | 2027-02-25 | 2027-02-25 | — |
+| `gpt-5.4` | 2026-03-05 | ~2027-03-05 | 2027-03-05 | — |
+| `gpt-5.4-pro` | 2026-03-05 | ~2027-03-05 | 2027-03-06 | — |
 | `gpt-5-codex` | 2025-09-15 | 2026-09-15 | 2027-03-17 | — |
+| `gpt-5.4-mini` | 2026-03-17 | ~2027-03-17 | 2027-03-18 | — |
+| `gpt-5.4-nano` | 2026-03-17 | ~2027-03-17 | 2027-03-18 | — |
 | `gpt-5-pro` | 2025-10-06 | 2026-10-06 | 2027-04-07 | — |
+| `gpt-5.5` | 2026-04-24 | ~2027-04-23 | 2027-04-23 | — |
 | `gpt-5.1` | 2025-11-13 | 2026-11-13 | 2027-05-15 | — |
 | `gpt-5.1-codex` | 2025-11-13 | 2026-11-13 | 2027-05-15 | — |
+| `gpt-5.1-codex-mini` | 2025-11-13 | 2026-11-13 | 2027-05-15 | — |
 | `model-router` | 2025-11-18 | 2026-11-18 | 2027-05-20 | — |
-| `gpt-5.2` | 2025-12-11 | ~2026-12-12 | ~2027-05-12 | — |
-| `gpt-5.2-codex` | 2026-01-14 | 2027-01-14 | 2027-07-14 | — |
-| `gpt-5.3-codex` | 2026-02-24 | 2027-02-25 | 2027-08-25 | — |
-| `gpt-5.4` | 2026-03-05 | 2027-03-05 | 2027-09-05 | — |
-| `gpt-5.4-pro` | 2026-03-05 | 2027-03-05 | 2027-09-05 | — |
-| `gpt-5.4-mini` | 2026-03-17 | 2027-03-17 | 2027-09-17 | — |
-| `gpt-5.4-nano` | 2026-03-17 | 2027-03-17 | 2027-09-17 | — |
 
-> **💡 Tip:** Models with later retirement dates give you more runway. GPT-5.1+ won't retire until mid-2027 at the earliest. The GPT-5.4 family (launched March 2026) gives you until September 2027.
+> **💡 Tip:** Longer retirement dates still give you more runway, but don't assume every GPT-5.x release gets 18 months. `gpt-5.5` now gives you published runway until **2027-04-23**, while `gpt-5.1`, `gpt-5.1-codex*`, and `model-router` currently extend furthest into **May 2027**.
+
+> **📝 Note:** Some recent GA models use a roughly **12-month lifecycle** instead of the more common ~18-month pattern. Current examples include `gpt-5.2`, `gpt-5.2-codex`, `gpt-5.3-codex`, and the full `gpt-5.4` family.
 
 ### Planning Beyond Mid-2027
 
-Azure OpenAI follows a predictable pattern: new model generations are released every 6–12 months, and each GA model is guaranteed a **minimum 12-month support window**. While specific models beyond GPT-5.2 are not yet announced, the pattern means:
+Published schedules now extend into mid-2027: `gpt-5.5` is GA with runway until **2027-04-23**, and `gpt-5.1`, `gpt-5.1-codex`, `gpt-5.1-codex-mini`, and `model-router` currently run into **May 2027**. Beyond that published horizon, future generations are still announced on Microsoft's regular cadence, so the pattern means:
 
-- **If you migrate to GPT-5.1 or GPT-5.2 today**, you have runway until at least mid-2027
+- **If you migrate to GPT-5.5 today**, you have runway into April 2027, and some GPT-5.1-era models extend slightly further into May 2027
 - **When the next generation launches** (GPT-6 or equivalent), it will overlap with GPT-5.x support — giving you months to evaluate and migrate again
 - **The evaluation infrastructure you build now is model-agnostic**: golden datasets, eval definitions, CI/CD gates, and Foundry dashboards all carry forward. Each new model generation is just another eval run against your existing test suite — not a rebuild from scratch
 

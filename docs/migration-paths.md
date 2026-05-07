@@ -12,7 +12,8 @@ This guide helps you pick the right target model when migrating from GPT-4o, GPT
 |--------------|--------------|------|----------|
 | GPT-4o | **GPT-4.1** | Standard | Low-latency, high-throughput, drop-in replacement |
 | GPT-4o | **GPT-5.1** | Reasoning | Official auto-migration target, built-in reasoning |
-| GPT-4o | **GPT-5.4** | Reasoning | Latest GA model (Mar 2026), best overall quality |
+| GPT-4o | **GPT-5.5** | Reasoning | Latest GA model (Apr 2026), highest quality |
+| GPT-4o | **GPT-5.4** | Reasoning | GA model (Mar 2026), excellent quality |
 | GPT-4o | **GPT-5.2** | Reasoning | Proven GA model (Dec 2025), excellent quality |
 | GPT-4o | **GPT-5** | Reasoning | Configurable thinking levels |
 | GPT-4o-mini | **GPT-4.1-mini** | Standard | Official auto-migration target |
@@ -49,7 +50,8 @@ This guide helps you pick the right target model when migrating from GPT-4o, GPT
 | **GPT-5.1** | 1M tokens | GPT-4o official replacement; `reasoning_effort=none` for zero-overhead mode |
 | **GPT-5.2** | 1M tokens | Proven model (Dec 2025); excellent quality |
 | **GPT-5.3-codex** | 1M tokens | Optimized for code generation and editing |
-| **GPT-5.4** | 1M tokens | Latest GA (Mar 2026); best overall quality |
+| **GPT-5.5** | 1M tokens | Latest GA (Apr 2026); newest generation, best overall quality |
+| **GPT-5.4** | 1M tokens | GA (Mar 2026); excellent quality |
 | **GPT-5.4-pro** | 1M tokens | Premium tier; highest quality for complex tasks |
 | **GPT-5.4-mini** | 1M tokens | Cost-efficient alternative to GPT-5.4 |
 | **GPT-5.4-nano** | 1M tokens | Ultra-low-cost lightweight reasoning |
@@ -99,8 +101,8 @@ The o-series models are dedicated reasoning models with `reasoning_effort` suppo
 | Priority | GPT-4o replacement | GPT-4o-mini replacement |
 |----------|-------------------|------------------------|
 | **Best quality/latency tradeoff** | GPT-5.4-mini | GPT-5.4-nano |
-| **Best overall quality** | GPT-5.4 | GPT-5.4-mini |
-| **Best reasoning / agentic** | GPT-5.4 | GPT-5.4-mini |
+| **Best overall quality** | GPT-5.5 | GPT-5.4-mini |
+| **Best reasoning / agentic** | GPT-5.5 | GPT-5.4-mini |
 | **Lowest cost** | GPT-5.4-nano | GPT-5.4-nano |
 | **Smart model routing** | `model-router` | `model-router` |
 
@@ -108,8 +110,8 @@ The o-series models are dedicated reasoning models with `reasoning_effort` suppo
 >
 > | Migrating from… | Target… | Why |
 > |-----------------|---------|-----|
-> | GPT-4o / GPT-4.1 | **GPT-5.4-mini** | Comparable quality to GPT-4.1 at lower cost and latency, with 18-month runway (retires Sep 2027) |
-> | GPT-4o-mini / GPT-4.1-mini | **GPT-5.4-nano** | Comparable quality to GPT-4.1-mini at a fraction of the cost |
+> | GPT-4o / GPT-4.1 | **GPT-5.4-mini** | Comparable quality to GPT-4.1 at lower cost and latency, with 12-month runway (retires Mar 2027) |
+> | GPT-4o-mini / GPT-4.1-mini | **GPT-5.4-nano** | Comparable quality to GPT-4.1-mini at a fraction of the cost, with 12-month runway (retires Mar 2027) |
 >
 > This gives you a better quality-to-latency tradeoff *and* avoids a second migration when GPT-5/5.1 retire in early 2027. The API surface is identical across all GPT-5.x models — the only difference is `reasoning_effort` defaults. See [API Changes](api-changes-by-model.md) for details.
 
@@ -122,7 +124,7 @@ The o-series models are dedicated reasoning models with `reasoning_effort` suppo
 2. **How much reasoning do you need?**
    - **Light reasoning, mostly standard use** → **GPT-5.4-mini** with `reasoning_effort="none"` by default, bump to `"medium"` or `"high"` for specific prompts.
    - **Heavy reasoning / agentic workflows** → **GPT-5.4** with `reasoning_effort="high"`.
-   - **Best quality, cost is secondary** → **GPT-5.4** or **GPT-5.4-pro**.
+   - **Best quality, cost is secondary** → **GPT-5.5** or **GPT-5.4-pro**.
 
 3. **Are you currently on o-series?**
    - **o1** → Migrate to **o3**.
