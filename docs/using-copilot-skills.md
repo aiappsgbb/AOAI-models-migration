@@ -1,13 +1,13 @@
 # Using the AI Agent Skills in This Repo
 
-This repository includes **three AI agent skills** that provide contextual, up-to-date guidance when you're working on Azure OpenAI model migrations. Skills are activated automatically when your question matches their domain — you don't need to memorize commands.
+This repository includes **four AI agent skills** that provide contextual, up-to-date guidance when you're working on Azure OpenAI model migrations. Skills are activated automatically when your question matches their domain — you don't need to memorize commands.
 
 ## Quick Install (Any Coding Agent)
 
 Install our skills into your own project or globally using [`npx skills`](https://github.com/vercel-labs/skills) — the universal skill installer that supports **40+ coding agents** including GitHub Copilot, Claude Code, Cursor, Codex, and more.
 
 ```bash
-# Install all 3 skills into your current project
+# Install all 4 skills into your current project
 npx skills add aiappsgbb/AOAI-models-migration
 
 # Install globally (available across all your projects)
@@ -47,10 +47,12 @@ Skills work natively in:
 |-------|--------|------------------|
 | **[aoai-model-migration]** | API changes, client config, parameter adaptation | "How do I migrate from GPT-4o to GPT-5.4-mini?", "What parameters change for reasoning models?" |
 | **[aoai-model-lifecycle]** | Retirement dates, governance, planning | "When does GPT-4.1 retire?", "How do I set up retirement notifications?" |
+| **[aoai-migration-plan]** | Phased execution plans, rollout gates, rollback strategy | "Create a phased migration plan for GPT-4o to GPT-5.4-mini", "What should my rollback criteria be?" |
 | **[aoai-migration-evaluation]** | A/B testing, LLM-as-Judge, quality metrics | "How do I evaluate model quality?", "Set up cloud-based evaluation in Foundry" |
 
 [aoai-model-migration]: ../.github/skills/aoai-model-migration/SKILL.md
 [aoai-model-lifecycle]: ../.github/skills/aoai-model-lifecycle/SKILL.md
+[aoai-migration-plan]: ../.github/skills/aoai-migration-plan/SKILL.md
 [aoai-migration-evaluation]: ../.github/skills/aoai-migration-evaluation/SKILL.md
 
 ## How to Use
@@ -66,6 +68,7 @@ Skills work natively in:
 How do I migrate from GPT-4o to GPT-5.4-mini?
 What's the reasoning_effort default for GPT-5.4-mini?
 When does GPT-4.1 retire and what should I migrate to?
+Create a phased migration plan for moving Contoso's chat app from GPT-4o to GPT-5.4-mini.
 How do I run an A/B comparison between GPT-4o and GPT-5.4-mini?
 ```
 
@@ -104,6 +107,10 @@ I need to...
 ├── Know when my model retires / plan ahead
 │   └── aoai-model-lifecycle
 │       "retirement date", "deprecation", "planning", "notifications"
+│
+├── Build the rollout project plan
+│   └── aoai-migration-plan
+│       "migration plan", "rollout plan", "phased migration", "rollback strategy"
 │
 ├── Test if the new model is good enough
 │   └── aoai-migration-evaluation

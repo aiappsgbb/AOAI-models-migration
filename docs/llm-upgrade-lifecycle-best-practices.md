@@ -4,7 +4,7 @@
 > Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements)** for the latest authoritative information. See also: **[What's New in Azure OpenAI](https://learn.microsoft.com/azure/ai-foundry/openai/whats-new)**.
 
 > **Audience:** Platform teams, architects, and engineering leads building on Azure OpenAI / Microsoft Foundry.
-> **Last updated:** March 2026
+> **Last updated:** May 2026
 
 ---
 
@@ -13,6 +13,16 @@
 Azure OpenAI models are **continually refreshed** with newer, more capable versions. Older models go through a formal **deprecation → retirement** cycle. Once retired, deployments return errors — there is no grace period.
 
 The pace is fast: GA models are guaranteed for **12 months minimum**, with an additional 6-month window for existing customers. Preview models can retire in as little as **90–120 days**. Treating LLMs as permanent infrastructure is a recipe for production incidents.
+
+---
+
+### Priority Legend
+
+| Severity | Meaning |
+|----------|---------|
+| 🔴 **HIGH** | Will cause production failures if ignored — address immediately |
+| 🟡 **MEDIUM** | Affects quality, cost, or performance — address during planning |
+| 🟢 **LOW** | Process improvements — address when capacity allows |
 
 ---
 
@@ -82,7 +92,7 @@ graph TD
 
 ## 4. How to Migrate to a Newer Model (Tactical Playbook)
 
-### 4.1 Set Up Notifications Early
+### 4.1 🔴 HIGH: Set Up Notifications Early
 
 Azure notifies via **Azure Service Health** and **email to subscription owners**.
 
@@ -94,7 +104,7 @@ Azure notifies via **Azure Service Health** and **email to subscription owners**
 
 > Anyone with *reader* permissions can configure personalized alerts. Don't rely solely on subscription-owner emails.
 
-### 4.2 Inventory Your Deployments
+### 4.2 🔴 HIGH: Inventory Your Deployments
 
 Maintain a **live inventory** of every deployment across all subscriptions:
 
@@ -120,7 +130,7 @@ resources
 
 > This gives you a live, cross-subscription view of every Azure OpenAI deployment and its update policy.
 
-### 4.3 Deploy the Replacement Model Side-by-Side
+### 4.3 🔴 HIGH: Deploy the Replacement Model Side-by-Side
 
 Azure guarantees the current model `N` and its successor `N+1` are available concurrently (for models from `gpt-4o` onwards). Use this window to:
 
@@ -128,7 +138,7 @@ Azure guarantees the current model `N` and its successor `N+1` are available con
 2. **Run your evaluation suite** against both (see Section 5).
 3. **Compare** latency, token costs, output quality, and behavioral differences.
 
-### 4.4 Run Evaluations
+### 4.4 🔴 HIGH: Run Evaluations
 
 Use [Azure OpenAI Evaluations (Preview)](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/evaluations) to compare model versions systematically:
 
@@ -139,7 +149,7 @@ Use [Azure OpenAI Evaluations (Preview)](https://learn.microsoft.com/azure/ai-fo
 
 > 💡 **Tip:** The new Foundry portal's **Ask AI** feature can scan your project, detect deprecated models, recommend replacements, and even kick off evaluation runs for you.
 
-### 4.5 Update Prompts & Parameters
+### 4.5 🔴 HIGH: Update Prompts & Parameters
 
 Newer models often have different:
 - **Default behaviors** (e.g., verbosity, formatting, tool-calling conventions)
@@ -148,7 +158,7 @@ Newer models often have different:
 
 Review the model's release notes and `what's new` documentation. Adjust system prompts and parameters accordingly.
 
-### 4.6 Migrate Production Traffic
+### 4.6 🔴 HIGH: Migrate Production Traffic
 
 Choose your strategy based on risk tolerance:
 
@@ -164,7 +174,7 @@ For **Provisioned** deployments, you can use:
 - **In-place migration:** Same deployment name, Azure handles traffic cut-over (~20–30 min).
 - **Multi-deployment migration:** Create a second provisioned deployment with the new model, shift traffic, then delete the old one. Requires sufficient quota for both simultaneously.
 
-### 4.7 Clean Up
+### 4.7 🟢 LOW: Clean Up
 
 After migration:
 - Delete old deployments to free quota.
@@ -177,7 +187,7 @@ After migration:
 
 Evaluation is the **gate** between "we have a new model" and "we can ship it." This section provides concrete guidance on building evaluations that give you confidence during model upgrades.
 
-### 5.1 Choose the Right Evaluators
+### 5.1 🟡 MEDIUM: Choose the Right Evaluators
 
 The `azure-ai-evaluation` SDK provides a rich set of built-in evaluators. Pick the ones that matter for your use case:
 
@@ -194,7 +204,7 @@ The `azure-ai-evaluation` SDK provides a rich set of built-in evaluators. Pick t
 - `QAEvaluator` = groundedness + relevance + coherence + fluency + similarity + F1 in one call.
 - `ContentSafetyEvaluator` = violence + sexual + self-harm + hate/unfairness in one call.
 
-### 5.2 Prepare Your Evaluation Dataset
+### 5.2 🔴 HIGH: Prepare Your Evaluation Dataset
 
 Your evaluation dataset is the most important asset. Format it as **JSONL** with one record per line:
 
@@ -217,7 +227,7 @@ Your evaluation dataset is the most important asset. Format it as **JSONL** with
 - **Pre-production gate:** 100–500 rows with diverse intents, edge cases, adversarial inputs.
 - **Full regression:** 500+ rows, ideally sampled from real production traffic (use **Stored Completions**).
 
-### 5.3 Local Evaluation with `azure-ai-evaluation` SDK
+### 5.3 🟡 MEDIUM: Local Evaluation with `azure-ai-evaluation` SDK
 
 This approach runs evaluations on your dev machine. Good for fast iteration during prompt tuning.
 
@@ -333,7 +343,7 @@ result = evaluate(
 )
 ```
 
-### 5.4 Cloud Evaluation with `azure-ai-projects` SDK
+### 5.4 🟡 MEDIUM: Cloud Evaluation with `azure-ai-projects` SDK
 
 Cloud evaluation is recommended for **pre-production gates and CI/CD pipelines** — it runs in Azure, scales to large datasets, and logs everything to your Foundry project.
 
@@ -580,7 +590,7 @@ with (
 
 > **Migration note:** If upgrading from v1 to v2, you will need to rewrite your evaluation code. The APIs are not backward-compatible. Plan this as part of your SDK upgrade.
 
-### 5.5 Running Evaluations for A/B Model Comparison
+### 5.5 🔴 HIGH: Running Evaluations for A/B Model Comparison
 
 The core workflow for a model upgrade evaluation:
 
@@ -611,7 +621,7 @@ graph LR
 | BLEU / ROUGE | Δ ≤ 10% drop vs current | Investigate, may block |
 | Latency P95 | ≤ 120% of current | Investigate |
 
-### 5.6 Continuous Evaluation for Post-Deployment Monitoring
+### 5.6 🟢 LOW: Continuous Evaluation for Post-Deployment Monitoring
 
 After migrating, set up **continuous evaluation** to catch regressions in production:
 
@@ -641,7 +651,7 @@ continuous_eval_rule = project_client.evaluation_rules.create_or_update(
 
 This monitors production traffic against your testing criteria and flags quality drops automatically.
 
-### 5.7 Leverage GitHub Copilot for Evaluation Design
+### 5.7 🟢 LOW: Leverage GitHub Copilot for Evaluation Design
 
 GitHub Copilot has evolved well beyond inline completions. Its current capabilities — **Agent Mode**, **Custom Agents**, **Agent Skills**, and the **Copilot Coding Agent** — can dramatically accelerate every stage of your model-upgrade evaluation workflow.
 
@@ -810,7 +820,7 @@ config/model-deployments/ or prompts/. It should:
 
 ## 6. Mid-to-Long Term Planning to Minimize Impact
 
-### 6.1 Architect for Model Portability
+### 6.1 🟡 MEDIUM: Architect for Model Portability
 
 **Abstract the model reference.** Never hard-code model names deep in application code.
 
@@ -821,7 +831,7 @@ config/model-deployments/ or prompts/. It should:
 
 Design your application so that swapping a model is a **configuration change**, not a code change.
 
-### 6.2 Choose the Right Update Policy
+### 6.2 🟡 MEDIUM: Choose the Right Update Policy
 
 | Policy | Pros | Cons | Recommended For |
 |---|---|---|---|
@@ -831,7 +841,7 @@ Design your application so that swapping a model is a **configuration change**, 
 
 > **Recommendation for production:** Use **"Upgrade when expired"** as a safety net, but always plan to migrate proactively well before the retirement date.
 
-### 6.3 Build a Continuous Evaluation Pipeline
+### 6.3 🟢 LOW: Build a Continuous Evaluation Pipeline
 
 Don't wait for a deprecation notice to evaluate models. Build evaluation into your CI/CD:
 
@@ -842,7 +852,7 @@ Don't wait for a deprecation notice to evaluate models. Build evaluation into yo
 
 > 📖 **Deep dive:** See **[Tracking Evaluation Metrics Across Model Migrations](cloud-eval-tracking-across-models.md)** for a step-by-step guide on using a single Foundry eval definition to accumulate runs across model generations — with portal screenshots, code, and CI/CD integration.
 
-### 6.4 Plan on a ~12-Month Cadence
+### 6.4 🟡 MEDIUM: Plan on a ~12-Month Cadence
 
 Given the 12-month GA lifecycle, plan for **at least one major model migration per year** for each model family you consume. Build this into your team's roadmap:
 
@@ -855,7 +865,7 @@ Given the 12-month GA lifecycle, plan for **at least one major model migration p
 
 Adjust timing based on actual retirement dates — the point is to be **proactive, not reactive**.
 
-### 6.5 Manage API Version Lifecycle Separately
+### 6.5 🔴 HIGH: Manage API Version Lifecycle Separately
 
 Model versions and **API versions** are independent lifecycle tracks. API versions also deprecate and retire.
 
@@ -868,7 +878,7 @@ Key guidance:
 
 > ⚠️ Don't conflate model upgrades with API upgrades. Test them independently.
 
-### 6.5.1 Consider `model-router` as a Migration Strategy
+### 6.5.1 🟢 LOW: Consider `model-router` as a Migration Strategy
 
 **`model-router`** (GA Nov 2025) automatically routes each request to the best-suited model based on prompt complexity. Benefits for lifecycle management:
 
@@ -878,7 +888,7 @@ Key guidance:
 
 > See [Azure OpenAI Models Overview](https://learn.microsoft.com/azure/ai-services/openai/concepts/models) for `model-router` details.
 
-### 6.6 Account for Fine-Tuned Models
+### 6.6 🔴 HIGH: Account for Fine-Tuned Models
 
 Fine-tuned models follow a **two-phase retirement**: training retirement first, then deployment retirement (typically 1 year later).
 
@@ -890,7 +900,7 @@ Current fine-tuned model dates (verify on [official page](https://learn.microsof
 - `gpt-4o` fine-tuned: training retirement no earlier than **2026-09-30**, deployment retirement **2027-03-31**
 - `gpt-4o-mini` fine-tuned: same schedule as `gpt-4o` fine-tuned
 
-### 6.7 Handle Embedding Models with Extra Care
+### 6.7 🔴 HIGH: Handle Embedding Models with Extra Care
 
 Embedding models (e.g., `text-embedding-3-large`, `text-embedding-ada-002`) are currently scheduled **not to retire before April 2027**, but when they eventually do:
 
@@ -898,7 +908,7 @@ Embedding models (e.g., `text-embedding-3-large`, `text-embedding-ada-002`) are 
 - Embeddings from different models are **not compatible** — mixing them breaks retrieval quality.
 - Plan for the compute and time cost of full re-indexing.
 
-### 6.8 Govern Multi-Region Deployments
+### 6.8 🟡 MEDIUM: Govern Multi-Region Deployments
 
 - Model upgrades roll out **region by region** — there is no fixed region schedule.
 - A model upgrade can happen in a region **even if the new version isn't yet separately available there**.

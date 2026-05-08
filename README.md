@@ -1,11 +1,11 @@
 # Azure OpenAI Models Migration Guide
 
-Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI models (GPT-4.1, GPT-5.1, o-series), with **evaluation tools** and **ready-to-use golden datasets** to validate quality before deploying.
+Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI models (GPT-4.1, GPT-5.4, GPT-5.5, o-series), with **evaluation tools** and **ready-to-use golden datasets** to validate quality before deploying.
 
 > [!WARNING]
 > **Retirement dates and model availability change frequently.**
 > Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements)** for the latest authoritative information.
-> This guide was last updated **April 2026**.
+> This guide was last updated **May 2026**.
 
 > [!NOTE]
 > **Scope:** This guide focuses on **text generation models** (GPT series and o-series). For audio, image, and embedding models, see the [official retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements).
@@ -23,11 +23,12 @@ Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI model
 ## Migration at a Glance
 
 1. **[Pick your target model](docs/migration-paths.md)** — choose based on your priorities (cost, quality, reasoning)
-2. **[Check the timeline](docs/retirement-timeline.md)** — know when your current model retires
-3. **[Update your code](docs/api-changes-by-model.md)** — switch client, adapt parameters, adjust prompts
-4. **[Build a golden dataset](docs/building-golden-datasets.md)** — from stored completions, APIM logs, or use our [pre-built test data](data/)
-5. **[Evaluate before deploying](docs/evaluation-guide.md)** — compare quality with automated metrics
-6. **Roll out progressively** — canary first, then full traffic ([Lifecycle Best Practices](docs/llm-upgrade-lifecycle-best-practices.md))
+2. **[Assess migration feasibility](docs/migration-feasibility-assessment.md)** — score quality, latency, cost, compatibility, capacity, and runway for your workload
+3. **[Check the timeline](docs/retirement-timeline.md)** — know when your current model retires
+4. **[Update your code](docs/api-changes-by-model.md)** — switch client, adapt parameters, adjust prompts
+5. **[Build a golden dataset](docs/building-golden-datasets.md)** — from stored completions, APIM logs, or use our [pre-built test data](data/)
+6. **[Evaluate before deploying](docs/evaluation-guide.md)** — compare quality with automated metrics
+7. **[Execute the rollout](docs/migration-execution-guide.md)** — phase the production change, pilot safely, and keep rollback ready
 
 ## Quick Start
 
@@ -63,10 +64,12 @@ report.print_report()
 |-------|-------------|
 | 🚀 **[Getting Started](docs/getting-started.md)** | Prerequisites, setup, authentication, migration checklist |
 | 📖 **[Migration Paths](docs/migration-paths.md)** | Which model to migrate to, decision matrix, standard vs reasoning trade-offs |
+| ✅ **[Migration Feasibility Assessment](docs/migration-feasibility-assessment.md)** | Six-dimension framework for scoring whether a migration is practical for your workload |
 | 📅 **[Retirement Timeline](docs/retirement-timeline.md)** | All retirement dates, auto-upgrade behavior, urgency planning |
 | 🔧 **[API Changes by Model](docs/api-changes-by-model.md)** | Client config, parameter tables, reasoning effort, structured outputs, C#/JS/Java SDKs |
 | 🧪 **[Evaluation Guide](docs/evaluation-guide.md)** | Pre-built scenarios (RAG, tool calling, translation, classification), LLM-as-Judge, SDK eval |
 | 📊 **[Building Golden Datasets](docs/building-golden-datasets.md)** | How to build eval test data from production logs, AI gateways, agent traces, and synthetic generation |
+| 🚦 **[Migration Execution Guide](docs/migration-execution-guide.md)** | Phased rollout plan, gates, pilot/shadow strategy, rollback criteria, and operational validation |
 | 🔗 **[Migrating Multi-Step Apps](docs/migrating-multi-step-apps.md)** | Hybrid evaluation methodology for RAG pipelines and agent workflows |
 | ☁️ **[Cloud Eval Tracking](docs/cloud-eval-tracking-across-models.md)** | Reusable eval definitions in Azure AI Foundry, cross-model comparison, CI/CD |
 | 🔄 **[Lifecycle Best Practices](docs/llm-upgrade-lifecycle-best-practices.md)** | Deployment inventory, notifications, rollout strategies, fine-tuned models, multi-region |
@@ -125,14 +128,14 @@ See the [RAG Pipeline README](samples/rag_pipeline/README.md) for a full walkthr
 ├── .github/
 │   ├── copilot-instructions.md               # Repo conventions and safety rules
 │   ├── workflows/eval-on-schedule.yml        # Nightly CI/CD evaluation pipeline
-│   └── skills/                               # GitHub Copilot Skills (see below)
+│   └── skills/                               # AI Agent Skills (see below)
 ├── requirements.txt
 └── .env.template
 ```
 
 ## AI Agent Skills
 
-This repo includes three **agent skills** that provide contextual migration guidance in any supported coding agent. Install them with one command:
+This repo includes four **agent skills** that provide contextual migration guidance in any supported coding agent. Install them with one command:
 
 ```bash
 npx skills add aiappsgbb/AOAI-models-migration
@@ -141,8 +144,9 @@ npx skills add aiappsgbb/AOAI-models-migration
 | Skill | What It Does |
 |-------|--------------|
 | **[aoai-model-migration](.github/skills/aoai-model-migration/SKILL.md)** | API changes, client configuration, parameter adaptation |
-| **[aoai-migration-evaluation](.github/skills/aoai-migration-evaluation/SKILL.md)** | A/B testing, LLM-as-Judge, SDK & Foundry evaluation |
 | **[aoai-model-lifecycle](.github/skills/aoai-model-lifecycle/SKILL.md)** | Retirement timelines, governance, operational checklists |
+| **[aoai-migration-plan](.github/skills/aoai-migration-plan/SKILL.md)** | Phased execution plans, rollout gates, rollback strategy, migration checklists |
+| **[aoai-migration-evaluation](.github/skills/aoai-migration-evaluation/SKILL.md)** | A/B testing, LLM-as-Judge, SDK & Foundry evaluation |
 
 > Works with [40+ coding agents](https://github.com/vercel-labs/skills#supported-agents). See **[Using Skills](docs/using-copilot-skills.md)** for full setup and usage instructions.
 
