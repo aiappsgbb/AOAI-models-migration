@@ -2,7 +2,7 @@
 name: aoai-model-migration
 description: >
   Migrate Azure OpenAI applications from GPT-4o/GPT-4o-mini to newer models
-  (GPT-4.1, GPT-5, GPT-5.1 through GPT-5.4, o-series).
+  (GPT-4.1, GPT-5, GPT-5.1 through GPT-5.6, o-series).
   Covers API changes, client configuration, parameter adaptation, prompt adjustments,
   and authentication.
   USE FOR: migrate model, switch model, upgrade model, GPT-4o replacement,
@@ -15,17 +15,19 @@ description: >
 # Azure OpenAI Model Migration Skill
 
 > **⚠️ Retirement dates and model availability change frequently.** Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements)**.
+>
+> **Last verified: July 2026.**
 
 ## Purpose
 
-Guide developers through migrating Azure OpenAI applications from GPT-4o / GPT-4o-mini to newer model families (GPT-4.1, GPT-5, GPT-5.1, GPT-5.2) and o-series reasoning models (o1 → o3, o3-mini → o4-mini). This skill covers API surface changes, client configuration, parameter adaptation, and prompt adjustments.
+Guide developers through migrating Azure OpenAI applications from GPT-4o / GPT-4o-mini to current GPT-5 model families and migrating retiring o-series deployments to evaluated current candidates. This skill covers API surface changes, client configuration, parameter adaptation, and prompt adjustments.
 
 ## When to Use
 
 - Migrating from GPT-4o or GPT-4o-mini to any newer Azure OpenAI model
-- Migrating o-series models (o1 → o3, o3-mini → o4-mini)
-- Adapting code to the new v1 API (`/openai/v1/`) used by GPT-4.1+ and GPT-5+
-- Adapting parameters and system prompts for reasoning models (GPT-5, GPT-5.1, GPT-5.2, o-series)
+- Migrating retiring o-series models where no designated replacement is published
+- Adapting code to the v1 API (`/openai/v1/`) used by current GPT and o-series models
+- Adapting parameters and system prompts for GPT-5 and o-series reasoning models
 - Choosing the right replacement model for a given workload
 
 ## Migration Paths
@@ -34,13 +36,13 @@ Guide developers through migrating Azure OpenAI applications from GPT-4o / GPT-4
 
 | Source Model | Target Model | Type | Best For |
 |---|---|---|---|
-| GPT-4o / GPT-4.1 | **GPT-5.4-mini** | Reasoning | **Recommended** — comparable quality at lower cost/latency (tier-down strategy) |
-| GPT-4o-mini / GPT-4.1-mini | **GPT-5.4-nano** | Reasoning | **Recommended** — comparable quality at a fraction of the cost |
 | GPT-4o | **GPT-5.1** | Reasoning | Official auto-migration target (Standard deployments, completed March 2026) |
-| GPT-4o | **GPT-5.4** | Reasoning | Best overall quality (Mar 2026), longest runway |
 | GPT-4o-mini | **GPT-4.1-mini** | Standard | Official auto-migration target (Standard deployments) |
+| GPT-4o / GPT-4.1 | **GPT-5.5** | Reasoning | Current GA candidate; validate against workload requirements |
+| GPT-4o / GPT-4.1 | **GPT-5.6 series** | Reasoning | Newest GA candidate family; compare Sol, Terra, and Luna |
+| GPT-4o-mini / GPT-4.1-mini | **Current GPT-5 candidates** | Reasoning | No designated one-to-one replacement; evaluate model sizing |
 
-> **💡 Tier-down strategy:** Newer-generation smaller models match or exceed older-generation larger ones with better latency and lower cost. Target **GPT-5.4-mini** instead of GPT-4.1/GPT-5, and **GPT-5.4-nano** instead of GPT-4.1-mini — longer runway (Sep 2027), better quality-to-cost tradeoff.
+> **💡 Evaluation-first sizing:** Smaller GPT-5 models can be useful candidates, but do not assume equivalent quality, latency, cost, or runway. GPT-5.4-mini and GPT-5.4-nano retire on 2027-03-18. Compare them with current GPT-5.5 and GPT-5.6 deployments using representative data.
 
 > **📝 Note:** GPT-4o Standard deployments were auto-upgraded to GPT-5.1 and retired on 2026-03-31. GPT-4.1 family was deprecated on 2026-04-14 (no new customers).
 
@@ -48,24 +50,24 @@ Guide developers through migrating Azure OpenAI applications from GPT-4o / GPT-4
 
 | Source Model | Target Model | Type | Best For |
 |---|---|---|---|
-| o1 | **o3** | Reasoning | Successor reasoning model |
-| o3-mini | **o4-mini** | Reasoning | Faster, cheaper reasoning |
-| o1-pro | **o3-pro** | Reasoning | Pro-tier reasoning |
+| o1 | **Current GA GPT-5 reasoning models** | Reasoning | No designated replacement; retirement 2026-09-16 |
+| o3-mini | **Current GA GPT-5 reasoning models** | Reasoning | No designated replacement; `o4-mini` is deprecated |
+| o1-pro | **Current GA GPT-5 reasoning models** | Reasoning | No designated replacement; retirement 2026-09-18 |
 
 ### How to Choose
 
-| Priority | GPT-4o replacement | GPT-4o-mini replacement |
-|---|---|---|
-| **Best quality/latency tradeoff** | GPT-5.4-mini | GPT-5.4-nano |
-| **Best overall quality** | GPT-5.4 | GPT-5.4-mini |
-| **Best reasoning / agentic** | GPT-5.4 | GPT-5.4-mini |
-| **Lowest cost** | GPT-5.4-nano | GPT-5.4-nano |
+| Evaluation goal | Candidates to compare |
+|---|---|
+| **Preserve completed Standard auto-migration behavior** | GPT-5.1 |
+| **Current GA general-purpose reasoning** | GPT-5.5, GPT-5.6 series |
+| **Smaller model sizing** | GPT-5.4-mini, GPT-5.4-nano |
+| **Dynamic routing** | `model-router` |
 
 ## Key API Changes
 
 ### 1. Client Configuration
 
-GPT-4.1+ and GPT-5+ use the **v1 API**, which requires the `OpenAI` client instead of `AzureOpenAI`.
+Current GPT-4.1+, GPT-5+, and o-series integrations use the **v1 API**, which uses the `OpenAI` client instead of `AzureOpenAI`.
 
 **Before (GPT-4o — versioned API):**
 
@@ -93,14 +95,16 @@ from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
 token_provider = get_bearer_token_provider(
     DefaultAzureCredential(),
-    "https://cognitiveservices.azure.com/.default"
+    "https://ai.azure.com/.default"
 )
 
 client = OpenAI(
-    api_key=token_provider(),
+    api_key=token_provider,
     base_url=f"{AZURE_OPENAI_ENDPOINT}/openai/v1/"
 )
 ```
+
+> **💡 Tip:** Pass the token-provider callable itself. The OpenAI client invokes it when needed, avoiding static tokens and private SDK overrides.
 
 ### 2. Model Family Classification
 
@@ -112,20 +116,28 @@ V1_MODELS = {
     "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
     "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5-mini", "gpt-5-nano",
     "gpt-5-pro", "gpt-5-codex", "gpt-5.1-codex", "gpt-5.1-codex-mini",
+    "gpt-5.1-codex-max",
     "gpt-5.2-codex", "gpt-5.3-codex",
     "gpt-5.4", "gpt-5.4-pro", "gpt-5.4-mini", "gpt-5.4-nano",
-    "codex-mini",
+    "gpt-5.5", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
+    "gpt-chat-latest",
+    "codex-mini", "o1", "o1-pro", "o3-mini", "o3", "o3-pro",
+    "o3-deep-research", "o4-mini",
 }
 
 # Reasoning models (no temperature/top_p, use max_completion_tokens, developer role)
 REASONING_MODELS = {
+    "codex-mini",
     "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5-mini", "gpt-5-nano",
-    "gpt-5-pro", "gpt-5.3-codex", "gpt-5.2-codex",
+    "gpt-5-pro", "gpt-5-codex", "gpt-5.1-codex",
+    "gpt-5.1-codex-mini", "gpt-5.1-codex-max",
+    "gpt-5.3-codex", "gpt-5.2-codex",
     "gpt-5.4", "gpt-5.4-pro", "gpt-5.4-mini", "gpt-5.4-nano",
+    "gpt-5.5", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
+    "gpt-chat-latest",
 }
 
 # o-series reasoning models (also no temperature/top_p, use max_completion_tokens)
-# Note: o-series use the classic AzureOpenAI client, NOT the v1 API
 O_SERIES_MODELS = {
     "o1", "o1-pro", "o3-mini", "o3", "o3-pro", "o3-deep-research", "o4-mini",
 }
@@ -169,9 +181,12 @@ def adapt_params(model_name: str, params: dict) -> dict:
 | GPT-5.1 | Reasoning | `none`, `low`, `medium`, `high` | `none` |
 | GPT-5.2 / 5.3-codex / 5.4 / 5.4-pro | Reasoning | `none`, `low`, `medium`, `high` | `none` |
 | GPT-5.4-mini / 5.4-nano | Reasoning | `none`, `low`, `medium`, `high` | `none` |
+| GPT-5.5 / GPT-5.6 series / `gpt-chat-latest` | Reasoning | Verify supported levels for the deployed model version | Verify model documentation |
 | o-series (o1, o3, o4-mini) | Reasoning | `low`, `medium`, `high` | `medium` |
 
-> **Important:** `reasoning_effort="none"` is only supported from GPT-5.1 onwards (GPT-5.1 and GPT-5.2). GPT-5, GPT-5-mini, and GPT-5-nano minimum is `"minimal"`, which still incurs reasoning tokens and added latency.
+> **Important:** `reasoning_effort` support varies by model and version. GPT-5.1 and GPT-5.2 support `"none"`, while GPT-5, GPT-5-mini, and GPT-5-nano minimum is `"minimal"`. Verify newer model versions before hard-coding an effort level.
+
+> **⚠️ Important:** Codex models including `gpt-5.1-codex`, `gpt-5.2-codex`, and `gpt-5.3-codex` are Responses-API-only. Do not send them through a Chat Completions helper.
 
 ### 5. System Role for Reasoning Models
 
@@ -262,7 +277,7 @@ This repo provides reusable modules under `src/`:
 
 ## Steps for a Migration
 
-1. **Identify your target model** using the migration paths table above — consider the tier-down strategy (GPT-5.4-mini/nano) for best cost-quality tradeoff.
+1. **Identify candidate target models** using the migration paths table above, then compare them with representative workload data.
 2. **Update client initialization** — switch from `AzureOpenAI` to `OpenAI` for v1 models.
 3. **Adapt parameters** — replace `max_tokens` with `max_completion_tokens`, remove `temperature`/`top_p` for reasoning models.
 4. **Update system message role** — use `"developer"` for GPT-5.x and o-series models.

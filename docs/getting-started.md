@@ -83,13 +83,18 @@ This repo uses **Microsoft Entra ID** (Azure AD) token-based authentication — 
 ```python
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
-token_provider = get_bearer_token_provider(
+classic_token_provider = get_bearer_token_provider(
     DefaultAzureCredential(),
     "https://cognitiveservices.azure.com/.default"
 )
+
+v1_token_provider = get_bearer_token_provider(
+    DefaultAzureCredential(),
+    "https://ai.azure.com/.default"
+)
 ```
 
-The `src/clients.py` module handles this automatically via `create_client()`.
+Use the classic provider with `AzureOpenAI` and the v1 provider with `OpenAI`. Pass the provider callable itself; do not call it to create a static token. The `src/clients.py` module handles this automatically via `create_client()`.
 
 ---
 

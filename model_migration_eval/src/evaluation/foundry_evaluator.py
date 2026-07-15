@@ -40,7 +40,7 @@ try:
 except ImportError:
     logger.info(
         "azure-ai-projects SDK not installed — Foundry evaluation disabled.  "
-        "Install with: pip install 'azure-ai-projects>=2.0.0b2'"
+        "Install with: pip install 'azure-ai-projects>=2.3.0'"
     )
 
 
@@ -544,7 +544,7 @@ class FoundryEvaluator:
         if not _FOUNDRY_AVAILABLE:
             raise RuntimeError(
                 "Foundry SDK not installed. "
-                "Run: pip install 'azure-ai-projects>=2.0.0b2'"
+                "Run: pip install 'azure-ai-projects>=2.3.0'"
             )
         self.project_endpoint = project_endpoint
         self.deployment_name = deployment_name

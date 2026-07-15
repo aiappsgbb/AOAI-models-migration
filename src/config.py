@@ -19,10 +19,12 @@ V1_MODELS = {
     "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
     "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5-mini", "gpt-5-nano",
     "gpt-5-pro", "gpt-5-codex", "gpt-5.1-codex", "gpt-5.1-codex-mini",
-    "gpt-5.2-codex", "gpt-5.3-codex",
+    "gpt-5.1-codex-max", "gpt-5.2-codex", "gpt-5.3-codex",
     "gpt-5.4", "gpt-5.4-pro", "gpt-5.4-mini", "gpt-5.4-nano",
-    "gpt-5-chat",
-    "codex-mini",
+    "gpt-5.5", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
+    "gpt-5-chat", "gpt-chat-latest",
+    "codex-mini", "o1", "o1-pro", "o3-mini", "o3", "o3-pro",
+    "o3-deep-research", "o4-mini",
 }
 
 # Models that require max_completion_tokens instead of max_tokens
@@ -33,14 +35,29 @@ MAX_COMPLETION_TOKEN_MODELS = V1_MODELS | {
 
 # Reasoning models (no temperature/top_p, use max_completion_tokens, developer role)
 REASONING_MODELS = {
+    "codex-mini",
     "gpt-5", "gpt-5.1", "gpt-5.2", "gpt-5-mini", "gpt-5-nano",
-    "gpt-5-pro", "gpt-5.3-codex", "gpt-5.2-codex",
+    "gpt-5-pro", "gpt-5-codex", "gpt-5.1-codex",
+    "gpt-5.1-codex-mini", "gpt-5.1-codex-max",
+    "gpt-5.2-codex", "gpt-5.3-codex",
     "gpt-5.4", "gpt-5.4-pro", "gpt-5.4-mini", "gpt-5.4-nano",
+    "gpt-5.5", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
+    "gpt-chat-latest",
 }
 
 # o-series reasoning models (also no temperature/top_p, use max_completion_tokens)
 O_SERIES_MODELS = {
     "o1", "o1-pro", "o3-mini", "o3", "o3-pro", "o3-deep-research", "o4-mini",
+}
+
+RESPONSES_ONLY_MODELS = {
+    "codex-mini",
+    "gpt-5-codex",
+    "gpt-5.1-codex",
+    "gpt-5.1-codex-mini",
+    "gpt-5.1-codex-max",
+    "gpt-5.2-codex",
+    "gpt-5.3-codex",
 }
 
 
@@ -57,6 +74,11 @@ def is_reasoning(model: str) -> bool:
 def is_o_series(model: str) -> bool:
     """True if the model is an o-series reasoning model (o1, o3, o4-mini, etc.)."""
     return model in O_SERIES_MODELS
+
+
+def is_responses_only(model: str) -> bool:
+    """True if the model is only available through the Responses API."""
+    return model in RESPONSES_ONLY_MODELS
 
 
 def uses_developer_role(model: str) -> bool:
@@ -89,6 +111,11 @@ def load_config(env_path: Optional[str] = None) -> dict:
         "gpt-5-mini": "GPT5_MINI_DEPLOYMENT",
         "gpt-5.4": "GPT54_DEPLOYMENT",
         "gpt-5.4-mini": "GPT54_MINI_DEPLOYMENT",
+        "gpt-5.5": "GPT55_DEPLOYMENT",
+        "gpt-5.6-sol": "GPT56_SOL_DEPLOYMENT",
+        "gpt-5.6-terra": "GPT56_TERRA_DEPLOYMENT",
+        "gpt-5.6-luna": "GPT56_LUNA_DEPLOYMENT",
+        "gpt-chat-latest": "GPT_CHAT_LATEST_DEPLOYMENT",
         "gpt-5-chat": "GPT5_DEPLOYMENT",
         "o3": "O3_DEPLOYMENT",
         "o3-mini": "O3_MINI_DEPLOYMENT",

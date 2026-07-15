@@ -806,7 +806,7 @@ report.print_report()
 
 Once you have captured production data (via Stored Completions, APIM logs, or application logging), you need to format it into one of the **five task types** recognized by the evaluation tool's import feature. The tool accepts both **JSON** and **CSV** files; CSV files are automatically converted to JSON on import.
 
-> **📄 For exact field schemas, sample records, and CSV escaping rules, see the [Import Samples](/import-samples) page** in the evaluation tool. The examples below show how to map your raw captured data into each task-specific format.
+> **📄 For exact field schemas, sample records, and CSV escaping rules, start the evaluation tool and open its `/import-samples` page.** The examples below show how to map your raw captured data into each task-specific format.
 
 ### Task Types and Required Fields
 
@@ -928,7 +928,7 @@ When creating CSV files for import, keep these rules in mind:
 
 Once you have captured production data (via Stored Completions, APIM logs, or application logging), you need to format it into one of the **five task types** recognized by the evaluation tool's import feature. The tool accepts both **JSON** and **CSV** files; CSV files are automatically converted to JSON on import.
 
-> **📄 For exact field schemas, sample records, and CSV escaping rules, see the [Import Samples](/import-samples) page** in the evaluation tool. The examples below show how to map your raw captured data into each task-specific format.
+> **📄 For exact field schemas, sample records, and CSV escaping rules, start the evaluation tool and open its `/import-samples` page.** The examples below show how to map your raw captured data into each task-specific format.
 
 ### Task Types and Required Fields
 
@@ -1051,4 +1051,4 @@ When creating CSV files for import, keep these rules in mind:
 - **[Evaluation Guide](evaluation-guide.md)** — run your golden dataset through the evaluation framework
 - **[Cloud Eval Tracking](cloud-eval-tracking-across-models.md)** — track metrics across model generations in Foundry
 - **[Lifecycle Best Practices](llm-upgrade-lifecycle-best-practices.md)** — integrate golden dataset maintenance into your upgrade lifecycle
-- **[📄 Import Samples](/import-samples)** — exact JSON and CSV schemas for each task type, with copy-paste examples
+- **Evaluation tool `/import-samples` page** — exact JSON and CSV schemas for each task type, with copy-paste examples

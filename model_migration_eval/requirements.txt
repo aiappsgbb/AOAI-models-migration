@@ -6,7 +6,7 @@ azure-identity>=1.15.0
 azure-storage-blob>=12.19.0
 
 # Microsoft Foundry Control Plane Evaluation (optional)
-azure-ai-projects>=2.0.0b2
+azure-ai-projects>=2.3.0,<3.0.0
 
 # Web Framework
 flask>=3.0.0

@@ -7,12 +7,16 @@ description: >
   USE FOR: evaluate model, compare models, A/B test, LLM judge, migration evaluation,
   golden dataset, test cases, azure-ai-evaluation, azure-ai-projects, Foundry eval,
   cloud evaluation, quality metrics, coherence, relevance, groundedness, regression test,
-  before deploying new model, validate migration, eval pipeline, continuous evaluation.
+  before deploying new model, validate migration, eval pipeline, continuous evaluation,
+  decide whether Foundry Agent Optimizer is an appropriate remediation path.
   DO NOT USE FOR: code-level API migration (use aoai-model-migration),
-  retirement dates or lifecycle planning (use aoai-model-lifecycle).
+  retirement dates or lifecycle planning (use aoai-model-lifecycle), or running
+  Foundry Agent Optimizer jobs.
 ---
 
 # Azure OpenAI Migration Evaluation Skill
+
+> **Last verified: July 2026.** For model lifecycle dates, always verify the [official Azure OpenAI model retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements).
 
 ## Purpose
 
@@ -104,8 +108,8 @@ There are **two fundamentally different evaluation SDKs** offered by Microsoft. 
 
 | Aspect | **v1 — Local SDK (`azure-ai-evaluation`)** | **v2 — Cloud Evals API (`azure-ai-projects`)** |
 |---|---|---|
-| **Package** | `pip install azure-ai-evaluation` | `pip install "azure-ai-projects>=2.0.0" azure-identity openai` |
-| **Latest version** | `azure-ai-evaluation>=1.15.0` (Feb 2026) | `azure-ai-projects>=2.0.0` (GA) |
+| **Package** | `pip install azure-ai-evaluation` | `pip install "azure-ai-projects>=2.3.0" azure-identity openai` |
+| **Latest stable version (July 2026)** | `azure-ai-evaluation==1.18.1` | `azure-ai-projects==2.3.0` |
 | **Execution** | Runs **locally** on your machine (Python process) | Runs **in Azure cloud** (server-side, async) |
 | **Entry point** | `from azure.ai.evaluation import evaluate` | `client = project_client.get_openai_client()` then `client.evals.create()` / `client.evals.runs.create()` |
 | **Evaluator specification** | Python class instances: `CoherenceEvaluator(model_config=...)` | Dict-based `testing_criteria` with `"evaluator_name": "builtin.coherence"` |
@@ -189,7 +193,7 @@ Or pass a file path directly — loads JSONL automatically:
 # File path variant — no need to construct TestCase objects
 evaluator = MigrationEvaluator(
     source_model="gpt-4o",
-    target_model="gpt-5.1",  # or "gpt-5.4-mini" for tier-down strategy
+    target_model="gpt-5.1",  # replace with any candidate deployment
     test_cases="data/golden_rag.jsonl",  # file path supported
     metrics=["coherence", "fluency", "relevance", "groundedness"],
 )
@@ -306,7 +310,7 @@ Runs evaluations **in Azure cloud** using the OpenAI Evals API surfaced through 
 ### Installation
 
 ```bash
-pip install "azure-ai-projects>=2.0.0" azure-identity openai
+pip install "azure-ai-projects>=2.3.0" azure-identity openai
 ```
 
 ### Client Setup
@@ -365,7 +369,7 @@ testing_criteria = [
         "name": "coherence",
         "evaluator_name": "builtin.coherence",               # <- v2 syntax: builtin.*
         "initialization_parameters": {
-            "deployment_name": model_deployment_name,
+            "model": model_deployment_name,
         },
         "data_mapping": {
             "query": "{{item.query}}",                         # <- v2 syntax: {{item.field}}
@@ -377,7 +381,7 @@ testing_criteria = [
         "name": "groundedness",
         "evaluator_name": "builtin.groundedness",
         "initialization_parameters": {
-            "deployment_name": model_deployment_name,
+            "model": model_deployment_name,
         },
         "data_mapping": {
             "query": "{{item.query}}",
@@ -390,7 +394,7 @@ testing_criteria = [
         "name": "relevance",
         "evaluator_name": "builtin.relevance",
         "initialization_parameters": {
-            "deployment_name": model_deployment_name,
+            "model": model_deployment_name,
         },
         "data_mapping": {
             "query": "{{item.query}}",
@@ -460,7 +464,7 @@ Run the **same evaluation** against different models to compare them directly:
 
 ```python
 # Same eval definition, different model targets
-for model_name in ["gpt-4o", "gpt-4.1", "gpt-5.1"]:  # or "gpt-5.4-mini" for tier-down strategy
+for model_name in ["gpt-4o", "gpt-5.1", "gpt-5.5"]:
     data_source = {
         "type": "azure_ai_target_completions",
         "source": {"type": "file_id", "id": data_id},
@@ -557,7 +561,7 @@ Use this **quick reference** if you are looking at existing code:
 | `testing_criteria` with `"evaluator_name": "builtin.*"` | **v2 — Cloud Evals API** |
 | `EvaluatorConfiguration` + `EvaluatorIds` | **v1 via `azure-ai-projects` cloud wrapper** (hybrid, uses v1 evaluators in cloud) |
 
-> **NOTE**: The `azure-ai-projects` v1.x SDK also had a cloud evaluation path using `EvaluatorConfiguration` and `EvaluatorIds` enums with `${data.field}` mapping syntax. This is a **hybrid** approach — v1 evaluators run in the cloud. The v2 path (`azure-ai-projects>=2.0.0`) uses the OpenAI Evals API with `testing_criteria` and `{{item.field}}` syntax. Do not mix them.
+> **NOTE**: The `azure-ai-projects` v1.x SDK also had a cloud evaluation path using `EvaluatorConfiguration` and `EvaluatorIds` enums with `${data.field}` mapping syntax. This is a **hybrid** approach — v1 evaluators run in the cloud. The v2 path (`azure-ai-projects>=2.3.0`) uses the OpenAI Evals API with `testing_criteria` and `{{item.field}}` syntax. Do not mix them.
 
 ---
 
@@ -688,14 +692,14 @@ eval_obj = client.evals.create(
             "type": "azure_ai_evaluator",
             "name": "coherence",
             "evaluator_name": "builtin.coherence",
-            "initialization_parameters": {"deployment_name": os.environ["EVAL_MODEL_DEPLOYMENT"]},
+            "initialization_parameters": {"model": os.environ["EVAL_MODEL_DEPLOYMENT"]},
             "data_mapping": {"query": "{{item.query}}", "response": "{{item.response}}"},
         },
         {
             "type": "azure_ai_evaluator",
             "name": "groundedness",
             "evaluator_name": "builtin.groundedness",
-            "initialization_parameters": {"deployment_name": os.environ["EVAL_MODEL_DEPLOYMENT"]},
+            "initialization_parameters": {"model": os.environ["EVAL_MODEL_DEPLOYMENT"]},
             "data_mapping": {
                 "query": "{{item.query}}",
                 "response": "{{item.response}}",
@@ -706,7 +710,7 @@ eval_obj = client.evals.create(
             "type": "azure_ai_evaluator",
             "name": "relevance",
             "evaluator_name": "builtin.relevance",
-            "initialization_parameters": {"deployment_name": os.environ["EVAL_MODEL_DEPLOYMENT"]},
+            "initialization_parameters": {"model": os.environ["EVAL_MODEL_DEPLOYMENT"]},
             "data_mapping": {"query": "{{item.query}}", "response": "{{item.response}}"},
         },
     ],
@@ -723,7 +727,7 @@ data = project_client.datasets.upload_file(
 
 # ── Step 3: Create a run for EACH model you want to evaluate ────────
 # Each run is labeled with the model name + date, all under the same eval_id.
-models_to_evaluate = ["gpt-4o", "gpt-4.1", "gpt-5.1"]  # or "gpt-5.4-mini" for tier-down strategy
+models_to_evaluate = ["gpt-4o", "gpt-5.1", "gpt-5.5"]
 
 for model in models_to_evaluate:
     run = client.evals.runs.create(
@@ -779,6 +783,24 @@ Define pass/fail criteria for your migration:
 | Safety (violence, etc.) | Severity < 2 | Block migration |
 | BLEU / ROUGE | Delta <= 10% drop vs current | Investigate, may block |
 | Latency P95 | <= 120% of current | Investigate |
+
+## Foundry Agent Optimizer Is a Remediation Step
+
+Foundry Agent Optimizer is not a third SDK approach and does not replace source-versus-target migration evaluation. For an eligible Microsoft Foundry hosted agent, it can generate and rank candidate changes to instructions, skills, tool descriptions, and model selection after evaluation identifies a regression.
+
+> **⚠️ Important:** Agent Optimizer is in preview, has no service-level agreement, and is not recommended for production workloads.
+
+Before recommending it, verify that the agent:
+
+- Is a deployed Foundry hosted agent using the Responses protocol
+- Uses Python 3.10+ with `azure-ai-agentserver-optimization`
+- Loads an optimizer baseline from `.agent_configs/baseline/`
+- Has a representative dataset and evaluators
+- Has deployed eval and optimization models in the Foundry project
+- Runs in a supported region under an allow-listed subscription
+- Can execute tools safely against non-production endpoints or mocks
+
+Always preserve the original baseline, review the candidate diff, re-evaluate on held-out migration cases, and keep the baseline if candidates do not improve the migration quality gate. See [`docs/foundry-agent-optimizer.md`](../../../docs/foundry-agent-optimizer.md) for the preview workflow and limitations.
 
 ## Building a Golden Dataset
 
@@ -857,6 +879,7 @@ print(prompty["system_prompt"])
 - Skip safety evaluators during model upgrades
 - Commit API keys or evaluation data containing PII
 - Ignore regressions flagged by the evaluation report
+- Treat an Agent Optimizer winner as approved for deployment without independent review and re-evaluation
 - Compare models using different system prompts — keep prompts identical for fair comparison
 - Mix v1 `${data.field}` syntax with v2 `{{item.field}}` syntax — they are incompatible
 - Use `EvaluatorConfiguration` / `EvaluatorIds` (v1 cloud wrapper) when targeting the v2 OpenAI Evals API
@@ -867,9 +890,10 @@ print(prompty["system_prompt"])
 > **💡 Tip:** This skill provides evaluation guidance. For the latest model dates and migration paths, always check the repo documentation — it is updated more frequently than this skill.
 
 - [`docs/evaluation-guide.md`](../../../docs/evaluation-guide.md) — detailed evaluation methodology
-- [`docs/cloud-evaluation-guide.md`](../../../docs/cloud-evaluation-guide.md) — Azure AI Foundry cloud evaluation deep dive
+- [`docs/foundry-agent-optimizer.md`](../../../docs/foundry-agent-optimizer.md) — optional preview remediation for eligible hosted agents
+- [`docs/cloud-eval-tracking-across-models.md`](../../../docs/cloud-eval-tracking-across-models.md) — Azure AI Foundry cloud evaluation deep dive
 - [`docs/retirement-timeline.md`](../../../docs/retirement-timeline.md) — current retirement dates and planning matrix
-- [`docs/migration-paths.md`](../../../docs/migration-paths.md) — choosing target models (tier-down strategy)
+- [`docs/migration-paths.md`](../../../docs/migration-paths.md) — choosing and evaluating target models
 - [`samples/rag_pipeline/`](../../../samples/rag_pipeline/) — working end-to-end RAG migration with evaluation
 - [`data/`](../../../data/) — 54 pre-built golden test cases (RAG, classification, tool calling, translation, summarization, agent, multi-turn)
 - [`README.md`](../../../README.md) — repo overview and FAQ
@@ -877,12 +901,14 @@ print(prompty["system_prompt"])
 ## References
 
 - [Azure AI Evaluation SDK (v1) — Python Reference](https://learn.microsoft.com/python/api/overview/azure/ai-evaluation-readme)
-- [Local Evaluation with azure-ai-evaluation (v1)](https://learn.microsoft.com/azure/ai-foundry/how-to/develop/evaluate-sdk?view=foundry-classic)
-- [Cloud Evaluation with Foundry SDK (v2)](https://learn.microsoft.com/azure/ai-foundry/how-to/develop/cloud-evaluation?view=foundry-classic)
-- [Azure OpenAI Evals API (v2)](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/evaluations?view=foundry-classic)
-- [Evals API REST Reference](https://learn.microsoft.com/azure/ai-foundry/openai/authoring-reference-preview#evaluation---create)
-- [Built-in Evaluators Catalog](https://learn.microsoft.com/azure/ai-foundry/concepts/built-in-evaluators?view=foundry-classic)
-- [Custom Evaluators Guide](https://learn.microsoft.com/azure/ai-foundry/concepts/evaluation-evaluators/custom-evaluators?view=foundry-classic)
-- [Continuous Evaluation for Agents](https://learn.microsoft.com/azure/ai-foundry/how-to/continuous-evaluation-agents?view=foundry-classic)
+- [Local Evaluation with azure-ai-evaluation (v1)](https://learn.microsoft.com/azure/foundry/how-to/develop/evaluate-sdk)
+- [Cloud Evaluation with Foundry SDK (v2)](https://learn.microsoft.com/azure/foundry/how-to/develop/cloud-evaluation)
+- [Azure OpenAI Evals API (v2)](https://learn.microsoft.com/azure/foundry/openai/how-to/evaluations)
+- [Evals API REST Reference](https://learn.microsoft.com/azure/foundry/openai/authoring-reference-preview#evaluation---create)
+- [Built-in Evaluators Catalog](https://learn.microsoft.com/azure/foundry/concepts/built-in-evaluators)
+- [Custom Evaluators Guide](https://learn.microsoft.com/azure/foundry/concepts/evaluation-evaluators/custom-evaluators)
+- [Continuous Evaluation for Agents](https://learn.microsoft.com/azure/foundry/how-to/continuous-evaluation-agents)
+- [Foundry Agent Optimizer Overview](https://learn.microsoft.com/azure/foundry/agents/concepts/agent-optimizer-overview)
+- [Make a Hosted Agent Optimizer-Ready](https://learn.microsoft.com/azure/foundry/agents/how-to/make-agent-optimizer-ready)
 - [azure-ai-projects PyPI (v2)](https://pypi.org/project/azure-ai-projects/)
 - [azure-ai-evaluation PyPI (v1)](https://pypi.org/project/azure-ai-evaluation/)

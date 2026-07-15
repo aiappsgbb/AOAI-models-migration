@@ -217,7 +217,7 @@ one-off comparisons, you track quality trends across every migration cycle.
 ## Upload Results to Azure AI Foundry
 
 Push evaluation results to the Foundry portal for visual dashboards and
-cross-run comparison. Uses `azure-ai-projects>=2.0.0` (new Foundry SDK).
+cross-run comparison. Uses `azure-ai-projects>=2.3.0` (Foundry SDK v2).
 
 ### Setup
 

@@ -116,7 +116,7 @@ def _cli():
                    help="Keep browser open after completion")
     p.add_argument("--base-url", default="http://localhost:5000",
                    help="Flask server base URL")
-    p.add_argument("--email", default="asevillano@gmail.com",
+    p.add_argument("--email", default="user@contoso.com",
                    help="Login email address")
     return p.parse_args()
 

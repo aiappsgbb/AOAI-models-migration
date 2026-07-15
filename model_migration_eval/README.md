@@ -1868,7 +1868,7 @@ flowchart LR
 
 | Requirement | Details |
 |-------------|---------|
-| **Python package** | `pip install 'azure-ai-projects>=2.0.0b2'` (already in `requirements.txt`) |
+| **Python package** | `pip install 'azure-ai-projects>=2.3.0'` (already in `requirements.txt`) |
 | **Foundry Project** | Create a project in [Azure AI Foundry](https://ai.azure.com/) |
 | **Judge model deployment** | Deploy a model (e.g. `gpt-4.1`) in the Foundry project — this model runs the LLM-as-judge evaluations |
 | **Azure credentials** | `DefaultAzureCredential` — works with Azure CLI (`az login`), Managed Identity, or Service Principal (auto-created by `deploy.ps1`) |
@@ -1902,7 +1902,7 @@ flowchart LR
 1. **Install the SDK** (if not already done):
 
    ```bash
-   pip install 'azure-ai-projects>=2.0.0b2'
+   pip install 'azure-ai-projects>=2.3.0'
    ```
 
 2. **Configure `settings.yaml`** — add the `foundry` section:
@@ -2337,7 +2337,7 @@ playwright install chromium
 | `--foundry` | off | Submit to Foundry LLM-as-judge after each evaluation |
 | `--headless` | off | Run Chromium without a visible window |
 | `--no-close` | off | Keep browser open after completion for manual inspection |
-| `--email` | `asevillano@gmail.com` | Login email |
+| `--email` | `user@contoso.com` | Login email |
 | `--base-url` | `http://localhost:5000` | Flask server URL |
 
 ### Output
@@ -2381,7 +2381,7 @@ A second Playwright script (`tools/run_browser_compare.py`) automates the **Comp
 | `--foundry` | off | Enable Foundry LLM-as-judge scoring |
 | `--headless` | off | Run Chromium without a visible window |
 | `--no-close` | off | Keep browser open after completion |
-| `--email` | `asevillano@gmail.com` | Login email |
+| `--email` | `user@contoso.com` | Login email |
 | `--base-url` | `http://localhost:5000` | Flask server URL |
 
 #### Output

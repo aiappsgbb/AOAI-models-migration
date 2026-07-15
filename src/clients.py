@@ -6,39 +6,28 @@ Authentication: Entra ID (DefaultAzureCredential) by default, API key as fallbac
 """
 
 import os
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from openai import AzureOpenAI, OpenAI
 
-from src.config import is_v1, is_reasoning, uses_developer_role, MAX_COMPLETION_TOKEN_MODELS
+from src.config import (
+    MAX_COMPLETION_TOKEN_MODELS,
+    is_reasoning,
+    is_responses_only,
+    is_v1,
+    uses_developer_role,
+)
 
 
-def _get_token_provider():
-    """Create an Entra ID token provider for Azure Cognitive Services."""
+V1_TOKEN_SCOPE = "https://ai.azure.com/.default"
+CLASSIC_TOKEN_SCOPE = "https://cognitiveservices.azure.com/.default"
+
+
+def _get_token_provider(scope: str) -> Callable[[], str]:
+    """Create an Entra ID token provider for the requested Azure resource."""
     from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
-    return get_bearer_token_provider(
-        DefaultAzureCredential(),
-        "https://cognitiveservices.azure.com/.default",
-    )
-
-
-class _TokenRefreshingOpenAI(OpenAI):
-    """OpenAI client wrapper that refreshes Entra ID tokens automatically.
-
-    The base OpenAI client accepts a static api_key string. For Entra ID auth
-    with the v1 API, we need to refresh the token on each request since tokens
-    expire (typically after 1 hour).
-    """
-
-    def __init__(self, *, base_url: str, token_provider):
-        self._token_provider = token_provider
-        super().__init__(base_url=base_url, api_key=token_provider())
-
-    def _prepare_options(self, options):
-        # Refresh the token before each request
-        self.api_key = self._token_provider()
-        return super()._prepare_options(options)
+    return get_bearer_token_provider(DefaultAzureCredential(), scope)
 
 
 def create_client(
@@ -63,15 +52,14 @@ def create_client(
     if is_v1(model_name):
         base_url = endpoint.rstrip("/") + "/openai/v1"
         if use_entra:
-            # Return a wrapper that refreshes the token on each request
-            token_provider = _get_token_provider()
-            return _TokenRefreshingOpenAI(base_url=base_url, token_provider=token_provider)
+            token_provider = _get_token_provider(V1_TOKEN_SCOPE)
+            return OpenAI(base_url=base_url, api_key=token_provider)
         return OpenAI(base_url=base_url, api_key=api_key)
     else:
         if use_entra:
             return AzureOpenAI(
                 azure_endpoint=endpoint,
-                azure_ad_token_provider=_get_token_provider(),
+                azure_ad_token_provider=_get_token_provider(CLASSIC_TOKEN_SCOPE),
                 api_version=api_version,
             )
         return AzureOpenAI(
@@ -96,6 +84,12 @@ def call_model(
     - Drops temperature/top_p for reasoning models
     - system → developer role for reasoning models (GPT-5+, o-series)
     """
+    if is_responses_only(model_name):
+        raise ValueError(
+            f"{model_name} is only available through the Responses API; "
+            "call client.responses.create() instead of call_model()."
+        )
+
     # max_tokens → max_completion_tokens for models that require it
     if "max_tokens" in params and model_name in MAX_COMPLETION_TOKEN_MODELS:
         params["max_completion_tokens"] = params.pop("max_tokens")

@@ -230,7 +230,7 @@ class FoundryEvalsClient:
                 "name": metric,
                 "evaluator_name": config["evaluator_name"],
                 "initialization_parameters": {
-                    "deployment_name": self.deployment_name,
+                    "model": self.deployment_name,
                 },
                 "data_mapping": config["data_mapping"],
             })

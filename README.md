@@ -1,11 +1,11 @@
 # Azure OpenAI Models Migration Guide
 
-Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI models (GPT-4.1, GPT-5.4, GPT-5.5, o-series), with **evaluation tools** and **ready-to-use golden datasets** to validate quality before deploying.
+Complete guide for migrating from GPT-4o/GPT-4o-mini to newer Azure OpenAI models (GPT-4.1, GPT-5.4 through GPT-5.6, o-series), with **evaluation tools** and **ready-to-use golden datasets** to validate quality before deploying.
 
 > [!WARNING]
 > **Retirement dates and model availability change frequently.**
 > Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements)** for the latest authoritative information.
-> This guide was last updated **May 2026**.
+> **Last verified: July 2026.**
 
 > [!NOTE]
 > **Scope:** This guide focuses on **text generation models** (GPT series and o-series). For audio, image, and embedding models, see the [official retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements).
@@ -72,6 +72,7 @@ report.print_report()
 | 🚦 **[Migration Execution Guide](docs/migration-execution-guide.md)** | Phased rollout plan, gates, pilot/shadow strategy, rollback criteria, and operational validation |
 | 🔗 **[Migrating Multi-Step Apps](docs/migrating-multi-step-apps.md)** | Hybrid evaluation methodology for RAG pipelines and agent workflows |
 | ☁️ **[Cloud Eval Tracking](docs/cloud-eval-tracking-across-models.md)** | Reusable eval definitions in Azure AI Foundry, cross-model comparison, CI/CD |
+| 🛠️ **[Foundry Agent Optimizer](docs/foundry-agent-optimizer.md)** | Preview remediation workflow for eligible hosted agents after migration evaluation detects a regression |
 | 🔄 **[Lifecycle Best Practices](docs/llm-upgrade-lifecycle-best-practices.md)** | Deployment inventory, notifications, rollout strategies, fine-tuned models, multi-region |
 | 🤖 **[Using AI Agent Skills](docs/using-copilot-skills.md)** | Install and use the built-in Skills for guided migration assistance |
 
@@ -156,6 +157,7 @@ npx skills add aiappsgbb/AOAI-models-migration
 - **[Azure OpenAI Models Overview](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models)** — capabilities and regional availability
 - **[GPT-5 vs GPT-4.1](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/gpt-5-vs-gpt-41)** — comparison guide
 - **[Azure AI Foundry Evaluation](https://learn.microsoft.com/en-us/azure/ai-foundry/evaluation/)** — evaluation tools
+- **[Foundry Agent Optimizer](https://learn.microsoft.com/azure/foundry/agents/concepts/agent-optimizer-overview)** — preview optimization workflow for hosted agents
 - **[What's New in Azure OpenAI](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/whats-new)** — latest changes
 - **[Responses API](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/responses)** — new API surface
 
@@ -171,7 +173,7 @@ npx skills add aiappsgbb/AOAI-models-migration
 | **What if a regression is detected?** | 4-scenario remediation playbook: diagnosis → root cause → fix, plus rollback by deployment type. | [Remediation Playbook](docs/migrating-multi-step-apps.md) |
 | **Why LLM-as-judge over similarity scoring?** | Similarity penalizes better answers and misses hallucination; LLM judges evaluate meaning. | [Evaluation Guide](docs/evaluation-guide.md) |
 | **How do I track quality over time?** | Azure AI Foundry named evaluation runs + portal side-by-side, or Fabric + Power BI for cross-org. | [Cloud Eval Tracking](docs/cloud-eval-tracking-across-models.md) |
-| **Does this work for agentic apps?** | Same config-only swap — model is one env variable in every framework (SK, LangChain, etc.). | [Agentic Workflow](docs/migrating-multi-step-apps.md) |
+| **Does this work for agentic apps?** | Yes. Evaluate the config-only model swap first; eligible Foundry hosted agents can then use Agent Optimizer as an optional remediation step. | [Agentic Workflow](docs/migrating-multi-step-apps.md) |
 
 ## License
 

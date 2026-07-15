@@ -1,5 +1,7 @@
 # Migrating Multi-Step Applications
 
+> **Last verified: July 2026.** For model lifecycle dates, always verify the [official Azure OpenAI model retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements).
+
 Single-call migrations—swap the model, run an A/B eval, ship—work well when your application makes one LLM call per request. Most production systems don't. A RAG pipeline chains four or more model calls. An agent workflow may loop through a planner, tool-caller, and summarizer. When you migrate these systems, you need a methodology that tells you not just *whether* quality changed, but *where* the change originated.
 
 This guide covers that methodology.
@@ -288,6 +290,20 @@ The same **dual-layer methodology** applies, with agentic-specific metrics:
 | Schema compliance | Do function calls conform to tool schemas? | No — schema validation |
 | Response quality | Is the final response grounded and relevant? | Yes — LLM-as-judge |
 
+#### Optional Remediation with Foundry Agent Optimizer
+
+After evaluation identifies a regression, eligible Microsoft Foundry hosted agents can use [Agent Optimizer](foundry-agent-optimizer.md) to generate and rank candidate changes to instructions, skills, tool descriptions, and model selection.
+
+Treat this as a remediation loop, not a replacement for the dual-layer evaluation:
+
+1. Preserve the source-versus-target migration baseline.
+2. Optimize against a representative training dataset.
+3. Review the winning candidate's source changes and score delta.
+4. Re-evaluate it against held-out migration cases.
+5. Deploy only through the normal pilot, monitoring, and rollback gates.
+
+> **⚠️ Important:** Agent Optimizer is currently preview-only, requires an eligible hosted agent and allow-listed subscription, and invokes external tools during candidate evaluation. Use non-production tool endpoints or mocks for state-changing actions.
+
 #### Tool-Sequence Stability
 
 A key challenge with agentic apps: a new model may choose a _different_ sequence of tools but arrive at the _same correct result_. Your evaluation must distinguish:
@@ -313,6 +329,7 @@ Evaluation logic: if the actual tool sequence matches `expected_tools` OR any en
 - [ ] Swap the model in config — verify the app still starts and handles basic requests
 - [ ] Run E2E evaluation: compare final answers before/after
 - [ ] Run task-level evaluation: check tool selections, parameter accuracy, schema compliance
+- [ ] If using Agent Optimizer, review the applied candidate and re-evaluate it on held-out cases
 - [ ] For reasoning models (GPT-5+): verify `developer` role and `max_completion_tokens` handling
 - [ ] Monitor post-migration: track tool-calling patterns and answer quality over time
 
@@ -486,6 +503,8 @@ When evaluation detects a regression, use this decision tree to identify the roo
 
 **Fix:** Tune the generation prompt or parameters. If scores don't recover, this model version is not suitable — try the next candidate.
 
+For an eligible Foundry hosted agent, [Agent Optimizer](foundry-agent-optimizer.md) can automate candidate instruction, skill, tool-description, and model-selection changes. Keep the current baseline if no candidate passes independent re-evaluation.
+
 ### Scenario 3: Scores stable, but latency regressed
 
 **Diagnosis:** The new model is slower. This is common with larger models.
@@ -530,4 +549,5 @@ This shows:
 - [Evaluation Guide](evaluation-guide.md) — Metrics, thresholds, and scoring methodology
 - [Migration Paths](migration-paths.md) — Choosing target models for each step
 - [API Changes by Model](api-changes-by-model.md) — Parameter differences across model families
+- [Foundry Agent Optimizer](foundry-agent-optimizer.md) — Optional preview remediation for eligible hosted agents
 - [Retirement Timeline](retirement-timeline.md) — Deadlines that may force your migration order

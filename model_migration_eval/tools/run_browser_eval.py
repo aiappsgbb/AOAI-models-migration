@@ -65,7 +65,7 @@ log = logging.getLogger("browser-eval")
 # ---------------------------------------------------------------------------
 EVAL_TYPES = ["classification", "dialog", "general", "rag", "tool_calling"]
 DEFAULT_BASE_URL = "http://localhost:5000"
-DEFAULT_EMAIL = "asevillano@gmail.com"
+DEFAULT_EMAIL = "user@contoso.com"
 DEFAULT_LIMIT = 10
 DEFAULT_TIMEOUT = 300          # seconds per evaluation
 FOUNDRY_TIMEOUT = 180          # seconds waiting for Foundry results

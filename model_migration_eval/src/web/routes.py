@@ -2686,7 +2686,7 @@ def create_app(config_path: str = None) -> Flask:
             'configured': evaluator is not None,
             'message': (
                 'Ready' if evaluator
-                else 'SDK not installed — pip install azure-ai-projects>=2.0.0b2'
+                else 'SDK not installed — pip install azure-ai-projects>=2.3.0'
                 if not sdk_available
                 else 'Set foundry.project_endpoint and foundry.judge_deployment in settings.yaml'
             ),

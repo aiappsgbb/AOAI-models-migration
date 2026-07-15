@@ -1,5 +1,7 @@
 # Evaluation Guide
 
+> **Last verified: July 2026.** For model lifecycle dates, always verify the [official Azure OpenAI model retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements).
+
 The evaluation framework helps you **detect regressions** before deploying a new model in production. It works by running the same prompts through both your current (source) and target models, then comparing the outputs using automated metrics and LLM-as-Judge scoring.
 
 > **Why evaluate?** Auto-upgrades and model swaps can subtly change behavior — a model might be "better" on benchmarks but worse for your specific prompts, schemas, or tone. Always evaluate on **your** data before switching.
@@ -79,6 +81,12 @@ results = foundry.evaluate_cloud(
 ```
 
 > 📖 **[Cloud Eval Tracking deep dive →](cloud-eval-tracking-across-models.md)** — how to create reusable eval definitions, compare runs side-by-side in the Foundry portal with statistical significance testing, and integrate into CI/CD pipelines.
+
+### Evaluation vs. Foundry Agent Optimizer
+
+[Foundry Agent Optimizer](foundry-agent-optimizer.md) is an optional **remediation workflow** for eligible hosted agents, not a fourth evaluation approach. It uses a dataset and evaluators to generate and rank candidate changes to agent instructions, skills, tool descriptions, and model selection.
+
+Run the source-versus-target migration evaluation first. If it identifies an agent regression, use Agent Optimizer only when the workload meets the preview eligibility requirements, then review and re-evaluate the selected candidate before deployment.
 
 ---
 
@@ -394,5 +402,6 @@ By default, the evaluator uses these acceptance thresholds:
 ## Next Steps
 
 - **[Cloud Eval Tracking](cloud-eval-tracking-across-models.md)** — track metrics across model generations in Azure AI Foundry
+- **[Foundry Agent Optimizer](foundry-agent-optimizer.md)** — remediate regressions in eligible hosted agents after evaluation
 - **[Lifecycle Best Practices](llm-upgrade-lifecycle-best-practices.md)** — continuous evaluation as part of the upgrade lifecycle
 - **[API Changes](api-changes-by-model.md)** — understand the code changes needed before evaluating

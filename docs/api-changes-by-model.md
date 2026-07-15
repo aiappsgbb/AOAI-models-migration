@@ -1,12 +1,14 @@
 # Key API Changes by Model Family
 
 > **⚠️ Retirement dates and model availability change frequently.** Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements)**.
+>
+> **Last verified: July 2026.**
 
 This document covers the technical API differences you need to handle when migrating between Azure OpenAI model families. For migration paths and timelines, see the [README](../README.md).
 
 ## Client Configuration
 
-GPT-4.1+ and GPT-5+ use the **v1 API**, which requires the `OpenAI` client instead of `AzureOpenAI`.
+Current GPT-4.1+, GPT-5+, and o-series integrations use the **v1 API**, which uses the `OpenAI` client instead of `AzureOpenAI`.
 
 **Before (GPT-4o — versioned API):**
 ```python
@@ -19,17 +21,23 @@ client = AzureOpenAI(
 )
 ```
 
-**After (GPT-4.1 / GPT-5 series — v1 API):**
+**After (GPT-4.1, GPT-5, and o-series — v1 API):**
 ```python
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from openai import OpenAI
 
+token_provider = get_bearer_token_provider(
+    DefaultAzureCredential(),
+    "https://ai.azure.com/.default",
+)
+
 client = OpenAI(
-    api_key=token_provider(),
+    api_key=token_provider,
     base_url=f"{AZURE_OPENAI_ENDPOINT}/openai/v1/"
 )
 ```
 
-> **Tip:** The repo's `src/clients.py` provides a `create_client()` factory that picks the right client automatically based on model name, and a `_TokenRefreshingOpenAI` wrapper that refreshes Entra ID tokens on every request.
+> **💡 Tip:** Pass the token-provider callable itself, not `token_provider()`. The OpenAI client invokes it when needed, so Entra ID tokens refresh without overriding private SDK methods. The repo's `src/clients.py` applies this pattern automatically.
 
 ## Parameter Changes
 
@@ -76,6 +84,7 @@ if uses_developer_role(model_name):
 | GPT-5.1 | Reasoning | `none`, `low`, `medium`, `high` | `none` |
 | GPT-5.2 / 5.3-codex / 5.4 / 5.4-pro | Reasoning | `none`, `low`, `medium`, `high` | `none` |
 | GPT-5.4-mini / 5.4-nano | Reasoning | `none`, `low`, `medium`, `high` | `none` |
+| GPT-5.5 / GPT-5.6 series / `gpt-chat-latest` | Reasoning | Verify supported levels for the deployed model version | Verify model documentation |
 | o-series (o1, o3, o4-mini) | Reasoning | `low`, `medium`, `high` | `medium` |
 
 > **💡 What if you don't set `reasoning_effort` at all?**
@@ -92,6 +101,7 @@ Use these helpers (from `src/config.py`) to determine which API and parameters a
 from src import is_v1, is_reasoning, is_o_series, uses_developer_role
 
 is_v1("gpt-4.1")           # True — uses OpenAI client with /openai/v1/
+is_v1("o3")                # True — current v1 API path
 is_v1("gpt-4o")            # False — uses AzureOpenAI client
 
 is_reasoning("gpt-5.1")    # True — no temperature/top_p, max_completion_tokens
@@ -116,6 +126,8 @@ Test your JSON schemas against the new model — while the API is compatible, di
 ## Responses API
 
 Azure OpenAI now supports the **Responses API** alongside Chat Completions. The Responses API is the recommended path forward for new development, offering built-in tool use, file search, and web search. Existing Chat Completions code continues to work. See the [Responses API docs](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/responses) for details.
+
+> **⚠️ Important:** Codex models such as `gpt-5.1-codex`, `gpt-5.2-codex`, and `gpt-5.3-codex` are Responses-API-only. The repo's `call_model()` helper uses Chat Completions and raises a clear error for these models; call `client.responses.create()` instead.
 
 ## Other SDKs (C#, JavaScript, Java)
 

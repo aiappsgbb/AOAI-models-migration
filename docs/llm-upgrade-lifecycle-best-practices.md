@@ -4,7 +4,7 @@
 > Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements)** for the latest authoritative information. See also: **[What's New in Azure OpenAI](https://learn.microsoft.com/azure/ai-foundry/openai/whats-new)**.
 
 > **Audience:** Platform teams, architects, and engineering leads building on Azure OpenAI / Microsoft Foundry.
-> **Last updated:** May 2026
+> **Last verified:** July 2026
 
 ---
 
@@ -12,7 +12,7 @@
 
 Azure OpenAI models are **continually refreshed** with newer, more capable versions. Older models go through a formal **deprecation → retirement** cycle. Once retired, deployments return errors — there is no grace period.
 
-The pace is fast: GA models are guaranteed for **12 months minimum**, with an additional 6-month window for existing customers. Preview models can retire in as little as **90–120 days**. Treating LLMs as permanent infrastructure is a recipe for production incidents.
+The pace is fast, and published retirement dates vary by model. Preview models can retire in as little as **90–120 days**. Treating LLMs as permanent infrastructure—or deriving dates from a blanket lifecycle formula—is a recipe for production incidents.
 
 ---
 
@@ -43,18 +43,18 @@ The pace is fast: GA models are guaranteed for **12 months minimum**, with an ad
 ```mermaid
 graph TD
     GA["<b>Model Launch (GA)</b>"]
-    GA -->|"12 months"| DEP["<b>Deprecation</b><br/>No new customers"]
-    GA -->|"up to 18 months"| RET["<b>Retirement</b><br/>Existing customers"]
-    GA --> REPL["<b>Replacement model (N+1)</b><br/>Available for side-by-side comparison"]
+    GA --> DEP["<b>Published deprecation date</b><br/>No new deployments for affected customers"]
+    GA --> RET["<b>Published retirement date</b><br/>Existing deployments stop or auto-upgrade"]
+    GA --> REPL["<b>Designated replacement</b><br/>Only when Microsoft publishes one"]
 
     RET -.- NOTE1["Standard deployments may auto-upgrade<br/>~3 weeks before retirement"]
     RET -.- NOTE2["Provisioned / Global Standard<br/>may get extended timelines"]
-    REPL -.- NOTE3["Customers get 60 days to try<br/>the new GA model before auto-upgrades"]
+    REPL -.- NOTE3["Evaluate side by side before<br/>any production promotion"]
 ```
 
 **Preview models** follow an accelerated timeline: 90–120 day "not sooner than" retirement, with 30 days' notice before upgrades.
 
-### Current Lifecycle Examples (as of Feb 2026)
+### Current Lifecycle Examples (as of July 2026)
 
 #### GPT Series
 
@@ -62,20 +62,25 @@ graph TD
 |---|---|---|---|
 | `gpt-4o` | 2024-08-06 | 2026-03-31 (Standard) / 2026-10-01 (Provisioned) | `gpt-5.1` |
 | `gpt-4o-mini` | 2024-07-18 | 2026-03-31 (Standard) / 2026-10-01 (Provisioned) | `gpt-4.1-mini` |
-| `gpt-4.1` | 2025-04-14 | 2026-10-14 | `gpt-5` |
-| `gpt-4.1-mini` | 2025-04-14 | 2026-10-14 | `gpt-5-mini` |
-| `gpt-4.1-nano` | 2025-04-14 | 2026-10-14 | `gpt-5-nano` |
-| `gpt-5` | 2025-08-07 | 2027-02-05 | — |
+| `gpt-4.1` | 2025-04-14 | 2026-10-14 | — |
+| `gpt-4.1-mini` | 2025-04-14 | 2026-10-14 | — |
+| `gpt-4.1-nano` | 2025-04-14 | 2026-10-14 | — |
+| `gpt-5` | 2025-08-07 | 2027-02-06 | — |
 | `gpt-5-mini` | 2025-08-07 | 2027-02-06 | — |
 | `gpt-5.1` | 2025-11-13 | 2027-05-15 | — |
-| `gpt-5.2` | 2025-12-11 | ~2027-05-12 | — |
+| `gpt-5.2` | 2025-12-11 | 2026-12-12 | — |
+| `gpt-5.2-codex` | 2026-01-14 | 2027-01-14 | — |
+| `gpt-5.3-codex` | 2026-02-24 | 2027-02-25 | — |
+| `gpt-5.4` | 2026-03-05 | 2027-03-05 | — |
+| `gpt-5.5` | 2026-04-24 | 2027-04-23 | — |
+| `gpt-5.6-sol`, `-terra`, `-luna` | 2026-07-09 | 2027-07-09 | — |
 
 #### o-Series (Reasoning)
 
 | Model | GA Version | Retirement (not before) | Replacement |
 |---|---|---|---|
-| `o1` | 2024-12-17 | 2026-07-15 | `o3` |
-| `o3-mini` | 2025-01-31 | 2026-08-02 | `o4-mini` |
+| `o1` | 2024-12-17 | 2026-09-16 | — |
+| `o3-mini` | 2025-01-31 | 2026-10-01 | — |
 | `o3` | 2025-04-16 | 2026-10-16 | — |
 | `o4-mini` | 2025-04-16 | 2026-10-16 | — |
 
@@ -85,7 +90,7 @@ graph TD
 |---|---|---|---|
 | `model-router` | 2025-11-18 | 2027-05-20 | Auto-routes requests to optimal model |
 
-> ⚠️ These are "not sooner than" dates — they can be extended but not shortened. Always check the [official retirements page](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements).
+> ⚠️ These are "not sooner than" dates — they can be extended but not shortened. `o4-mini` and `codex-mini` are currently deprecated. Always check the [official retirements page](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements).
 > 📌 **Note:** ChatGPT (consumer) and Azure Foundry (enterprise) have **independent** retirement schedules. Don't rely on ChatGPT announcements for Azure dates.
 
 ---
@@ -436,12 +441,12 @@ print(f"Evaluation: {evaluation_response.name}, Status: {evaluation_response.sta
 
 ---
 
-#### Approach B — `azure-ai-projects` ≥ 2.0.0b3 (uses OpenAI Evals API via `openai_client.evals`)
+#### Approach B — `azure-ai-projects` 2.x (uses OpenAI Evals API via `openai_client.evals`)
 
 Starting with v2, the SDK uses the **OpenAI Evals API** exposed through `project_client.get_openai_client()`. This is a fundamentally different programming model using `testing_criteria` and `data_source_config` instead of `EvaluatorConfiguration`.
 
 ```bash
-pip install azure-ai-projects>=2.0.0b3 azure-identity
+pip install "azure-ai-projects>=2.3.0" azure-identity
 ```
 
 ```python
@@ -489,13 +494,13 @@ with (
             "type": "azure_ai_evaluator",
             "name": "coherence",
             "evaluator_name": "builtin.coherence",
-            "initialization_parameters": {"deployment_name": model_deployment_name},
+            "initialization_parameters": {"model": model_deployment_name},
         },
         {
             "type": "azure_ai_evaluator",
             "name": "fluency",
             "evaluator_name": "builtin.fluency",
-            "initialization_parameters": {"deployment_name": model_deployment_name},
+            "initialization_parameters": {"model": model_deployment_name},
             "data_mapping": {
                 "query": "{{item.query}}",
                 "response": "{{item.response}}",

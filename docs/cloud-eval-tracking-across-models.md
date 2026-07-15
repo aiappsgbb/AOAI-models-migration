@@ -1,5 +1,7 @@
 # Tracking Evaluation Metrics Across Model Migrations — Azure AI Foundry Cloud Evals
 
+> **Last verified: July 2026.**
+>
 > **Audience:** Teams managing Azure OpenAI model migrations who want a single place to track quality metrics over time and across model versions.
 
 ## The Problem
@@ -14,7 +16,7 @@ Most teams answer this by running one-off evaluation scripts, saving results to 
 
 ## The Solution: Reusable Eval Definitions in Azure AI Foundry
 
-The Azure AI Foundry Evals API (v2, via `azure-ai-projects >= 2.0.0b3`) separates **eval definitions** from **runs**:
+The Azure AI Foundry Evals API (v2, via `azure-ai-projects >= 2.3.0`) separates **eval definitions** from **runs**:
 
 - An **eval definition** encodes your testing criteria (which metrics, what data schema, what pass/fail thresholds). You create it **once**.
 - A **run** executes that eval against a specific dataset — typically responses from a specific model at a specific point in time. You create runs **repeatedly**, over months and model generations.
@@ -40,7 +42,7 @@ When you open an eval definition in the Foundry portal, you see all runs listed 
 
 ![Foundry portal showing evaluation runs with pass rates per metric across multiple runs. Each row is a run, columns show metrics like groundedness, relevance, deflection_score, and escalation_sentiment with pass counts (e.g., 47/49 = 96%).](images/foundry-evaluation-runs.png)
 
-*Source: [Microsoft Learn — See evaluation results in the Foundry portal](https://learn.microsoft.com/azure/ai-foundry/how-to/evaluate-results)*
+*Source: [Microsoft Learn — See evaluation results in the Foundry portal](https://learn.microsoft.com/azure/foundry/how-to/evaluate-results)*
 
 Key things to notice:
 
@@ -71,7 +73,7 @@ This replaces ad-hoc "the average went down by 0.3" conversations with statistic
 ### Prerequisites
 
 ```bash
-pip install "azure-ai-projects>=2.0.0b3" azure-identity openai
+pip install "azure-ai-projects>=2.3.0" azure-identity openai
 ```
 
 ```bash
@@ -103,7 +105,7 @@ testing_criteria = [
         "type": "azure_ai_evaluator",
         "name": "coherence",
         "evaluator_name": "builtin.coherence",
-        "initialization_parameters": {"deployment_name": model_deployment},
+        "initialization_parameters": {"model": model_deployment},
         "data_mapping": {
             "query": "{{item.query}}",
             "response": "{{item.response}}",
@@ -113,7 +115,7 @@ testing_criteria = [
         "type": "azure_ai_evaluator",
         "name": "groundedness",
         "evaluator_name": "builtin.groundedness",
-        "initialization_parameters": {"deployment_name": model_deployment},
+        "initialization_parameters": {"model": model_deployment},
         "data_mapping": {
             "query": "{{item.query}}",
             "response": "{{item.response}}",
@@ -124,7 +126,7 @@ testing_criteria = [
         "type": "azure_ai_evaluator",
         "name": "relevance",
         "evaluator_name": "builtin.relevance",
-        "initialization_parameters": {"deployment_name": model_deployment},
+        "initialization_parameters": {"model": model_deployment},
         "data_mapping": {
             "query": "{{item.query}}",
             "response": "{{item.response}}",
@@ -134,7 +136,7 @@ testing_criteria = [
         "type": "azure_ai_evaluator",
         "name": "fluency",
         "evaluator_name": "builtin.fluency",
-        "initialization_parameters": {"deployment_name": model_deployment},
+        "initialization_parameters": {"model": model_deployment},
         "data_mapping": {
             "query": "{{item.query}}",
             "response": "{{item.response}}",
@@ -175,7 +177,7 @@ print(f"Eval ID: {eval_obj.id}")
 # Store it in your .env, config, or parameter store.
 ```
 
-> **Tip:** Choose testing criteria that match your production workload. RAG apps should include `groundedness`; agentic apps should add `builtin.intent_resolution` and `builtin.tool_call_accuracy`. See the [built-in evaluators catalog](https://learn.microsoft.com/azure/ai-foundry/concepts/built-in-evaluators) for the full list.
+> **Tip:** Choose testing criteria that match your production workload. RAG apps should include `groundedness`; agentic apps should add `builtin.intent_resolution` and `builtin.tool_call_accuracy`. See the [built-in evaluators catalog](https://learn.microsoft.com/azure/foundry/concepts/built-in-evaluators) for the full list.
 
 ### Step 2 — Prepare Your Golden Dataset
 
@@ -522,8 +524,8 @@ jobs:
 
 ## References
 
-- [See evaluation results in the Foundry portal](https://learn.microsoft.com/azure/ai-foundry/how-to/evaluate-results) — portal walkthrough with comparison features
-- [Run evaluations in the cloud (SDK)](https://learn.microsoft.com/azure/ai-foundry/how-to/develop/cloud-evaluation) — v2 SDK reference
-- [Built-in evaluators catalog](https://learn.microsoft.com/azure/ai-foundry/concepts/built-in-evaluators) — all available metrics
-- [Azure OpenAI Evals API](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/evaluations) — API reference
-- [Continuous evaluation for agents](https://learn.microsoft.com/azure/ai-foundry/how-to/continuous-evaluation-agents) — scheduled and rule-based evaluation
+- [See evaluation results in the Foundry portal](https://learn.microsoft.com/azure/foundry/how-to/evaluate-results) — portal walkthrough with comparison features
+- [Run evaluations in the cloud (SDK)](https://learn.microsoft.com/azure/foundry/how-to/develop/cloud-evaluation) — v2 SDK reference
+- [Built-in evaluators catalog](https://learn.microsoft.com/azure/foundry/concepts/built-in-evaluators) — all available metrics
+- [Azure OpenAI Evals API](https://learn.microsoft.com/azure/foundry/openai/how-to/evaluations) — API reference
+- [Continuous evaluation for agents](https://learn.microsoft.com/azure/foundry/how-to/continuous-evaluation-agents) — scheduled and rule-based evaluation

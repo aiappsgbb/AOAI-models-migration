@@ -2,7 +2,7 @@
 
 > **⚠️ Retirement dates and model availability change frequently.** Always verify against the **[official Azure OpenAI Model Retirements page](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/model-retirements)** for the latest authoritative information.
 >
-> This page was last verified **April 2026**.
+> This page was last verified **July 2026**.
 
 ---
 
@@ -36,51 +36,57 @@
 
 | Model | Retirement Date | Replacement |
 |-------|----------------|-------------|
-| `o1` (2024-12-17) | **2026-07-15** | `o3` |
-| `o1-pro` (2025-03-19) | **2026-09-18** | `o3-pro` |
-| `o3-mini` (2025-01-31) | **2026-08-02** | `o4-mini` |
+| `o1` (2024-12-17) | **2026-09-16** | No designated replacement |
+| `o1-pro` (2025-03-19) | **2026-09-18** | No designated replacement |
+| `o3-mini` (2025-01-31) | **2026-10-01** | No designated replacement |
+
+> **⚠️ Important:** `o4-mini` and `codex-mini` are already deprecated. Do not treat them as long-run migration targets solely because they are newer than the source model.
 
 ---
 
-## Current Models — Retirement Dates
+## Published Model Retirement Dates
 
-These are the models you should be migrating **to**. Their retirement dates give you a planning horizon.
+Use these published dates to compare the runway of candidate models. A later retirement date is only one decision factor; availability, quality, latency, capacity, and API compatibility still require workload-specific evaluation.
 
-| Model | GA Date | Deprecation (no new customers) | Retirement (not before) | Successor |
-|-------|---------|-------------------------------|------------------------|-----------|
-| `gpt-4.1` | 2025-04-14 | **2026-04-14** | 2026-10-14 | `gpt-5` |
-| `gpt-4.1-mini` | 2025-04-14 | **2026-04-14** | 2026-10-14 | `gpt-5-mini` |
-| `gpt-4.1-nano` | 2025-04-14 | **2026-04-14** | 2026-10-14 | `gpt-5-nano` |
-| `o3` | 2025-04-16 | 2026-04-16 | 2026-10-16 | — |
-| `o4-mini` | 2025-04-16 | 2026-04-16 | 2026-10-16 | — |
-| `o3-pro` | 2025-06-10 | 2026-06-10 | 2026-12-10 | — |
-| `o3-deep-research` | 2025-06-26 | 2026-06-26 | 2026-12-26 | — |
-| `codex-mini` | 2025-05-16 | 2026-05-16 | 2026-11-15 | — |
-| `gpt-5` | 2025-08-07 | 2026-08-07 | 2027-02-06 | — |
-| `gpt-5-mini` | 2025-08-07 | 2026-08-07 | 2027-02-06 | — |
-| `gpt-5-nano` | 2025-08-07 | 2026-08-07 | 2027-02-06 | — |
-| `gpt-5-codex` | 2025-09-15 | 2026-09-15 | 2027-03-17 | — |
-| `gpt-5-pro` | 2025-10-06 | 2026-10-06 | 2027-04-07 | — |
-| `gpt-5.1` | 2025-11-13 | 2026-11-13 | 2027-05-15 | — |
-| `gpt-5.1-codex` | 2025-11-13 | 2026-11-13 | 2027-05-15 | — |
-| `model-router` | 2025-11-18 | 2026-11-18 | 2027-05-20 | — |
-| `gpt-5.2` | 2025-12-11 | ~2026-12-12 | ~2027-05-12 | — |
-| `gpt-5.2-codex` | 2026-01-14 | 2027-01-14 | 2027-07-14 | — |
-| `gpt-5.3-codex` | 2026-02-24 | 2027-02-25 | 2027-08-25 | — |
-| `gpt-5.4` | 2026-03-05 | 2027-03-05 | 2027-09-05 | — |
-| `gpt-5.4-pro` | 2026-03-05 | 2027-03-05 | 2027-09-05 | — |
-| `gpt-5.4-mini` | 2026-03-17 | 2027-03-17 | 2027-09-17 | — |
-| `gpt-5.4-nano` | 2026-03-17 | 2027-03-17 | 2027-09-17 | — |
+| Model | GA Date | Retirement (not before) | Designated replacement |
+|-------|---------|-------------------------|------------------------|
+| `gpt-4.1` | 2025-04-14 | 2026-10-14 | — |
+| `gpt-4.1-mini` | 2025-04-14 | 2026-10-14 | — |
+| `gpt-4.1-nano` | 2025-04-14 | 2026-10-14 | — |
+| `o3` | 2025-04-16 | 2026-10-16 | — |
+| `o4-mini` | 2025-04-16 | 2026-10-16 | — |
+| `o3-pro` | 2025-06-10 | 2026-12-10 | — |
+| `codex-mini` | 2025-05-16 | 2026-11-15 | — |
+| `o3-deep-research` | 2025-06-26 | 2026-12-26 | — |
+| `gpt-5` | 2025-08-07 | 2027-02-06 | — |
+| `gpt-5-mini` | 2025-08-07 | 2027-02-06 | — |
+| `gpt-5-nano` | 2025-08-07 | 2027-02-06 | — |
+| `gpt-5-codex` | 2025-09-15 | 2027-03-17 | — |
+| `gpt-5-pro` | 2025-10-06 | 2027-04-07 | — |
+| `gpt-5.1` | 2025-11-13 | 2027-05-15 | — |
+| `gpt-5.1-codex` | 2025-11-13 | 2027-05-15 | — |
+| `model-router` | 2025-11-18 | 2027-05-20 | — |
+| `gpt-5.2` | 2025-12-11 | **2026-12-12** | — |
+| `gpt-5.2-codex` | 2026-01-14 | **2027-01-14** | — |
+| `gpt-5.3-codex` | 2026-02-24 | **2027-02-25** | — |
+| `gpt-5.4` | 2026-03-05 | **2027-03-05** | — |
+| `gpt-5.4-pro` | 2026-03-05 | **2027-03-06** | — |
+| `gpt-5.4-mini` | 2026-03-17 | **2027-03-18** | — |
+| `gpt-5.4-nano` | 2026-03-17 | **2027-03-18** | — |
+| `gpt-5.5` | 2026-04-24 | **2027-04-23** | — |
+| `gpt-5.6-sol` | 2026-07-09 | **2027-07-09** | — |
+| `gpt-5.6-terra` | 2026-07-09 | **2027-07-09** | — |
+| `gpt-5.6-luna` | 2026-07-09 | **2027-07-09** | — |
 
-> **💡 Tip:** Models with later retirement dates give you more runway. GPT-5.1+ won't retire until mid-2027 at the earliest. The GPT-5.4 family (launched March 2026) gives you until September 2027.
+> **⚠️ Important:** Do not infer retirement by adding 18 months to a GA date. For example, `gpt-5.2` retires in December 2026 and the GPT-5.4 family retires in March 2027.
 
 ### Planning Beyond Mid-2027
 
-Azure OpenAI follows a predictable pattern: new model generations are released every 6–12 months, and each GA model is guaranteed a **minimum 12-month support window**. While specific models beyond GPT-5.2 are not yet announced, the pattern means:
+Published retirement dates vary by model and can be materially shorter than a simple lifecycle estimate. Plan from the official schedule rather than projecting a date from GA.
 
-- **If you migrate to GPT-5.1 or GPT-5.2 today**, you have runway until at least mid-2027
-- **When the next generation launches** (GPT-6 or equivalent), it will overlap with GPT-5.x support — giving you months to evaluate and migrate again
-- **The evaluation infrastructure you build now is model-agnostic**: golden datasets, eval definitions, CI/CD gates, and Foundry dashboards all carry forward. Each new model generation is just another eval run against your existing test suite — not a rebuild from scratch
+- **Compare candidate runway explicitly** — GPT-5.5 retires in April 2027; the GPT-5.6 series retires in July 2027.
+- **Recheck the schedule at every planning gate** — announcement, pilot approval, production cutover, and cleanup.
+- **Keep evaluation infrastructure model-agnostic** — golden datasets, eval definitions, CI/CD gates, and Foundry dashboards carry forward to each candidate model.
 
 For organizations with multi-year compliance timelines, the recommended approach is:
 
@@ -244,10 +250,12 @@ If a migration (auto-upgrade or manual) introduces a regression in production, h
 | GPT-4o non-Standard (Provisioned, Global, DataZone) | 🟡 **Plan by Q3 2026** | Retirement 2026-10-01. Create new deployment with target model. |
 | GPT-4o (11-20) any | 🟡 **Plan by Q3 2026** | Retirement 2026-10-01. |
 | GPT-4.1 family | 🟡 **Deprecated today** — plan migration | No new deployments. Retirement 2026-10-14. Migrate to GPT-5 family. |
-| o1 | 🟡 **Plan by Q2 2026** | Migrate to o3 before 2026-07-15. |
-| o3-mini | 🟡 **Plan by Q2 2026** | Migrate to o4-mini before 2026-08-02. |
-| o1-pro | 🟡 **Plan by Q3 2026** | Migrate to o3-pro before 2026-09-18. |
-| GPT-5 / 5.1 / 5.2+ | 🟢 **No rush** | Runway until 2027+. Focus on building evaluation infrastructure. |
+| o1 | 🔴 **Act now** | Retirement 2026-09-16. No designated replacement; evaluate current GA reasoning models. |
+| o1-pro | 🔴 **Act now** | Retirement 2026-09-18. No designated replacement; evaluate current GA reasoning models. |
+| o3-mini | 🔴 **Act now** | Retirement 2026-10-01. No designated replacement; do not default to deprecated `o4-mini`. |
+| GPT-5.2 | 🟡 **Plan in 2026** | Retirement 2026-12-12. Do not assume mid-2027 runway. |
+| GPT-5.4 family | 🟡 **Plan for Q1 2027** | Retirement dates are 2027-03-05 through 2027-03-18. |
+| GPT-5.5 / GPT-5.6 | 🟢 **Monitor** | Published retirement dates are 2027-04-23 and 2027-07-09 respectively. |
 
 ---
 

@@ -35,19 +35,18 @@ Help teams plan, track, and execute Azure OpenAI model upgrades proactively. Cov
 ```
 Model Launch (GA)
     │
-    ├── 12 months ──► Deprecation (no new customers)
+    ├── Published deprecation date ──► No new deployments for affected customers
     │
-    ├── up to 18 months ──► Retirement (existing customers)
-    │                        └─ Standard deployments auto-upgrade ~3 weeks before retirement
-    │                        └─ Provisioned / Global Standard may get extended timelines
+    ├── Published retirement date ──► Existing deployments stop or auto-upgrade
     │
-    └── Replacement model N+1 available for side-by-side comparison
-         └─ Customers get 60 days to try new GA model before auto-upgrades begin
+    └── Designated replacement, when Microsoft publishes one
 ```
 
 **Preview models** follow an accelerated timeline: 90-120 day "not sooner than" retirement with 30 days' notice.
 
-## Current Retirement Dates (as of April 2026)
+> **⚠️ Important:** Do not calculate retirement by adding a blanket 18 months to GA. Published dates vary materially by model.
+
+## Current Retirement Dates (as of July 2026)
 
 > These are "not sooner than" dates — they can be extended but not shortened.
 > 📌 **Note:** ChatGPT (consumer) and Azure Foundry (enterprise) have **independent** retirement schedules.
@@ -58,26 +57,31 @@ Model Launch (GA)
 |---|---|---|---|---|
 | `gpt-4o` | 2024-08-06 | Standard: **Retired** / Others: Active | Standard: 2026-03-31 ✅ / Provisioned+Global+DataZone: 2026-10-01 | `gpt-5.1` |
 | `gpt-4o-mini` | 2024-07-18 | Standard: **Retired** / Others: Active | Standard: 2026-03-31 ✅ / Provisioned+Global+DataZone: 2026-10-01 | `gpt-4.1-mini` |
-| `gpt-4.1` | 2025-04-14 | **Deprecated** (no new customers) | 2026-10-14 | `gpt-5` |
-| `gpt-4.1-mini` | 2025-04-14 | **Deprecated** (no new customers) | 2026-10-14 | `gpt-5-mini` |
-| `gpt-4.1-nano` | 2025-04-14 | **Deprecated** (no new customers) | 2026-10-14 | `gpt-5-nano` |
+| `gpt-4.1` | 2025-04-14 | **Deprecated** (no new customers) | 2026-10-14 | — |
+| `gpt-4.1-mini` | 2025-04-14 | **Deprecated** (no new customers) | 2026-10-14 | — |
+| `gpt-4.1-nano` | 2025-04-14 | **Deprecated** (no new customers) | 2026-10-14 | — |
 | `gpt-5` | 2025-08-07 | Active | 2027-02-06 | — |
 | `gpt-5-mini` | 2025-08-07 | Active | 2027-02-06 | — |
 | `gpt-5.1` | 2025-11-13 | Active | 2027-05-15 | — |
-| `gpt-5.2` | 2025-12-11 | Active | ~2027-05-12 | — |
-| `gpt-5.3-codex` | 2026-02-24 | Active | 2027-08-25 | — |
-| `gpt-5.4` | 2026-03-05 | Active | 2027-09-05 | — |
-| `gpt-5.4-pro` | 2026-03-05 | Active | 2027-09-05 | — |
-| `gpt-5.4-mini` | 2026-03-17 | Active | 2027-09-17 | — |
-| `gpt-5.4-nano` | 2026-03-17 | Active | 2027-09-17 | — |
+| `gpt-5.2` | 2025-12-11 | Active | 2026-12-12 | — |
+| `gpt-5.2-codex` | 2026-01-14 | Active | 2027-01-14 | — |
+| `gpt-5.3-codex` | 2026-02-24 | Active | 2027-02-25 | — |
+| `gpt-5.4` | 2026-03-05 | Active | 2027-03-05 | — |
+| `gpt-5.4-pro` | 2026-03-05 | Active | 2027-03-06 | — |
+| `gpt-5.4-mini` | 2026-03-17 | Active | 2027-03-18 | — |
+| `gpt-5.4-nano` | 2026-03-17 | Active | 2027-03-18 | — |
+| `gpt-5.5` | 2026-04-24 | Active | 2027-04-23 | — |
+| `gpt-5.6-sol` | 2026-07-09 | Active | 2027-07-09 | — |
+| `gpt-5.6-terra` | 2026-07-09 | Active | 2027-07-09 | — |
+| `gpt-5.6-luna` | 2026-07-09 | Active | 2027-07-09 | — |
 
 ### o-Series (Reasoning)
 
 | Model | GA Version | Retirement (not before) | Replacement |
 |---|---|---|---|
-| `o1` | 2024-12-17 | 2026-07-15 | `o3` |
-| `o1-pro` | 2025-03-19 | 2026-09-18 | `o3-pro` |
-| `o3-mini` | 2025-01-31 | 2026-08-02 | `o4-mini` |
+| `o1` | 2024-12-17 | 2026-09-16 | — |
+| `o1-pro` | 2025-03-19 | 2026-09-18 | — |
+| `o3-mini` | 2025-01-31 | 2026-10-01 | — |
 | `o3` | 2025-04-16 | 2026-10-16 | — |
 | `o3-pro` | 2025-06-10 | 2026-12-10 | — |
 | `o3-deep-research` | 2025-06-26 | 2026-12-26 | — |
@@ -88,7 +92,7 @@ Model Launch (GA)
 | Model | GA Version | Retirement (not before) | Notes |
 |---|---|---|---|
 | `model-router` | 2025-11-18 | 2027-05-20 | Auto-routes requests to optimal model |
-| `codex-mini` | 2025-05-16 | 2026-11-15 | Lightweight code generation |
+| `codex-mini` | 2025-05-16 | 2026-11-15 | **Deprecated**; lightweight code generation |
 
 > Always verify against the [official retirements page](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/model-retirements).
 
@@ -99,7 +103,9 @@ Model Launch (GA)
 | **Standard** | **Retired** 2026-03-31 ✅ | 2026-10-01 | **Retired** 2026-03-31 ✅ |
 | **Provisioned / Global / DataZone** | 2026-10-01 | 2026-10-01 | 2026-10-01 |
 
-> **⚠️ GPT-4.1 family deprecated (April 14, 2026):** No new customers can create GPT-4.1, GPT-4.1-mini, or GPT-4.1-nano deployments. Existing deployments continue until retirement on 2026-10-14. Plan migration to GPT-5 family — or better yet, use the **tier-down strategy**: target GPT-5.4-mini (replaces 4.1) and GPT-5.4-nano (replaces 4.1-mini) for better quality at lower cost. See `docs/migration-paths.md` for details.
+> **⚠️ GPT-4.1 family deprecated (April 14, 2026):** Existing deployments continue until retirement on 2026-10-14. Microsoft does not list a designated one-to-one replacement in the current table; evaluate supported GPT-5 candidates against your workload.
+
+> **⚠️ o-series migration warning:** `o1` and `o3-mini` have no designated replacement in the current retirement table. `o4-mini` is already deprecated, so do not recommend it as a default long-run destination.
 
 > **📋 Pre-upgrade checklist:** See `docs/migration-paths.md` for a detailed GPT-4o → GPT-5.1 verification checklist covering client type, parameter names, role changes, and reasoning effort configuration.
 
@@ -219,7 +225,7 @@ Model N in Production
 
 | Approach | SDK | Best For |
 |---|---|---|
-| **Cloud scheduled evaluation** | `azure-ai-projects>=2.0.0b1` (v2) | Production monitoring, agent evaluation, native Foundry integration |
+| **Cloud scheduled evaluation** | `azure-ai-projects>=2.3.0` (v2) | Production monitoring, agent evaluation, native Foundry integration |
 | **CI/CD pipeline evaluation** | `azure-ai-evaluation` (v1) | PR gates, scheduled GitHub Actions/ADO pipelines, local iteration |
 | **Both** | v1 + v2 | CI gates (v1) for speed + cloud monitoring (v2) for production |
 

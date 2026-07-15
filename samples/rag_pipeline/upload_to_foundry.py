@@ -18,7 +18,7 @@ NOTE on score alignment:
     and stakeholder reporting.
 
 Requirements:
-    pip install "azure-ai-projects>=2.0.0" azure-identity python-dotenv
+    pip install "azure-ai-projects>=2.3.0" azure-identity python-dotenv
 
 Usage:
     # Set env vars in .env:
@@ -83,6 +83,43 @@ def _build_eval_dataset(report: dict, config_label: str) -> list[dict]:
     return rows
 
 
+def _build_testing_criteria(judge_model: str) -> list[dict]:
+    """Build Foundry testing criteria for the RAG migration evaluation."""
+    return [
+        {
+            "type": "azure_ai_evaluator",
+            "name": "coherence",
+            "evaluator_name": "builtin.coherence",
+            "initialization_parameters": {"model": judge_model},
+            "data_mapping": {
+                "query": "{{item.query}}",
+                "response": "{{item.response}}",
+            },
+        },
+        {
+            "type": "azure_ai_evaluator",
+            "name": "groundedness",
+            "evaluator_name": "builtin.groundedness",
+            "initialization_parameters": {"model": judge_model},
+            "data_mapping": {
+                "query": "{{item.query}}",
+                "response": "{{item.response}}",
+                "context": "{{item.context}}",
+            },
+        },
+        {
+            "type": "azure_ai_evaluator",
+            "name": "relevance",
+            "evaluator_name": "builtin.relevance",
+            "initialization_parameters": {"model": judge_model},
+            "data_mapping": {
+                "query": "{{item.query}}",
+                "response": "{{item.response}}",
+            },
+        },
+    ]
+
+
 def upload_to_foundry(
     source_path: str,
     target_path: str,
@@ -144,39 +181,7 @@ def upload_to_foundry(
     )
 
     # Testing criteria: built-in evaluators
-    testing_criteria = [
-        {
-            "type": "azure_ai_evaluator",
-            "name": "coherence",
-            "evaluator_name": "builtin.coherence",
-            "initialization_parameters": {"deployment_name": judge_model},
-            "data_mapping": {
-                "query": "{{item.query}}",
-                "response": "{{item.response}}",
-            },
-        },
-        {
-            "type": "azure_ai_evaluator",
-            "name": "groundedness",
-            "evaluator_name": "builtin.groundedness",
-            "initialization_parameters": {"deployment_name": judge_model},
-            "data_mapping": {
-                "query": "{{item.query}}",
-                "response": "{{item.response}}",
-                "context": "{{item.context}}",
-            },
-        },
-        {
-            "type": "azure_ai_evaluator",
-            "name": "relevance",
-            "evaluator_name": "builtin.relevance",
-            "initialization_parameters": {"deployment_name": judge_model},
-            "data_mapping": {
-                "query": "{{item.query}}",
-                "response": "{{item.response}}",
-            },
-        },
-    ]
+    testing_criteria = _build_testing_criteria(judge_model)
 
     # Create the evaluation group (reusable across runs)
     eval_name = f"RAG Migration: {source_label} → {target_label}"
